@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import type { TeamMember } from '@/types/domain';
 import type { AllocationMap } from '@/lib/calc/allocationMap';
 import { getAllocation } from '@/lib/calc/allocationMap';
@@ -36,27 +36,30 @@ function AllocationCell({
   onChange: (memberId: string, month: string, value: number) => void;
   readonly?: boolean;
 }) {
-  const handleBlur = useCallback(
-    (e: React.FocusEvent<HTMLInputElement>) => {
-      const raw = parseFloat(e.target.value);
-      if (isNaN(raw)) {
-        e.target.value = value ? String(Math.round(value * 100)) : '';
-        return;
-      }
-      const clamped = Math.max(0, Math.min(100, raw));
-      onChange(memberId, month, clamped / 100);
-    },
-    [memberId, month, value, onChange]
-  );
+  const [editing, setEditing] = useState(false);
+  const [inputValue, setInputValue] = useState('');
+  const pctValue = value ? Math.round(value * 100) : 0;
+  const displayText = pctValue > 0 ? `${pctValue}%` : '';
 
-  const displayValue = value ? String(Math.round(value * 100)) : '';
+  const handleFocus = () => {
+    setEditing(true);
+    setInputValue(pctValue > 0 ? String(pctValue) : '');
+  };
+
+  const handleBlur = useCallback(() => {
+    setEditing(false);
+    const raw = parseFloat(inputValue);
+    if (isNaN(raw)) return;
+    const clamped = Math.max(0, Math.min(100, raw));
+    onChange(memberId, month, clamped / 100);
+  }, [memberId, month, inputValue, onChange]);
 
   if (readonly) {
     return (
       <td
         className={`border border-zinc-200 px-2 py-1 text-center text-xs dark:border-zinc-700 ${getAllocationColor(value)}`}
       >
-        {displayValue ? `${displayValue}%` : ''}
+        {displayText}
       </td>
     );
   }
@@ -67,14 +70,13 @@ function AllocationCell({
     >
       <input
         type="text"
-        defaultValue={displayValue}
+        value={editing ? inputValue : displayText}
+        onFocus={handleFocus}
+        onChange={(e) => setInputValue(e.target.value)}
         onBlur={handleBlur}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
             (e.target as HTMLInputElement).blur();
-          }
-          if (e.key === 'Tab') {
-            // Default tab behavior works fine for grid navigation
           }
         }}
         className="w-full bg-transparent px-1 py-1 text-center text-xs outline-none focus:ring-1 focus:ring-blue-500"
