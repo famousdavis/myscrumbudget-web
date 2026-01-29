@@ -1,11 +1,12 @@
 'use client';
 
 import { useCallback, useState, useRef, useEffect } from 'react';
-import type { TeamMember, PoolMember, MonthlyCalculation } from '@/types/domain';
+import type { TeamMember, PoolMember, MonthlyCalculation, ProductivityWindow } from '@/types/domain';
 import type { AllocationMap } from '@/lib/calc/allocationMap';
 import { getAllocation } from '@/lib/calc/allocationMap';
 import { formatMonthLabel } from '@/lib/utils/dates';
 import { formatCurrency } from '@/lib/utils/format';
+import { getProductivityFactor } from '@/lib/calc/productivity';
 import type { CellCoord, SelectionRange, FillDragState } from '../lib/gridHelpers';
 import {
   normalizeRange,
@@ -13,6 +14,7 @@ import {
   getAllocationColor,
   computeFillRegion,
   isCellInFillPreview,
+  moveCellInDirection,
 } from '../lib/gridHelpers';
 
 interface AllocationGridProps {
@@ -25,6 +27,7 @@ interface AllocationGridProps {
   pool?: PoolMember[];
   readonly?: boolean;
   monthlyData?: MonthlyCalculation[];
+  productivityWindows?: ProductivityWindow[];
 }
 
 export function AllocationGrid({
@@ -37,6 +40,7 @@ export function AllocationGrid({
   pool = [],
   readonly = false,
   monthlyData,
+  productivityWindows,
 }: AllocationGridProps) {
   const [selection, setSelection] = useState<SelectionRange | null>(null);
   const [editingCell, setEditingCell] = useState<CellCoord | null>(null);
@@ -45,6 +49,7 @@ export function AllocationGrid({
   const [isRangeSelecting, setIsRangeSelecting] = useState(false);
   const [addingRow, setAddingRow] = useState(false);
   const [selectedPoolId, setSelectedPoolId] = useState('');
+  const [focusedCell, setFocusedCell] = useState<CellCoord | null>(null);
   const gridRef = useRef<HTMLTableElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const mousePositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -106,8 +111,8 @@ export function AllocationGrid({
     };
     window.addEventListener('mousemove', handleMouseMove);
 
-    const EDGE_ZONE = 40; // px from edge to trigger scroll
-    const SCROLL_SPEED = 8; // px per frame
+    const EDGE_ZONE = 40;
+    const SCROLL_SPEED = 8;
 
     const scrollInterval = setInterval(() => {
       const container = scrollContainerRef.current;
@@ -135,11 +140,118 @@ export function AllocationGrid({
         commitEdit();
         setSelection(null);
         setEditingCell(null);
+        setFocusedCell(null);
       }
     };
     document.addEventListener('mousedown', handleMouseDown);
     return () => document.removeEventListener('mousedown', handleMouseDown);
   }, [commitEdit]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    if (readonly || teamMembers.length === 0 || months.length === 0) return;
+
+    const maxRow = teamMembers.length - 1;
+    const maxCol = months.length - 1;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!focusedCell) return;
+
+      // Don't interfere with select dropdowns or non-grid inputs
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'SELECT') return;
+      if (target.tagName === 'INPUT' && !target.hasAttribute('data-grid-input')) return;
+
+      if (editingCell) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          commitEdit();
+          const next = moveCellInDirection(focusedCell, 1, 0, maxRow, maxCol);
+          setFocusedCell(next);
+          setSelection({ startRow: next.row, startCol: next.col, endRow: next.row, endCol: next.col });
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          setEditingCell(null);
+        } else if (e.key === 'Tab') {
+          e.preventDefault();
+          commitEdit();
+          const next = moveCellInDirection(focusedCell, 0, e.shiftKey ? -1 : 1, maxRow, maxCol);
+          setFocusedCell(next);
+          setSelection({ startRow: next.row, startCol: next.col, endRow: next.row, endCol: next.col });
+        }
+        return;
+      }
+
+      const setFocusAndSelect = (cell: CellCoord) => {
+        setFocusedCell(cell);
+        setSelection({ startRow: cell.row, startCol: cell.col, endRow: cell.row, endCol: cell.col });
+      };
+
+      switch (e.key) {
+        case 'ArrowUp':
+          e.preventDefault();
+          setFocusAndSelect(moveCellInDirection(focusedCell, -1, 0, maxRow, maxCol));
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          setFocusAndSelect(moveCellInDirection(focusedCell, 1, 0, maxRow, maxCol));
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          setFocusAndSelect(moveCellInDirection(focusedCell, 0, -1, maxRow, maxCol));
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          setFocusAndSelect(moveCellInDirection(focusedCell, 0, 1, maxRow, maxCol));
+          break;
+        case 'Tab':
+          e.preventDefault();
+          setFocusAndSelect(moveCellInDirection(focusedCell, 0, e.shiftKey ? -1 : 1, maxRow, maxCol));
+          break;
+        case 'Enter': {
+          e.preventDefault();
+          const value = getAllocation(allocationMap, months[focusedCell.col], teamMembers[focusedCell.row].id);
+          const pctValue = value ? Math.round(value * 100) : 0;
+          setEditingCell(focusedCell);
+          setInputValue(pctValue > 0 ? String(pctValue) : '');
+          break;
+        }
+        case 'Delete':
+        case 'Backspace': {
+          e.preventDefault();
+          if (selection) {
+            const norm = normalizeRange(selection);
+            for (let r = norm.startRow; r <= norm.endRow; r++) {
+              for (let c = norm.startCol; c <= norm.endCol; c++) {
+                onAllocationChange(teamMembers[r].id, months[c], 0);
+              }
+            }
+          }
+          break;
+        }
+        default:
+          if (/^[0-9]$/.test(e.key)) {
+            e.preventDefault();
+            setEditingCell(focusedCell);
+            setInputValue(e.key);
+          }
+          break;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [
+    readonly,
+    focusedCell,
+    editingCell,
+    selection,
+    teamMembers,
+    months,
+    allocationMap,
+    onAllocationChange,
+    commitEdit,
+  ]);
 
   const handleAddRow = () => {
     if (!selectedPoolId || !onMemberAdd) return;
@@ -160,25 +272,49 @@ export function AllocationGrid({
   const fillHandleRow = normalizedSel?.endRow ?? null;
   const fillHandleCol = normalizedSel?.endCol ?? null;
 
-  // Whether row management controls are available
   const hasRowControls = !readonly && onMemberDelete && onMemberAdd;
 
   return (
     <div ref={scrollContainerRef} className="max-w-full overflow-x-auto">
-      <table ref={gridRef} className="border-collapse text-sm select-none">
+      <table
+        ref={gridRef}
+        className="border-collapse text-sm select-none"
+        tabIndex={0}
+        onFocus={() => {
+          if (!focusedCell && teamMembers.length > 0 && months.length > 0) {
+            setFocusedCell({ row: 0, col: 0 });
+            setSelection({ startRow: 0, startCol: 0, endRow: 0, endCol: 0 });
+          }
+        }}
+      >
         <thead>
           <tr>
             <th className="sticky left-0 z-10 border border-zinc-200 bg-zinc-50 px-3 py-2 text-left text-xs font-medium dark:border-zinc-700 dark:bg-zinc-900">
               Team Member
             </th>
-            {months.map((month) => (
-              <th
-                key={month}
-                className="border border-zinc-200 bg-zinc-50 px-2 py-2 text-center text-xs font-medium whitespace-nowrap dark:border-zinc-700 dark:bg-zinc-900"
-              >
-                {formatMonthLabel(month)}
-              </th>
-            ))}
+            {months.map((month) => {
+              const factor = productivityWindows
+                ? getProductivityFactor(month, productivityWindows)
+                : 1;
+              return (
+                <th
+                  key={month}
+                  className="border border-zinc-200 bg-zinc-50 px-2 py-2 text-center text-xs font-medium whitespace-nowrap dark:border-zinc-700 dark:bg-zinc-900"
+                  title={
+                    factor < 1
+                      ? `Productivity: ${Math.round(factor * 100)}% (reduced capacity)`
+                      : undefined
+                  }
+                >
+                  <div>{formatMonthLabel(month)}</div>
+                  {factor < 1 && (
+                    <div className="text-[10px] font-normal text-amber-600 dark:text-amber-400">
+                      {Math.round(factor * 100)}%
+                    </div>
+                  )}
+                </th>
+              );
+            })}
             {hasRowControls && (
               <th className="sticky right-0 z-10 border border-zinc-200 bg-zinc-50 px-2 py-2 text-center text-xs font-medium dark:border-zinc-700 dark:bg-zinc-900">
               </th>
@@ -200,6 +336,8 @@ export function AllocationGrid({
                 const isEditing =
                   editingCell?.row === rowIdx && editingCell?.col === colIdx;
                 const isSelected = isCellInRange(normalizedSel, rowIdx, colIdx);
+                const isFocused =
+                  focusedCell?.row === rowIdx && focusedCell?.col === colIdx;
                 const isInFillPreview = isCellInFillPreview(
                   fillDrag,
                   allocationMap,
@@ -227,6 +365,9 @@ export function AllocationGrid({
                 if (isSelected && !isEditing) {
                   cellClasses +=
                     ' outline outline-2 outline-blue-500 -outline-offset-1';
+                } else if (isFocused && !isEditing) {
+                  cellClasses +=
+                    ' ring-2 ring-blue-400 ring-inset';
                 }
                 if (isInFillPreview) {
                   cellClasses += ' bg-blue-200/60 dark:bg-blue-700/60';
@@ -252,6 +393,8 @@ export function AllocationGrid({
 
                       if (isEditing) return;
                       commitEdit();
+
+                      setFocusedCell({ row: rowIdx, col: colIdx });
 
                       if (e.shiftKey && selection) {
                         setSelection((prev) =>
@@ -301,6 +444,7 @@ export function AllocationGrid({
                         endRow: rowIdx,
                         endCol: colIdx,
                       });
+                      setFocusedCell({ row: rowIdx, col: colIdx });
                       setEditingCell({ row: rowIdx, col: colIdx });
                       setInputValue(pctValue > 0 ? String(pctValue) : '');
                     }}
@@ -309,6 +453,7 @@ export function AllocationGrid({
                       <input
                         type="text"
                         autoFocus
+                        data-grid-input="true"
                         value={inputValue}
                         onChange={(e) => setInputValue(e.target.value)}
                         onBlur={commitEdit}
