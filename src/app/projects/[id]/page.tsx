@@ -13,6 +13,10 @@ import { DeleteProjectDialog } from '@/features/projects/components/DeleteProjec
 import { TeamTable } from '@/features/team/components/TeamTable';
 import { AddMemberForm } from '@/features/team/components/AddMemberForm';
 import { AllocationGrid } from '@/features/reforecast/components/AllocationGrid';
+import { ForecastMetricsPanel } from '@/features/projects/components/ForecastMetricsPanel';
+import { useProjectMetrics } from '@/features/projects/hooks/useProjectMetrics';
+import { MonthlyCostBarChart } from '@/components/charts/MonthlyCostBarChart';
+import { CumulativeCostLineChart } from '@/components/charts/CumulativeCostLineChart';
 import { generateMonthRange } from '@/lib/utils/dates';
 
 export default function ProjectDetailPage({
@@ -32,6 +36,7 @@ export default function ProjectDetailPage({
     project,
     updateProject,
   });
+  const metrics = useProjectMetrics(project, settings);
   const router = useRouter();
   const [showDelete, setShowDelete] = useState(false);
   const [teamExpanded, setTeamExpanded] = useState(true);
@@ -83,7 +88,7 @@ export default function ProjectDetailPage({
       </div>
 
       <div className="mt-6">
-        <ProjectSummary project={project} />
+        <ProjectSummary project={project} metrics={metrics} />
       </div>
 
       {/* Team Management */}
@@ -133,9 +138,38 @@ export default function ProjectDetailPage({
             onMemberDelete={deleteMember}
             onMemberAdd={addMember}
             laborRates={settings?.laborRates ?? []}
+            monthlyData={metrics?.monthlyData}
           />
         </div>
       </div>
+
+      {/* Forecast Metrics */}
+      <div className="mt-8">
+        <h2 className="text-lg font-semibold">Forecast Metrics</h2>
+        <div className="mt-3">
+          <ForecastMetricsPanel metrics={metrics} />
+        </div>
+      </div>
+
+      {/* Charts */}
+      {metrics && metrics.monthlyData.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-lg font-semibold">Cost Charts</h2>
+          <div className="mt-3 grid gap-6 lg:grid-cols-2">
+            <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+              <h3 className="mb-2 text-sm font-medium text-zinc-600 dark:text-zinc-400">Monthly Cost</h3>
+              <MonthlyCostBarChart monthlyData={metrics.monthlyData} />
+            </div>
+            <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+              <h3 className="mb-2 text-sm font-medium text-zinc-600 dark:text-zinc-400">Cumulative Cost vs Budget</h3>
+              <CumulativeCostLineChart
+                monthlyData={metrics.monthlyData}
+                baselineBudget={project.baselineBudget}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {showDelete && (
         <DeleteProjectDialog

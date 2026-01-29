@@ -1,10 +1,11 @@
 'use client';
 
 import { useCallback, useState, useRef, useEffect } from 'react';
-import type { TeamMember, LaborRate } from '@/types/domain';
+import type { TeamMember, LaborRate, MonthlyCalculation } from '@/types/domain';
 import type { AllocationMap } from '@/lib/calc/allocationMap';
 import { getAllocation } from '@/lib/calc/allocationMap';
 import { formatMonthLabel } from '@/lib/utils/dates';
+import { formatCurrency } from '@/lib/utils/format';
 
 interface AllocationGridProps {
   months: string[];
@@ -16,6 +17,7 @@ interface AllocationGridProps {
   onMemberAdd?: (name: string, role: string, type: 'Core' | 'Extended') => void;
   laborRates?: LaborRate[];
   readonly?: boolean;
+  monthlyData?: MonthlyCalculation[];
 }
 
 interface CellCoord {
@@ -165,6 +167,7 @@ export function AllocationGrid({
   onMemberAdd,
   laborRates = [],
   readonly = false,
+  monthlyData,
 }: AllocationGridProps) {
   const [selection, setSelection] = useState<SelectionRange | null>(null);
   const [editingCell, setEditingCell] = useState<CellCoord | null>(null);
@@ -521,6 +524,49 @@ export function AllocationGrid({
               )}
             </tr>
           ))}
+          {/* Summary rows */}
+          {monthlyData && monthlyData.length > 0 && (
+            <>
+              <tr>
+                <td className="sticky left-0 z-10 border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-medium whitespace-nowrap dark:border-zinc-700 dark:bg-zinc-900">
+                  Monthly Cost
+                </td>
+                {months.map((month, colIdx) => {
+                  const md = monthlyData.find((d) => d.month === month);
+                  return (
+                    <td
+                      key={`cost-${month}`}
+                      className="border border-zinc-200 bg-zinc-50 px-2 py-1 text-center text-xs font-medium whitespace-nowrap dark:border-zinc-700 dark:bg-zinc-900"
+                    >
+                      {md ? formatCurrency(md.cost) : ''}
+                    </td>
+                  );
+                })}
+                {hasRowControls && (
+                  <td className="sticky right-0 z-10 border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900" />
+                )}
+              </tr>
+              <tr>
+                <td className="sticky left-0 z-10 border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-medium whitespace-nowrap dark:border-zinc-700 dark:bg-zinc-900">
+                  Monthly Hours
+                </td>
+                {months.map((month) => {
+                  const md = monthlyData.find((d) => d.month === month);
+                  return (
+                    <td
+                      key={`hours-${month}`}
+                      className="border border-zinc-200 bg-zinc-50 px-2 py-1 text-center text-xs font-medium whitespace-nowrap dark:border-zinc-700 dark:bg-zinc-900"
+                    >
+                      {md ? Math.round(md.hours) : ''}
+                    </td>
+                  );
+                })}
+                {hasRowControls && (
+                  <td className="sticky right-0 z-10 border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900" />
+                )}
+              </tr>
+            </>
+          )}
           {/* Add row */}
           {hasRowControls && (
             <tr>
