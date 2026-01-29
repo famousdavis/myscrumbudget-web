@@ -171,7 +171,10 @@ describe('Spreadsheet Parity - MyScrumBudget_1.5.xlsx', () => {
         endDate: FIX.project.endDate,
         baselineBudget: 1_000_000,
         actualCost: FIX.project.actualCost,
-        teamMembers: FIX.teamMembers,
+        assignments: FIX.teamMembers.map((m) => ({
+          id: m.id,
+          poolMemberId: m.id,
+        })),
         reforecasts: [{
           id: 'rf-baseline',
           name: 'Baseline',
@@ -183,7 +186,7 @@ describe('Spreadsheet Parity - MyScrumBudget_1.5.xlsx', () => {
         activeReforecastId: 'rf-baseline',
       };
 
-      const metrics = calculateProjectMetrics(project, FIX.settings);
+      const metrics = calculateProjectMetrics(project, FIX.settings, FIX.teamMembers);
 
       expect(metrics.etc).toBe(FIX.expected.etc);
       expect(metrics.eac).toBe(FIX.expected.eac);

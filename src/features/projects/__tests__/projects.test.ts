@@ -12,7 +12,7 @@ function makeProject(overrides: Partial<Project> = {}): Project {
     endDate: '2025-12-31',
     baselineBudget: 500000,
     actualCost: 100000,
-    teamMembers: [],
+    assignments: [],
     reforecasts: [],
     activeReforecastId: null,
     ...overrides,
@@ -76,8 +76,8 @@ describe('Project CRUD', () => {
 
   it('preserves project fields through save/load cycle', async () => {
     const project = makeProject({
-      teamMembers: [
-        { id: 'tm1', name: 'Alice', role: 'BA', type: 'Core' },
+      assignments: [
+        { id: 'a1', poolMemberId: 'pm1' },
       ],
       reforecasts: [
         {
@@ -94,8 +94,8 @@ describe('Project CRUD', () => {
     await repo.saveProject(project);
 
     const retrieved = await repo.getProject(project.id);
-    expect(retrieved?.teamMembers).toHaveLength(1);
-    expect(retrieved?.teamMembers[0].name).toBe('Alice');
+    expect(retrieved?.assignments).toHaveLength(1);
+    expect(retrieved?.assignments[0].poolMemberId).toBe('pm1');
     expect(retrieved?.reforecasts).toHaveLength(1);
     expect(retrieved?.activeReforecastId).toBe('rf1');
   });

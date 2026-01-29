@@ -55,7 +55,7 @@ export function ProjectSummary({ project, metrics }: ProjectSummaryProps) {
             Team Members
           </p>
           <p className="mt-1 text-sm font-medium">
-            {project.teamMembers.length}
+            {(project.assignments ?? []).length}
           </p>
         </div>
       </div>

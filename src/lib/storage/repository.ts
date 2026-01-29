@@ -1,8 +1,11 @@
-import type { Settings, Project, AppState } from '@/types/domain';
+import type { Settings, PoolMember, Project, AppState } from '@/types/domain';
 
 export interface Repository {
   getSettings(): Promise<Settings>;
   saveSettings(settings: Settings): Promise<void>;
+
+  getTeamPool(): Promise<PoolMember[]>;
+  saveTeamPool(pool: PoolMember[]): Promise<void>;
 
   getProjects(): Promise<Project[]>;
   getProject(id: string): Promise<Project | null>;

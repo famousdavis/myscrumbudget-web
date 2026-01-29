@@ -14,7 +14,7 @@ function makeProject(overrides: Partial<Project> = {}): Project {
     endDate: '2027-07-15',
     baselineBudget: 1000000,
     actualCost: 200000,
-    teamMembers: [],
+    assignments: [],
     reforecasts: [],
     activeReforecastId: null,
     ...overrides,
@@ -86,25 +86,44 @@ describe('LocalStorage Repository', () => {
     });
   });
 
+  describe('Team Pool', () => {
+    it('returns empty array when no pool stored', async () => {
+      const pool = await repo.getTeamPool();
+      expect(pool).toEqual([]);
+    });
+
+    it('saves and retrieves pool members', async () => {
+      const pool = [
+        { id: 'pm1', name: 'Alice', role: 'Dev' },
+        { id: 'pm2', name: 'Bob', role: 'QA' },
+      ];
+      await repo.saveTeamPool(pool);
+      const result = await repo.getTeamPool();
+      expect(result).toEqual(pool);
+    });
+  });
+
   describe('Export / Import', () => {
     it('exports all data', async () => {
       const project = makeProject();
       await repo.saveProject(project);
       const exported = await repo.exportAll();
-      expect(exported.version).toBe('1.0.0');
+      expect(exported.version).toBe('0.2.0');
       expect(exported.settings).toEqual(DEFAULT_SETTINGS);
+      expect(exported.teamPool).toEqual([]);
       expect(exported.projects).toEqual([project]);
     });
 
     it('imports data and overwrites existing', async () => {
       await repo.saveProject(makeProject({ id: 'old' }));
       const importData = {
-        version: '1.0.0',
+        version: '0.2.0',
         settings: {
           hoursPerMonth: 140,
           discountRateAnnual: 0.05,
           laborRates: [],
         },
+        teamPool: [],
         projects: [makeProject({ id: 'new' })],
       };
       await repo.importAll(importData);
@@ -131,7 +150,7 @@ describe('LocalStorage Repository', () => {
   describe('Version', () => {
     it('returns current version when none stored', async () => {
       const version = await repo.getVersion();
-      expect(version).toBe('1.0.0');
+      expect(version).toBe('0.2.0');
     });
   });
 });

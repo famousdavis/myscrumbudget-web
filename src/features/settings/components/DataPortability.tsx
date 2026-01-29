@@ -1,14 +1,12 @@
 'use client';
 
 import { useRef } from 'react';
-import { createLocalStorageRepository } from '@/lib/storage/localStorage';
+import { repo } from '@/lib/storage/repo';
 import type { AppState } from '@/types/domain';
 
 interface DataPortabilityProps {
   onImportComplete: () => void;
 }
-
-const repo = createLocalStorageRepository();
 
 export function DataPortability({ onImportComplete }: DataPortabilityProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);

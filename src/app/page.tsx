@@ -3,11 +3,13 @@
 import Link from 'next/link';
 import { useProjects } from '@/features/projects/hooks/useProjects';
 import { useSettings } from '@/features/settings/hooks/useSettings';
+import { useTeamPool } from '@/features/team/hooks/useTeamPool';
 import { ProjectCard } from '@/features/projects/components/ProjectCard';
 
 export default function DashboardPage() {
   const { projects, loading } = useProjects();
   const { settings } = useSettings();
+  const { pool } = useTeamPool();
 
   return (
     <div>
@@ -38,7 +40,7 @@ export default function DashboardPage() {
       ) : (
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {projects.map((project) => (
-            <ProjectCard key={project.id} project={project} settings={settings} />
+            <ProjectCard key={project.id} project={project} settings={settings} pool={pool} />
           ))}
         </div>
       )}

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { createLocalStorageRepository } from '@/lib/storage/localStorage';
-import type { Project, TeamMember } from '@/types/domain';
+import type { Project, ProjectAssignment, PoolMember } from '@/types/domain';
+import { resolveAssignments } from '@/lib/utils/teamResolution';
 
 const repo = createLocalStorageRepository();
 
@@ -12,102 +13,106 @@ function makeProject(overrides: Partial<Project> = {}): Project {
     endDate: '2025-12-31',
     baselineBudget: 500000,
     actualCost: 0,
-    teamMembers: [],
+    assignments: [],
     reforecasts: [],
     activeReforecastId: null,
     ...overrides,
   };
 }
 
-describe('Team Member CRUD', () => {
+const pool: PoolMember[] = [
+  { id: 'pm1', name: 'Alice', role: 'BA' },
+  { id: 'pm2', name: 'Bob', role: 'IT-SoftEng' },
+  { id: 'pm3', name: 'Charlie', role: 'PMO' },
+];
+
+describe('Team Assignment CRUD', () => {
   beforeEach(async () => {
     await repo.clear();
   });
 
-  it('adds a team member to a project', async () => {
-    const project = makeProject();
-    const member: TeamMember = {
-      id: 'tm1',
-      name: 'Alice',
-      role: 'BA',
-      type: 'Core',
-    };
-    project.teamMembers.push(member);
+  it('adds an assignment to a project', async () => {
+    const project = makeProject({
+      assignments: [{ id: 'a1', poolMemberId: 'pm1' }],
+    });
     await repo.saveProject(project);
 
     const retrieved = await repo.getProject('test-project');
-    expect(retrieved?.teamMembers).toHaveLength(1);
-    expect(retrieved?.teamMembers[0].name).toBe('Alice');
-    expect(retrieved?.teamMembers[0].role).toBe('BA');
-    expect(retrieved?.teamMembers[0].type).toBe('Core');
+    expect(retrieved?.assignments).toHaveLength(1);
+    expect(retrieved?.assignments[0].poolMemberId).toBe('pm1');
+
+    const members = resolveAssignments(retrieved!.assignments, pool);
+    expect(members[0].name).toBe('Alice');
+    expect(members[0].role).toBe('BA');
   });
 
-  it('adds multiple team members', async () => {
+  it('adds multiple assignments', async () => {
     const project = makeProject({
-      teamMembers: [
-        { id: 'tm1', name: 'Alice', role: 'BA', type: 'Core' },
-        { id: 'tm2', name: 'Bob', role: 'IT-SoftEng', type: 'Core' },
-        { id: 'tm3', name: 'Charlie', role: 'PMO', type: 'Extended' },
+      assignments: [
+        { id: 'a1', poolMemberId: 'pm1' },
+        { id: 'a2', poolMemberId: 'pm2' },
+        { id: 'a3', poolMemberId: 'pm3' },
       ],
     });
     await repo.saveProject(project);
 
     const retrieved = await repo.getProject('test-project');
-    expect(retrieved?.teamMembers).toHaveLength(3);
+    expect(retrieved?.assignments).toHaveLength(3);
+
+    const members = resolveAssignments(retrieved!.assignments, pool);
+    expect(members).toHaveLength(3);
   });
 
-  it('updates a team member', async () => {
+  it('removes an assignment', async () => {
     const project = makeProject({
-      teamMembers: [
-        { id: 'tm1', name: 'Alice', role: 'BA', type: 'Core' },
+      assignments: [
+        { id: 'a1', poolMemberId: 'pm1' },
+        { id: 'a2', poolMemberId: 'pm2' },
       ],
     });
     await repo.saveProject(project);
 
-    project.teamMembers[0] = {
-      ...project.teamMembers[0],
-      role: 'PMO',
-      type: 'Extended',
-    };
+    project.assignments = project.assignments.filter((a) => a.id !== 'a1');
     await repo.saveProject(project);
 
     const retrieved = await repo.getProject('test-project');
-    expect(retrieved?.teamMembers[0].role).toBe('PMO');
-    expect(retrieved?.teamMembers[0].type).toBe('Extended');
+    expect(retrieved?.assignments).toHaveLength(1);
+    expect(retrieved?.assignments[0].id).toBe('a2');
   });
 
-  it('deletes a team member', async () => {
+  it('preserves assignments across project updates', async () => {
     const project = makeProject({
-      teamMembers: [
-        { id: 'tm1', name: 'Alice', role: 'BA', type: 'Core' },
-        { id: 'tm2', name: 'Bob', role: 'IT-SoftEng', type: 'Core' },
-      ],
+      assignments: [{ id: 'a1', poolMemberId: 'pm1' }],
     });
     await repo.saveProject(project);
 
-    project.teamMembers = project.teamMembers.filter((m) => m.id !== 'tm1');
-    await repo.saveProject(project);
-
-    const retrieved = await repo.getProject('test-project');
-    expect(retrieved?.teamMembers).toHaveLength(1);
-    expect(retrieved?.teamMembers[0].id).toBe('tm2');
-  });
-
-  it('preserves team members across project updates', async () => {
-    const project = makeProject({
-      teamMembers: [
-        { id: 'tm1', name: 'Alice', role: 'BA', type: 'Core' },
-      ],
-    });
-    await repo.saveProject(project);
-
-    // Update project name, team should be preserved
     project.name = 'Renamed Project';
     await repo.saveProject(project);
 
     const retrieved = await repo.getProject('test-project');
     expect(retrieved?.name).toBe('Renamed Project');
-    expect(retrieved?.teamMembers).toHaveLength(1);
-    expect(retrieved?.teamMembers[0].name).toBe('Alice');
+    expect(retrieved?.assignments).toHaveLength(1);
+    expect(retrieved?.assignments[0].poolMemberId).toBe('pm1');
+  });
+
+  it('supports same pool member added multiple times', async () => {
+    const project = makeProject({
+      assignments: [
+        { id: 'a1', poolMemberId: 'pm1' },
+        { id: 'a2', poolMemberId: 'pm1' },
+      ],
+    });
+    await repo.saveProject(project);
+
+    const retrieved = await repo.getProject('test-project');
+    expect(retrieved?.assignments).toHaveLength(2);
+
+    const members = resolveAssignments(retrieved!.assignments, pool);
+    expect(members).toHaveLength(2);
+    expect(members[0].name).toBe('Alice');
+    expect(members[1].name).toBe('Alice');
+    // But they have different ids (assignment ids)
+    expect(members[0].id).toBe('a1');
+    expect(members[1].id).toBe('a2');
   });
 });

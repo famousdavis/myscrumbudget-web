@@ -2,17 +2,19 @@
 
 import { useMemo } from 'react';
 import Link from 'next/link';
-import type { Project, Settings } from '@/types/domain';
+import type { Project, Settings, PoolMember } from '@/types/domain';
 import { formatCurrency } from '@/lib/utils/format';
 import { formatMonthLabel } from '@/lib/utils/dates';
 import { calculateProjectMetrics } from '@/lib/calc';
+import { resolveAssignments } from '@/lib/utils/teamResolution';
 
 interface ProjectCardProps {
   project: Project;
   settings?: Settings | null;
+  pool: PoolMember[];
 }
 
-export function ProjectCard({ project, settings }: ProjectCardProps) {
+export function ProjectCard({ project, settings, pool }: ProjectCardProps) {
   const startLabel = formatMonthLabel(project.startDate);
   const endLabel = formatMonthLabel(project.endDate);
 
@@ -23,8 +25,9 @@ export function ProjectCard({ project, settings }: ProjectCardProps) {
       ? project.reforecasts.find(r => r.id === project.activeReforecastId)
       : project.reforecasts[0];
     if (!rf || rf.allocations.length === 0) return null;
-    return calculateProjectMetrics(project, settings);
-  }, [project, settings]);
+    const teamMembers = resolveAssignments(project.assignments ?? [], pool);
+    return calculateProjectMetrics(project, settings, teamMembers);
+  }, [project, settings, pool]);
 
   const eacColor = metrics
     ? metrics.eac <= project.baselineBudget
@@ -58,7 +61,7 @@ export function ProjectCard({ project, settings }: ProjectCardProps) {
         )}
         <div>
           <span className="text-zinc-500 dark:text-zinc-400">Team: </span>
-          <span className="font-medium">{project.teamMembers.length}</span>
+          <span className="font-medium">{(project.assignments ?? []).length}</span>
         </div>
       </div>
     </Link>

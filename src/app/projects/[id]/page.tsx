@@ -6,12 +6,11 @@ import { useRouter } from 'next/navigation';
 import { useProject } from '@/features/projects/hooks/useProject';
 import { useProjects } from '@/features/projects/hooks/useProjects';
 import { useSettings } from '@/features/settings/hooks/useSettings';
+import { useTeamPool } from '@/features/team/hooks/useTeamPool';
 import { useTeam } from '@/features/team/hooks/useTeam';
 import { useReforecast } from '@/features/reforecast/hooks/useReforecast';
 import { ProjectSummary } from '@/features/projects/components/ProjectSummary';
 import { DeleteProjectDialog } from '@/features/projects/components/DeleteProjectDialog';
-import { TeamTable } from '@/features/team/components/TeamTable';
-import { AddMemberForm } from '@/features/team/components/AddMemberForm';
 import { AllocationGrid } from '@/features/reforecast/components/AllocationGrid';
 import { ForecastMetricsPanel } from '@/features/projects/components/ForecastMetricsPanel';
 import { useProjectMetrics } from '@/features/projects/hooks/useProjectMetrics';
@@ -28,18 +27,19 @@ export default function ProjectDetailPage({
   const { project, loading, updateProject } = useProject(id);
   const { deleteProject } = useProjects();
   const { settings } = useSettings();
-  const { members, addMember, updateMember, deleteMember } = useTeam({
+  const { pool } = useTeamPool();
+  const { members, addAssignment, removeAssignment } = useTeam({
     project,
     updateProject,
+    pool,
   });
   const { allocationMap, onAllocationChange } = useReforecast({
     project,
     updateProject,
   });
-  const metrics = useProjectMetrics(project, settings);
+  const metrics = useProjectMetrics(project, settings, pool);
   const router = useRouter();
   const [showDelete, setShowDelete] = useState(false);
-  const [teamExpanded, setTeamExpanded] = useState(true);
 
   const months = useMemo(() => {
     if (!project) return [];
@@ -91,40 +91,6 @@ export default function ProjectDetailPage({
         <ProjectSummary project={project} metrics={metrics} />
       </div>
 
-      {/* Team Management */}
-      <div className="mt-8">
-        <button
-          onClick={() => setTeamExpanded((prev) => !prev)}
-          className="flex items-center gap-1.5 text-lg font-semibold"
-        >
-          <span
-            className="inline-block text-[10px] leading-none text-black transition-transform dark:text-white"
-            style={{ transform: teamExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
-          >
-            &#9654;
-          </span>
-          Team Members
-        </button>
-        {teamExpanded && (
-          <>
-            <div className="mt-3">
-              <TeamTable
-                members={members}
-                laborRates={settings?.laborRates ?? []}
-                onUpdate={updateMember}
-                onDelete={deleteMember}
-              />
-            </div>
-            <div className="mt-4">
-              <AddMemberForm
-                laborRates={settings?.laborRates ?? []}
-                onAdd={addMember}
-              />
-            </div>
-          </>
-        )}
-      </div>
-
       {/* Allocation Grid */}
       <div className="mt-8">
         <h2 className="text-lg font-semibold">Allocations</h2>
@@ -134,10 +100,9 @@ export default function ProjectDetailPage({
             teamMembers={members}
             allocationMap={allocationMap}
             onAllocationChange={onAllocationChange}
-            onMemberUpdate={updateMember}
-            onMemberDelete={deleteMember}
-            onMemberAdd={addMember}
-            laborRates={settings?.laborRates ?? []}
+            onMemberDelete={removeAssignment}
+            onMemberAdd={addAssignment}
+            pool={pool}
             monthlyData={metrics?.monthlyData}
           />
         </div>
@@ -184,3 +149,4 @@ export default function ProjectDetailPage({
     </div>
   );
 }
+

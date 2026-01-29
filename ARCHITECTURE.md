@@ -145,17 +145,30 @@ interface Settings {
   discountRateAnnual: number;   // annual rate, default 0.03 (3%)
 }
 
-// Team Member
-interface TeamMember {
+// Global Team Member Pool — stored once, referenced by projects
+interface PoolMember {
   id: string;
   name: string;
   role: string;           // must match a LaborRate.role
-  type: 'Core' | 'Extended';
+}
+
+// Links a pool member into a project (one per allocation row)
+interface ProjectAssignment {
+  id: string;             // unique — MonthlyAllocation.memberId references this
+  poolMemberId: string;   // references PoolMember.id
+}
+
+// Resolved Team Member — produced by joining ProjectAssignment + PoolMember.
+// Used by calc engine, AllocationGrid, and charts.
+interface TeamMember {
+  id: string;             // assignment id (for allocation lookups)
+  name: string;
+  role: string;
 }
 
 // Monthly Allocation (user intent - never modified by productivity)
 interface MonthlyAllocation {
-  memberId: string;
+  memberId: string;       // references ProjectAssignment.id
   month: string;          // ISO date (YYYY-MM)
   allocation: number;     // 0.0 to 1.0 (percentage as decimal)
 }
@@ -186,7 +199,7 @@ interface Project {
   endDate: string;
   baselineBudget: number;
   actualCost: number;
-  teamMembers: TeamMember[];
+  assignments: ProjectAssignment[];
   reforecasts: Reforecast[];
   activeReforecastId: string | null;
 }
@@ -259,6 +272,7 @@ diverge to use standard annual rate semantics.
 | Key | Type | Description |
 |-----|------|-------------|
 | `msb:settings` | Settings | Global app settings |
+| `msb:teamPool` | PoolMember[] | Global team member pool |
 | `msb:projects` | Project[] | All projects |
 | `msb:version` | string | Data schema version for migrations |
 
@@ -267,14 +281,15 @@ diverge to use standard annual rate semantics.
 ```typescript
 // Full application state
 interface AppState {
-  version: string;        // Schema version (e.g., "1.0.0")
+  version: string;        // Schema version (e.g., "0.2.0")
   settings: Settings;
+  teamPool: PoolMember[];
   projects: Project[];
 }
 
 // Example stored data
 const exampleState: AppState = {
-  version: "1.0.0",
+  version: "0.2.0",
   settings: {
     hoursPerMonth: 160,
     discountRateAnnual: 0.03,
@@ -287,6 +302,10 @@ const exampleState: AppState = {
       { role: "PMO", hourlyRate: 120 }
     ]
   },
+  teamPool: [
+    { id: "tm_001", name: "Aaliyah", role: "BA" },
+    { id: "tm_002", name: "Ethan", role: "IT-SoftEng" }
+  ],
   projects: [{
     id: "proj_001",
     name: "Alpha Project",
@@ -294,9 +313,9 @@ const exampleState: AppState = {
     endDate: "2027-07-15",
     baselineBudget: 1000000,
     actualCost: 200000,
-    teamMembers: [
-      { id: "tm_001", name: "Aaliyah", role: "BA", type: "Core" },
-      { id: "tm_002", name: "Ethan", role: "IT-SoftEng", type: "Core" }
+    assignments: [
+      { id: "tm_001", poolMemberId: "tm_001" },
+      { id: "tm_002", poolMemberId: "tm_002" }
     ],
     reforecasts: [{
       id: "rf_001",
@@ -329,7 +348,8 @@ const exampleState: AppState = {
 │  │                                                                         │ │
 │  │   /                    → Dashboard (project list, summary)              │ │
 │  │   /projects/[id]       → Project detail + reforecast view               │ │
-│  │   /projects/[id]/team  → Team member management                         │ │
+│  │   /projects/[id]/edit  → Edit project metadata                          │ │
+│  │   /team                → Global team member pool management             │ │
 │  │   /settings            → Global settings (rates, hours/month)           │ │
 │  │                                                                         │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
@@ -353,21 +373,24 @@ const exampleState: AppState = {
 │  │                          Shared Layer                                    ││
 │  │                                                                          ││
 │  │  ┌─────────────────┐  ┌──────────────────┐  ┌────────────────────────┐  ││
-│  │  │   lib/calc/     │  │   lib/storage/   │  │    components/ui/      │  ││
+│  │  │   lib/calc/     │  │   lib/storage/   │  │    components/         │  ││
 │  │  ├─────────────────┤  ├──────────────────┤  ├────────────────────────┤  ││
-│  │  │ costs.ts        │  │ repository.ts    │  │ MonthGrid.tsx          │  ││
-│  │  │ metrics.ts      │  │ localStorage.ts  │  │ DataTable.tsx          │  ││
-│  │  │ npv.ts          │  │ migrations.ts    │  │ Chart.tsx (SVG)        │  ││
-│  │  │ productivity.ts │  │ types.ts         │  │ EditableCell.tsx       │  ││
+│  │  │ costs.ts        │  │ repository.ts    │  │ MigrationGuard.tsx     │  ││
+│  │  │ metrics.ts      │  │ localStorage.ts  │  │ charts/                │  ││
+│  │  │ npv.ts          │  │ migrations.ts    │  │   MonthlyCostBarChart  │  ││
+│  │  │ productivity.ts │  │ repo.ts (singl.) │  │   CumulativeCostLine   │  ││
+│  │  │ allocationMap.ts│  │ types.ts         │  │   ChartTooltip         │  ││
+│  │  │ index.ts        │  │                  │  │   svg-utils.ts         │  ││
 │  │  └─────────────────┘  └──────────────────┘  └────────────────────────┘  ││
 │  │                                                                          ││
-│  │  ┌─────────────────┐  ┌──────────────────┐                              ││
-│  │  │    lib/utils/   │  │     types/       │                              ││
-│  │  ├─────────────────┤  ├──────────────────┤                              ││
-│  │  │ dates.ts        │  │ domain.ts        │                              ││
-│  │  │ format.ts       │  │ storage.ts       │                              ││
-│  │  │ id.ts           │  │                  │                              ││
-│  │  └─────────────────┘  └──────────────────┘                              ││
+│  │  ┌─────────────────┐  ┌──────────────────┐  ┌────────────────────────┐  ││
+│  │  │    lib/utils/   │  │     types/       │  │     hooks/             │  ││
+│  │  ├─────────────────┤  ├──────────────────┤  ├────────────────────────┤  ││
+│  │  │ dates.ts        │  │ domain.ts        │  │ useDebouncedSave.ts    │  ││
+│  │  │ format.ts       │  │ storage.ts       │  │ useDarkMode.ts         │  ││
+│  │  │ id.ts           │  │                  │  │                        │  ││
+│  │  │ teamResolution  │  │                  │  │                        │  ││
+│  │  └─────────────────┘  └──────────────────┘  └────────────────────────┘  ││
 │  │                                                                          ││
 │  └─────────────────────────────────────────────────────────────────────────┘│
 │                                     │                                        │
@@ -375,7 +398,7 @@ const exampleState: AppState = {
 │  ┌─────────────────────────────────────────────────────────────────────────┐│
 │  │                         LocalStorage                                     ││
 │  │                                                                          ││
-│  │    msb:settings    msb:projects    msb:version                          ││
+│  │    msb:settings    msb:teamPool    msb:projects    msb:version          ││
 │  │                                                                          ││
 │  └─────────────────────────────────────────────────────────────────────────┘│
 │                                                                              │
@@ -397,145 +420,171 @@ const exampleState: AppState = {
 
 ```
 src/
-├── app/                          # Next.js App Router
-│   ├── layout.tsx               # Root layout
-│   ├── page.tsx                 # Dashboard (project list)
+├── app/                              # Next.js App Router
+│   ├── layout.tsx                   # Root layout (nav + MigrationGuard)
+│   ├── page.tsx                     # Dashboard (project list)
 │   ├── projects/
 │   │   ├── [id]/
-│   │   │   ├── page.tsx         # Project detail/forecast view
-│   │   │   ├── team/
-│   │   │   │   └── page.tsx     # Team management
-│   │   │   └── history/
-│   │   │       └── page.tsx     # Reforecast history
+│   │   │   ├── page.tsx             # Project detail + allocation grid + charts
+│   │   │   └── edit/
+│   │   │       └── page.tsx         # Edit project metadata
 │   │   └── new/
-│   │       └── page.tsx         # Create project
+│   │       └── page.tsx             # Create project
+│   ├── team/
+│   │   └── page.tsx                 # Global team pool management
 │   └── settings/
-│       └── page.tsx             # Global settings
+│       └── page.tsx                 # Global settings
 │
-├── features/                     # Feature modules
+├── features/                         # Feature modules
 │   ├── projects/
 │   │   ├── components/
-│   │   │   ├── ProjectCard.tsx
-│   │   │   ├── ProjectForm.tsx
-│   │   │   └── ProjectSummary.tsx
+│   │   │   ├── ProjectCard.tsx      # Dashboard project card
+│   │   │   ├── ProjectForm.tsx      # Create/edit form
+│   │   │   ├── ProjectSummary.tsx   # Metrics summary in project detail
+│   │   │   ├── ForecastMetricsPanel.tsx  # ETC/EAC/variance display
+│   │   │   └── DeleteProjectDialog.tsx
 │   │   ├── hooks/
-│   │   │   ├── useProjects.ts
-│   │   │   └── useProject.ts
-│   │   └── types.ts
+│   │   │   ├── useProjects.ts       # Project list CRUD
+│   │   │   ├── useProject.ts        # Single project with debounced save
+│   │   │   └── useProjectMetrics.ts # Calculation hook (resolves assignments)
+│   │   └── __tests__/
+│   │       └── projects.test.ts
 │   │
 │   ├── reforecast/
 │   │   ├── components/
-│   │   │   ├── AllocationGrid.tsx
-│   │   │   ├── CostChart.tsx
-│   │   │   ├── ForecastMetricsPanel.tsx
-│   │   │   └── ProductivityEditor.tsx
+│   │   │   └── AllocationGrid.tsx   # Spreadsheet-like allocation grid
 │   │   ├── hooks/
-│   │   │   ├── useReforecast.ts
-│   │   │   └── useMetrics.ts
-│   │   └── types.ts
+│   │   │   └── useReforecast.ts     # Reforecast CRUD + allocation management
+│   │   └── lib/
+│   │       └── gridHelpers.ts       # Pure helpers for grid selection/fill/colors
 │   │
 │   ├── team/
 │   │   ├── components/
-│   │   │   ├── TeamMemberRow.tsx
-│   │   │   ├── TeamTable.tsx
-│   │   │   └── RoleSelect.tsx
+│   │   │   ├── AddPoolMemberForm.tsx  # Add member to global pool
+│   │   │   ├── PoolMemberTable.tsx    # Pool member list with edit/delete
+│   │   │   └── RoleSelect.tsx         # Role dropdown
 │   │   ├── hooks/
-│   │   │   └── useTeam.ts
-│   │   └── types.ts
+│   │   │   ├── useTeam.ts            # Project-level assignment management
+│   │   │   └── useTeamPool.ts        # Global pool CRUD with in-use guard
+│   │   └── __tests__/
+│   │       └── team.test.ts
 │   │
 │   └── settings/
 │       ├── components/
-│       │   ├── RateTable.tsx
-│       │   └── SettingsForm.tsx
-│       ├── hooks/
-│       │   └── useSettings.ts
-│       └── types.ts
+│       │   ├── RateTable.tsx          # Labor rate editor
+│       │   ├── SettingsForm.tsx       # Hours/month, discount rate
+│       │   └── DataPortability.tsx    # JSON export/import
+│       └── hooks/
+│           └── useSettings.ts
 │
-├── lib/                          # Shared utilities
-│   ├── calc/                     # Pure calculation functions
-│   │   ├── costs.ts             # Cost calculations
-│   │   ├── metrics.ts           # EAC, ETC, budget ratio, variance
-│   │   ├── npv.ts               # NPV calculation
-│   │   ├── productivity.ts      # Productivity factor lookup
-│   │   ├── __tests__/
-│   │   │   ├── costs.test.ts
-│   │   │   ├── metrics.test.ts
-│   │   │   ├── spreadsheet-parity.test.ts  # Golden-file tests
-│   │   │   └── fixtures/
-│   │   │       └── spreadsheet-1.5.ts
-│   │   └── index.ts             # Re-exports
+├── lib/                              # Shared utilities
+│   ├── calc/                         # Pure calculation functions
+│   │   ├── costs.ts                 # Cost calculations
+│   │   ├── metrics.ts               # EAC, ETC, budget ratio, burn rate
+│   │   ├── npv.ts                   # NPV (annual → monthly conversion)
+│   │   ├── productivity.ts          # Productivity factor lookup
+│   │   ├── allocationMap.ts         # Pre-aggregated allocation map
+│   │   ├── index.ts                 # Re-exports (calculateProjectMetrics)
+│   │   └── __tests__/
+│   │       ├── costs.test.ts
+│   │       ├── metrics.test.ts
+│   │       ├── npv.test.ts
+│   │       ├── productivity.test.ts
+│   │       ├── allocationMap.test.ts
+│   │       ├── spreadsheet-parity.test.ts  # Golden-file tests
+│   │       └── fixtures/
+│   │           └── spreadsheet-1.5.ts
 │   │
-│   ├── storage/                  # Persistence layer
-│   │   ├── repository.ts        # Abstract interface
-│   │   ├── localStorage.ts      # LocalStorage implementation
-│   │   ├── migrations.ts        # Version migrations
-│   │   └── types.ts
+│   ├── storage/                      # Persistence layer
+│   │   ├── repository.ts            # Abstract interface
+│   │   ├── localStorage.ts          # LocalStorage implementation
+│   │   ├── repo.ts                  # Shared singleton instance
+│   │   ├── migrations.ts            # Version migrations (v1→v0.2.0)
+│   │   └── __tests__/
+│   │       ├── localStorage.test.ts
+│   │       └── migrations.test.ts
 │   │
 │   └── utils/
-│       ├── dates.ts             # Date manipulation
-│       ├── format.ts            # Number/currency formatting
-│       └── id.ts                # ID generation
+│       ├── dates.ts                 # Date/month manipulation
+│       ├── format.ts                # Number/currency formatting
+│       ├── id.ts                    # ID generation
+│       ├── teamResolution.ts        # resolveAssignments(assignments, pool)
+│       └── __tests__/
+│           └── teamResolution.test.ts
 │
-├── components/                   # Shared UI components
-│   └── ui/
-│       ├── MonthGrid.tsx        # Spreadsheet-like month grid
-│       ├── DataTable.tsx        # Generic data table
-│       ├── EditableCell.tsx     # Inline editing
-│       ├── Chart.tsx            # SVG chart wrapper
-│       └── Button.tsx
+├── components/                       # Shared components
+│   ├── MigrationGuard.tsx           # Runs migrations before rendering
+│   └── charts/
+│       ├── MonthlyCostBarChart.tsx   # SVG bar chart
+│       ├── CumulativeCostLineChart.tsx  # SVG line chart
+│       ├── ChartTooltip.tsx          # Hover tooltip
+│       ├── svg-utils.ts             # Chart math utilities
+│       └── __tests__/
+│           └── svg-utils.test.ts
+│
+├── hooks/                            # Shared hooks
+│   ├── useDebouncedSave.ts          # Generic debounced persistence
+│   └── useDarkMode.ts               # Dark mode toggle
 │
 ├── types/
-│   ├── domain.ts                # Core domain types
-│   └── storage.ts               # Storage-specific types
+│   ├── domain.ts                    # Core domain types
+│   └── storage.ts                   # LocalStorage key constants
 │
-├── hooks/
-│   └── useLocalStorage.ts       # Generic localStorage hook
+├── test/
+│   └── setup.ts                     # Vitest setup (jsdom localStorage mock)
 │
 └── styles/
-    └── globals.css              # Tailwind + custom styles
+    └── globals.css                  # Tailwind + custom styles
 ```
 
 ---
 
 ## Part 6: MVP Feature List
 
-### Phase 1: Core Data & Settings
-- [ ] Global settings management (hours/month, discount rate)
-- [ ] Labor rate table CRUD
-- [ ] LocalStorage persistence with migration support
-- [ ] Data export/import (JSON)
+### Phase 1: Core Data & Settings (Sprint 1 — DONE)
+- [x] Global settings management (hours/month, discount rate)
+- [x] Labor rate table CRUD
+- [x] LocalStorage persistence with migration support
+- [x] Data export/import (JSON)
 
-### Phase 2: Projects
-- [ ] Create/edit/delete projects
-- [ ] Project metadata (name, dates, baseline budget, actual cost)
-- [ ] Project list dashboard
+### Phase 2: Projects (Sprint 2 — DONE)
+- [x] Create/edit/delete projects
+- [x] Project metadata (name, dates, baseline budget, actual cost)
+- [x] Project list dashboard
 
-### Phase 3: Team Management
-- [ ] Add/edit/remove team members per project
-- [ ] Role assignment with rate lookup
-- [ ] Core/Extended classification
+### Phase 3: Team Management (Sprint 3 — DONE)
+- [x] Global team member pool (add/edit/remove on /team page)
+- [x] Project assignments via pool picker in allocation grid
+- [x] Role assignment with rate lookup
+- [x] Same pool member can be added to a project multiple times
+- [x] Pool member edits sync across all projects
+- [x] Deletion blocked if pool member is in use
 
-### Phase 4: Forecasting
-- [ ] Monthly allocation grid (spreadsheet-like)
-- [ ] Inline cell editing
-- [ ] Auto-calculation of costs and hours
+### Phase 4: Forecasting (Sprint 3 — DONE)
+- [x] Monthly allocation grid (spreadsheet-like)
+- [x] Inline cell editing (double-click or type)
+- [x] Multi-cell selection (click-drag, shift-click)
+- [x] Excel-like drag-to-fill handle
+- [x] Auto-calculation of costs and hours (summary rows)
 
-### Phase 5: Metrics & Calculations
-- [ ] ETC, EAC calculations
-- [ ] Variance vs baseline
-- [ ] Budget ratio calculation
-- [ ] Weekly burn rate (based on active months)
-- [ ] NPV calculation (annual rate converted to monthly)
+### Phase 5: Metrics & Calculations (Sprint 4 — DONE)
+- [x] ETC, EAC calculations
+- [x] Variance vs baseline
+- [x] Budget ratio calculation
+- [x] Weekly burn rate (based on active months)
+- [x] NPV calculation (annual rate converted to monthly)
+- [x] Golden-file spreadsheet parity tests (157 tests)
 
-### Phase 6: Reforecast Snapshots
-- [ ] Create named reforecasts
-- [ ] Switch between reforecasts
+### Phase 6: Visualization (Sprint 5 — DONE)
+- [x] Monthly cost bar chart (SVG)
+- [x] Cumulative cost line chart (SVG)
+- [x] Chart tooltips with formatted values
+- [x] Summary rows in allocation grid (monthly cost + hours)
+
+### Phase 7: Reforecast Snapshots
+- [x] Create named reforecasts
+- [x] Switch between reforecasts
 - [ ] Copy allocation from previous reforecast
-
-### Phase 7: Visualization
-- [ ] Monthly cost bar chart (SVG)
-- [ ] Cumulative cost curve (SVG)
-- [ ] Burn rate trend line
 
 ### Phase 8: Productivity Windows (Enhancement)
 - [ ] Define productivity limitation periods
@@ -552,94 +601,64 @@ src/
 
 ## Part 7: Incremental Build Plan
 
-### Sprint 1: Foundation (1 week)
+### Sprint 1: Foundation — COMPLETE (v0.1.0)
 **Goal**: Basic app shell with data persistence
 
-Tasks:
-1. Initialize Next.js + TypeScript + Tailwind project
-2. Implement `lib/storage/` with localStorage adapter and migration support
-3. Create Settings page with rate table editor
-4. Add data export/import functionality
-5. Write unit tests for storage layer
+Delivered:
+- Next.js 16 + TypeScript strict + Tailwind CSS v4 + Vitest
+- localStorage repository with async interface and migration support
+- Settings page with rate table editor
+- JSON export/import (DataPortability component)
+- MigrationGuard component (runs migrations before rendering)
 
-Deliverables:
-- Working settings page
-- Persisted rate table
-- Export/import JSON
-
-### Sprint 2: Projects (1 week)
+### Sprint 2: Projects — COMPLETE (v0.1.0)
 **Goal**: Project CRUD and dashboard
 
-Tasks:
-1. Implement project data structures
-2. Build project list (dashboard) page
-3. Create/edit project form
-4. Add project deletion with confirmation
-5. Unit tests for project operations
+Delivered:
+- Dashboard with project cards (ETC, EAC, team count, variance)
+- Project create/edit/delete flows
+- Project detail page with allocation grid and charts
 
-Deliverables:
-- Dashboard with project cards
-- Project create/edit flow
-- Project metrics summary cards
+### Sprint 3: Team & Allocations — COMPLETE (v0.1.1 → v0.2.0)
+**Goal**: Team management and allocation grid
 
-### Sprint 3: Team & Allocations (1.5 weeks)
-**Goal**: Team management and basic allocation grid
+Delivered:
+- Global team member pool (/team page) with CRUD
+- Pool-to-project assignment via allocation grid picker
+- resolveAssignments() helper (joins assignments + pool → TeamMember[])
+- Allocation grid with inline editing, multi-cell selection, drag-to-fill
+- v0.2.0 migration (extracts pool from embedded teamMembers, rewrites to assignments)
+- Removed Core/Extended type classification (deferred for future if needed)
 
-Tasks:
-1. Team member CRUD within project
-2. Role selector with rate lookup
-3. Basic allocation grid component (read-only first)
-4. Month column generation from project dates
-5. Inline editing for allocation cells
-
-Deliverables:
-- Team management page
-- Basic allocation grid
-- Editable cells
-
-### Sprint 4: Calculations (1 week)
+### Sprint 4: Calculations — COMPLETE (v0.1.2)
 **Goal**: Full calculation engine
 
-Tasks:
-1. Implement `lib/calc/costs.ts` - cost calculations
-2. Implement `lib/calc/metrics.ts` - ETC, EAC, budget ratio
-3. Implement `lib/calc/npv.ts` - NPV calculation (annual → monthly conversion)
-4. Connect calculations to UI with memoized allocation maps
-5. Comprehensive unit tests including spreadsheet parity tests
+Delivered:
+- Pure calc functions: costs, metrics, NPV, productivity, allocationMap
+- calculateProjectMetrics orchestrator (accepts explicit teamMembers param)
+- ForecastMetricsPanel with live-updating ETC/EAC/variance/burn rate/NPV
+- 157 unit tests including golden-file spreadsheet parity tests
 
-Deliverables:
-- Live-updating metrics panel
-- Verified calculation accuracy
-- Golden-file tests passing
-
-### Sprint 5: Visualization (1 week)
+### Sprint 5: Visualization — COMPLETE (v0.1.3)
 **Goal**: Charts and data display
 
-Tasks:
-1. SVG bar chart for monthly costs
-2. SVG line chart for cumulative costs
-3. Burn rate display
-4. Summary row in allocation grid (totals, hours)
+Delivered:
+- SVG MonthlyCostBarChart with tooltips
+- SVG CumulativeCostLineChart with baseline reference line
+- Allocation grid summary rows (monthly cost + hours)
+- Chart tooltip component with formatted values
 
-Deliverables:
-- Cost charts
-- Metrics dashboard
-- Summary rows
-
-### Sprint 6: Reforecasts (1 week)
+### Sprint 6: Reforecasts — PARTIALLY COMPLETE
 **Goal**: Snapshot management
 
-Tasks:
-1. Reforecast creation UI
-2. Reforecast switching
-3. Copy from previous reforecast
-4. Historical reforecast list
+Completed:
+- Reforecast creation UI
+- Reforecast switching
 
-Deliverables:
-- Reforecast management
-- Version history
+Remaining:
+- Copy allocation from previous reforecast
 
-### Sprint 7: Productivity & Polish (1 week)
+### Sprint 7: Productivity & Polish
 **Goal**: Productivity windows + UX polish
 
 Tasks:
@@ -976,28 +995,23 @@ export function getProductivityFactor(
 ```typescript
 // lib/storage/repository.ts
 
-import type { Settings, Project, AppState } from '@/types/domain';
+import type { Settings, PoolMember, Project, AppState } from '@/types/domain';
 
-/**
- * Abstract repository interface for persistence
- * Allows swapping localStorage for IndexedDB or API later
- */
 export interface Repository {
-  // Settings
   getSettings(): Promise<Settings>;
   saveSettings(settings: Settings): Promise<void>;
 
-  // Projects
+  getTeamPool(): Promise<PoolMember[]>;
+  saveTeamPool(pool: PoolMember[]): Promise<void>;
+
   getProjects(): Promise<Project[]>;
   getProject(id: string): Promise<Project | null>;
   saveProject(project: Project): Promise<void>;
   deleteProject(id: string): Promise<void>;
 
-  // Bulk operations
   exportAll(): Promise<AppState>;
   importAll(state: AppState): Promise<void>;
-  
-  // Maintenance
+
   clear(): Promise<void>;
   getVersion(): Promise<string>;
   migrateIfNeeded(): Promise<void>;
@@ -1005,170 +1019,24 @@ export interface Repository {
 ```
 
 ```typescript
-// lib/storage/localStorage.ts
+// lib/storage/repo.ts — shared singleton used by all hooks and components
 
-import type { Repository } from './repository';
-import type { Settings, Project, AppState } from '@/types/domain';
-import { runMigrations, CURRENT_VERSION } from './migrations';
-
-const KEYS = {
-  settings: 'msb:settings',
-  projects: 'msb:projects',
-  version: 'msb:version'
-} as const;
-
-const DEFAULT_SETTINGS: Settings = {
-  hoursPerMonth: 160,
-  discountRateAnnual: 0.03,
-  laborRates: [
-    { role: 'BA', hourlyRate: 75 },
-    { role: 'IT-SoftEng', hourlyRate: 100 },
-    { role: 'IT-Security', hourlyRate: 90 },
-    { role: 'IT-DevOps', hourlyRate: 80 },
-    { role: 'Manager', hourlyRate: 150 },
-    { role: 'PMO', hourlyRate: 120 }
-  ]
-};
-
-export function createLocalStorageRepository(): Repository {
-  const get = <T>(key: string, fallback: T): T => {
-    if (typeof window === 'undefined') return fallback;
-    const data = localStorage.getItem(key);
-    return data ? JSON.parse(data) : fallback;
-  };
-
-  const set = (key: string, value: unknown): void => {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(key, JSON.stringify(value));
-  };
-
-  return {
-    async getSettings() {
-      return get<Settings>(KEYS.settings, DEFAULT_SETTINGS);
-    },
-
-    async saveSettings(settings) {
-      set(KEYS.settings, settings);
-    },
-
-    async getProjects() {
-      return get<Project[]>(KEYS.projects, []);
-    },
-
-    async getProject(id) {
-      const projects = await this.getProjects();
-      return projects.find(p => p.id === id) ?? null;
-    },
-
-    async saveProject(project) {
-      const projects = await this.getProjects();
-      const index = projects.findIndex(p => p.id === project.id);
-      if (index >= 0) {
-        projects[index] = project;
-      } else {
-        projects.push(project);
-      }
-      set(KEYS.projects, projects);
-    },
-
-    async deleteProject(id) {
-      const projects = await this.getProjects();
-      set(KEYS.projects, projects.filter(p => p.id !== id));
-    },
-
-    async exportAll() {
-      return {
-        version: CURRENT_VERSION,
-        settings: await this.getSettings(),
-        projects: await this.getProjects()
-      };
-    },
-
-    async importAll(state) {
-      set(KEYS.version, state.version);
-      set(KEYS.settings, state.settings);
-      set(KEYS.projects, state.projects);
-    },
-
-    async clear() {
-      Object.values(KEYS).forEach(key => {
-        localStorage.removeItem(key);
-      });
-    },
-
-    async getVersion() {
-      return get<string>(KEYS.version, CURRENT_VERSION);
-    },
-
-    async migrateIfNeeded() {
-      const currentVersion = await this.getVersion();
-      const data = await this.exportAll();
-      const migrated = runMigrations(data, currentVersion);
-      
-      if (migrated.version !== currentVersion) {
-        await this.importAll(migrated);
-      }
-    }
-  };
-}
+import { createLocalStorageRepository } from './localStorage';
+export const repo = createLocalStorageRepository();
 ```
 
+The localStorage implementation (`localStorage.ts`) uses `STORAGE_KEYS` from `types/storage.ts` and handles team pool via `getTeamPool()`/`saveTeamPool()`. The `exportAll()`/`importAll()` methods include `teamPool` in the `AppState` round-trip.
+
 ```typescript
-// lib/storage/migrations.ts
+// lib/storage/migrations.ts — current version is 0.2.0
 
-import type { AppState } from '@/types/domain';
+export const CURRENT_VERSION = '0.2.0';
 
-export const CURRENT_VERSION = '1.0.0';
-
-type Migration = {
-  version: string;
-  migrate: (data: AppState) => AppState;
-};
-
-// Migrations run in order. Each transforms the data shape.
-const MIGRATIONS: Migration[] = [
-  // Example future migration:
-  // {
-  //   version: '1.1.0',
-  //   migrate: (data) => ({
-  //     ...data,
-  //     projects: data.projects.map(p => ({ ...p, archived: false }))
-  //   })
-  // }
-];
-
-/**
- * Run all pending migrations
- */
-export function runMigrations(data: AppState, fromVersion: string): AppState {
-  const pendingMigrations = MIGRATIONS.filter(m => 
-    compareVersions(m.version, fromVersion) > 0
-  );
-
-  if (pendingMigrations.length === 0) return data;
-
-  let migrated = data;
-  for (const migration of pendingMigrations) {
-    migrated = migration.migrate(migrated);
-    migrated = { ...migrated, version: migration.version };
-  }
-
-  return { ...migrated, version: CURRENT_VERSION };
-}
-
-/**
- * Simple semver comparison: returns >0 if a > b
- */
-function compareVersions(a: string, b: string): number {
-  const pa = a.split('.').map(Number);
-  const pb = b.split('.').map(Number);
-  
-  for (let i = 0; i < 3; i++) {
-    const diff = (pa[i] || 0) - (pb[i] || 0);
-    if (diff !== 0) return diff;
-  }
-  return 0;
-}
+// Migration from v1.0.0 (legacy) → v0.2.0:
+// - Extracts teamMembers from each project into a global teamPool
+// - Rewrites project.teamMembers → project.assignments (ProjectAssignment[])
+// - Preserves original member IDs so MonthlyAllocation.memberId stays valid
+// - Deduplicates pool members across projects by id
 ```
 
 ---
@@ -1378,20 +1246,23 @@ export function createIndexedDbRepository(): Repository {
 This architecture document provides:
 
 1. **Complete analysis** of the MyScrumBudget spreadsheet formulas and data model
-2. **Clean TypeScript domain model** preserving all original functionality
-3. **Repository pattern** enabling future persistence migrations
+2. **Clean TypeScript domain model** with global team pool + project assignments
+3. **Repository pattern** with shared singleton and migration support
 4. **Feature-based folder structure** optimized for solo maintenance
-5. **Incremental build plan** with testable milestones
-6. **Pure calculation functions** with comprehensive unit tests
+5. **Incremental build plan** with testable milestones (Sprints 1–5 complete)
+6. **Pure calculation functions** with 157 unit tests
 7. **Golden-file parity tests** ensuring spreadsheet accuracy
 
 Key design decisions:
+- **Global team pool** with per-project assignments (same member can appear multiple times)
 - **Budget Ratio** instead of "CPI" to avoid EVM terminology confusion
 - **Annual discount rate** converted to monthly (diverges from spreadsheet for clarity)
 - **Burn rate uses active months**, not project end date (matches spreadsheet)
 - **Productivity is a calculation overlay**, never mutates stored allocations
 - **Pre-aggregated allocation maps** for efficient reactive UI rendering
-- **Migration system** ready for schema evolution
+- **Shared repo singleton** (`repo.ts`) used by all hooks — no duplicate instantiation
+- **Generic `useDebouncedSave<T>`** hook for consistent debounced persistence
+- **resolveAssignments()** at hook level keeps calc functions consuming `TeamMember[]`
 
 The design prioritizes:
 - Simplicity over abstraction

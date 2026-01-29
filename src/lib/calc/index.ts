@@ -1,4 +1,4 @@
-import type { Project, Settings, ProjectMetrics } from '@/types/domain';
+import type { Project, Settings, TeamMember, ProjectMetrics } from '@/types/domain';
 import { buildAllocationMap } from './allocationMap';
 import { calculateTotalMonthlyCost, calculateTotalMonthlyHours } from './costs';
 import {
@@ -24,6 +24,7 @@ import { generateMonthRange } from '@/lib/utils/dates';
 export function calculateProjectMetrics(
   project: Project,
   settings: Settings,
+  teamMembers: TeamMember[],
 ): ProjectMetrics {
   const reforecast = project.activeReforecastId
     ? project.reforecasts.find(r => r.id === project.activeReforecastId)
@@ -56,7 +57,7 @@ export function calculateProjectMetrics(
   for (const month of months) {
     const factor = getProductivityFactor(month, reforecast.productivityWindows);
     const cost = calculateTotalMonthlyCost(
-      month, allocationMap, project.teamMembers, settings, factor,
+      month, allocationMap, teamMembers, settings, factor,
     );
     const hours = calculateTotalMonthlyHours(
       month, allocationMap, settings, factor,

@@ -73,17 +73,17 @@ function buildAllocations(
 
 // Team member definitions matching Excel rows 8-18
 const teamMembers: TeamMember[] = [
-  { id: 'tm_aaliyah', name: 'Aaliyah', role: 'BA', type: 'Core' },
-  { id: 'tm_mateo', name: 'Mateo', role: 'BA', type: 'Core' },
-  { id: 'tm_sofia', name: 'Sofia', role: 'IT-Security', type: 'Core' },
-  { id: 'tm_ethan', name: 'Ethan', role: 'IT-SoftEng', type: 'Core' },
-  { id: 'tm_aria', name: 'Aria', role: 'IT-SoftEng', type: 'Core' },
-  { id: 'tm_noah', name: 'Noah', role: 'IT-SoftEng', type: 'Core' },
-  { id: 'tm_julianna', name: 'Julianna', role: 'PMO', type: 'Core' },
-  { id: 'tm_luca', name: 'Luca', role: 'Manager', type: 'Extended' },
-  { id: 'tm_amara', name: 'Amara', role: 'Manager', type: 'Extended' },
-  { id: 'tm_kai', name: 'Kai', role: 'Manager', type: 'Extended' },
-  { id: 'tm_priya', name: 'Priya', role: 'Manager', type: 'Extended' },
+  { id: 'tm_aaliyah', name: 'Aaliyah', role: 'BA' },
+  { id: 'tm_mateo', name: 'Mateo', role: 'BA' },
+  { id: 'tm_sofia', name: 'Sofia', role: 'IT-Security' },
+  { id: 'tm_ethan', name: 'Ethan', role: 'IT-SoftEng' },
+  { id: 'tm_aria', name: 'Aria', role: 'IT-SoftEng' },
+  { id: 'tm_noah', name: 'Noah', role: 'IT-SoftEng' },
+  { id: 'tm_julianna', name: 'Julianna', role: 'PMO' },
+  { id: 'tm_luca', name: 'Luca', role: 'Manager' },
+  { id: 'tm_amara', name: 'Amara', role: 'Manager' },
+  { id: 'tm_kai', name: 'Kai', role: 'Manager' },
+  { id: 'tm_priya', name: 'Priya', role: 'Manager' },
 ];
 
 // Allocation patterns from Excel (14 months each)

@@ -1,5 +1,5 @@
 import type { Repository } from './repository';
-import type { Settings, Project, AppState } from '@/types/domain';
+import type { Settings, PoolMember, Project, AppState } from '@/types/domain';
 import { STORAGE_KEYS } from '@/types/storage';
 import { runMigrations, CURRENT_VERSION } from './migrations';
 
@@ -37,6 +37,14 @@ export function createLocalStorageRepository(): Repository {
       set(STORAGE_KEYS.settings, settings);
     },
 
+    async getTeamPool() {
+      return get<PoolMember[]>(STORAGE_KEYS.teamPool, []);
+    },
+
+    async saveTeamPool(pool) {
+      set(STORAGE_KEYS.teamPool, pool);
+    },
+
     async getProjects() {
       return get<Project[]>(STORAGE_KEYS.projects, []);
     },
@@ -69,6 +77,7 @@ export function createLocalStorageRepository(): Repository {
       return {
         version: CURRENT_VERSION,
         settings: await repo.getSettings(),
+        teamPool: await repo.getTeamPool(),
         projects: await repo.getProjects(),
       };
     },
@@ -76,6 +85,7 @@ export function createLocalStorageRepository(): Repository {
     async importAll(state) {
       set(STORAGE_KEYS.version, state.version);
       set(STORAGE_KEYS.settings, state.settings);
+      set(STORAGE_KEYS.teamPool, state.teamPool);
       set(STORAGE_KEYS.projects, state.projects);
     },
 

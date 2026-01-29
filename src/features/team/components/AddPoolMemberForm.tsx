@@ -4,23 +4,21 @@ import { useState } from 'react';
 import type { LaborRate } from '@/types/domain';
 import { RoleSelect } from './RoleSelect';
 
-interface AddMemberFormProps {
+interface AddPoolMemberFormProps {
   laborRates: LaborRate[];
-  onAdd: (name: string, role: string, type: 'Core' | 'Extended') => void;
+  onAdd: (name: string, role: string) => void;
 }
 
-export function AddMemberForm({ laborRates, onAdd }: AddMemberFormProps) {
+export function AddPoolMemberForm({ laborRates, onAdd }: AddPoolMemberFormProps) {
   const [name, setName] = useState('');
   const [role, setRole] = useState('');
-  const [type, setType] = useState<'Core' | 'Extended'>('Core');
 
   const handleAdd = () => {
     const trimmed = name.trim();
     if (!trimmed || !role) return;
-    onAdd(trimmed, role, type);
+    onAdd(trimmed, role);
     setName('');
     setRole('');
-    setType('Core');
   };
 
   return (
@@ -42,19 +40,6 @@ export function AddMemberForm({ laborRates, onAdd }: AddMemberFormProps) {
           Role
         </label>
         <RoleSelect value={role} laborRates={laborRates} onChange={setRole} />
-      </div>
-      <div>
-        <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
-          Type
-        </label>
-        <select
-          value={type}
-          onChange={(e) => setType(e.target.value as 'Core' | 'Extended')}
-          className="rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-        >
-          <option value="Core">Core</option>
-          <option value="Extended">Extended</option>
-        </select>
       </div>
       <button
         onClick={handleAdd}

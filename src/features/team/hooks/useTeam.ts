@@ -1,63 +1,56 @@
 'use client';
 
-import { useCallback } from 'react';
-import type { Project, TeamMember } from '@/types/domain';
+import { useCallback, useMemo } from 'react';
+import type { Project, PoolMember, TeamMember } from '@/types/domain';
+import { resolveAssignments } from '@/lib/utils/teamResolution';
 import { generateId } from '@/lib/utils/id';
 
 interface UseTeamOptions {
   project: Project | null;
   updateProject: (updater: (prev: Project) => Project) => void;
+  pool: PoolMember[];
 }
 
-export function useTeam({ project, updateProject }: UseTeamOptions) {
-  const addMember = useCallback(
-    (name: string, role: string, type: 'Core' | 'Extended') => {
-      const member: TeamMember = {
-        id: generateId(),
-        name,
-        role,
-        type,
-      };
+export function useTeam({ project, updateProject, pool }: UseTeamOptions) {
+  // Resolve assignments against the pool to produce TeamMember[]
+  const members: TeamMember[] = useMemo(() => {
+    if (!project) return [];
+    return resolveAssignments(project.assignments ?? [], pool);
+  }, [project, pool]);
+
+  const addAssignment = useCallback(
+    (poolMemberId: string) => {
+      const id = generateId();
       updateProject((prev) => ({
         ...prev,
-        teamMembers: [...prev.teamMembers, member],
+        assignments: [...(prev.assignments ?? []), { id, poolMemberId }],
       }));
-      return member;
+      return id;
     },
-    [updateProject]
+    [updateProject],
   );
 
-  const updateMember = useCallback(
-    (id: string, updates: Partial<Omit<TeamMember, 'id'>>) => {
+  const removeAssignment = useCallback(
+    (assignmentId: string) => {
       updateProject((prev) => ({
         ...prev,
-        teamMembers: prev.teamMembers.map((m) =>
-          m.id === id ? { ...m, ...updates } : m
-        ),
-      }));
-    },
-    [updateProject]
-  );
-
-  const deleteMember = useCallback(
-    (id: string) => {
-      updateProject((prev) => ({
-        ...prev,
-        teamMembers: prev.teamMembers.filter((m) => m.id !== id),
-        // Also remove allocations for this member from all reforecasts
+        assignments: (prev.assignments ?? []).filter((a) => a.id !== assignmentId),
+        // Cascade: remove allocations referencing this assignment
         reforecasts: prev.reforecasts.map((rf) => ({
           ...rf,
-          allocations: rf.allocations.filter((a) => a.memberId !== id),
+          allocations: rf.allocations.filter(
+            (a) => a.memberId !== assignmentId,
+          ),
         })),
       }));
     },
-    [updateProject]
+    [updateProject],
   );
 
   return {
-    members: project?.teamMembers ?? [],
-    addMember,
-    updateMember,
-    deleteMember,
+    members,
+    assignments: project?.assignments ?? [],
+    addAssignment,
+    removeAssignment,
   };
 }

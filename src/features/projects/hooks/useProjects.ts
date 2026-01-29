@@ -2,10 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Project } from '@/types/domain';
-import { createLocalStorageRepository } from '@/lib/storage/localStorage';
+import { repo } from '@/lib/storage/repo';
 import { generateId } from '@/lib/utils/id';
-
-const repo = createLocalStorageRepository();
 
 export function useProjects() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -22,11 +20,11 @@ export function useProjects() {
   }, [reload]);
 
   const createProject = useCallback(
-    async (data: Omit<Project, 'id' | 'teamMembers' | 'reforecasts' | 'activeReforecastId'>) => {
+    async (data: Omit<Project, 'id' | 'assignments' | 'reforecasts' | 'activeReforecastId'>) => {
       const project: Project = {
         ...data,
         id: generateId(),
-        teamMembers: [],
+        assignments: [],
         reforecasts: [],
         activeReforecastId: null,
       };

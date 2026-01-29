@@ -10,17 +10,32 @@ export interface Settings {
   laborRates: LaborRate[];
 }
 
-// Team Member
-export interface TeamMember {
+// Global Team Member Pool
+export interface PoolMember {
   id: string;
   name: string;
+  role: string; // references LaborRate.role
+}
+
+// Project Assignment — links a pool member into a project
+// Each assignment gets its own allocation row; the same poolMemberId
+// can appear multiple times in a project for "generic" roles.
+export interface ProjectAssignment {
+  id: string; // unique — MonthlyAllocation.memberId references this
+  poolMemberId: string; // references PoolMember.id
+}
+
+// Resolved Team Member — produced by joining ProjectAssignment + PoolMember.
+// Used by calc engine, AllocationGrid, and charts.
+export interface TeamMember {
+  id: string; // assignment id (for allocation lookups)
+  name: string;
   role: string;
-  type: 'Core' | 'Extended';
 }
 
 // Monthly Allocation (user intent - never modified by productivity)
 export interface MonthlyAllocation {
-  memberId: string;
+  memberId: string; // references ProjectAssignment.id
   month: string; // ISO date (YYYY-MM)
   allocation: number; // 0.0 to 1.0
 }
@@ -51,7 +66,7 @@ export interface Project {
   endDate: string;
   baselineBudget: number;
   actualCost: number;
-  teamMembers: TeamMember[];
+  assignments: ProjectAssignment[];
   reforecasts: Reforecast[];
   activeReforecastId: string | null;
 }
@@ -81,5 +96,6 @@ export interface ProjectMetrics {
 export interface AppState {
   version: string;
   settings: Settings;
+  teamPool: PoolMember[];
   projects: Project[];
 }

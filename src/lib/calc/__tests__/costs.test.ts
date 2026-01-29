@@ -79,8 +79,8 @@ describe('calculateMemberMonthlyHours', () => {
 
 describe('calculateTotalMonthlyCost', () => {
   const members: TeamMember[] = [
-    { id: 'tm1', name: 'A', role: 'BA', type: 'Core' },
-    { id: 'tm2', name: 'B', role: 'IT-SoftEng', type: 'Core' },
+    { id: 'tm1', name: 'A', role: 'BA' },
+    { id: 'tm2', name: 'B', role: 'IT-SoftEng' },
   ];
 
   it('sums costs across all members for a month', () => {

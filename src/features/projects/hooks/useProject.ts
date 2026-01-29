@@ -1,16 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { Project } from '@/types/domain';
-import { createLocalStorageRepository } from '@/lib/storage/localStorage';
-
-const repo = createLocalStorageRepository();
-const DEBOUNCE_MS = 500;
+import { repo } from '@/lib/storage/repo';
+import { useDebouncedSave } from '@/hooks/useDebouncedSave';
 
 export function useProject(id: string) {
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     repo.getProject(id).then((p) => {
@@ -19,12 +16,7 @@ export function useProject(id: string) {
     });
   }, [id]);
 
-  const persistProject = useCallback((updated: Project) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      repo.saveProject(updated);
-    }, DEBOUNCE_MS);
-  }, []);
+  const persistProject = useDebouncedSave<Project>((p) => repo.saveProject(p));
 
   const updateProject = useCallback(
     (updater: (prev: Project) => Project) => {
