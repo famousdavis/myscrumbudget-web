@@ -47,7 +47,7 @@ export function ProjectForm({
         ...prev,
         [field]:
           field === 'baselineBudget' || field === 'actualCost'
-            ? parseFloat(value) || 0
+            ? Math.max(0, parseFloat(value) || 0)
             : value,
       };
       // Auto-set end date when start date changes and end date is empty
@@ -76,6 +76,14 @@ export function ProjectForm({
     }
     if (data.endDate < data.startDate) {
       setError('End date must be after start date.');
+      return;
+    }
+    if (data.baselineBudget < 0) {
+      setError('Baseline budget cannot be negative.');
+      return;
+    }
+    if (data.actualCost < 0) {
+      setError('Actual cost cannot be negative.');
       return;
     }
 
@@ -144,6 +152,7 @@ export function ProjectForm({
           {budgetFocused ? (
             <input
               type="number"
+              min="0"
               value={data.baselineBudget || ''}
               onChange={(e) => handleChange('baselineBudget', e.target.value)}
               onBlur={() => setBudgetFocused(false)}
@@ -168,6 +177,7 @@ export function ProjectForm({
           {costFocused ? (
             <input
               type="number"
+              min="0"
               value={data.actualCost || ''}
               onChange={(e) => handleChange('actualCost', e.target.value)}
               onBlur={() => setCostFocused(false)}

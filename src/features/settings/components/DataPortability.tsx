@@ -2,6 +2,7 @@
 
 import { useRef } from 'react';
 import { repo } from '@/lib/storage/repo';
+import { runMigrations } from '@/lib/storage/migrations';
 import type { AppState } from '@/types/domain';
 
 interface DataPortabilityProps {
@@ -29,12 +30,23 @@ export function DataPortability({ onImportComplete }: DataPortabilityProps) {
 
     try {
       const text = await file.text();
-      const data = JSON.parse(text) as AppState;
+      const data = JSON.parse(text);
 
-      if (!data.version || !data.settings || !data.projects) {
-        alert('Invalid file format. Expected a MyScrumBudget export file.');
+      if (!data.version || typeof data.version !== 'string') {
+        alert('Invalid file format. Missing or invalid version field.');
         return;
       }
+      if (!data.settings || typeof data.settings !== 'object') {
+        alert('Invalid file format. Missing settings.');
+        return;
+      }
+      if (!Array.isArray(data.projects)) {
+        alert('Invalid file format. Missing or invalid projects array.');
+        return;
+      }
+
+      // Run migrations if importing data from an older version
+      const migrated = runMigrations(data as AppState, data.version);
 
       if (
         !confirm(
@@ -44,7 +56,7 @@ export function DataPortability({ onImportComplete }: DataPortabilityProps) {
         return;
       }
 
-      await repo.importAll(data);
+      await repo.importAll(migrated);
       onImportComplete();
     } catch {
       alert('Failed to parse the file. Please check the format.');

@@ -207,6 +207,9 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
   const deleteReforecast = useCallback(
     (reforecastId: string) => {
       updateProject((prev) => {
+        // Guard: never delete the last reforecast
+        if (prev.reforecasts.length <= 1) return prev;
+
         const remaining = prev.reforecasts.filter((r) => r.id !== reforecastId);
         const wasActive = prev.activeReforecastId === reforecastId;
         return {

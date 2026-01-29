@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
-import Link from 'next/link';
+import { Sidebar } from '@/components/Sidebar';
 import { MigrationGuard } from '@/components/MigrationGuard';
 import { Footer } from '@/components/Footer';
 import './globals.css';
@@ -30,49 +30,15 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <a
+          href="#main-content"
+          className="fixed left-2 top-2 z-[100] -translate-y-full rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-transform focus:translate-y-0"
+        >
+          Skip to main content
+        </a>
         <div className="flex min-h-screen">
-          <nav className="w-56 shrink-0 border-r border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950">
-            <div className="p-4">
-              <Link href="/" className="text-lg font-bold tracking-tight">
-                MyScrumBudget<sup className="text-[7px] font-normal text-zinc-400 dark:text-zinc-500">TM</sup>
-              </Link>
-            </div>
-            <ul className="flex flex-col gap-1 px-2">
-              <li>
-                <Link
-                  href="/"
-                  className="block rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-200 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                >
-                  Dashboard
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/team"
-                  className="block rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-200 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                >
-                  Team Pool
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/settings"
-                  className="block rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-200 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                >
-                  Settings
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/about"
-                  className="block rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-200 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                >
-                  About
-                </Link>
-              </li>
-            </ul>
-          </nav>
-          <main className="min-w-0 flex-1 p-8">
+          <Sidebar />
+          <main id="main-content" className="min-w-0 flex-1 p-8 pt-16 md:pt-8">
             <MigrationGuard>{children}</MigrationGuard>
             <Footer />
           </main>

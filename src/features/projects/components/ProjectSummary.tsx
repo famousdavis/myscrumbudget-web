@@ -11,11 +11,11 @@ interface ProjectSummaryProps {
 }
 
 export function ProjectSummary({ project, metrics }: ProjectSummaryProps) {
-  const eacColor = metrics
+  const eacStatus = metrics
     ? metrics.eac <= project.baselineBudget
-      ? 'text-green-600 dark:text-green-400'
-      : 'text-red-600 dark:text-red-400'
-    : '';
+      ? { color: 'text-green-600 dark:text-green-400', label: '(under)' }
+      : { color: 'text-red-600 dark:text-red-400', label: '(over)' }
+    : { color: '', label: '' };
 
   const editableClass =
     'rounded-lg border border-zinc-200 p-4 dark:border-zinc-800 cursor-pointer hover:border-blue-300 hover:bg-blue-50/50 dark:hover:border-blue-800 dark:hover:bg-blue-950/30 transition-colors';
@@ -60,8 +60,11 @@ export function ProjectSummary({ project, metrics }: ProjectSummaryProps) {
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
             EAC
           </p>
-          <p className={`mt-1 text-sm font-medium ${eacColor}`}>
+          <p className={`mt-1 text-sm font-medium ${eacStatus.color}`}>
             {metrics ? formatCurrency(metrics.eac) : '\u2014'}
+            {eacStatus.label && (
+              <span className="ml-1 text-xs font-normal">{eacStatus.label}</span>
+            )}
           </p>
         </div>
         <div className={readonlyClass}>

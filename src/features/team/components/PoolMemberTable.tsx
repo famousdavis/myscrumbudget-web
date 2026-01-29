@@ -57,9 +57,14 @@ export function PoolMemberTable({
 
   if (pool.length === 0) {
     return (
-      <p className="text-sm text-zinc-500 dark:text-zinc-400">
-        No team members in the pool yet. Add one above.
-      </p>
+      <div className="rounded-lg border border-dashed border-zinc-300 p-8 text-center dark:border-zinc-700">
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          No team members in the pool yet.
+        </p>
+        <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
+          Use the form above to add your first team member.
+        </p>
+      </div>
     );
   }
 

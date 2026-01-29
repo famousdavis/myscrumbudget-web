@@ -59,7 +59,7 @@ const CHANGELOG: ChangelogEntry[] = [
   },
   {
     version: '0.2.0',
-    date: '2026-01-22',
+    date: '2026-01-29',
     sections: [
       {
         title: 'Global Team Pool',
@@ -95,7 +95,7 @@ const CHANGELOG: ChangelogEntry[] = [
   },
   {
     version: '0.1.0',
-    date: '2026-01-15',
+    date: '2026-01-28',
     sections: [
       {
         title: 'Initial Release',

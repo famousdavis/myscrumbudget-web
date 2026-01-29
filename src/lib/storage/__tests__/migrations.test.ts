@@ -93,6 +93,42 @@ describe('Migrations', () => {
     expect((proj as Record<string, unknown>).teamMembers).toBeUndefined();
   });
 
+  it('migrates imported older data through runMigrations', () => {
+    // Simulates the import flow: parse JSON → runMigrations → verify
+    const importedData = {
+      version: '1.0.0',
+      settings: {
+        hoursPerMonth: 140,
+        discountRateAnnual: 0.05,
+        laborRates: [{ role: 'Dev', hourlyRate: 100 }],
+      },
+      projects: [
+        {
+          id: 'p1',
+          name: 'Imported Project',
+          startDate: '2026-06',
+          endDate: '2027-06',
+          baselineBudget: 100000,
+          actualCost: 5000,
+          teamMembers: [
+            { id: 'tm1', name: 'Alice', role: 'Dev', type: 'Core' },
+          ],
+          reforecasts: [],
+          activeReforecastId: null,
+        },
+      ],
+    } as unknown as AppState;
+
+    const migrated = runMigrations(importedData, '1.0.0');
+
+    expect(migrated.version).toBe('0.2.0');
+    expect(migrated.teamPool).toHaveLength(1);
+    expect(migrated.teamPool[0].name).toBe('Alice');
+    expect(migrated.projects[0].assignments).toHaveLength(1);
+    expect(migrated.projects[0].assignments[0].poolMemberId).toBe('tm1');
+    expect((migrated.projects[0] as Record<string, unknown>).teamMembers).toBeUndefined();
+  });
+
   it('deduplicates pool members across projects', () => {
     const v1Data = {
       version: '1.0.0',

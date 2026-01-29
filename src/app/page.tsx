@@ -65,6 +65,16 @@ export default function DashboardPage() {
     reorderProjects(ids);
   }, [draggedId, projects, reorderProjects]);
 
+  const handleMove = useCallback((projectId: string, direction: 'up' | 'down') => {
+    const ids = projects.map((p) => p.id);
+    const index = ids.indexOf(projectId);
+    if (index < 0) return;
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= ids.length) return;
+    [ids[index], ids[targetIndex]] = [ids[targetIndex], ids[index]];
+    reorderProjects(ids);
+  }, [projects, reorderProjects]);
+
   return (
     <div>
       <div className="flex items-center justify-between">
@@ -93,7 +103,7 @@ export default function DashboardPage() {
         </div>
       ) : (
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {projects.map((project) => (
+          {projects.map((project, index) => (
             <ProjectCard
               key={project.id}
               project={project}
@@ -103,6 +113,10 @@ export default function DashboardPage() {
                 const p = projects.find((pr) => pr.id === id);
                 if (p) setDeleteTarget({ id, name: p.name });
               }}
+              onMoveUp={() => handleMove(project.id, 'up')}
+              onMoveDown={() => handleMove(project.id, 'down')}
+              canMoveUp={index > 0}
+              canMoveDown={index < projects.length - 1}
               isDragging={draggedId === project.id}
               isDragOver={dragOverId === project.id && draggedId !== project.id}
               onDragStart={(e) => handleDragStart(project.id, e)}

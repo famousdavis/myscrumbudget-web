@@ -13,6 +13,10 @@ interface ProjectCardProps {
   settings?: Settings | null;
   pool: PoolMember[];
   onDelete: (id: string) => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
   isDragging?: boolean;
   isDragOver?: boolean;
   onDragStart?: (e: React.DragEvent) => void;
@@ -28,6 +32,10 @@ export function ProjectCard({
   settings,
   pool,
   onDelete,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp,
+  canMoveDown,
   isDragging,
   isDragOver,
   onDragStart,
@@ -49,11 +57,11 @@ export function ProjectCard({
     return calculateProjectMetrics(project, settings, teamMembers);
   }, [project, settings, pool]);
 
-  const eacColor = metrics
+  const eacStatus = metrics
     ? metrics.eac <= project.baselineBudget
-      ? 'text-green-600 dark:text-green-400'
-      : 'text-red-600 dark:text-red-400'
-    : '';
+      ? { color: 'text-green-600 dark:text-green-400', label: '(under budget)' }
+      : { color: 'text-red-600 dark:text-red-400', label: '(over budget)' }
+    : { color: '', label: '' };
 
   return (
     <div
@@ -72,19 +80,48 @@ export function ProjectCard({
             : 'border-zinc-200 hover:border-zinc-400 dark:border-zinc-800 dark:hover:border-zinc-600'
       }`}
     >
-      {/* Drag handle */}
-      <div
-        className="mr-3 flex cursor-grab items-start pt-1 text-zinc-300 hover:text-zinc-500 active:cursor-grabbing dark:text-zinc-600 dark:hover:text-zinc-400"
-        title="Drag to reorder"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-4 w-4">
-          <circle cx="5" cy="3" r="1.5" />
-          <circle cx="11" cy="3" r="1.5" />
-          <circle cx="5" cy="8" r="1.5" />
-          <circle cx="11" cy="8" r="1.5" />
-          <circle cx="5" cy="13" r="1.5" />
-          <circle cx="11" cy="13" r="1.5" />
-        </svg>
+      {/* Reorder controls */}
+      <div className="mr-3 flex flex-col items-center gap-0.5 pt-1">
+        {onMoveUp && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
+            disabled={!canMoveUp}
+            title="Move up"
+            aria-label={`Move ${project.name} up`}
+            className="rounded p-0.5 text-zinc-400 hover:text-zinc-600 disabled:cursor-default disabled:opacity-30 dark:text-zinc-500 dark:hover:text-zinc-300"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-3 w-3">
+              <path fillRule="evenodd" d="M8 3.5a.75.75 0 01.53.22l3.25 3.25a.75.75 0 01-1.06 1.06L8 5.31 5.28 8.03a.75.75 0 01-1.06-1.06l3.25-3.25A.75.75 0 018 3.5z" clipRule="evenodd" />
+            </svg>
+          </button>
+        )}
+        <div
+          className="cursor-grab text-zinc-300 hover:text-zinc-500 active:cursor-grabbing dark:text-zinc-600 dark:hover:text-zinc-400"
+          title="Drag to reorder"
+          aria-hidden="true"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-4 w-4">
+            <circle cx="5" cy="3" r="1.5" />
+            <circle cx="11" cy="3" r="1.5" />
+            <circle cx="5" cy="8" r="1.5" />
+            <circle cx="11" cy="8" r="1.5" />
+            <circle cx="5" cy="13" r="1.5" />
+            <circle cx="11" cy="13" r="1.5" />
+          </svg>
+        </div>
+        {onMoveDown && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onMoveDown(); }}
+            disabled={!canMoveDown}
+            title="Move down"
+            aria-label={`Move ${project.name} down`}
+            className="rounded p-0.5 text-zinc-400 hover:text-zinc-600 disabled:cursor-default disabled:opacity-30 dark:text-zinc-500 dark:hover:text-zinc-300"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-3 w-3">
+              <path fillRule="evenodd" d="M8 12.5a.75.75 0 01-.53-.22l-3.25-3.25a.75.75 0 011.06-1.06L8 10.69l2.72-2.72a.75.75 0 011.06 1.06l-3.25 3.25a.75.75 0 01-.53.22z" clipRule="evenodd" />
+            </svg>
+          </button>
+        )}
       </div>
       <div className="min-w-0 flex-1">
         <button
@@ -114,9 +151,12 @@ export function ProjectCard({
             {metrics && (
               <div>
                 <span className="text-zinc-500 dark:text-zinc-400">EAC: </span>
-                <span className={`font-medium ${eacColor}`}>
+                <span className={`font-medium ${eacStatus.color}`}>
                   {formatCurrency(metrics.eac)}
                 </span>
+                {eacStatus.label && (
+                  <span className={`ml-1 text-xs ${eacStatus.color}`}>{eacStatus.label}</span>
+                )}
               </div>
             )}
             <div>
