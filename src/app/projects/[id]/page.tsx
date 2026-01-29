@@ -34,6 +34,7 @@ export default function ProjectDetailPage({
   });
   const router = useRouter();
   const [showDelete, setShowDelete] = useState(false);
+  const [teamExpanded, setTeamExpanded] = useState(true);
 
   const months = useMemo(() => {
     if (!project) return [];
@@ -62,7 +63,7 @@ export default function ProjectDetailPage({
   }
 
   return (
-    <div>
+    <div className="min-w-0">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">{project.name}</h1>
         <div className="flex gap-2">
@@ -87,21 +88,36 @@ export default function ProjectDetailPage({
 
       {/* Team Management */}
       <div className="mt-8">
-        <h2 className="text-lg font-semibold">Team Members</h2>
-        <div className="mt-3">
-          <TeamTable
-            members={members}
-            laborRates={settings?.laborRates ?? []}
-            onUpdate={updateMember}
-            onDelete={deleteMember}
-          />
-        </div>
-        <div className="mt-4">
-          <AddMemberForm
-            laborRates={settings?.laborRates ?? []}
-            onAdd={addMember}
-          />
-        </div>
+        <button
+          onClick={() => setTeamExpanded((prev) => !prev)}
+          className="flex items-center gap-1.5 text-lg font-semibold"
+        >
+          <span
+            className="inline-block text-[10px] leading-none text-black transition-transform dark:text-white"
+            style={{ transform: teamExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
+          >
+            &#9654;
+          </span>
+          Team Members
+        </button>
+        {teamExpanded && (
+          <>
+            <div className="mt-3">
+              <TeamTable
+                members={members}
+                laborRates={settings?.laborRates ?? []}
+                onUpdate={updateMember}
+                onDelete={deleteMember}
+              />
+            </div>
+            <div className="mt-4">
+              <AddMemberForm
+                laborRates={settings?.laborRates ?? []}
+                onAdd={addMember}
+              />
+            </div>
+          </>
+        )}
       </div>
 
       {/* Allocation Grid */}
@@ -113,6 +129,10 @@ export default function ProjectDetailPage({
             teamMembers={members}
             allocationMap={allocationMap}
             onAllocationChange={onAllocationChange}
+            onMemberUpdate={updateMember}
+            onMemberDelete={deleteMember}
+            onMemberAdd={addMember}
+            laborRates={settings?.laborRates ?? []}
           />
         </div>
       </div>

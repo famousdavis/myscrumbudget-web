@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useState, useRef, useEffect } from 'react';
-import type { TeamMember } from '@/types/domain';
+import type { TeamMember, LaborRate } from '@/types/domain';
 import type { AllocationMap } from '@/lib/calc/allocationMap';
 import { getAllocation } from '@/lib/calc/allocationMap';
 import { formatMonthLabel } from '@/lib/utils/dates';
@@ -11,18 +11,50 @@ interface AllocationGridProps {
   teamMembers: TeamMember[];
   allocationMap: AllocationMap;
   onAllocationChange: (memberId: string, month: string, value: number) => void;
+  onMemberUpdate?: (id: string, updates: Partial<Omit<TeamMember, 'id'>>) => void;
+  onMemberDelete?: (id: string) => void;
+  onMemberAdd?: (name: string, role: string, type: 'Core' | 'Extended') => void;
+  laborRates?: LaborRate[];
   readonly?: boolean;
 }
 
 interface CellCoord {
-  row: number; // index into teamMembers
-  col: number; // index into months
+  row: number;
+  col: number;
 }
 
-interface DragState {
-  anchor: CellCoord;
-  value: number;
+/** A rectangular selection defined by two corners (inclusive). */
+interface SelectionRange {
+  startRow: number;
+  startCol: number;
+  endRow: number;
+  endCol: number;
+}
+
+interface FillDragState {
+  /** The selection range being filled from */
+  source: SelectionRange;
+  /** Current mouse position (cell coord) */
   current: CellCoord;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function normalizeRange(range: SelectionRange): SelectionRange {
+  return {
+    startRow: Math.min(range.startRow, range.endRow),
+    startCol: Math.min(range.startCol, range.endCol),
+    endRow: Math.max(range.startRow, range.endRow),
+    endCol: Math.max(range.startCol, range.endCol),
+  };
+}
+
+function isCellInRange(range: SelectionRange | null, row: number, col: number): boolean {
+  if (!range) return false;
+  const n = normalizeRange(range);
+  return row >= n.startRow && row <= n.endRow && col >= n.startCol && col <= n.endCol;
 }
 
 function getAllocationColor(value: number): string {
@@ -34,82 +66,119 @@ function getAllocationColor(value: number): string {
   return 'bg-blue-400 dark:bg-blue-600';
 }
 
-function isCellInFillRange(
-  drag: DragState | null,
+/**
+ * Given a fill drag, determine which cells will be filled and what values
+ * they get. The source selection's values are tiled/repeated into the
+ * fill region in the drag direction.
+ */
+function computeFillRegion(
+  drag: FillDragState,
+  allocationMap: AllocationMap,
+  teamMembers: TeamMember[],
+  months: string[],
+): { cells: CellCoord[]; values: number[] } {
+  const src = normalizeRange(drag.source);
+  const { current } = drag;
+  const cells: CellCoord[] = [];
+  const values: number[] = [];
+
+  const distRight = current.col - src.endCol;
+  const distLeft = src.startCol - current.col;
+  const distDown = current.row - src.endRow;
+  const distUp = src.startRow - current.row;
+
+  const maxHoriz = Math.max(distRight, distLeft);
+  const maxVert = Math.max(distDown, distUp);
+
+  if (maxHoriz <= 0 && maxVert <= 0) {
+    return { cells, values };
+  }
+
+  const srcRowCount = src.endRow - src.startRow + 1;
+  const srcColCount = src.endCol - src.startCol + 1;
+
+  if (maxHoriz >= maxVert) {
+    const fillStartCol = distRight >= distLeft ? src.endCol + 1 : current.col;
+    const fillEndCol = distRight >= distLeft ? current.col : src.startCol - 1;
+
+    if (fillStartCol > fillEndCol) return { cells, values };
+
+    for (let c = fillStartCol; c <= fillEndCol; c++) {
+      const srcColOffset = (c - fillStartCol) % srcColCount;
+      const srcCol = distRight >= distLeft
+        ? src.startCol + srcColOffset
+        : src.endCol - srcColOffset;
+
+      for (let r = src.startRow; r <= src.endRow; r++) {
+        const srcValue = getAllocation(allocationMap, months[srcCol], teamMembers[r].id);
+        cells.push({ row: r, col: c });
+        values.push(srcValue);
+      }
+    }
+  } else {
+    const fillStartRow = distDown >= distUp ? src.endRow + 1 : current.row;
+    const fillEndRow = distDown >= distUp ? current.row : src.startRow - 1;
+
+    if (fillStartRow > fillEndRow) return { cells, values };
+
+    for (let r = fillStartRow; r <= fillEndRow; r++) {
+      const srcRowOffset = (r - fillStartRow) % srcRowCount;
+      const srcRow = distDown >= distUp
+        ? src.startRow + srcRowOffset
+        : src.endRow - srcRowOffset;
+
+      for (let c = src.startCol; c <= src.endCol; c++) {
+        const srcValue = getAllocation(allocationMap, months[c], teamMembers[srcRow].id);
+        cells.push({ row: r, col: c });
+        values.push(srcValue);
+      }
+    }
+  }
+
+  return { cells, values };
+}
+
+function isCellInFillPreview(
+  drag: FillDragState | null,
+  allocationMap: AllocationMap,
+  teamMembers: TeamMember[],
+  months: string[],
   row: number,
-  col: number
+  col: number,
 ): boolean {
   if (!drag) return false;
-  const { anchor, current } = drag;
-
-  // Fill only works along one axis: same row (horizontal) or same column (vertical)
-  // Determine dominant direction based on distance
-  const dRow = Math.abs(current.row - anchor.row);
-  const dCol = Math.abs(current.col - anchor.col);
-
-  if (dRow === 0 && dCol === 0) return false;
-
-  if (dCol >= dRow) {
-    // Horizontal fill: same row as anchor
-    if (row !== anchor.row) return false;
-    const minCol = Math.min(anchor.col, current.col);
-    const maxCol = Math.max(anchor.col, current.col);
-    return col >= minCol && col <= maxCol && !(col === anchor.col);
-  } else {
-    // Vertical fill: same col as anchor
-    if (col !== anchor.col) return false;
-    const minRow = Math.min(anchor.row, current.row);
-    const maxRow = Math.max(anchor.row, current.row);
-    return row >= minRow && row <= maxRow && !(row === anchor.row);
-  }
+  const { cells } = computeFillRegion(drag, allocationMap, teamMembers, months);
+  return cells.some((c) => c.row === row && c.col === col);
 }
 
-function getFillCells(drag: DragState): CellCoord[] {
-  const { anchor, current } = drag;
-  const cells: CellCoord[] = [];
-
-  const dRow = Math.abs(current.row - anchor.row);
-  const dCol = Math.abs(current.col - anchor.col);
-
-  if (dRow === 0 && dCol === 0) return cells;
-
-  if (dCol >= dRow) {
-    // Horizontal fill
-    const minCol = Math.min(anchor.col, current.col);
-    const maxCol = Math.max(anchor.col, current.col);
-    for (let c = minCol; c <= maxCol; c++) {
-      if (c !== anchor.col) {
-        cells.push({ row: anchor.row, col: c });
-      }
-    }
-  } else {
-    // Vertical fill
-    const minRow = Math.min(anchor.row, current.row);
-    const maxRow = Math.max(anchor.row, current.row);
-    for (let r = minRow; r <= maxRow; r++) {
-      if (r !== anchor.row) {
-        cells.push({ row: r, col: anchor.col });
-      }
-    }
-  }
-
-  return cells;
-}
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
 export function AllocationGrid({
   months,
   teamMembers,
   allocationMap,
   onAllocationChange,
+  onMemberUpdate,
+  onMemberDelete,
+  onMemberAdd,
+  laborRates = [],
   readonly = false,
 }: AllocationGridProps) {
-  const [selectedCell, setSelectedCell] = useState<CellCoord | null>(null);
+  const [selection, setSelection] = useState<SelectionRange | null>(null);
   const [editingCell, setEditingCell] = useState<CellCoord | null>(null);
   const [inputValue, setInputValue] = useState('');
-  const [dragState, setDragState] = useState<DragState | null>(null);
+  const [fillDrag, setFillDrag] = useState<FillDragState | null>(null);
+  const [isRangeSelecting, setIsRangeSelecting] = useState(false);
+  const [addingRow, setAddingRow] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newRole, setNewRole] = useState('');
+  const [newType, setNewType] = useState<'Core' | 'Extended'>('Core');
   const gridRef = useRef<HTMLTableElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const mousePositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  // Commit edits on blur or enter
   const commitEdit = useCallback(() => {
     if (!editingCell) return;
     const raw = parseFloat(inputValue);
@@ -122,40 +191,94 @@ export function AllocationGrid({
     setEditingCell(null);
   }, [editingCell, inputValue, teamMembers, months, onAllocationChange]);
 
-  // Handle mouse up globally to end drag
+  // Global mouseup to end fill-drag or range-selection
   useEffect(() => {
-    if (!dragState) return;
+    if (!fillDrag && !isRangeSelecting) return;
 
     const handleMouseUp = () => {
-      // Apply fill
-      const cells = getFillCells(dragState);
-      for (const cell of cells) {
-        const memberId = teamMembers[cell.row].id;
-        const month = months[cell.col];
-        onAllocationChange(memberId, month, dragState.value);
+      if (fillDrag) {
+        const { cells, values } = computeFillRegion(
+          fillDrag,
+          allocationMap,
+          teamMembers,
+          months,
+        );
+        for (let i = 0; i < cells.length; i++) {
+          const memberId = teamMembers[cells[i].row].id;
+          const month = months[cells[i].col];
+          onAllocationChange(memberId, month, values[i]);
+        }
+        setFillDrag(null);
       }
-      setDragState(null);
+      if (isRangeSelecting) {
+        setIsRangeSelecting(false);
+      }
     };
 
     window.addEventListener('mouseup', handleMouseUp);
     return () => window.removeEventListener('mouseup', handleMouseUp);
-  }, [dragState, teamMembers, months, onAllocationChange]);
+  }, [fillDrag, isRangeSelecting, allocationMap, teamMembers, months, onAllocationChange]);
 
   // Prevent text selection during drag
   useEffect(() => {
-    if (!dragState) return;
+    if (!fillDrag && !isRangeSelecting) return;
     const prevent = (e: Event) => e.preventDefault();
     document.addEventListener('selectstart', prevent);
     return () => document.removeEventListener('selectstart', prevent);
-  }, [dragState]);
+  }, [fillDrag, isRangeSelecting]);
 
-  if (teamMembers.length === 0) {
-    return (
-      <p className="text-sm text-zinc-500 dark:text-zinc-400">
-        Add team members to start entering allocations.
-      </p>
-    );
-  }
+  // Auto-scroll the container when dragging near edges
+  useEffect(() => {
+    if (!fillDrag && !isRangeSelecting) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      mousePositionRef.current = { x: e.clientX, y: e.clientY };
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+
+    const EDGE_ZONE = 40; // px from edge to trigger scroll
+    const SCROLL_SPEED = 8; // px per frame
+
+    const scrollInterval = setInterval(() => {
+      const container = scrollContainerRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const { x } = mousePositionRef.current;
+
+      if (x > rect.right - EDGE_ZONE && x <= rect.right) {
+        container.scrollLeft += SCROLL_SPEED;
+      } else if (x < rect.left + EDGE_ZONE && x >= rect.left) {
+        container.scrollLeft -= SCROLL_SPEED;
+      }
+    }, 16);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      clearInterval(scrollInterval);
+    };
+  }, [fillDrag, isRangeSelecting]);
+
+  // Clear selection when clicking outside the grid
+  useEffect(() => {
+    const handleMouseDown = (e: MouseEvent) => {
+      if (gridRef.current && !gridRef.current.contains(e.target as Node)) {
+        commitEdit();
+        setSelection(null);
+        setEditingCell(null);
+      }
+    };
+    document.addEventListener('mousedown', handleMouseDown);
+    return () => document.removeEventListener('mousedown', handleMouseDown);
+  }, [commitEdit]);
+
+  const handleAddRow = () => {
+    if (!newName.trim() || !newRole || !onMemberAdd) return;
+    onMemberAdd(newName.trim(), newRole, newType);
+    setNewName('');
+    setNewRole('');
+    setNewType('Core');
+    setAddingRow(false);
+  };
 
   if (months.length === 0) {
     return (
@@ -165,8 +288,15 @@ export function AllocationGrid({
     );
   }
 
+  const normalizedSel = selection ? normalizeRange(selection) : null;
+  const fillHandleRow = normalizedSel?.endRow ?? null;
+  const fillHandleCol = normalizedSel?.endCol ?? null;
+
+  // Whether row management controls are available
+  const hasRowControls = !readonly && onMemberUpdate && onMemberDelete && onMemberAdd;
+
   return (
-    <div className="overflow-x-auto">
+    <div ref={scrollContainerRef} className="max-w-full overflow-x-auto">
       <table ref={gridRef} className="border-collapse text-sm select-none">
         <thead>
           <tr>
@@ -181,37 +311,88 @@ export function AllocationGrid({
                 {formatMonthLabel(month)}
               </th>
             ))}
+            {hasRowControls && (
+              <th className="sticky right-0 z-10 border border-zinc-200 bg-zinc-50 px-2 py-2 text-center text-xs font-medium dark:border-zinc-700 dark:bg-zinc-900">
+              </th>
+            )}
           </tr>
         </thead>
         <tbody>
           {teamMembers.map((member, rowIdx) => (
             <tr key={member.id}>
-              <td className="sticky left-0 z-10 border border-zinc-200 bg-white px-3 py-1 text-xs font-medium whitespace-nowrap dark:border-zinc-700 dark:bg-zinc-950">
-                {member.name}
-                <span className="ml-1 text-zinc-400">({member.role})</span>
+              <td className="sticky left-0 z-10 border border-zinc-200 bg-white px-1 py-1 dark:border-zinc-700 dark:bg-zinc-950">
+                {hasRowControls ? (
+                  <div className="relative">
+                    <div className="pointer-events-none px-1 py-0.5 text-xs font-medium whitespace-nowrap">
+                      {member.name}
+                      <span className="ml-1 text-zinc-400">({member.role})</span>
+                    </div>
+                    <select
+                      value={member.id}
+                      onChange={(e) => {
+                        const selectedId = e.target.value;
+                        if (selectedId === member.id) return;
+                        const selectedMember = teamMembers.find((m) => m.id === selectedId);
+                        if (selectedMember && onMemberUpdate) {
+                          onMemberUpdate(member.id, {
+                            name: selectedMember.name,
+                            role: selectedMember.role,
+                            type: selectedMember.type,
+                          });
+                        }
+                      }}
+                      className="absolute inset-0 cursor-pointer opacity-0"
+                    >
+                      {teamMembers.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name} ({m.role})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="px-2 text-xs font-medium whitespace-nowrap">
+                    {member.name}
+                    <span className="ml-1 text-zinc-400">({member.role})</span>
+                  </div>
+                )}
               </td>
               {months.map((month, colIdx) => {
                 const value = getAllocation(allocationMap, month, member.id);
                 const pctValue = value ? Math.round(value * 100) : 0;
                 const isEditing =
                   editingCell?.row === rowIdx && editingCell?.col === colIdx;
-                const isSelected =
-                  selectedCell?.row === rowIdx && selectedCell?.col === colIdx;
-                const isInFillRange = isCellInFillRange(
-                  dragState,
+                const isSelected = isCellInRange(normalizedSel, rowIdx, colIdx);
+                const isInFillPreview = isCellInFillPreview(
+                  fillDrag,
+                  allocationMap,
+                  teamMembers,
+                  months,
                   rowIdx,
-                  colIdx
+                  colIdx,
                 );
 
                 const displayText = pctValue > 0 ? `${pctValue}%` : '';
 
-                let cellClasses = `relative border border-zinc-200 p-0 dark:border-zinc-700 ${getAllocationColor(value)}`;
-                if (isSelected && !isEditing) {
-                  cellClasses += ' outline outline-2 outline-blue-500 -outline-offset-1';
+                const showFillHandle =
+                  !isEditing &&
+                  fillHandleRow === rowIdx &&
+                  fillHandleCol === colIdx &&
+                  !fillDrag;
+
+                let cellClasses =
+                  'relative border border-zinc-200 p-0 dark:border-zinc-700';
+
+                if (!isInFillPreview) {
+                  cellClasses += ` ${getAllocationColor(value)}`;
                 }
-                if (isInFillRange) {
+
+                if (isSelected && !isEditing) {
                   cellClasses +=
-                    ' bg-blue-200/60 dark:bg-blue-700/60';
+                    ' outline outline-2 outline-blue-500 -outline-offset-1';
+                }
+                if (isInFillPreview) {
+                  cellClasses += ' bg-blue-200/60 dark:bg-blue-700/60';
                 }
 
                 if (readonly) {
@@ -229,25 +410,62 @@ export function AllocationGrid({
                   <td
                     key={`${member.id}-${month}`}
                     className={cellClasses}
-                    onClick={() => {
-                      if (!isEditing) {
-                        commitEdit();
-                        setSelectedCell({ row: rowIdx, col: colIdx });
+                    onMouseDown={(e) => {
+                      if ((e.target as HTMLElement).dataset.fillHandle) return;
+
+                      if (isEditing) return;
+                      commitEdit();
+
+                      if (e.shiftKey && selection) {
+                        setSelection((prev) =>
+                          prev
+                            ? {
+                                startRow: prev.startRow,
+                                startCol: prev.startCol,
+                                endRow: rowIdx,
+                                endCol: colIdx,
+                              }
+                            : {
+                                startRow: rowIdx,
+                                startCol: colIdx,
+                                endRow: rowIdx,
+                                endCol: colIdx,
+                              },
+                        );
+                      } else {
+                        setSelection({
+                          startRow: rowIdx,
+                          startCol: colIdx,
+                          endRow: rowIdx,
+                          endCol: colIdx,
+                        });
+                        setIsRangeSelecting(true);
+                      }
+                    }}
+                    onMouseEnter={() => {
+                      if (fillDrag) {
+                        setFillDrag((prev) =>
+                          prev
+                            ? { ...prev, current: { row: rowIdx, col: colIdx } }
+                            : null,
+                        );
+                      } else if (isRangeSelecting) {
+                        setSelection((prev) =>
+                          prev
+                            ? { ...prev, endRow: rowIdx, endCol: colIdx }
+                            : null,
+                        );
                       }
                     }}
                     onDoubleClick={() => {
-                      setSelectedCell({ row: rowIdx, col: colIdx });
+                      setSelection({
+                        startRow: rowIdx,
+                        startCol: colIdx,
+                        endRow: rowIdx,
+                        endCol: colIdx,
+                      });
                       setEditingCell({ row: rowIdx, col: colIdx });
                       setInputValue(pctValue > 0 ? String(pctValue) : '');
-                    }}
-                    onMouseEnter={() => {
-                      if (dragState) {
-                        setDragState((prev) =>
-                          prev
-                            ? { ...prev, current: { row: rowIdx, col: colIdx } }
-                            : null
-                        );
-                      }
                     }}
                   >
                     {isEditing ? (
@@ -265,23 +483,23 @@ export function AllocationGrid({
                             setEditingCell(null);
                           }
                         }}
-                        className="w-full bg-transparent px-1 py-1 text-center text-xs outline-none"
+                        className="absolute inset-0 z-10 bg-white text-center text-xs outline-none dark:bg-zinc-950"
                       />
                     ) : (
-                      <div className="px-1 py-1 text-center text-xs">
+                      <div className="px-2 py-1 text-center text-xs whitespace-nowrap">
                         {displayText}
                       </div>
                     )}
-                    {/* Fill handle: small square at bottom-right corner of selected cell */}
-                    {isSelected && !isEditing && (
+                    {showFillHandle && (
                       <div
+                        data-fill-handle="true"
                         className="absolute -right-[4px] -bottom-[4px] z-20 h-[8px] w-[8px] cursor-crosshair border border-white bg-blue-600"
                         onMouseDown={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          setDragState({
-                            anchor: { row: rowIdx, col: colIdx },
-                            value: value,
+                          if (!normalizedSel) return;
+                          setFillDrag({
+                            source: normalizedSel,
                             current: { row: rowIdx, col: colIdx },
                           });
                         }}
@@ -290,8 +508,108 @@ export function AllocationGrid({
                   </td>
                 );
               })}
+              {hasRowControls && (
+                <td className="sticky right-0 z-10 border border-zinc-200 bg-white px-2 py-1 text-center dark:border-zinc-700 dark:bg-zinc-950">
+                  <button
+                    onClick={() => onMemberDelete(member.id)}
+                    className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                    title="Remove row"
+                  >
+                    ✕
+                  </button>
+                </td>
+              )}
             </tr>
           ))}
+          {/* Add row */}
+          {hasRowControls && (
+            <tr>
+              {addingRow ? (
+                <>
+                  <td
+                    className="sticky left-0 z-10 border border-zinc-200 bg-white px-1 py-1 dark:border-zinc-700 dark:bg-zinc-950"
+                  >
+                    <div className="flex flex-col gap-1">
+                      <input
+                        type="text"
+                        autoFocus
+                        placeholder="Name"
+                        value={newName}
+                        onChange={(e) => setNewName(e.target.value)}
+                        className="w-full rounded border border-zinc-300 px-1 py-0.5 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                      />
+                      <div className="flex gap-1">
+                        <select
+                          value={newRole}
+                          onChange={(e) => setNewRole(e.target.value)}
+                          className="flex-1 rounded border border-zinc-300 px-1 py-0.5 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                        >
+                          <option value="">Role...</option>
+                          {laborRates.map((lr) => (
+                            <option key={lr.role} value={lr.role}>
+                              {lr.role}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          value={newType}
+                          onChange={(e) => setNewType(e.target.value as 'Core' | 'Extended')}
+                          className="rounded border border-zinc-300 px-1 py-0.5 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                        >
+                          <option value="Core">Core</option>
+                          <option value="Extended">Ext</option>
+                        </select>
+                      </div>
+                    </div>
+                  </td>
+                  <td
+                    colSpan={months.length}
+                    className="border border-zinc-200 px-2 py-1 dark:border-zinc-700"
+                  >
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleAddRow}
+                        disabled={!newName.trim() || !newRole}
+                        className="rounded bg-blue-600 px-2 py-0.5 text-xs text-white hover:bg-blue-700 disabled:opacity-40"
+                      >
+                        Add
+                      </button>
+                      <button
+                        onClick={() => {
+                          setAddingRow(false);
+                          setNewName('');
+                          setNewRole('');
+                          setNewType('Core');
+                        }}
+                        className="text-xs text-zinc-500 hover:text-zinc-700 dark:text-zinc-400"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </td>
+                  <td className="sticky right-0 z-10 border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-950" />
+                </>
+              ) : (
+                <>
+                  <td
+                    className="sticky left-0 z-10 border border-zinc-200 bg-white px-3 py-1 dark:border-zinc-700 dark:bg-zinc-950"
+                  >
+                    <button
+                      onClick={() => setAddingRow(true)}
+                      className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400"
+                    >
+                      + Add member
+                    </button>
+                  </td>
+                  <td
+                    colSpan={months.length}
+                    className="border border-zinc-200 dark:border-zinc-700"
+                  />
+                  <td className="sticky right-0 z-10 border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-950" />
+                </>
+              )}
+            </tr>
+          )}
         </tbody>
       </table>
     </div>
