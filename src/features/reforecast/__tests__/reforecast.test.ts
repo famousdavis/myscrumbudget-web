@@ -204,9 +204,10 @@ describe('Reforecast Management', () => {
   });
 
   describe('deleteReforecast', () => {
-    // Simulate deleteReforecast logic from useReforecast
+    // Simulate deleteReforecast logic from useReforecast (with guard)
     function deleteReforecastUpdater(reforecastId: string) {
       return (prev: Project): Project => {
+        if (prev.reforecasts.length <= 1) return prev;
         const remaining = prev.reforecasts.filter((r) => r.id !== reforecastId);
         const wasActive = prev.activeReforecastId === reforecastId;
         return {
@@ -245,7 +246,7 @@ describe('Reforecast Management', () => {
       expect(updated.activeReforecastId).toBe('rf_2');
     });
 
-    it('sets activeReforecastId to null when last reforecast deleted', () => {
+    it('does not delete the last reforecast (guard)', () => {
       const rf = makeReforecast();
       const project = makeProject({
         reforecasts: [rf],
@@ -253,8 +254,8 @@ describe('Reforecast Management', () => {
       });
 
       const updated = deleteReforecastUpdater(rf.id)(project);
-      expect(updated.reforecasts).toHaveLength(0);
-      expect(updated.activeReforecastId).toBeNull();
+      expect(updated.reforecasts).toHaveLength(1);
+      expect(updated.activeReforecastId).toBe(rf.id);
     });
 
     it('preserves activeReforecastId when non-active is deleted', () => {

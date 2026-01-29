@@ -135,6 +135,71 @@ describe('LocalStorage Repository', () => {
     });
   });
 
+  describe('Import / Export Round-Trip', () => {
+    it('exported data can be re-imported without loss', async () => {
+      const project = makeProject({ id: 'rt1', name: 'RoundTrip' });
+      await repo.saveProject(project);
+      await repo.saveTeamPool([
+        { id: 'pm1', name: 'Alice', role: 'Dev' },
+      ]);
+
+      const exported = await repo.exportAll();
+      await repo.clear();
+
+      // Verify cleared
+      expect(await repo.getProjects()).toEqual([]);
+
+      await repo.importAll(exported);
+      const projects = await repo.getProjects();
+      expect(projects).toHaveLength(1);
+      expect(projects[0].name).toBe('RoundTrip');
+
+      const pool = await repo.getTeamPool();
+      expect(pool).toHaveLength(1);
+      expect(pool[0].name).toBe('Alice');
+    });
+
+    it('imported older data is migrated correctly through runMigrations', async () => {
+      const { runMigrations } = await import('../../storage/migrations');
+
+      const v1Data = {
+        version: '1.0.0',
+        settings: {
+          hoursPerMonth: 160,
+          discountRateAnnual: 0.03,
+          laborRates: [],
+        },
+        teamPool: [],
+        projects: [{
+          id: 'p1',
+          name: 'Legacy',
+          startDate: '2026-06',
+          endDate: '2027-06',
+          baselineBudget: 100000,
+          actualCost: 0,
+          teamMembers: [
+            { id: 'tm1', name: 'Bob', role: 'Dev', type: 'Core' },
+          ],
+          reforecasts: [],
+          activeReforecastId: null,
+        }],
+      };
+
+      // Simulate import flow: run migrations then import
+      const migrated = runMigrations(v1Data as any, '1.0.0');
+      await repo.importAll(migrated);
+
+      const projects = await repo.getProjects();
+      expect(projects).toHaveLength(1);
+      expect(projects[0].assignments).toHaveLength(1);
+      expect((projects[0] as any).teamMembers).toBeUndefined();
+
+      const pool = await repo.getTeamPool();
+      expect(pool).toHaveLength(1);
+      expect(pool[0].name).toBe('Bob');
+    });
+  });
+
   describe('Clear', () => {
     it('removes all stored data', async () => {
       await repo.saveProject(makeProject());

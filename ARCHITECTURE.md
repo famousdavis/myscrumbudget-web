@@ -458,7 +458,9 @@ src/
 │   │
 │   ├── reforecast/
 │   │   ├── components/
-│   │   │   └── AllocationGrid.tsx   # Spreadsheet-like allocation grid
+│   │   │   ├── AllocationGrid.tsx   # Spreadsheet-like allocation grid
+│   │   │   ├── ReforecastToolbar.tsx # Reforecast switcher + create/delete
+│   │   │   └── DeleteReforecastDialog.tsx  # Confirmation dialog
 │   │   ├── hooks/
 │   │   │   └── useReforecast.ts     # Reforecast CRUD + allocation management
 │   │   └── lib/
@@ -498,6 +500,7 @@ src/
 │   │       ├── productivity.test.ts
 │   │       ├── allocationMap.test.ts
 │   │       ├── spreadsheet-parity.test.ts  # Golden-file tests
+│   │       ├── edge-cases.test.ts         # Zero-budget, orphaned, single-month
 │   │       └── fixtures/
 │   │           └── spreadsheet-1.5.ts
 │   │
@@ -521,6 +524,7 @@ src/
 │
 ├── components/                       # Shared components
 │   ├── MigrationGuard.tsx           # Runs migrations before rendering
+│   ├── Sidebar.tsx                  # Mobile-responsive nav sidebar
 │   ├── Footer.tsx                   # App footer (version, copyright, GPL)
 │   ├── CostByPeriodTable.tsx        # Annual cost breakout table
 │   └── charts/
@@ -619,6 +623,19 @@ src/
 - [x] Codebase refactoring (deduplication, shared utilities)
 - [x] 190 passing tests across 14 test files
 
+### Phase 10: Bug Fixes, Accessibility & UX (Sprint 9 — DONE)
+- [x] Last reforecast deletion guard (prevents deleting the only reforecast)
+- [x] Negative budget/actual cost validation (HTML min, JS clamp, submit-time check)
+- [x] Import runs migrations before persisting (DataPortability uses runMigrations)
+- [x] Mobile navigation sidebar with hamburger menu (responsive, md: breakpoint)
+- [x] Empty states with dashed borders and hint text (AllocationGrid, PoolMemberTable, ForecastMetricsPanel)
+- [x] Confirmation dialog for reforecast deletion (DeleteReforecastDialog)
+- [x] Color-only information remediation (Unicode indicators + text labels on variance/ratio/EAC)
+- [x] Skip-to-content link (keyboard-accessible, hidden until focused)
+- [x] Drag-to-reorder keyboard alternative (move up/down buttons on project cards)
+- [x] Edge case tests (zero-budget, single-month, orphaned assignments, productivity windows, import round-trip)
+- [x] 204 passing tests across 15 test files
+
 ### Deferred (Future)
 - XLSX timecard import (with project alias mapping)
 - Traffic-light dashboard
@@ -716,6 +733,22 @@ Delivered:
 - useDebouncedSave flush on unmount (prevents stale data on navigation)
 - Codebase refactoring: extracted shared utilities (formatShortMonth, nextBusinessDay, getActiveReforecast, chart layout constants), consolidated imports, renamed DATA_VERSION
 - 190 total tests across 14 test files
+
+### Sprint 9: Bug Fixes, Accessibility & UX — COMPLETE (v0.4.0)
+**Goal**: Harden edge cases, improve accessibility, add mobile nav
+
+Delivered:
+- Last reforecast deletion guard (hook + UI: hides Delete button when only one reforecast)
+- Negative budget/actual cost validation (3-layer: HTML min attr, JS clamp on change, submit-time check)
+- Import migrations: DataPortability now runs `runMigrations()` before `importAll()`
+- Mobile-responsive sidebar (Sidebar.tsx client component with hamburger toggle, overlay backdrop)
+- Empty states with dashed borders and hint text (AllocationGrid, PoolMemberTable, ForecastMetricsPanel)
+- Reforecast deletion confirmation dialog (DeleteReforecastDialog.tsx, mirrors DeleteProjectDialog pattern)
+- Color-only information fix: Unicode triangles (▲/▼) and text labels ("over budget"/"under budget") on variance, ratio, and EAC
+- Skip-to-content link in layout (hidden until keyboard-focused)
+- Keyboard-accessible project reordering (move up/down buttons flanking drag handle)
+- Edge case tests: zero-budget projects, single-month projects, orphaned assignments, non-overlapping productivity windows, import/export round-trip, migration-on-import
+- 204 total tests across 15 test files
 
 ---
 
@@ -1292,8 +1325,8 @@ This architecture document provides:
 2. **Clean TypeScript domain model** with global team pool + project assignments
 3. **Repository pattern** with shared singleton and migration support
 4. **Feature-based folder structure** optimized for solo maintenance
-5. **Incremental build plan** with testable milestones (Sprints 1–8 complete)
-6. **Pure calculation functions** with 190 unit tests
+5. **Incremental build plan** with testable milestones (Sprints 1–9 complete)
+6. **Pure calculation functions** with 204 unit tests
 7. **Golden-file parity tests** ensuring spreadsheet accuracy
 
 Key design decisions:

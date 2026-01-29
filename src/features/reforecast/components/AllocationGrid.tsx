@@ -262,9 +262,27 @@ export function AllocationGrid({
 
   if (months.length === 0) {
     return (
-      <p className="text-sm text-zinc-500 dark:text-zinc-400">
-        No months in project date range.
-      </p>
+      <div className="rounded-lg border border-dashed border-zinc-300 p-8 text-center dark:border-zinc-700">
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          No months in project date range.
+        </p>
+        <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
+          Check the project start and end dates.
+        </p>
+      </div>
+    );
+  }
+
+  if (teamMembers.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed border-zinc-300 p-8 text-center dark:border-zinc-700">
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          No team members assigned to this project.
+        </p>
+        <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
+          Add team members from the pool using the controls below.
+        </p>
+      </div>
     );
   }
 
