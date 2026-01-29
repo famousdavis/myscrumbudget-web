@@ -11,6 +11,7 @@ export interface Repository {
   getProject(id: string): Promise<Project | null>;
   saveProject(project: Project): Promise<void>;
   deleteProject(id: string): Promise<void>;
+  reorderProjects(orderedIds: string[]): Promise<void>;
 
   exportAll(): Promise<AppState>;
   importAll(state: AppState): Promise<void>;

@@ -18,6 +18,7 @@ import { ForecastMetricsPanel } from '@/features/projects/components/ForecastMet
 import { useProjectMetrics } from '@/features/projects/hooks/useProjectMetrics';
 import { MonthlyCostBarChart } from '@/components/charts/MonthlyCostBarChart';
 import { CumulativeCostLineChart } from '@/components/charts/CumulativeCostLineChart';
+import { CostByPeriodTable } from '@/components/CostByPeriodTable';
 import { generateMonthRange } from '@/lib/utils/dates';
 
 export default function ProjectDetailPage({
@@ -42,6 +43,7 @@ export default function ProjectDetailPage({
     onAllocationChange,
     switchReforecast,
     createReforecast,
+    deleteReforecast,
     addProductivityWindow,
     updateProductivityWindow,
     removeProductivityWindow,
@@ -112,6 +114,7 @@ export default function ProjectDetailPage({
             activeReforecastId={project.activeReforecastId}
             onSwitch={switchReforecast}
             onCreate={createReforecast}
+            onDelete={deleteReforecast}
           />
         </div>
         <div className="mt-3">
@@ -163,8 +166,22 @@ export default function ProjectDetailPage({
               <CumulativeCostLineChart
                 monthlyData={metrics.monthlyData}
                 baselineBudget={project.baselineBudget}
+                actualCost={project.actualCost}
               />
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cost by Period */}
+      {metrics && metrics.monthlyData.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-lg font-semibold">Cost by Period</h2>
+          <div className="mt-3">
+            <CostByPeriodTable
+              monthlyData={metrics.monthlyData}
+              actualCost={project.actualCost}
+            />
           </div>
         </div>
       )}

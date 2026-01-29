@@ -43,5 +43,19 @@ export function useProjects() {
     [reload]
   );
 
-  return { projects, loading, createProject, deleteProject };
+  const reorderProjects = useCallback(
+    async (orderedIds: string[]) => {
+      // Optimistic update
+      setProjects((prev) => {
+        const byId = new Map(prev.map((p) => [p.id, p]));
+        return orderedIds
+          .map((id) => byId.get(id))
+          .filter((p): p is Project => p !== undefined);
+      });
+      await repo.reorderProjects(orderedIds);
+    },
+    []
+  );
+
+  return { projects, loading, createProject, deleteProject, reorderProjects };
 }

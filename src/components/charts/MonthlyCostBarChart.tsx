@@ -3,24 +3,13 @@
 import { useState } from 'react';
 import type { MonthlyCalculation } from '@/types/domain';
 import { useDarkMode } from '@/hooks/useDarkMode';
-import { createLinearScale, computeNiceTicks, formatAxisValue } from './svg-utils';
+import { createLinearScale, computeNiceTicks, formatAxisValue, CHART_WIDTH, CHART_HEIGHT, MARGIN, PLOT_W, PLOT_H } from './svg-utils';
 import { ChartTooltip } from './ChartTooltip';
 import { formatCurrency } from '@/lib/utils/format';
+import { formatShortMonth } from '@/lib/utils/dates';
 
 interface MonthlyCostBarChartProps {
   monthlyData: MonthlyCalculation[];
-}
-
-const CHART_WIDTH = 700;
-const CHART_HEIGHT = 240;
-const MARGIN = { top: 16, right: 16, bottom: 40, left: 60 };
-const PLOT_W = CHART_WIDTH - MARGIN.left - MARGIN.right;
-const PLOT_H = CHART_HEIGHT - MARGIN.top - MARGIN.bottom;
-
-function shortMonth(month: string): string {
-  const [, m] = month.split('-').map(Number);
-  const names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return names[m - 1] ?? month;
 }
 
 export function MonthlyCostBarChart({ monthlyData }: MonthlyCostBarChartProps) {
@@ -105,7 +94,7 @@ export function MonthlyCostBarChart({ monthlyData }: MonthlyCostBarChartProps) {
                 fill={colors.text}
                 fontSize={9}
               >
-                {shortMonth(d.month)}
+                {formatShortMonth(d.month)}
               </text>
             </g>
           );

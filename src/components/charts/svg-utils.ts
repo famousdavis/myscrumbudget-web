@@ -3,6 +3,13 @@
  * No React dependencies — easily testable.
  */
 
+/* Shared chart layout constants */
+export const CHART_WIDTH = 700;
+export const CHART_HEIGHT = 240;
+export const MARGIN = { top: 16, right: 16, bottom: 40, left: 60 };
+export const PLOT_W = CHART_WIDTH - MARGIN.left - MARGIN.right;
+export const PLOT_H = CHART_HEIGHT - MARGIN.top - MARGIN.bottom;
+
 /** Returns a mapping function from domain → range (linear interpolation). */
 export function createLinearScale(
   domain: [number, number],

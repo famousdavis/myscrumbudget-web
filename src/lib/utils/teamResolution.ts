@@ -1,4 +1,4 @@
-import type { ProjectAssignment, PoolMember, TeamMember } from '@/types/domain';
+import type { Project, ProjectAssignment, PoolMember, Reforecast, TeamMember } from '@/types/domain';
 
 /**
  * Resolve project assignments against the team pool to produce
@@ -28,4 +28,14 @@ export function resolveAssignments(
       role: pm.role,
     };
   });
+}
+
+/**
+ * Resolve a project's active reforecast.
+ * Falls back to the first reforecast if activeReforecastId is unset.
+ */
+export function getActiveReforecast(project: Project): Reforecast | undefined {
+  return project.activeReforecastId
+    ? project.reforecasts.find((r) => r.id === project.activeReforecastId)
+    : project.reforecasts[0];
 }

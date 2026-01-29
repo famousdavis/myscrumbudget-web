@@ -1,7 +1,7 @@
 import type { Repository } from './repository';
 import type { Settings, PoolMember, Project, AppState } from '@/types/domain';
 import { STORAGE_KEYS } from '@/types/storage';
-import { runMigrations, CURRENT_VERSION } from './migrations';
+import { runMigrations, DATA_VERSION } from './migrations';
 
 export const DEFAULT_SETTINGS: Settings = {
   hoursPerMonth: 160,
@@ -73,9 +73,18 @@ export function createLocalStorageRepository(): Repository {
       );
     },
 
+    async reorderProjects(orderedIds) {
+      const projects = await repo.getProjects();
+      const byId = new Map(projects.map((p) => [p.id, p]));
+      const reordered = orderedIds
+        .map((id) => byId.get(id))
+        .filter((p): p is Project => p !== undefined);
+      set(STORAGE_KEYS.projects, reordered);
+    },
+
     async exportAll() {
       return {
-        version: CURRENT_VERSION,
+        version: DATA_VERSION,
         settings: await repo.getSettings(),
         teamPool: await repo.getTeamPool(),
         projects: await repo.getProjects(),
@@ -96,7 +105,7 @@ export function createLocalStorageRepository(): Repository {
     },
 
     async getVersion() {
-      return get<string>(STORAGE_KEYS.version, CURRENT_VERSION);
+      return get<string>(STORAGE_KEYS.version, DATA_VERSION);
     },
 
     async migrateIfNeeded() {

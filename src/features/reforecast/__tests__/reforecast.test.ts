@@ -203,6 +203,73 @@ describe('Reforecast Management', () => {
     });
   });
 
+  describe('deleteReforecast', () => {
+    // Simulate deleteReforecast logic from useReforecast
+    function deleteReforecastUpdater(reforecastId: string) {
+      return (prev: Project): Project => {
+        const remaining = prev.reforecasts.filter((r) => r.id !== reforecastId);
+        const wasActive = prev.activeReforecastId === reforecastId;
+        return {
+          ...prev,
+          reforecasts: remaining,
+          activeReforecastId: wasActive
+            ? (remaining.length > 0 ? remaining[0].id : null)
+            : prev.activeReforecastId,
+        };
+      };
+    }
+
+    it('removes the specified reforecast', () => {
+      const rf1 = makeReforecast({ id: 'rf_1' });
+      const rf2 = makeReforecast({ id: 'rf_2', name: 'Q3' });
+      const project = makeProject({
+        reforecasts: [rf1, rf2],
+        activeReforecastId: 'rf_1',
+      });
+
+      const updated = deleteReforecastUpdater('rf_2')(project);
+      expect(updated.reforecasts).toHaveLength(1);
+      expect(updated.reforecasts[0].id).toBe('rf_1');
+    });
+
+    it('switches active to first remaining when active is deleted', () => {
+      const rf1 = makeReforecast({ id: 'rf_1' });
+      const rf2 = makeReforecast({ id: 'rf_2', name: 'Q3' });
+      const project = makeProject({
+        reforecasts: [rf1, rf2],
+        activeReforecastId: 'rf_1',
+      });
+
+      const updated = deleteReforecastUpdater('rf_1')(project);
+      expect(updated.reforecasts).toHaveLength(1);
+      expect(updated.activeReforecastId).toBe('rf_2');
+    });
+
+    it('sets activeReforecastId to null when last reforecast deleted', () => {
+      const rf = makeReforecast();
+      const project = makeProject({
+        reforecasts: [rf],
+        activeReforecastId: rf.id,
+      });
+
+      const updated = deleteReforecastUpdater(rf.id)(project);
+      expect(updated.reforecasts).toHaveLength(0);
+      expect(updated.activeReforecastId).toBeNull();
+    });
+
+    it('preserves activeReforecastId when non-active is deleted', () => {
+      const rf1 = makeReforecast({ id: 'rf_1' });
+      const rf2 = makeReforecast({ id: 'rf_2', name: 'Q3' });
+      const project = makeProject({
+        reforecasts: [rf1, rf2],
+        activeReforecastId: 'rf_1',
+      });
+
+      const updated = deleteReforecastUpdater('rf_2')(project);
+      expect(updated.activeReforecastId).toBe('rf_1');
+    });
+  });
+
   describe('productivity window CRUD', () => {
     it('adds a productivity window to active reforecast', () => {
       const rf = makeReforecast({ productivityWindows: [] });

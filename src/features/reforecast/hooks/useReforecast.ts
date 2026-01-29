@@ -9,6 +9,7 @@ import type {
 } from '@/types/domain';
 import { generateId } from '@/lib/utils/id';
 import { buildAllocationMap } from '@/lib/calc/allocationMap';
+import { getActiveReforecast } from '@/lib/utils/teamResolution';
 
 interface UseReforecastOptions {
   project: Project | null;
@@ -33,17 +34,8 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
   );
 
   const activeReforecast = useMemo(() => {
-    if (!project) return null;
-
-    if (project.reforecasts.length === 0) {
-      return null; // Will be created on first allocation change
-    }
-
-    const active = project.activeReforecastId
-      ? project.reforecasts.find((r) => r.id === project.activeReforecastId)
-      : project.reforecasts[0];
-
-    return active ?? project.reforecasts[0];
+    if (!project || project.reforecasts.length === 0) return null;
+    return getActiveReforecast(project) ?? project.reforecasts[0];
   }, [project]);
 
   const allocationMap = useMemo(() => {
@@ -212,6 +204,23 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
     [updateProject, ensureReforecast],
   );
 
+  const deleteReforecast = useCallback(
+    (reforecastId: string) => {
+      updateProject((prev) => {
+        const remaining = prev.reforecasts.filter((r) => r.id !== reforecastId);
+        const wasActive = prev.activeReforecastId === reforecastId;
+        return {
+          ...prev,
+          reforecasts: remaining,
+          activeReforecastId: wasActive
+            ? (remaining.length > 0 ? remaining[0].id : null)
+            : prev.activeReforecastId,
+        };
+      });
+    },
+    [updateProject],
+  );
+
   const removeProductivityWindow = useCallback(
     (windowId: string) => {
       updateProject((prev) => {
@@ -242,6 +251,7 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
     onAllocationChange,
     switchReforecast,
     createReforecast,
+    deleteReforecast,
     addProductivityWindow,
     updateProductivityWindow,
     removeProductivityWindow,

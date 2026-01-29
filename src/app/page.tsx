@@ -1,15 +1,69 @@
 'use client';
 
+import { useState, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useProjects } from '@/features/projects/hooks/useProjects';
 import { useSettings } from '@/features/settings/hooks/useSettings';
 import { useTeamPool } from '@/features/team/hooks/useTeamPool';
 import { ProjectCard } from '@/features/projects/components/ProjectCard';
+import { DeleteProjectDialog } from '@/features/projects/components/DeleteProjectDialog';
 
 export default function DashboardPage() {
-  const { projects, loading } = useProjects();
+  const { projects, loading, deleteProject, reorderProjects } = useProjects();
   const { settings } = useSettings();
   const { pool } = useTeamPool();
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const dragCounterRef = useRef<Map<string, number>>(new Map());
+
+  const handleDragStart = useCallback((projectId: string, e: React.DragEvent) => {
+    setDraggedId(projectId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', projectId);
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    setDraggedId(null);
+    setDragOverId(null);
+    dragCounterRef.current.clear();
+  }, []);
+
+  const handleDragEnter = useCallback((projectId: string) => {
+    const count = (dragCounterRef.current.get(projectId) ?? 0) + 1;
+    dragCounterRef.current.set(projectId, count);
+    setDragOverId(projectId);
+  }, []);
+
+  const handleDragLeave = useCallback((projectId: string) => {
+    const count = (dragCounterRef.current.get(projectId) ?? 1) - 1;
+    dragCounterRef.current.set(projectId, count);
+    if (count <= 0) {
+      dragCounterRef.current.delete(projectId);
+      setDragOverId((prev) => (prev === projectId ? null : prev));
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  }, []);
+
+  const handleDrop = useCallback((targetId: string, e: React.DragEvent) => {
+    e.preventDefault();
+    const sourceId = draggedId;
+    if (!sourceId || sourceId === targetId) return;
+
+    const ids = projects.map((p) => p.id);
+    const fromIndex = ids.indexOf(sourceId);
+    const toIndex = ids.indexOf(targetId);
+    if (fromIndex < 0 || toIndex < 0) return;
+
+    // Move sourceId to toIndex position
+    ids.splice(fromIndex, 1);
+    ids.splice(toIndex, 0, sourceId);
+    reorderProjects(ids);
+  }, [draggedId, projects, reorderProjects]);
 
   return (
     <div>
@@ -40,9 +94,37 @@ export default function DashboardPage() {
       ) : (
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {projects.map((project) => (
-            <ProjectCard key={project.id} project={project} settings={settings} pool={pool} />
+            <ProjectCard
+              key={project.id}
+              project={project}
+              settings={settings}
+              pool={pool}
+              onDelete={(id) => {
+                const p = projects.find((pr) => pr.id === id);
+                if (p) setDeleteTarget({ id, name: p.name });
+              }}
+              isDragging={draggedId === project.id}
+              isDragOver={dragOverId === project.id && draggedId !== project.id}
+              onDragStart={(e) => handleDragStart(project.id, e)}
+              onDragEnd={handleDragEnd}
+              onDragOver={handleDragOver}
+              onDragEnter={() => handleDragEnter(project.id)}
+              onDragLeave={() => handleDragLeave(project.id)}
+              onDrop={(e) => handleDrop(project.id, e)}
+            />
           ))}
         </div>
+      )}
+
+      {deleteTarget && (
+        <DeleteProjectDialog
+          projectName={deleteTarget.name}
+          onConfirm={async () => {
+            await deleteProject(deleteTarget.id);
+            setDeleteTarget(null);
+          }}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
     </div>
   );

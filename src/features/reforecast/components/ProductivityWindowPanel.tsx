@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { ProductivityWindow } from '@/types/domain';
+import { nextBusinessDay } from '@/lib/utils/dates';
 
 interface ProductivityWindowPanelProps {
   windows: ProductivityWindow[];
@@ -255,7 +256,13 @@ export function ProductivityWindowPanel({
                     min={minDate}
                     max={maxDate}
                     onChange={(e) =>
-                      setAddForm((f) => ({ ...f, startDate: e.target.value }))
+                      setAddForm((f) => {
+                        const next = { ...f, startDate: e.target.value };
+                        if (e.target.value && !f.endDate) {
+                          next.endDate = nextBusinessDay(e.target.value);
+                        }
+                        return next;
+                      })
                     }
                     className="mt-1 rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
                   />
@@ -267,7 +274,7 @@ export function ProductivityWindowPanel({
                   <input
                     type="date"
                     value={addForm.endDate}
-                    min={minDate}
+                    min={addForm.startDate || minDate}
                     max={maxDate}
                     onChange={(e) =>
                       setAddForm((f) => ({ ...f, endDate: e.target.value }))

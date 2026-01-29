@@ -9,6 +9,7 @@ interface ReforecastToolbarProps {
   activeReforecastId: string | null;
   onSwitch: (id: string) => void;
   onCreate: (name: string, copyFromId?: string) => void;
+  onDelete: (id: string) => void;
 }
 
 export function ReforecastToolbar({
@@ -16,8 +17,10 @@ export function ReforecastToolbar({
   activeReforecastId,
   onSwitch,
   onCreate,
+  onDelete,
 }: ReforecastToolbarProps) {
   const [showNewDialog, setShowNewDialog] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const selectedId =
     activeReforecastId ?? (reforecasts.length > 0 ? reforecasts[0].id : '');
@@ -51,12 +54,44 @@ export function ReforecastToolbar({
           </span>
         )}
 
-        <button
-          onClick={() => setShowNewDialog(true)}
-          className="ml-auto rounded border border-blue-300 px-3 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-950"
-        >
-          + New Reforecast
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          {reforecasts.length > 0 && (
+            confirmDeleteId === selectedId ? (
+              <span className="flex items-center gap-1.5 text-xs">
+                <span className="text-zinc-500 dark:text-zinc-400">Delete?</span>
+                <button
+                  onClick={() => {
+                    onDelete(selectedId);
+                    setConfirmDeleteId(null);
+                  }}
+                  className="rounded border border-red-300 px-2 py-0.5 font-medium text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950"
+                >
+                  Yes
+                </button>
+                <button
+                  onClick={() => setConfirmDeleteId(null)}
+                  className="rounded border border-zinc-300 px-2 py-0.5 font-medium text-zinc-600 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                >
+                  No
+                </button>
+              </span>
+            ) : (
+              <button
+                onClick={() => setConfirmDeleteId(selectedId)}
+                className="rounded border border-red-200 px-3 py-1 text-xs font-medium text-red-500 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950"
+              >
+                Delete
+              </button>
+            )
+          )}
+
+          <button
+            onClick={() => setShowNewDialog(true)}
+            className="rounded border border-blue-300 px-3 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-950"
+          >
+            + New Reforecast
+          </button>
+        </div>
       </div>
 
       {showNewDialog && (

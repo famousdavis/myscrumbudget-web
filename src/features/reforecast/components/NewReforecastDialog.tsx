@@ -15,7 +15,9 @@ export function NewReforecastDialog({
   onCancel,
 }: NewReforecastDialogProps) {
   const [name, setName] = useState('');
-  const [copyFromId, setCopyFromId] = useState('');
+  const [copyFromId, setCopyFromId] = useState(
+    reforecasts.length > 0 ? reforecasts[reforecasts.length - 1].id : ''
+  );
   const [error, setError] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {

@@ -17,7 +17,7 @@ export function useTeamPool() {
     });
   }, []);
 
-  const persist = useDebouncedSave<PoolMember[]>((p) => repo.saveTeamPool(p));
+  const { save: persist } = useDebouncedSave<PoolMember[]>((p) => repo.saveTeamPool(p));
 
   const addPoolMember = useCallback(
     (name: string, role: string) => {

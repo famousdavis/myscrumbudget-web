@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { PoolMember, LaborRate } from '@/types/domain';
 import { RoleSelect } from './RoleSelect';
+
+type SortField = 'name' | 'role';
 
 interface PoolMemberTableProps {
   pool: PoolMember[];
@@ -21,6 +23,13 @@ export function PoolMemberTable({
   const [editName, setEditName] = useState('');
   const [editRole, setEditRole] = useState('');
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [sortField, setSortField] = useState<SortField>('name');
+
+  const sortedPool = useMemo(() => {
+    return [...pool].sort((a, b) =>
+      a[sortField].localeCompare(b[sortField]),
+    );
+  }, [pool, sortField]);
 
   const startEdit = (member: PoolMember) => {
     setEditingId(member.id);
@@ -49,10 +58,13 @@ export function PoolMemberTable({
   if (pool.length === 0) {
     return (
       <p className="text-sm text-zinc-500 dark:text-zinc-400">
-        No team members in the pool yet. Add one below.
+        No team members in the pool yet. Add one above.
       </p>
     );
   }
+
+  const sortIndicator = (field: SortField) =>
+    sortField === field ? ' \u25B2' : '';
 
   return (
     <div>
@@ -64,13 +76,23 @@ export function PoolMemberTable({
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-zinc-200 dark:border-zinc-700">
-            <th className="pb-2 text-left font-medium">Name</th>
-            <th className="pb-2 text-left font-medium">Role</th>
+            <th
+              className="cursor-pointer select-none pb-2 text-left font-medium hover:text-blue-600 dark:hover:text-blue-400"
+              onClick={() => setSortField('name')}
+            >
+              Name{sortIndicator('name')}
+            </th>
+            <th
+              className="cursor-pointer select-none pb-2 text-left font-medium hover:text-blue-600 dark:hover:text-blue-400"
+              onClick={() => setSortField('role')}
+            >
+              Role{sortIndicator('role')}
+            </th>
             <th className="pb-2 text-right font-medium">Actions</th>
           </tr>
         </thead>
         <tbody>
-          {pool.map((member) => (
+          {sortedPool.map((member) => (
             <tr
               key={member.id}
               className="border-b border-zinc-100 dark:border-zinc-800"
