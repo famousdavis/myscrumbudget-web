@@ -6,13 +6,19 @@ export function generateMonthRange(
   endDate: string
 ): string[] {
   const months: string[] = [];
-  const start = new Date(startDate + '-01');
-  const end = new Date(endDate + '-01');
+  const [startYear, startMonth] = startDate.split('-').map(Number);
+  const [endYear, endMonth] = endDate.split('-').map(Number);
 
-  const current = new Date(start);
-  while (current <= end) {
-    months.push(formatMonth(current));
-    current.setMonth(current.getMonth() + 1);
+  let year = startYear;
+  let month = startMonth;
+
+  while (year < endYear || (year === endYear && month <= endMonth)) {
+    months.push(`${year}-${String(month).padStart(2, '0')}`);
+    month++;
+    if (month > 12) {
+      month = 1;
+      year++;
+    }
   }
 
   return months;

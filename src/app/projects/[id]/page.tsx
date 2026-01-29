@@ -1,12 +1,19 @@
 'use client';
 
-import { use, useState } from 'react';
+import { use, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useProject } from '@/features/projects/hooks/useProject';
 import { useProjects } from '@/features/projects/hooks/useProjects';
+import { useSettings } from '@/features/settings/hooks/useSettings';
+import { useTeam } from '@/features/team/hooks/useTeam';
+import { useReforecast } from '@/features/reforecast/hooks/useReforecast';
 import { ProjectSummary } from '@/features/projects/components/ProjectSummary';
 import { DeleteProjectDialog } from '@/features/projects/components/DeleteProjectDialog';
+import { TeamTable } from '@/features/team/components/TeamTable';
+import { AddMemberForm } from '@/features/team/components/AddMemberForm';
+import { AllocationGrid } from '@/features/reforecast/components/AllocationGrid';
+import { generateMonthRange } from '@/lib/utils/dates';
 
 export default function ProjectDetailPage({
   params,
@@ -14,10 +21,28 @@ export default function ProjectDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const { project, loading } = useProject(id);
+  const { project, loading, updateProject } = useProject(id);
   const { deleteProject } = useProjects();
+  const { settings } = useSettings();
+  const { members, addMember, updateMember, deleteMember } = useTeam({
+    project,
+    updateProject,
+  });
+  const { allocationMap, onAllocationChange } = useReforecast({
+    project,
+    updateProject,
+  });
   const router = useRouter();
   const [showDelete, setShowDelete] = useState(false);
+  const [teamExpanded, setTeamExpanded] = useState(true);
+
+  const months = useMemo(() => {
+    if (!project) return [];
+    // Extract YYYY-MM from YYYY-MM-DD dates
+    const startMonth = project.startDate.slice(0, 7);
+    const endMonth = project.endDate.slice(0, 7);
+    return generateMonthRange(startMonth, endMonth);
+  }, [project]);
 
   if (loading) {
     return <p className="text-zinc-500">Loading project...</p>;
@@ -27,7 +52,10 @@ export default function ProjectDetailPage({
     return (
       <div>
         <p className="text-zinc-500">Project not found.</p>
-        <Link href="/" className="mt-2 inline-block text-sm text-blue-600 hover:text-blue-800">
+        <Link
+          href="/"
+          className="mt-2 inline-block text-sm text-blue-600 hover:text-blue-800"
+        >
           Back to Dashboard
         </Link>
       </div>
@@ -35,7 +63,7 @@ export default function ProjectDetailPage({
   }
 
   return (
-    <div>
+    <div className="min-w-0">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">{project.name}</h1>
         <div className="flex gap-2">
@@ -58,17 +86,55 @@ export default function ProjectDetailPage({
         <ProjectSummary project={project} />
       </div>
 
+      {/* Team Management */}
       <div className="mt-8">
-        <h2 className="text-lg font-semibold">Team Members</h2>
-        {project.teamMembers.length === 0 ? (
-          <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-            No team members yet. Team management will be available in Sprint 3.
-          </p>
-        ) : (
-          <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-            {project.teamMembers.length} member(s) assigned.
-          </p>
+        <button
+          onClick={() => setTeamExpanded((prev) => !prev)}
+          className="flex items-center gap-1.5 text-lg font-semibold"
+        >
+          <span
+            className="inline-block text-[10px] leading-none text-black transition-transform dark:text-white"
+            style={{ transform: teamExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
+          >
+            &#9654;
+          </span>
+          Team Members
+        </button>
+        {teamExpanded && (
+          <>
+            <div className="mt-3">
+              <TeamTable
+                members={members}
+                laborRates={settings?.laborRates ?? []}
+                onUpdate={updateMember}
+                onDelete={deleteMember}
+              />
+            </div>
+            <div className="mt-4">
+              <AddMemberForm
+                laborRates={settings?.laborRates ?? []}
+                onAdd={addMember}
+              />
+            </div>
+          </>
         )}
+      </div>
+
+      {/* Allocation Grid */}
+      <div className="mt-8">
+        <h2 className="text-lg font-semibold">Allocations</h2>
+        <div className="mt-3">
+          <AllocationGrid
+            months={months}
+            teamMembers={members}
+            allocationMap={allocationMap}
+            onAllocationChange={onAllocationChange}
+            onMemberUpdate={updateMember}
+            onMemberDelete={deleteMember}
+            onMemberAdd={addMember}
+            laborRates={settings?.laborRates ?? []}
+          />
+        </div>
       </div>
 
       {showDelete && (
