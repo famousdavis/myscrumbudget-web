@@ -28,3 +28,11 @@ export function formatNumber(value: number, decimals = 0): string {
 export function formatPercent(value: number, decimals = 0): string {
   return `${(value * 100).toFixed(decimals)}%`;
 }
+
+/**
+ * Format a raw percentage value (e.g. 10.5 → "10.5%", -3.2 → "-3.2%").
+ * Unlike formatPercent, this does NOT multiply by 100.
+ */
+export function formatPercentValue(value: number, decimals = 1): string {
+  return `${value.toFixed(decimals)}%`;
+}

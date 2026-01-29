@@ -1,17 +1,36 @@
 'use client';
 
+import { useMemo } from 'react';
 import Link from 'next/link';
-import type { Project } from '@/types/domain';
+import type { Project, Settings } from '@/types/domain';
 import { formatCurrency } from '@/lib/utils/format';
 import { formatMonthLabel } from '@/lib/utils/dates';
+import { calculateProjectMetrics } from '@/lib/calc';
 
 interface ProjectCardProps {
   project: Project;
+  settings?: Settings | null;
 }
 
-export function ProjectCard({ project }: ProjectCardProps) {
+export function ProjectCard({ project, settings }: ProjectCardProps) {
   const startLabel = formatMonthLabel(project.startDate);
   const endLabel = formatMonthLabel(project.endDate);
+
+  const metrics = useMemo(() => {
+    if (!settings) return null;
+    if (project.reforecasts.length === 0) return null;
+    const rf = project.activeReforecastId
+      ? project.reforecasts.find(r => r.id === project.activeReforecastId)
+      : project.reforecasts[0];
+    if (!rf || rf.allocations.length === 0) return null;
+    return calculateProjectMetrics(project, settings);
+  }, [project, settings]);
+
+  const eacColor = metrics
+    ? metrics.eac <= project.baselineBudget
+      ? 'text-green-600 dark:text-green-400'
+      : 'text-red-600 dark:text-red-400'
+    : '';
 
   return (
     <Link
@@ -22,13 +41,21 @@ export function ProjectCard({ project }: ProjectCardProps) {
       <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
         {startLabel} &ndash; {endLabel}
       </p>
-      <div className="mt-3 flex gap-6 text-sm">
+      <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm">
         <div>
           <span className="text-zinc-500 dark:text-zinc-400">Budget: </span>
           <span className="font-medium">
             {formatCurrency(project.baselineBudget)}
           </span>
         </div>
+        {metrics && (
+          <div>
+            <span className="text-zinc-500 dark:text-zinc-400">EAC: </span>
+            <span className={`font-medium ${eacColor}`}>
+              {formatCurrency(metrics.eac)}
+            </span>
+          </div>
+        )}
         <div>
           <span className="text-zinc-500 dark:text-zinc-400">Team: </span>
           <span className="font-medium">{project.teamMembers.length}</span>
