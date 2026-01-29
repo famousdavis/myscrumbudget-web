@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import type { Project, Settings, PoolMember, ProjectMetrics } from '@/types/domain';
 import { calculateProjectMetrics } from '@/lib/calc';
-import { resolveAssignments } from '@/lib/utils/teamResolution';
+import { resolveAssignments, getActiveReforecast } from '@/lib/utils/teamResolution';
 
 /**
  * Memoized hook that calculates project metrics.
@@ -18,9 +18,7 @@ export function useProjectMetrics(
     if (!project || !settings) return null;
     if (project.reforecasts.length === 0) return null;
 
-    const reforecast = project.activeReforecastId
-      ? project.reforecasts.find(r => r.id === project.activeReforecastId)
-      : project.reforecasts[0];
+    const reforecast = getActiveReforecast(project);
 
     if (!reforecast || reforecast.allocations.length === 0) return null;
 

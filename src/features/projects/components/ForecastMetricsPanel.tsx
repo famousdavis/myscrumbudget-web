@@ -1,8 +1,7 @@
 'use client';
 
 import type { ProjectMetrics } from '@/types/domain';
-import { formatCurrency } from '@/lib/utils/format';
-import { formatNumber, formatPercentValue } from '@/lib/utils/format';
+import { formatCurrency, formatNumber, formatPercentValue } from '@/lib/utils/format';
 
 interface ForecastMetricsPanelProps {
   metrics: ProjectMetrics | null;

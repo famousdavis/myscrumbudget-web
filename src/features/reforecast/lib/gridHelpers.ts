@@ -118,6 +118,31 @@ export function computeFillRegion(
   return { cells, values };
 }
 
+export function clampCell(
+  cell: CellCoord,
+  maxRow: number,
+  maxCol: number,
+): CellCoord {
+  return {
+    row: Math.max(0, Math.min(maxRow, cell.row)),
+    col: Math.max(0, Math.min(maxCol, cell.col)),
+  };
+}
+
+export function moveCellInDirection(
+  cell: CellCoord,
+  dRow: number,
+  dCol: number,
+  maxRow: number,
+  maxCol: number,
+): CellCoord {
+  return clampCell(
+    { row: cell.row + dRow, col: cell.col + dCol },
+    maxRow,
+    maxCol,
+  );
+}
+
 export function isCellInFillPreview(
   drag: FillDragState | null,
   allocationMap: AllocationMap,

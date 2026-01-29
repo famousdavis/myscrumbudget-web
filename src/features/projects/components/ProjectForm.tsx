@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { formatCurrency } from '@/lib/utils/format';
+import { nextBusinessDay } from '@/lib/utils/dates';
 
 interface ProjectFormData {
   name: string;
@@ -15,6 +17,7 @@ interface ProjectFormProps {
   initialData?: ProjectFormData;
   onSubmit: (data: ProjectFormData) => Promise<void>;
   submitLabel: string;
+  autoFocusName?: boolean;
 }
 
 const defaultData: ProjectFormData = {
@@ -29,20 +32,30 @@ export function ProjectForm({
   initialData,
   onSubmit,
   submitLabel,
+  autoFocusName,
 }: ProjectFormProps) {
   const router = useRouter();
   const [data, setData] = useState<ProjectFormData>(initialData ?? defaultData);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [budgetFocused, setBudgetFocused] = useState(false);
+  const [costFocused, setCostFocused] = useState(false);
 
   const handleChange = (field: keyof ProjectFormData, value: string) => {
-    setData((prev) => ({
-      ...prev,
-      [field]:
-        field === 'baselineBudget' || field === 'actualCost'
-          ? parseFloat(value) || 0
-          : value,
-    }));
+    setData((prev) => {
+      const next = {
+        ...prev,
+        [field]:
+          field === 'baselineBudget' || field === 'actualCost'
+            ? parseFloat(value) || 0
+            : value,
+      };
+      // Auto-set end date when start date changes and end date is empty
+      if (field === 'startDate' && value && !prev.endDate) {
+        next.endDate = nextBusinessDay(value);
+      }
+      return next;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -69,9 +82,14 @@ export function ProjectForm({
     setSubmitting(true);
     try {
       await onSubmit(data);
-      router.push('/');
-    } catch {
-      setError('Failed to save project.');
+      router.back();
+    } catch (err) {
+      // Don't show error for user-initiated cancellations (e.g., timeline change dialog)
+      if (err instanceof Error && err.message === 'cancelled') {
+        // User cancelled — no error to display
+      } else {
+        setError('Failed to save project.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -91,6 +109,7 @@ export function ProjectForm({
           type="text"
           value={data.name}
           onChange={(e) => handleChange('name', e.target.value)}
+          autoFocus={autoFocusName}
           className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
         />
       </div>
@@ -110,6 +129,7 @@ export function ProjectForm({
           <input
             type="date"
             value={data.endDate}
+            min={data.startDate || undefined}
             onChange={(e) => handleChange('endDate', e.target.value)}
             className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
           />
@@ -119,25 +139,51 @@ export function ProjectForm({
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="mb-1 block text-sm font-medium">
-            Baseline Budget ($)
+            Baseline Budget
           </label>
-          <input
-            type="number"
-            value={data.baselineBudget || ''}
-            onChange={(e) => handleChange('baselineBudget', e.target.value)}
-            className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-          />
+          {budgetFocused ? (
+            <input
+              type="number"
+              value={data.baselineBudget || ''}
+              onChange={(e) => handleChange('baselineBudget', e.target.value)}
+              onBlur={() => setBudgetFocused(false)}
+              autoFocus
+              className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            />
+          ) : (
+            <input
+              type="text"
+              readOnly
+              value={data.baselineBudget ? formatCurrency(data.baselineBudget) : ''}
+              onFocus={() => setBudgetFocused(true)}
+              placeholder="$0"
+              className="w-full cursor-pointer rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            />
+          )}
         </div>
         <div>
           <label className="mb-1 block text-sm font-medium">
-            Actual Cost ($)
+            Actual Cost
           </label>
-          <input
-            type="number"
-            value={data.actualCost || ''}
-            onChange={(e) => handleChange('actualCost', e.target.value)}
-            className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-          />
+          {costFocused ? (
+            <input
+              type="number"
+              value={data.actualCost || ''}
+              onChange={(e) => handleChange('actualCost', e.target.value)}
+              onBlur={() => setCostFocused(false)}
+              autoFocus
+              className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            />
+          ) : (
+            <input
+              type="text"
+              readOnly
+              value={data.actualCost ? formatCurrency(data.actualCost) : ''}
+              onFocus={() => setCostFocused(true)}
+              placeholder="$0"
+              className="w-full cursor-pointer rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            />
+          )}
         </div>
       </div>
 
@@ -151,7 +197,7 @@ export function ProjectForm({
         </button>
         <button
           type="button"
-          onClick={() => router.push('/')}
+          onClick={() => router.back()}
           className="rounded border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
         >
           Cancel

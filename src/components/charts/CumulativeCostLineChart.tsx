@@ -3,31 +3,23 @@
 import { useState } from 'react';
 import type { MonthlyCalculation } from '@/types/domain';
 import { useDarkMode } from '@/hooks/useDarkMode';
-import { createLinearScale, computeNiceTicks, formatAxisValue } from './svg-utils';
+import { createLinearScale, computeNiceTicks, formatAxisValue, CHART_WIDTH, CHART_HEIGHT, MARGIN, PLOT_W, PLOT_H } from './svg-utils';
 import { ChartTooltip } from './ChartTooltip';
 import { formatCurrency } from '@/lib/utils/format';
+import { formatShortMonth } from '@/lib/utils/dates';
 
 interface CumulativeCostLineChartProps {
   monthlyData: MonthlyCalculation[];
   baselineBudget: number;
+  actualCost: number;
 }
 
-const CHART_WIDTH = 700;
-const CHART_HEIGHT = 240;
-const MARGIN = { top: 16, right: 16, bottom: 40, left: 60 };
-const PLOT_W = CHART_WIDTH - MARGIN.left - MARGIN.right;
-const PLOT_H = CHART_HEIGHT - MARGIN.top - MARGIN.bottom;
 const DOT_RADIUS = 4;
-
-function shortMonth(month: string): string {
-  const [, m] = month.split('-').map(Number);
-  const names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return names[m - 1] ?? month;
-}
 
 export function CumulativeCostLineChart({
   monthlyData,
   baselineBudget,
+  actualCost,
 }: CumulativeCostLineChartProps) {
   const isDark = useDarkMode();
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
@@ -36,8 +28,9 @@ export function CumulativeCostLineChart({
     return <p className="text-sm text-zinc-500">No data to chart.</p>;
   }
 
+  // Offset cumulative forecast by actual cost so the line represents EAC trajectory
   const maxCumulative = Math.max(
-    ...monthlyData.map((d) => d.cumulativeCost),
+    ...monthlyData.map((d) => actualCost + d.cumulativeCost),
     baselineBudget,
   );
   const ticks = computeNiceTicks(0, maxCumulative, 5);
@@ -49,7 +42,7 @@ export function CumulativeCostLineChart({
 
   const points = monthlyData.map((d, i) => ({
     x: n > 1 ? i * xStep : PLOT_W / 2,
-    y: yScale(d.cumulativeCost),
+    y: yScale(actualCost + d.cumulativeCost),
   }));
 
   // Build line and area paths
@@ -112,7 +105,7 @@ export function CumulativeCostLineChart({
             fill={colors.text}
             fontSize={9}
           >
-            {shortMonth(d.month)}
+            {formatShortMonth(d.month)}
           </text>
         ))}
 
@@ -151,7 +144,7 @@ export function CumulativeCostLineChart({
         {/* Data dots + hit areas */}
         {points.map((p, i) => {
           const isHovered = hoverIndex === i;
-          const overBudget = monthlyData[i].cumulativeCost > baselineBudget;
+          const overBudget = (actualCost + monthlyData[i].cumulativeCost) > baselineBudget;
           return (
             <circle
               key={monthlyData[i].month}
@@ -175,7 +168,7 @@ export function CumulativeCostLineChart({
           return (
             <ChartTooltip x={p.x} y={p.y} visible chartWidth={PLOT_W}>
               <p className="font-medium">{d.month}</p>
-              <p>Cumulative: {formatCurrency(d.cumulativeCost)}</p>
+              <p>Actual + Forecast: {formatCurrency(actualCost + d.cumulativeCost)}</p>
             </ChartTooltip>
           );
         })()}

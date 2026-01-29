@@ -14,6 +14,7 @@ import {
 import { calculateNPV } from './npv';
 import { getProductivityFactor } from './productivity';
 import { generateMonthRange } from '@/lib/utils/dates';
+import { getActiveReforecast } from '@/lib/utils/teamResolution';
 
 /**
  * Calculate all project metrics from a project and its settings.
@@ -26,9 +27,7 @@ export function calculateProjectMetrics(
   settings: Settings,
   teamMembers: TeamMember[],
 ): ProjectMetrics {
-  const reforecast = project.activeReforecastId
-    ? project.reforecasts.find(r => r.id === project.activeReforecastId)
-    : project.reforecasts[0];
+  const reforecast = getActiveReforecast(project);
 
   if (!reforecast) {
     return {

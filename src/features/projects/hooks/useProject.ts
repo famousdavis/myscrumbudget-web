@@ -16,7 +16,7 @@ export function useProject(id: string) {
     });
   }, [id]);
 
-  const persistProject = useDebouncedSave<Project>((p) => repo.saveProject(p));
+  const { save: persistProject, flush } = useDebouncedSave<Project>((p) => repo.saveProject(p));
 
   const updateProject = useCallback(
     (updater: (prev: Project) => Project) => {
@@ -30,5 +30,5 @@ export function useProject(id: string) {
     [persistProject]
   );
 
-  return { project, loading, updateProject };
+  return { project, loading, updateProject, flush };
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { runMigrations, CURRENT_VERSION } from '../migrations';
+import { runMigrations, DATA_VERSION } from '../migrations';
 import type { AppState } from '@/types/domain';
 
 function makeAppState(overrides: Partial<AppState> = {}): AppState {
@@ -19,7 +19,7 @@ function makeAppState(overrides: Partial<AppState> = {}): AppState {
 describe('Migrations', () => {
   it('returns data unchanged when already at current version', () => {
     const data = makeAppState();
-    const result = runMigrations(data, CURRENT_VERSION);
+    const result = runMigrations(data, DATA_VERSION);
     expect(result).toEqual(data);
   });
 
@@ -30,7 +30,7 @@ describe('Migrations', () => {
   });
 
   it('exports current version constant', () => {
-    expect(CURRENT_VERSION).toBe('0.2.0');
+    expect(DATA_VERSION).toBe('0.2.0');
   });
 
   it('migrates v1 data to v2 (extracts team pool from projects)', () => {

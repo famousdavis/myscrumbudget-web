@@ -1,6 +1,6 @@
 import type { AppState, PoolMember, ProjectAssignment } from '@/types/domain';
 
-export const CURRENT_VERSION = '0.2.0';
+export const DATA_VERSION = '0.2.0';
 
 type Migration = {
   version: string;
@@ -72,7 +72,7 @@ export function runMigrations(data: AppState, fromVersion: string): AppState {
     migrated = { ...migrated, version: migration.version };
   }
 
-  return { ...migrated, version: CURRENT_VERSION };
+  return { ...migrated, version: DATA_VERSION };
 }
 
 function compareVersions(a: string, b: string): number {

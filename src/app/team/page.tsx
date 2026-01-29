@@ -22,18 +22,18 @@ export default function TeamPoolPage() {
       </p>
 
       <div className="mt-6">
+        <AddPoolMemberForm
+          laborRates={settings?.laborRates ?? []}
+          onAdd={addPoolMember}
+        />
+      </div>
+
+      <div className="mt-6">
         <PoolMemberTable
           pool={pool}
           laborRates={settings?.laborRates ?? []}
           onUpdate={updatePoolMember}
           onDelete={deletePoolMember}
-        />
-      </div>
-
-      <div className="mt-4">
-        <AddPoolMemberForm
-          laborRates={settings?.laborRates ?? []}
-          onAdd={addPoolMember}
         />
       </div>
     </div>

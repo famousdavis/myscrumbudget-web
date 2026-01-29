@@ -12,10 +12,13 @@ import { useReforecast } from '@/features/reforecast/hooks/useReforecast';
 import { ProjectSummary } from '@/features/projects/components/ProjectSummary';
 import { DeleteProjectDialog } from '@/features/projects/components/DeleteProjectDialog';
 import { AllocationGrid } from '@/features/reforecast/components/AllocationGrid';
+import { ReforecastToolbar } from '@/features/reforecast/components/ReforecastToolbar';
+import { ProductivityWindowPanel } from '@/features/reforecast/components/ProductivityWindowPanel';
 import { ForecastMetricsPanel } from '@/features/projects/components/ForecastMetricsPanel';
 import { useProjectMetrics } from '@/features/projects/hooks/useProjectMetrics';
 import { MonthlyCostBarChart } from '@/components/charts/MonthlyCostBarChart';
 import { CumulativeCostLineChart } from '@/components/charts/CumulativeCostLineChart';
+import { CostByPeriodTable } from '@/components/CostByPeriodTable';
 import { generateMonthRange } from '@/lib/utils/dates';
 
 export default function ProjectDetailPage({
@@ -33,7 +36,18 @@ export default function ProjectDetailPage({
     updateProject,
     pool,
   });
-  const { allocationMap, onAllocationChange } = useReforecast({
+  const {
+    reforecasts,
+    allocationMap,
+    productivityWindows,
+    onAllocationChange,
+    switchReforecast,
+    createReforecast,
+    deleteReforecast,
+    addProductivityWindow,
+    updateProductivityWindow,
+    removeProductivityWindow,
+  } = useReforecast({
     project,
     updateProject,
   });
@@ -95,6 +109,15 @@ export default function ProjectDetailPage({
       <div className="mt-8">
         <h2 className="text-lg font-semibold">Allocations</h2>
         <div className="mt-3">
+          <ReforecastToolbar
+            reforecasts={reforecasts}
+            activeReforecastId={project.activeReforecastId}
+            onSwitch={switchReforecast}
+            onCreate={createReforecast}
+            onDelete={deleteReforecast}
+          />
+        </div>
+        <div className="mt-3">
           <AllocationGrid
             months={months}
             teamMembers={members}
@@ -104,8 +127,21 @@ export default function ProjectDetailPage({
             onMemberAdd={addAssignment}
             pool={pool}
             monthlyData={metrics?.monthlyData}
+            productivityWindows={productivityWindows}
           />
         </div>
+      </div>
+
+      {/* Productivity Windows */}
+      <div className="mt-8">
+        <ProductivityWindowPanel
+          windows={productivityWindows}
+          projectStartDate={project.startDate}
+          projectEndDate={project.endDate}
+          onAdd={addProductivityWindow}
+          onUpdate={updateProductivityWindow}
+          onRemove={removeProductivityWindow}
+        />
       </div>
 
       {/* Forecast Metrics */}
@@ -130,8 +166,22 @@ export default function ProjectDetailPage({
               <CumulativeCostLineChart
                 monthlyData={metrics.monthlyData}
                 baselineBudget={project.baselineBudget}
+                actualCost={project.actualCost}
               />
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cost by Period */}
+      {metrics && metrics.monthlyData.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-lg font-semibold">Cost by Period</h2>
+          <div className="mt-3">
+            <CostByPeriodTable
+              monthlyData={metrics.monthlyData}
+              actualCost={project.actualCost}
+            />
           </div>
         </div>
       )}
@@ -149,4 +199,3 @@ export default function ProjectDetailPage({
     </div>
   );
 }
-

@@ -351,6 +351,8 @@ const exampleState: AppState = {
 │  │   /projects/[id]/edit  → Edit project metadata                          │ │
 │  │   /team                → Global team member pool management             │ │
 │  │   /settings            → Global settings (rates, hours/month)           │ │
+│  │   /about               → About page                                    │ │
+│  │   /changelog           → Version changelog                             │ │
 │  │                                                                         │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
 │                                     │                                        │
@@ -432,8 +434,12 @@ src/
 │   │       └── page.tsx             # Create project
 │   ├── team/
 │   │   └── page.tsx                 # Global team pool management
-│   └── settings/
-│       └── page.tsx                 # Global settings
+│   ├── settings/
+│   │   └── page.tsx                 # Global settings
+│   ├── about/
+│   │   └── page.tsx                 # About page
+│   └── changelog/
+│       └── page.tsx                 # Version changelog
 │
 ├── features/                         # Feature modules
 │   ├── projects/
@@ -504,16 +510,19 @@ src/
 │   │       ├── localStorage.test.ts
 │   │       └── migrations.test.ts
 │   │
-│   └── utils/
-│       ├── dates.ts                 # Date/month manipulation
-│       ├── format.ts                # Number/currency formatting
-│       ├── id.ts                    # ID generation
-│       ├── teamResolution.ts        # resolveAssignments(assignments, pool)
-│       └── __tests__/
-│           └── teamResolution.test.ts
+│   ├── utils/
+│   │   ├── dates.ts                 # Date/month manipulation
+│   │   ├── format.ts                # Number/currency formatting
+│   │   ├── id.ts                    # ID generation
+│   │   ├── teamResolution.ts        # resolveAssignments, getActiveReforecast
+│   │   └── __tests__/
+│   │       └── teamResolution.test.ts
+│   └── constants.ts                 # App version, name, description
 │
 ├── components/                       # Shared components
 │   ├── MigrationGuard.tsx           # Runs migrations before rendering
+│   ├── Footer.tsx                   # App footer (version, copyright, GPL)
+│   ├── CostByPeriodTable.tsx        # Annual cost breakout table
 │   └── charts/
 │       ├── MonthlyCostBarChart.tsx   # SVG bar chart
 │       ├── CumulativeCostLineChart.tsx  # SVG line chart
@@ -581,15 +590,34 @@ src/
 - [x] Chart tooltips with formatted values
 - [x] Summary rows in allocation grid (monthly cost + hours)
 
-### Phase 7: Reforecast Snapshots
+### Phase 7: Reforecast Snapshots (Sprint 6 — DONE)
 - [x] Create named reforecasts
 - [x] Switch between reforecasts
-- [ ] Copy allocation from previous reforecast
+- [x] Copy allocation from previous reforecast
 
-### Phase 8: Productivity Windows (Enhancement)
-- [ ] Define productivity limitation periods
-- [ ] Apply factor to affected months (both hours and cost)
-- [ ] Visual indication on allocation grid
+### Phase 8: Productivity Windows (Sprint 7 — DONE)
+- [x] Define productivity limitation periods
+- [x] Apply factor to affected months (both hours and cost)
+- [x] Visual indication on allocation grid
+- [x] Keyboard navigation for allocation grid
+- [x] README with domain glossary
+
+### Phase 9: UX Polish & Branding (Sprint 8 — DONE)
+- [x] Footer with copyright, version link, GPL notice
+- [x] About page with app description, author, GitHub link, privacy
+- [x] Changelog page with versioned release history
+- [x] TM trademark branding on MyScrumBudget name
+- [x] Cost-by-Period table (annual spend breakout below charts)
+- [x] Dashboard drag-to-reorder project tiles
+- [x] Team pool table sort by name
+- [x] Currency formatting in project form (click-to-edit)
+- [x] Auto-set end date from start date (nextBusinessDay)
+- [x] Cumulative cost chart includes actual cost offset
+- [x] ETC displayed in project summary bar
+- [x] Default copy-from forecast to most recent reforecast
+- [x] Debounced save flush on unmount (prevents stale data)
+- [x] Codebase refactoring (deduplication, shared utilities)
+- [x] 190 passing tests across 14 test files
 
 ### Deferred (Future)
 - XLSX timecard import (with project alias mapping)
@@ -648,31 +676,46 @@ Delivered:
 - Allocation grid summary rows (monthly cost + hours)
 - Chart tooltip component with formatted values
 
-### Sprint 6: Reforecasts — PARTIALLY COMPLETE
+### Sprint 6: Reforecasts — COMPLETE (v0.3.0)
 **Goal**: Snapshot management
 
-Completed:
-- Reforecast creation UI
-- Reforecast switching
+Delivered:
+- Reforecast creation UI with ReforecastToolbar and NewReforecastDialog
+- Reforecast switching via dropdown
+- Copy allocations from previous reforecast (deep-clone with new IDs)
+- 12 reforecast management tests
 
-Remaining:
-- Copy allocation from previous reforecast
-
-### Sprint 7: Productivity & Polish
+### Sprint 7: Productivity & Polish — COMPLETE (v0.3.0)
 **Goal**: Productivity windows + UX polish
 
-Tasks:
-1. Productivity window CRUD
-2. Calculation adjustment for productivity (hours and cost)
-3. Visual indicators on allocation grid
-4. Keyboard navigation
-5. Error handling and validation
-6. README and documentation
+Delivered:
+- Productivity window CRUD (ProductivityWindowPanel with add/edit/delete)
+- Calculation adjustment already wired (getProductivityFactor per month)
+- Amber visual indicators on allocation grid for months with reduced productivity
+- Keyboard navigation (arrow keys, Enter, Tab, Delete, digit-to-edit)
+- Error handling and validation in forms
+- README.md with domain glossary and intentional divergences
+- 183 total tests (up from 157)
 
-Deliverables:
-- Complete MVP
-- Documentation
-- Ready for deployment
+### Sprint 8: UX Polish & Branding — COMPLETE (v0.3.0)
+**Goal**: App branding, navigation, and UX refinements
+
+Delivered:
+- Footer component (copyright, GPL, version link to changelog)
+- About page (/about) with app description, privacy, author, GitHub link
+- Changelog page (/changelog) with versioned release history
+- TM trademark branding on MyScrumBudget name throughout app
+- Cost-by-Period table — annual spend breakout below cost charts
+- Dashboard drag-to-reorder project tiles (persisted to localStorage)
+- Team pool table sorted alphabetically
+- Currency formatting in project form inputs (click-to-edit pattern)
+- Auto-set end date via nextBusinessDay when start date changes
+- Cumulative cost chart now offsets by actual cost (EAC trajectory)
+- ETC metric displayed in project summary bar
+- New reforecast defaults copy-from to most recent reforecast
+- useDebouncedSave flush on unmount (prevents stale data on navigation)
+- Codebase refactoring: extracted shared utilities (formatShortMonth, nextBusinessDay, getActiveReforecast, chart layout constants), consolidated imports, renamed DATA_VERSION
+- 190 total tests across 14 test files
 
 ---
 
@@ -1028,9 +1071,9 @@ export const repo = createLocalStorageRepository();
 The localStorage implementation (`localStorage.ts`) uses `STORAGE_KEYS` from `types/storage.ts` and handles team pool via `getTeamPool()`/`saveTeamPool()`. The `exportAll()`/`importAll()` methods include `teamPool` in the `AppState` round-trip.
 
 ```typescript
-// lib/storage/migrations.ts — current version is 0.2.0
+// lib/storage/migrations.ts — current data version is 0.2.0
 
-export const CURRENT_VERSION = '0.2.0';
+export const DATA_VERSION = '0.2.0';
 
 // Migration from v1.0.0 (legacy) → v0.2.0:
 // - Extracts teamMembers from each project into a global teamPool
@@ -1249,8 +1292,8 @@ This architecture document provides:
 2. **Clean TypeScript domain model** with global team pool + project assignments
 3. **Repository pattern** with shared singleton and migration support
 4. **Feature-based folder structure** optimized for solo maintenance
-5. **Incremental build plan** with testable milestones (Sprints 1–5 complete)
-6. **Pure calculation functions** with 157 unit tests
+5. **Incremental build plan** with testable milestones (Sprints 1–8 complete)
+6. **Pure calculation functions** with 190 unit tests
 7. **Golden-file parity tests** ensuring spreadsheet accuracy
 
 Key design decisions:
