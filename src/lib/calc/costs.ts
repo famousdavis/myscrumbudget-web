@@ -3,10 +3,13 @@ import type { AllocationMap } from './allocationMap';
 
 /**
  * Look up the hourly rate for a role from settings.
- * Returns 0 if the role is not found.
+ * Returns 0 if the role is not found (and logs a warning).
  */
 export function getHourlyRate(role: string, settings: Settings): number {
   const rate = settings.laborRates.find(r => r.role === role);
+  if (!rate) {
+    console.warn(`[calc] No hourly rate configured for role "${role}" — defaulting to $0`);
+  }
   return rate?.hourlyRate ?? 0;
 }
 

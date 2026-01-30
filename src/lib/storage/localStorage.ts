@@ -17,13 +17,22 @@ export const DEFAULT_SETTINGS: Settings = {
 
 function get<T>(key: string, fallback: T): T {
   if (typeof window === 'undefined') return fallback;
-  const data = localStorage.getItem(key);
-  return data ? JSON.parse(data) : fallback;
+  try {
+    const data = localStorage.getItem(key);
+    return data ? JSON.parse(data) : fallback;
+  } catch (e) {
+    console.warn(`[storage] Failed to read "${key}":`, e);
+    return fallback;
+  }
 }
 
 function set(key: string, value: unknown): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(key, JSON.stringify(value));
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    console.error(`[storage] Failed to write "${key}":`, e);
+  }
 }
 
 export function createLocalStorageRepository(): Repository {

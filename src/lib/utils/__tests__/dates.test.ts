@@ -1,5 +1,89 @@
 import { describe, it, expect } from 'vitest';
-import { countWorkdays, getMonthlyWorkHours } from '../dates';
+import {
+  generateMonthRange,
+  formatMonthLabel,
+  formatShortMonth,
+  nextBusinessDay,
+  countWorkdays,
+  getMonthlyWorkHours,
+} from '../dates';
+
+describe('generateMonthRange', () => {
+  it('generates a single month when start equals end', () => {
+    expect(generateMonthRange('2026-06', '2026-06')).toEqual(['2026-06']);
+  });
+
+  it('generates consecutive months within the same year', () => {
+    expect(generateMonthRange('2026-06', '2026-09')).toEqual([
+      '2026-06', '2026-07', '2026-08', '2026-09',
+    ]);
+  });
+
+  it('spans across a year boundary', () => {
+    expect(generateMonthRange('2026-11', '2027-02')).toEqual([
+      '2026-11', '2026-12', '2027-01', '2027-02',
+    ]);
+  });
+
+  it('generates 14 months for the golden-file project range', () => {
+    const months = generateMonthRange('2026-06', '2027-07');
+    expect(months).toHaveLength(14);
+    expect(months[0]).toBe('2026-06');
+    expect(months[13]).toBe('2027-07');
+  });
+
+  it('returns empty array when start is after end', () => {
+    expect(generateMonthRange('2027-01', '2026-06')).toEqual([]);
+  });
+
+  it('pads single-digit months with leading zero', () => {
+    const months = generateMonthRange('2026-01', '2026-03');
+    expect(months).toEqual(['2026-01', '2026-02', '2026-03']);
+  });
+});
+
+describe('formatMonthLabel', () => {
+  it('formats YYYY-MM as "Mon YYYY"', () => {
+    expect(formatMonthLabel('2026-06')).toBe('Jun 2026');
+    expect(formatMonthLabel('2026-01')).toBe('Jan 2026');
+    expect(formatMonthLabel('2026-12')).toBe('Dec 2026');
+  });
+});
+
+describe('formatShortMonth', () => {
+  it('returns 3-letter month abbreviation', () => {
+    expect(formatShortMonth('2026-01')).toBe('Jan');
+    expect(formatShortMonth('2026-06')).toBe('Jun');
+    expect(formatShortMonth('2026-12')).toBe('Dec');
+  });
+});
+
+describe('nextBusinessDay', () => {
+  it('returns the next day when current is a weekday before Friday', () => {
+    // Monday → Tuesday
+    expect(nextBusinessDay('2026-01-05')).toBe('2026-01-06');
+  });
+
+  it('skips weekend when current is Friday', () => {
+    // Friday → Monday
+    expect(nextBusinessDay('2026-01-09')).toBe('2026-01-12');
+  });
+
+  it('skips to Monday when current is Saturday', () => {
+    // Saturday → Monday
+    expect(nextBusinessDay('2026-01-10')).toBe('2026-01-12');
+  });
+
+  it('returns Monday when current is Sunday', () => {
+    // Sunday → next day is Monday
+    expect(nextBusinessDay('2026-01-04')).toBe('2026-01-05');
+  });
+
+  it('handles month boundary', () => {
+    // Friday Jan 30 → Monday Feb 2
+    expect(nextBusinessDay('2026-01-30')).toBe('2026-02-02');
+  });
+});
 
 describe('countWorkdays', () => {
   it('counts 2 workdays for Thu-Fri range (1/29-1/30/2026)', () => {

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { Reforecast } from '@/types/domain';
+import { BaseDialog, dialogButtonStyles } from '@/components/BaseDialog';
 
 interface NewReforecastDialogProps {
   reforecasts: Reforecast[];
@@ -31,79 +32,80 @@ export function NewReforecastDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="mx-4 w-full max-w-sm rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
-        <h3 className="text-lg font-semibold">New Reforecast</h3>
-        <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+    <BaseDialog
+      title="New Reforecast"
+      actions={
+        <>
+          <button
+            type="button"
+            onClick={onCancel}
+            className={dialogButtonStyles.cancel}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="new-reforecast-form"
+            disabled={!name.trim()}
+            className={dialogButtonStyles.primary}
+          >
+            Create
+          </button>
+        </>
+      }
+    >
+      <form id="new-reforecast-form" onSubmit={handleSubmit} className="mt-4 space-y-4">
+        <div>
+          <label
+            htmlFor="rf-name"
+            className="block text-sm font-medium text-zinc-700 dark:text-zinc-300"
+          >
+            Name
+          </label>
+          <input
+            id="rf-name"
+            type="text"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              if (error) setError('');
+            }}
+            maxLength={50}
+            autoFocus
+            className="mt-1 w-full rounded border border-zinc-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            placeholder="e.g., Q3 Reforecast"
+          />
+          {error && (
+            <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+              {error}
+            </p>
+          )}
+        </div>
+
+        {reforecasts.length > 0 && (
           <div>
             <label
-              htmlFor="rf-name"
+              htmlFor="rf-copy-from"
               className="block text-sm font-medium text-zinc-700 dark:text-zinc-300"
             >
-              Name
+              Copy allocations from
             </label>
-            <input
-              id="rf-name"
-              type="text"
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                if (error) setError('');
-              }}
-              maxLength={50}
-              autoFocus
+            <select
+              id="rf-copy-from"
+              value={copyFromId}
+              onChange={(e) => setCopyFromId(e.target.value)}
               className="mt-1 w-full rounded border border-zinc-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-              placeholder="e.g., Q3 Reforecast"
-            />
-            {error && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400">
-                {error}
-              </p>
-            )}
-          </div>
-
-          {reforecasts.length > 0 && (
-            <div>
-              <label
-                htmlFor="rf-copy-from"
-                className="block text-sm font-medium text-zinc-700 dark:text-zinc-300"
-              >
-                Copy allocations from
-              </label>
-              <select
-                id="rf-copy-from"
-                value={copyFromId}
-                onChange={(e) => setCopyFromId(e.target.value)}
-                className="mt-1 w-full rounded border border-zinc-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-              >
-                <option value="">Start fresh</option>
-                {reforecasts.map((rf) => (
-                  <option key={rf.id} value={rf.id}>
-                    {rf.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          <div className="flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="rounded border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
             >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={!name.trim()}
-              className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Create
-            </button>
+              <option value="">Start fresh</option>
+              {reforecasts.map((rf) => (
+                <option key={rf.id} value={rf.id}>
+                  {rf.name}
+                </option>
+              ))}
+            </select>
           </div>
-        </form>
-      </div>
-    </div>
+        )}
+      </form>
+    </BaseDialog>
   );
 }
