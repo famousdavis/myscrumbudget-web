@@ -37,16 +37,11 @@ export function ProjectForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [budgetFocused, setBudgetFocused] = useState(false);
+  const [budgetInput, setBudgetInput] = useState('');
 
   const handleChange = (field: keyof ProjectFormData, value: string) => {
     setData((prev) => {
-      const next = {
-        ...prev,
-        [field]:
-          field === 'baselineBudget'
-            ? Math.max(0, parseFloat(value) || 0)
-            : value,
-      };
+      const next = { ...prev, [field]: value };
       // Auto-set end date when start date changes and end date is empty
       if (field === 'startDate' && value && !prev.endDate) {
         next.endDate = nextBusinessDay(value);
@@ -54,6 +49,9 @@ export function ProjectForm({
       return next;
     });
   };
+
+  const isFormValid =
+    data.name.trim() !== '' && data.startDate !== '' && data.endDate !== '';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,7 +120,7 @@ export function ProjectForm({
             type="date"
             value={data.startDate}
             onChange={(e) => handleChange('startDate', e.target.value)}
-            className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            className={`w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900${!data.startDate ? ' text-zinc-400 dark:text-zinc-500' : ''}`}
           />
         </div>
         <div>
@@ -132,7 +130,7 @@ export function ProjectForm({
             value={data.endDate}
             min={data.startDate || undefined}
             onChange={(e) => handleChange('endDate', e.target.value)}
-            className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            className={`w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900${!data.endDate ? ' text-zinc-400 dark:text-zinc-500' : ''}`}
           />
         </div>
       </div>
@@ -145,9 +143,14 @@ export function ProjectForm({
           <input
             type="number"
             min="0"
-            value={data.baselineBudget}
-            onChange={(e) => handleChange('baselineBudget', e.target.value)}
-            onBlur={() => setBudgetFocused(false)}
+            value={budgetInput}
+            onChange={(e) => setBudgetInput(e.target.value)}
+            onBlur={() => {
+              const parsed = parseFloat(budgetInput);
+              const clamped = Math.max(0, Number.isFinite(parsed) ? parsed : 0);
+              setData((prev) => ({ ...prev, baselineBudget: clamped }));
+              setBudgetFocused(false);
+            }}
             autoFocus
             className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
           />
@@ -156,9 +159,12 @@ export function ProjectForm({
             type="text"
             readOnly
             value={formatCurrency(data.baselineBudget)}
-            onFocus={() => setBudgetFocused(true)}
+            onFocus={() => {
+              setBudgetInput(data.baselineBudget ? String(data.baselineBudget) : '');
+              setBudgetFocused(true);
+            }}
             placeholder="$0"
-            className="w-full cursor-pointer rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+            className={`w-full cursor-pointer rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900${!data.baselineBudget ? ' text-zinc-400 dark:text-zinc-500' : ''}`}
           />
         )}
       </div>
@@ -166,7 +172,7 @@ export function ProjectForm({
       <div className="flex gap-3 pt-2">
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || !isFormValid}
           className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
         >
           {submitting ? 'Saving...' : submitLabel}

@@ -23,21 +23,22 @@ interface InlineEditableFieldProps {
 
 function InlineEditableField({ label, value, onChange }: InlineEditableFieldProps) {
   const [editing, setEditing] = useState(false);
-  const [editValue, setEditValue] = useState(value);
+  const [editValue, setEditValue] = useState(String(value));
 
   // Sync when prop changes (e.g., reforecast switch)
   useEffect(() => {
-    setEditValue(value);
+    setEditValue(String(value));
   }, [value]);
 
   const save = () => {
-    const clamped = Math.max(0, editValue);
+    const parsed = parseFloat(editValue);
+    const clamped = Math.max(0, Number.isFinite(parsed) ? parsed : 0);
     onChange?.(clamped);
     setEditing(false);
   };
 
   const cancel = () => {
-    setEditValue(value);
+    setEditValue(String(value));
     setEditing(false);
   };
 
@@ -47,7 +48,10 @@ function InlineEditableField({ label, value, onChange }: InlineEditableFieldProp
   };
 
   const activate = () => {
-    if (!editing) setEditing(true);
+    if (!editing) {
+      setEditValue(value ? String(value) : '');
+      setEditing(true);
+    }
   };
 
   const handleContainerKeyDown = (e: React.KeyboardEvent) => {
@@ -72,9 +76,7 @@ function InlineEditableField({ label, value, onChange }: InlineEditableFieldProp
           type="number"
           min="0"
           value={editValue}
-          onChange={(e) =>
-            setEditValue(Math.max(0, parseFloat(e.target.value) || 0))
-          }
+          onChange={(e) => setEditValue(e.target.value)}
           onBlur={save}
           onKeyDown={handleKeyDown}
           autoFocus

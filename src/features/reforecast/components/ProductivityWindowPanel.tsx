@@ -153,7 +153,7 @@ export function ProductivityWindowPanel({
                                   startDate: e.target.value,
                                 }))
                               }
-                              className="rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                              className={`rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-800${!editForm.startDate ? ' text-zinc-400 dark:text-zinc-500' : ' dark:text-zinc-100'}`}
                             />
                           </td>
                           <td className="py-2 pr-4">
@@ -168,7 +168,7 @@ export function ProductivityWindowPanel({
                                   endDate: e.target.value,
                                 }))
                               }
-                              className="rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                              className={`rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-800${!editForm.endDate ? ' text-zinc-400 dark:text-zinc-500' : ' dark:text-zinc-100'}`}
                             />
                           </td>
                           <td className="py-2 pr-4">
@@ -264,7 +264,7 @@ export function ProductivityWindowPanel({
                         return next;
                       })
                     }
-                    className="mt-1 rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                    className={`mt-1 rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-800${!addForm.startDate ? ' text-zinc-400 dark:text-zinc-500' : ' dark:text-zinc-100'}`}
                   />
                 </div>
                 <div>
@@ -279,7 +279,7 @@ export function ProductivityWindowPanel({
                     onChange={(e) =>
                       setAddForm((f) => ({ ...f, endDate: e.target.value }))
                     }
-                    className="mt-1 rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                    className={`mt-1 rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-800${!addForm.endDate ? ' text-zinc-400 dark:text-zinc-500' : ' dark:text-zinc-100'}`}
                   />
                 </div>
                 <div>
