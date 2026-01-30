@@ -170,10 +170,6 @@ export function ProjectCard({
                 )}
               </div>
             )}
-            <div>
-              <span className="text-zinc-500 dark:text-zinc-400">Team: </span>
-              <span className="font-medium">{(project.assignments ?? []).length}</span>
-            </div>
           </div>
         </Link>
       </div>
