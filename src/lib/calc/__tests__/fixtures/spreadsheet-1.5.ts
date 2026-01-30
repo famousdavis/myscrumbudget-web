@@ -122,6 +122,7 @@ export const SPREADSHEET_FIXTURE: SpreadsheetFixture = {
       { role: 'Manager', hourlyRate: 150 },
       { role: 'PMO', hourlyRate: 120 },
     ],
+    holidays: [],
   },
   project: {
     startDate: '2026-06-15',

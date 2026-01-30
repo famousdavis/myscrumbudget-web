@@ -10,6 +10,7 @@ import type { Project, Settings, TeamMember, Reforecast } from '@/types/domain';
 const SETTINGS: Settings = {
   discountRateAnnual: 0.03,
   laborRates: [{ role: 'Dev', hourlyRate: 100 }],
+  holidays: [],
 };
 
 function makeProject(overrides: Partial<Project> = {}): Project {

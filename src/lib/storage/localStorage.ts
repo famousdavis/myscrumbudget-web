@@ -13,6 +13,7 @@ export const DEFAULT_SETTINGS: Settings = {
     { role: 'Manager', hourlyRate: 150 },
     { role: 'PMO', hourlyRate: 120 },
   ],
+  holidays: [],
 };
 
 function get<T>(key: string, fallback: T): T {

@@ -18,6 +18,7 @@ const SETTINGS: Settings = {
     { role: 'Manager', hourlyRate: 150 },
     { role: 'PMO', hourlyRate: 120 },
   ],
+  holidays: [],
 };
 
 describe('getHourlyRate', () => {

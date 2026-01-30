@@ -3,6 +3,7 @@
 import { useSettings } from '@/features/settings/hooks/useSettings';
 import { SettingsForm } from '@/features/settings/components/SettingsForm';
 import { RateTable } from '@/features/settings/components/RateTable';
+import { HolidayTable } from '@/features/settings/components/HolidayTable';
 import { DataPortability } from '@/features/settings/components/DataPortability';
 
 export default function SettingsPage() {
@@ -28,6 +29,8 @@ export default function SettingsPage() {
         <SettingsForm settings={settings} onUpdate={updateSettings} />
         <hr className="border-zinc-200 dark:border-zinc-800" />
         <RateTable rates={settings.laborRates} onUpdate={updateSettings} />
+        <hr className="border-zinc-200 dark:border-zinc-800" />
+        <HolidayTable holidays={settings.holidays} onUpdate={updateSettings} />
         <hr className="border-zinc-200 dark:border-zinc-800" />
         <DataPortability onImportComplete={handleImportComplete} />
       </div>

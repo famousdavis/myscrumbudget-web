@@ -9,6 +9,7 @@ interface RateTableProps {
 }
 
 export function RateTable({ rates, onUpdate }: RateTableProps) {
+  const [isOpen, setIsOpen] = useState(false);
   const [newRole, setNewRole] = useState('');
   const [newRate, setNewRate] = useState('');
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -63,9 +64,25 @@ export function RateTable({ rates, onUpdate }: RateTableProps) {
 
   return (
     <div>
-      <h3 className="mb-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300"
+      >
+        <span
+          className="inline-block transition-transform"
+          style={{ transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}
+        >
+          &#9654;
+        </span>
         Labor Rate Table
-      </h3>
+        {rates.length > 0 && (
+          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+            {rates.length}
+          </span>
+        )}
+      </button>
+      {isOpen && (
+      <div className="mt-3">
       <table className="w-full max-w-md text-sm">
         <thead>
           <tr className="border-b border-zinc-200 dark:border-zinc-700">
@@ -154,11 +171,14 @@ export function RateTable({ rates, onUpdate }: RateTableProps) {
         />
         <button
           onClick={handleAdd}
-          className="rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
+          disabled={!newRole.trim() || isNaN(parseFloat(newRate)) || parseFloat(newRate) <= 0 || rates.some((r) => r.role === newRole.trim())}
+          className="rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
         >
           Add
         </button>
       </div>
+      </div>
+      )}
     </div>
   );
 }

@@ -57,7 +57,7 @@ export function calculateProjectMetrics(
 
   for (const month of months) {
     const factor = getProductivityFactor(month, reforecast.productivityWindows);
-    const availableHours = getMonthlyWorkHours(month, project.startDate, project.endDate);
+    const availableHours = getMonthlyWorkHours(month, project.startDate, project.endDate, settings.holidays);
     const cost = calculateTotalMonthlyCost(
       month, allocationMap, teamMembers, settings, availableHours, factor,
     );

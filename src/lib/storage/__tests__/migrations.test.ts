@@ -4,10 +4,11 @@ import type { AppState } from '@/types/domain';
 
 function makeAppState(overrides: Partial<AppState> = {}): AppState {
   return {
-    version: '0.5.0',
+    version: '0.6.0',
     settings: {
       discountRateAnnual: 0.03,
       laborRates: [],
+      holidays: [],
     },
     teamPool: [],
     projects: [],
@@ -23,13 +24,13 @@ describe('Migrations', () => {
   });
 
   it('returns data unchanged when no migrations are pending', () => {
-    const data = makeAppState({ version: '0.5.0' });
-    const result = runMigrations(data, '0.5.0');
+    const data = makeAppState({ version: '0.6.0' });
+    const result = runMigrations(data, '0.6.0');
     expect(result).toEqual(data);
   });
 
   it('exports current version constant', () => {
-    expect(DATA_VERSION).toBe('0.5.0');
+    expect(DATA_VERSION).toBe('0.6.0');
   });
 
   it('migrates v1 data to v2 (extracts team pool from projects)', () => {
@@ -62,7 +63,7 @@ describe('Migrations', () => {
     const result = runMigrations(v1Data, '1.0.0');
 
     // Version should be bumped to latest
-    expect(result.version).toBe('0.5.0');
+    expect(result.version).toBe('0.6.0');
 
     // Pool should contain both members
     expect(result.teamPool).toHaveLength(2);
@@ -105,6 +106,9 @@ describe('Migrations', () => {
     expect((proj as Record<string, unknown>).baselineBudget).toBeUndefined();
     expect(proj.reforecasts[0].baselineBudget).toBe(1000000);
     expect(proj.reforecasts[0].reforecastDate).toBeTruthy();
+
+    // v0.6.0 migration: holidays added to settings
+    expect(result.settings.holidays).toEqual([]);
   });
 
   it('migrates v0.2.0 to v0.3.0 (strips hoursPerMonth from settings)', () => {
@@ -121,7 +125,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v2Data, '0.2.0');
 
-    expect(result.version).toBe('0.5.0');
+    expect(result.version).toBe('0.6.0');
     // hoursPerMonth should be removed
     expect((result.settings as Record<string, unknown>).hoursPerMonth).toBeUndefined();
     // Other settings preserved
@@ -159,7 +163,7 @@ describe('Migrations', () => {
 
     const migrated = runMigrations(importedData, '1.0.0');
 
-    expect(migrated.version).toBe('0.5.0');
+    expect(migrated.version).toBe('0.6.0');
     expect(migrated.teamPool).toHaveLength(1);
     expect(migrated.teamPool[0].name).toBe('Alice');
     expect(migrated.projects[0].assignments).toHaveLength(1);
@@ -222,7 +226,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v3Data, '0.3.0');
 
-    expect(result.version).toBe('0.5.0');
+    expect(result.version).toBe('0.6.0');
     const proj = result.projects[0];
 
     // actualCost should be removed from project level
@@ -273,7 +277,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v3Data, '0.3.0');
 
-    expect(result.version).toBe('0.5.0');
+    expect(result.version).toBe('0.6.0');
     const proj = result.projects[0];
 
     // actualCost removed from project
@@ -427,7 +431,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v4Data, '0.4.0');
 
-    expect(result.version).toBe('0.5.0');
+    expect(result.version).toBe('0.6.0');
     const proj = result.projects[0];
 
     // baselineBudget removed from project level
@@ -476,7 +480,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v4Data, '0.4.0');
 
-    expect(result.version).toBe('0.5.0');
+    expect(result.version).toBe('0.6.0');
     const proj = result.projects[0];
 
     // Missing baselineBudget defaults to 0
@@ -518,7 +522,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v4Data, '0.4.0');
 
-    expect(result.version).toBe('0.5.0');
+    expect(result.version).toBe('0.6.0');
     expect(result.projects[0].reforecasts[0].baselineBudget).toBe(0);
   });
 
@@ -576,9 +580,50 @@ describe('Migrations', () => {
 
     const result = runMigrations(v4Data, '0.4.0');
 
-    expect(result.version).toBe('0.5.0');
+    expect(result.version).toBe('0.6.0');
     expect(result.projects[0].reforecasts[0].baselineBudget).toBe(0);
     expect(result.projects[1].reforecasts[0].baselineBudget).toBe(0);
+  });
+
+  it('migrates v0.5.0 to v0.6.0 (adds holidays to settings)', () => {
+    const v5Data = {
+      version: '0.5.0',
+      settings: {
+        discountRateAnnual: 0.03,
+        laborRates: [{ role: 'Dev', hourlyRate: 100 }],
+      },
+      teamPool: [],
+      projects: [],
+    } as unknown as AppState;
+
+    const result = runMigrations(v5Data, '0.5.0');
+
+    expect(result.version).toBe('0.6.0');
+    expect(result.settings.holidays).toEqual([]);
+    // Other settings preserved
+    expect(result.settings.discountRateAnnual).toBe(0.03);
+    expect(result.settings.laborRates).toEqual([{ role: 'Dev', hourlyRate: 100 }]);
+  });
+
+  it('migrates v0.5.0 to v0.6.0 preserving existing holidays if present', () => {
+    const v5Data = {
+      version: '0.5.0',
+      settings: {
+        discountRateAnnual: 0.03,
+        laborRates: [],
+        holidays: [
+          { id: 'h1', name: 'Test', startDate: '2026-05-25', endDate: '2026-05-25' },
+        ],
+      },
+      teamPool: [],
+      projects: [],
+    } as unknown as AppState;
+
+    const result = runMigrations(v5Data, '0.5.0');
+
+    expect(result.version).toBe('0.6.0');
+    expect(result.settings.holidays).toHaveLength(1);
+    expect(result.settings.holidays[0].name).toBe('Test');
   });
 
   it('migrates v0.4.0 to v0.5.0 with reforecast missing createdAt (uses today)', () => {
@@ -615,7 +660,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v4Data, '0.4.0');
 
-    expect(result.version).toBe('0.5.0');
+    expect(result.version).toBe('0.6.0');
     const proj = result.projects[0];
 
     // reforecastDate falls back to today when createdAt is missing

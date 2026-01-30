@@ -1,4 +1,5 @@
 import { HOURS_PER_DAY } from '@/lib/constants';
+import type { Holiday } from '@/types/domain';
 
 /**
  * Generate an array of month strings (YYYY-MM) between two dates inclusive.
@@ -96,16 +97,56 @@ export function countWorkdays(startDate: string, endDate: string): number {
 }
 
 /**
+ * Count how many of the given holidays fall on workdays (Mon-Fri)
+ * within the specified date range [startDate, endDate], inclusive.
+ * Deduplicates days so overlapping holiday ranges don't double-count.
+ */
+export function countHolidayWorkdays(
+  startDate: string,
+  endDate: string,
+  holidays: Holiday[],
+): number {
+  const holidayWorkdays = new Set<string>();
+
+  for (const holiday of holidays) {
+    // Clip holiday range to [startDate, endDate]
+    const effectiveStart = holiday.startDate > startDate ? holiday.startDate : startDate;
+    const effectiveEnd = holiday.endDate < endDate ? holiday.endDate : endDate;
+
+    if (effectiveStart > effectiveEnd) continue;
+
+    const [sy, sm, sd] = effectiveStart.split('-').map(Number);
+    const [ey, em, ed] = effectiveEnd.split('-').map(Number);
+    const start = new Date(sy, sm - 1, sd);
+    const end = new Date(ey, em - 1, ed);
+    const current = new Date(start);
+
+    while (current <= end) {
+      const dow = current.getDay();
+      if (dow >= 1 && dow <= 5) {
+        const key = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}`;
+        holidayWorkdays.add(key);
+      }
+      current.setDate(current.getDate() + 1);
+    }
+  }
+
+  return holidayWorkdays.size;
+}
+
+/**
  * Get available workday hours for a YYYY-MM month, clipped to project date range.
  * - First month: count workdays from project startDate to end of month
  * - Last month: count workdays from start of month to project endDate
  * - Middle months: count all workdays in the full month
- * Returns workdays * HOURS_PER_DAY.
+ * Holidays (non-work days) are subtracted from the workday count.
+ * Returns (workdays - holidays) * HOURS_PER_DAY.
  */
 export function getMonthlyWorkHours(
   month: string,
   projectStartDate: string,
   projectEndDate: string,
+  holidays: Holiday[] = [],
 ): number {
   const [year, mon] = month.split('-').map(Number);
 
@@ -120,5 +161,10 @@ export function getMonthlyWorkHours(
 
   if (effectiveStart > effectiveEnd) return 0;
 
-  return countWorkdays(effectiveStart, effectiveEnd) * HOURS_PER_DAY;
+  const workdays = countWorkdays(effectiveStart, effectiveEnd);
+  const holidayDays = holidays.length > 0
+    ? countHolidayWorkdays(effectiveStart, effectiveEnd, holidays)
+    : 0;
+
+  return Math.max(0, workdays - holidayDays) * HOURS_PER_DAY;
 }

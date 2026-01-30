@@ -1,6 +1,6 @@
 import type { AppState, PoolMember, ProjectAssignment } from '@/types/domain';
 
-export const DATA_VERSION = '0.5.0';
+export const DATA_VERSION = '0.6.0';
 
 type Migration = {
   version: string;
@@ -157,6 +157,21 @@ const MIGRATIONS: Migration[] = [
         ...data,
         version: '0.5.0',
         projects: migratedProjects,
+      };
+    },
+  },
+  {
+    version: '0.6.0',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    migrate: (data: any): AppState => {
+      // Add holidays array to settings (empty by default).
+      return {
+        ...data,
+        version: '0.6.0',
+        settings: {
+          ...data.settings,
+          holidays: data.settings?.holidays ?? [],
+        },
       };
     },
   },

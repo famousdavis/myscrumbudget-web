@@ -7,6 +7,7 @@ import {
   countWorkdays,
   getMonthlyWorkHours,
 } from '../dates';
+import type { Holiday } from '@/types/domain';
 
 describe('generateMonthRange', () => {
   it('generates a single month when start equals end', () => {
@@ -175,5 +176,77 @@ describe('getMonthlyWorkHours', () => {
     expect(jan).toBe(176);
     expect(feb).toBe(160);
     expect(jan).not.toBe(feb);
+  });
+
+  it('returns same result when holidays is empty array', () => {
+    const without = getMonthlyWorkHours('2026-07', '2026-06-15', '2027-07-15');
+    const withEmpty = getMonthlyWorkHours('2026-07', '2026-06-15', '2027-07-15', []);
+    expect(withEmpty).toBe(without);
+  });
+
+  it('subtracts a weekday holiday from available hours', () => {
+    // Memorial Day 2026: Monday May 25
+    const holidays: Holiday[] = [
+      { id: 'h1', name: 'Memorial Day', startDate: '2026-05-25', endDate: '2026-05-25' },
+    ];
+    const without = getMonthlyWorkHours('2026-05', '2026-01-01', '2026-12-31');
+    const withHoliday = getMonthlyWorkHours('2026-05', '2026-01-01', '2026-12-31', holidays);
+    // May 2026 has 21 workdays; holiday removes 1 → 20 workdays → 160 hours
+    expect(without).toBe(168); // 21 * 8
+    expect(withHoliday).toBe(160); // 20 * 8
+  });
+
+  it('ignores a weekend holiday (no effect on hours)', () => {
+    // July 4, 2026 is a Saturday
+    const holidays: Holiday[] = [
+      { id: 'h1', name: 'Independence Day', startDate: '2026-07-04', endDate: '2026-07-04' },
+    ];
+    const without = getMonthlyWorkHours('2026-07', '2026-06-15', '2027-07-15');
+    const withHoliday = getMonthlyWorkHours('2026-07', '2026-06-15', '2027-07-15', holidays);
+    expect(withHoliday).toBe(without);
+  });
+
+  it('ignores a holiday outside the project date range', () => {
+    // Holiday in March 2026, but project starts June 2026
+    const holidays: Holiday[] = [
+      { id: 'h1', name: 'Spring Holiday', startDate: '2026-03-16', endDate: '2026-03-16' },
+    ];
+    const without = getMonthlyWorkHours('2026-07', '2026-06-15', '2027-07-15');
+    const withHoliday = getMonthlyWorkHours('2026-07', '2026-06-15', '2027-07-15', holidays);
+    expect(withHoliday).toBe(without);
+  });
+
+  it('subtracts multiple holidays in one month', () => {
+    // Thanksgiving 2026: Thu Nov 26 + Fri Nov 27
+    const holidays: Holiday[] = [
+      { id: 'h1', name: 'Thanksgiving', startDate: '2026-11-26', endDate: '2026-11-27' },
+    ];
+    const without = getMonthlyWorkHours('2026-11', '2026-01-01', '2026-12-31');
+    const withHoliday = getMonthlyWorkHours('2026-11', '2026-01-01', '2026-12-31', holidays);
+    // November 2026 has 21 workdays; 2 holidays → 19 workdays
+    expect(without).toBe(168); // 21 * 8
+    expect(withHoliday).toBe(152); // 19 * 8
+  });
+
+  it('handles holiday in a clipped first month', () => {
+    // Project starts June 15. Holiday on June 16 (Tuesday) should be subtracted.
+    const holidays: Holiday[] = [
+      { id: 'h1', name: 'Company Day', startDate: '2026-06-16', endDate: '2026-06-16' },
+    ];
+    const without = getMonthlyWorkHours('2026-06', '2026-06-15', '2027-07-15');
+    const withHoliday = getMonthlyWorkHours('2026-06', '2026-06-15', '2027-07-15', holidays);
+    // June 15-30: 12 workdays without holiday, 11 with
+    expect(without).toBe(96);  // 12 * 8
+    expect(withHoliday).toBe(88); // 11 * 8
+  });
+
+  it('never returns negative hours even with excessive holidays', () => {
+    // Project only spans Jun 15-16 (2 workdays), but holidays cover entire month
+    const holidays: Holiday[] = [
+      { id: 'h1', name: 'Full Month Off', startDate: '2026-06-01', endDate: '2026-06-30' },
+    ];
+    const result = getMonthlyWorkHours('2026-06', '2026-06-15', '2026-06-16', holidays);
+    expect(result).toBe(0);
+    expect(result).toBeGreaterThanOrEqual(0);
   });
 });

@@ -4,9 +4,18 @@ export interface LaborRate {
   hourlyRate: number;
 }
 
+// Holiday (Global Settings — non-work days subtracted from workday calculations)
+export interface Holiday {
+  id: string;
+  name: string;
+  startDate: string; // YYYY-MM-DD
+  endDate: string;   // YYYY-MM-DD (same as startDate for single-day holidays)
+}
+
 export interface Settings {
   discountRateAnnual: number;
   laborRates: LaborRate[];
+  holidays: Holiday[];
 }
 
 // Global Team Member Pool

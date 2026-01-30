@@ -139,10 +139,18 @@ interface LaborRate {
   hourlyRate: number;     // dollars per hour
 }
 
+// Holiday (Global Settings — non-work days subtracted from workday calculations)
+interface Holiday {
+  id: string;
+  name: string;
+  startDate: string;   // YYYY-MM-DD
+  endDate: string;     // YYYY-MM-DD (same as startDate for single-day holidays)
+}
+
 interface Settings {
-  hoursPerMonth: number;        // default 160
-  laborRates: LaborRate[];
   discountRateAnnual: number;   // annual rate, default 0.03 (3%)
+  laborRates: LaborRate[];
+  holidays: Holiday[];          // non-work days subtracted from workday calcs (v0.8.0)
 }
 
 // Global Team Member Pool — stored once, referenced by projects
@@ -283,7 +291,7 @@ diverge to use standard annual rate semantics.
 ```typescript
 // Full application state
 interface AppState {
-  version: string;        // Schema version (e.g., "0.5.0")
+  version: string;        // Schema version (e.g., "0.6.0")
   settings: Settings;
   teamPool: PoolMember[];
   projects: Project[];
@@ -291,7 +299,7 @@ interface AppState {
 
 // Example stored data
 const exampleState: AppState = {
-  version: "0.5.0",
+  version: "0.6.0",
   settings: {
     discountRateAnnual: 0.03,
     laborRates: [
@@ -301,6 +309,9 @@ const exampleState: AppState = {
       { role: "IT-DevOps", hourlyRate: 80 },
       { role: "Manager", hourlyRate: 150 },
       { role: "PMO", hourlyRate: 120 }
+    ],
+    holidays: [
+      { id: "hol_001", name: "Memorial Day", startDate: "2026-05-25", endDate: "2026-05-25" }
     ]
   },
   teamPool: [
@@ -482,8 +493,9 @@ src/
 │   │
 │   └── settings/
 │       ├── components/
-│       │   ├── RateTable.tsx          # Labor rate editor
-│       │   ├── SettingsForm.tsx       # Hours/month, discount rate
+│       │   ├── RateTable.tsx          # Labor rate editor (collapsible)
+│       │   ├── HolidayTable.tsx       # Holiday calendar editor (collapsible)
+│       │   ├── SettingsForm.tsx       # Discount rate
 │       │   └── DataPortability.tsx    # JSON export/import
 │       └── hooks/
 │           └── useSettings.ts
@@ -522,7 +534,9 @@ src/
 │   │   ├── id.ts                    # ID generation
 │   │   ├── teamResolution.ts        # resolveAssignments, getActiveReforecast
 │   │   └── __tests__/
-│   │       └── teamResolution.test.ts
+│   │       ├── teamResolution.test.ts
+│   │       ├── holidays.test.ts       # countHolidayWorkdays tests
+│   │       └── dates.test.ts          # Workday and holiday-aware tests
 │   └── constants.ts                 # App version, name, description
 │
 ├── components/                       # Shared components
@@ -670,6 +684,21 @@ src/
 - [x] Switching reforecasts updates Baseline Budget, variance, budget ratio, and chart budget line
 - [x] Creating a reforecast copies the source budget; reforecastDate always defaults to today
 - [x] 328 passing tests across 18 test files
+
+### Phase 14: Holiday Calendar (Sprint 13 — DONE)
+- [x] Global holiday calendar in Settings (name, start date, end date per holiday)
+- [x] `Holiday` interface added to `Settings` type
+- [x] `countHolidayWorkdays()` utility counts holiday workdays within a date range (deduplicates overlapping entries)
+- [x] `getMonthlyWorkHours()` gains optional `holidays` parameter — subtracts holiday workdays from available hours
+- [x] Holidays threaded through calc engine via `settings.holidays` in `calculateProjectMetrics()`
+- [x] Weekend holidays silently ignored (no effect on workday count)
+- [x] Data migration v0.6.0 adds `holidays: []` to settings
+- [x] HolidayTable component with inline editing, delete confirmation, sorted by start date
+- [x] Dates displayed as MM/DD/YYYY; stored as YYYY-MM-DD
+- [x] Start date auto-fills end date for single-day holiday convenience
+- [x] Both RateTable and HolidayTable collapsible (default collapsed) with chevron + count badge
+- [x] Add buttons disabled until validation passes (both tables)
+- [x] 364 passing tests across 19 test files
 
 ### Deferred (Future)
 - XLSX timecard import (with project alias mapping)
@@ -832,6 +861,25 @@ Delivered:
 - Edit page reads/writes baselineBudget to/from active reforecast
 - Shared reforecast factory (`createBaselineReforecast`, `createNewReforecast`) updated for both fields
 - 328 passing tests across 18 test files
+
+### Sprint 13: Holiday Calendar — COMPLETE (v0.8.0)
+**Goal**: Global holiday calendar that subtracts non-work days from cost calculations
+
+Delivered:
+- `Holiday` interface (id, name, startDate, endDate) added to `Settings`
+- `countHolidayWorkdays()` in `dates.ts` — counts holiday workdays within a date range, using `Set<string>` for deduplication
+- `getMonthlyWorkHours()` updated with optional `holidays` parameter (backward compatible default `[]`)
+- `Math.max(0, ...)` guard prevents negative hours from excessive holidays
+- Single-line threading in `lib/calc/index.ts` — passes `settings.holidays` to `getMonthlyWorkHours()`
+- `countWorkdays()` intentionally NOT modified — holidays handled at `getMonthlyWorkHours()` level only, preserving `getProductivityFactor()` behavior
+- Data migration v0.6.0 adds `holidays: []` to settings
+- `HolidayTable.tsx` — CRUD table matching RateTable pattern with inline editing, delete confirmation, start-date-to-end-date auto-fill
+- Dates displayed as MM/DD/YYYY in table rows; stored as YYYY-MM-DD for sorting
+- Both RateTable and HolidayTable made collapsible (default collapsed) with rotating chevron + count badge
+- Add buttons disabled until validation passes on both tables
+- Date input placeholder text styled to match text input placeholder color
+- 15 new `countHolidayWorkdays` tests, 8 new `getMonthlyWorkHours` holiday tests, 2 migration tests
+- 364 total tests across 19 test files
 
 ---
 
@@ -1187,16 +1235,17 @@ export const repo = createLocalStorageRepository();
 The localStorage implementation (`localStorage.ts`) uses `STORAGE_KEYS` from `types/storage.ts` and handles team pool via `getTeamPool()`/`saveTeamPool()`. The `exportAll()`/`importAll()` methods include `teamPool` in the `AppState` round-trip.
 
 ```typescript
-// lib/storage/migrations.ts — current data version is 0.5.0
+// lib/storage/migrations.ts — current data version is 0.6.0
 
-export const DATA_VERSION = '0.5.0';
+export const DATA_VERSION = '0.6.0';
 
-// Migration chain: v1.0.0 → v0.1.0 → v0.2.0 → v0.3.0 → v0.4.0 → v0.5.0
+// Migration chain: v1.0.0 → v0.1.0 → v0.2.0 → v0.3.0 → v0.4.0 → v0.5.0 → v0.6.0
 // v0.1.0: Extracts teamMembers from projects into global teamPool, rewrites to assignments
 // v0.2.0: (structural migration)
 // v0.3.0: Strips deprecated hoursPerMonth from settings
 // v0.4.0: Moves actualCost from Project into each Reforecast; creates Baseline for projects without reforecasts
 // v0.5.0: Moves baselineBudget from Project into each Reforecast; adds reforecastDate (derived from createdAt)
+// v0.6.0: Adds holidays array to settings (empty default)
 ```
 
 ---
@@ -1409,8 +1458,8 @@ This architecture document provides:
 2. **Clean TypeScript domain model** with global team pool + project assignments
 3. **Repository pattern** with shared singleton and migration support
 4. **Feature-based folder structure** optimized for solo maintenance
-5. **Incremental build plan** with testable milestones (Sprints 1–11 complete)
-6. **Pure calculation functions** with 224+ unit tests
+5. **Incremental build plan** with testable milestones (Sprints 1–13 complete)
+6. **Pure calculation functions** with 364+ unit tests
 7. **Golden-file parity tests** ensuring spreadsheet accuracy
 
 Key design decisions:
