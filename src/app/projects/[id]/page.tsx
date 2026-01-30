@@ -31,7 +31,7 @@ export default function ProjectDetailPage({
   const { deleteProject } = useProjects();
   const { settings } = useSettings();
   const { pool } = useTeamPool();
-  const { members, addAssignment, removeAssignment } = useTeam({
+  const { members, addAssignment, removeAssignment, reorderAssignments, sortAssignments } = useTeam({
     project,
     updateProject,
     pool,
@@ -141,6 +141,8 @@ export default function ProjectDetailPage({
             onAllocationChange={onAllocationChange}
             onMemberDelete={removeAssignment}
             onMemberAdd={addAssignment}
+            onReorder={reorderAssignments}
+            onSort={sortAssignments}
             pool={pool}
             monthlyData={metrics?.monthlyData}
             productivityWindows={productivityWindows}

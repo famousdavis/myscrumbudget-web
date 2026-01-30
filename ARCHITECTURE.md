@@ -472,7 +472,7 @@ src/
 │   │
 │   ├── reforecast/
 │   │   ├── components/
-│   │   │   ├── AllocationGrid.tsx   # Spreadsheet-like allocation grid
+│   │   │   ├── AllocationGrid.tsx   # Spreadsheet-like allocation grid (sort, drag reorder, sticky columns)
 │   │   │   ├── ReforecastToolbar.tsx # Reforecast switcher + create/delete
 │   │   │   └── DeleteReforecastDialog.tsx  # Confirmation dialog
 │   │   ├── hooks/
@@ -486,7 +486,7 @@ src/
 │   │   │   ├── PoolMemberTable.tsx    # Pool member list with edit/delete
 │   │   │   └── RoleSelect.tsx         # Role dropdown
 │   │   ├── hooks/
-│   │   │   ├── useTeam.ts            # Project-level assignment management
+│   │   │   ├── useTeam.ts            # Project-level assignment management (sort, reorder)
 │   │   │   └── useTeamPool.ts        # Global pool CRUD with in-use guard
 │   │   └── __tests__/
 │   │       └── team.test.ts
@@ -596,6 +596,9 @@ src/
 - [x] Multi-cell selection (click-drag, shift-click)
 - [x] Excel-like drag-to-fill handle
 - [x] Auto-calculation of costs and hours (summary rows)
+- [x] Sortable "Team Member" column header (cycles: None → Name A→Z → Role→Name → None; persists order)
+- [x] Drag-to-reorder team member rows via inline grip handle (⠿)
+- [x] Sticky name column (frozen pane) with z-index layering for selected cell outlines
 
 ### Phase 5: Metrics & Calculations (Sprint 4 — DONE)
 - [x] ETC, EAC calculations
@@ -699,6 +702,14 @@ src/
 - [x] Both RateTable and HolidayTable collapsible (default collapsed) with chevron + count badge
 - [x] Add buttons disabled until validation passes (both tables)
 - [x] 364 passing tests across 19 test files
+
+### Allocation Grid Row Sorting & Reorder (v0.8.0)
+- [x] Sortable "Team Member" column header — click cycles: None → Name A→Z → Role→Name → None
+- [x] Sort is a one-time reorder action that persists `project.assignments` order (not a view-only filter)
+- [x] Inline drag handle (⠿) on each row for manual reorder (HTML5 drag-and-drop)
+- [x] `reorderAssignments()` and `sortAssignments()` in `useTeam` hook
+- [x] Sticky name column (CSS `position: sticky; left: 0`) for horizontal scrolling
+- [x] Selected/focused cells use `z-20` to render outline above sticky columns (`z-10`)
 
 ### Deferred (Future)
 - XLSX timecard import (with project alias mapping)
@@ -880,6 +891,18 @@ Delivered:
 - Date input placeholder text styled to match text input placeholder color
 - 15 new `countHolidayWorkdays` tests, 8 new `getMonthlyWorkHours` holiday tests, 2 migration tests
 - 364 total tests across 19 test files
+
+### Allocation Grid Sorting & Reorder — COMPLETE (v0.8.0)
+**Goal**: Sortable column header and drag-to-reorder for team member rows
+
+Delivered:
+- Sortable "Team Member" column header — click cycles through None → Name A→Z → Role→Name → None
+- Sorting physically reorders `project.assignments` and persists (one-time action, not a view filter)
+- Inline drag handle (⠿) in name cell for manual row reorder (HTML5 drag-and-drop, same pattern as dashboard project cards)
+- `reorderAssignments(orderedIds)` and `sortAssignments(mode)` in `useTeam` hook
+- Sticky name column (CSS `position: sticky; left: 0`) — Excel-like frozen pane for horizontal scrolling
+- Selected/focused allocation cells elevated to `z-20` to render outline above sticky columns (`z-10`)
+- No data model changes — `project.assignments` is already an ordered array
 
 ---
 

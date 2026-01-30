@@ -19,6 +19,8 @@ import {
   moveCellInDirection,
 } from '../lib/gridHelpers';
 
+type SortMode = 'none' | 'name' | 'role-name';
+
 interface AllocationGridProps {
   months: string[];
   teamMembers: TeamMember[];
@@ -26,6 +28,8 @@ interface AllocationGridProps {
   onAllocationChange: (memberId: string, month: string, value: number) => void;
   onMemberDelete?: (id: string) => void;
   onMemberAdd?: (poolMemberId: string) => void;
+  onReorder?: (orderedIds: string[]) => void;
+  onSort?: (mode: 'name' | 'role-name') => void;
   pool?: PoolMember[];
   readonly?: boolean;
   monthlyData?: MonthlyCalculation[];
@@ -39,6 +43,8 @@ export function AllocationGrid({
   onAllocationChange,
   onMemberDelete,
   onMemberAdd,
+  onReorder,
+  onSort,
   pool = [],
   readonly = false,
   monthlyData,
@@ -53,9 +59,77 @@ export function AllocationGrid({
   const [selectedPoolId, setSelectedPoolId] = useState('');
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [focusedCell, setFocusedCell] = useState<CellCoord | null>(null);
+  const [sortMode, setSortMode] = useState<SortMode>('none');
+  const [draggedRowId, setDraggedRowId] = useState<string | null>(null);
+  const [dragOverRowId, setDragOverRowId] = useState<string | null>(null);
+  const rowDragCounterRef = useRef<Map<string, number>>(new Map());
   const gridRef = useRef<HTMLTableElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const mousePositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  // --- Row drag-to-reorder handlers ---
+  const handleRowDragStart = useCallback((memberId: string, e: React.DragEvent) => {
+    setDraggedRowId(memberId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', memberId);
+  }, []);
+
+  const handleRowDragEnd = useCallback(() => {
+    setDraggedRowId(null);
+    setDragOverRowId(null);
+    rowDragCounterRef.current.clear();
+  }, []);
+
+  const handleRowDragEnter = useCallback((memberId: string) => {
+    const count = (rowDragCounterRef.current.get(memberId) ?? 0) + 1;
+    rowDragCounterRef.current.set(memberId, count);
+    setDragOverRowId(memberId);
+  }, []);
+
+  const handleRowDragLeave = useCallback((memberId: string) => {
+    const count = (rowDragCounterRef.current.get(memberId) ?? 1) - 1;
+    rowDragCounterRef.current.set(memberId, count);
+    if (count <= 0) {
+      rowDragCounterRef.current.delete(memberId);
+      setDragOverRowId((prev) => (prev === memberId ? null : prev));
+    }
+  }, []);
+
+  const handleRowDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  }, []);
+
+  const handleRowDrop = useCallback((targetId: string, e: React.DragEvent) => {
+    e.preventDefault();
+    const sourceId = draggedRowId;
+    if (!sourceId || sourceId === targetId || !onReorder) return;
+
+    const ids = teamMembers.map((m) => m.id);
+    const fromIndex = ids.indexOf(sourceId);
+    const toIndex = ids.indexOf(targetId);
+    if (fromIndex < 0 || toIndex < 0) return;
+
+    ids.splice(fromIndex, 1);
+    ids.splice(toIndex, 0, sourceId);
+    onReorder(ids);
+    setSortMode('none'); // Manual reorder clears sort indicator
+  }, [draggedRowId, teamMembers, onReorder]);
+
+  // --- Sort column header handler ---
+  const handleSortClick = useCallback(() => {
+    if (!onSort) return;
+    if (sortMode === 'none') {
+      onSort('name');
+      setSortMode('name');
+    } else if (sortMode === 'name') {
+      onSort('role-name');
+      setSortMode('role-name');
+    } else {
+      // role-name → none: no action needed, just clear indicator
+      setSortMode('none');
+    }
+  }, [sortMode, onSort]);
 
   const commitEdit = useCallback(() => {
     if (!editingCell) return;
@@ -316,8 +390,19 @@ export function AllocationGrid({
       >
         <thead>
           <tr>
-            <th className="sticky left-0 z-10 border border-zinc-200 bg-zinc-50 px-3 py-2 text-left text-sm font-medium dark:border-zinc-700 dark:bg-zinc-900">
-              Team Member
+            <th
+              className={`sticky left-0 z-10 border border-zinc-200 bg-zinc-50 px-3 py-2 text-left text-sm font-medium dark:border-zinc-700 dark:bg-zinc-900${onSort ? ' cursor-pointer select-none hover:bg-zinc-100 dark:hover:bg-zinc-800' : ''}`}
+              onClick={onSort ? handleSortClick : undefined}
+              title={onSort ? (sortMode === 'none' ? 'Sort by name' : sortMode === 'name' ? 'Sort by role, then name' : 'Clear sort') : undefined}
+            >
+              <span className="flex items-center gap-1">
+                Team Member
+                {onSort && (
+                  <span className="text-xs text-zinc-400 dark:text-zinc-500">
+                    {sortMode === 'name' ? '▲ A–Z' : sortMode === 'role-name' ? '▲ Role' : '⇅'}
+                  </span>
+                )}
+              </span>
             </th>
             {months.map((month) => {
               const factor = productivityWindows
@@ -350,11 +435,32 @@ export function AllocationGrid({
         </thead>
         <tbody>
           {teamMembers.map((member, rowIdx) => (
-            <tr key={member.id}>
+            <tr
+              key={member.id}
+              className={`${draggedRowId === member.id ? 'opacity-40' : ''}${dragOverRowId === member.id && draggedRowId !== member.id ? ' bg-blue-50 dark:bg-blue-950' : ''}`}
+              onDragOver={hasRowControls && onReorder ? handleRowDragOver : undefined}
+              onDragEnter={hasRowControls && onReorder ? () => handleRowDragEnter(member.id) : undefined}
+              onDragLeave={hasRowControls && onReorder ? () => handleRowDragLeave(member.id) : undefined}
+              onDrop={hasRowControls && onReorder ? (e) => handleRowDrop(member.id, e) : undefined}
+            >
               <td className="sticky left-0 z-10 border border-zinc-200 bg-white px-1 py-1 dark:border-zinc-700 dark:bg-zinc-950">
-                <div className="px-2 text-sm font-medium whitespace-nowrap">
-                  {member.name}
-                  <span className="ml-1 text-zinc-400">({member.role})</span>
+                <div className="flex items-center gap-1 px-1 text-sm font-medium whitespace-nowrap">
+                  {hasRowControls && onReorder && (
+                    <div
+                      draggable
+                      onDragStart={(e) => handleRowDragStart(member.id, e)}
+                      onDragEnd={handleRowDragEnd}
+                      className="cursor-grab text-zinc-400 hover:text-zinc-600 active:cursor-grabbing dark:text-zinc-500 dark:hover:text-zinc-300"
+                      title="Drag to reorder"
+                      aria-label={`Drag ${member.name} to reorder`}
+                    >
+                      ⠿
+                    </div>
+                  )}
+                  <span>
+                    {member.name}
+                    <span className="ml-1 text-zinc-400">({member.role})</span>
+                  </span>
                 </div>
               </td>
               {months.map((month, colIdx) => {
@@ -382,8 +488,9 @@ export function AllocationGrid({
                   fillHandleCol === colIdx &&
                   !fillDrag;
 
+                const needsElevation = (isSelected || isFocused) && !isEditing;
                 let cellClasses =
-                  'relative border border-zinc-200 p-0 dark:border-zinc-700';
+                  `relative border border-zinc-200 p-0 dark:border-zinc-700${needsElevation ? ' z-20' : ''}`;
 
                 if (!isInFillPreview) {
                   cellClasses += ` ${getAllocationColor(value)}`;

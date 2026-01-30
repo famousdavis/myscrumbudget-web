@@ -47,10 +47,44 @@ export function useTeam({ project, updateProject, pool }: UseTeamOptions) {
     [updateProject],
   );
 
+  /** Reorder assignments to match the given ordered list of assignment IDs */
+  const reorderAssignments = useCallback(
+    (orderedIds: string[]) => {
+      updateProject((prev) => ({
+        ...prev,
+        assignments: orderedIds.map(
+          (id) => prev.assignments.find((a) => a.id === id)!,
+        ),
+      }));
+    },
+    [updateProject],
+  );
+
+  /** Sort assignments by name or role→name and persist the new order */
+  const sortAssignments = useCallback(
+    (mode: 'name' | 'role-name') => {
+      const resolved = resolveAssignments(
+        project?.assignments ?? [],
+        pool,
+      );
+      const sorted = [...resolved].sort((a, b) => {
+        if (mode === 'role-name') {
+          const roleCmp = a.role.localeCompare(b.role);
+          if (roleCmp !== 0) return roleCmp;
+        }
+        return a.name.localeCompare(b.name);
+      });
+      reorderAssignments(sorted.map((m) => m.id));
+    },
+    [project, pool, reorderAssignments],
+  );
+
   return {
     members,
     assignments: project?.assignments ?? [],
     addAssignment,
     removeAssignment,
+    reorderAssignments,
+    sortAssignments,
   };
 }
