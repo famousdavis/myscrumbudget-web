@@ -3,6 +3,7 @@
 import { useCallback, useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import type { TeamMember, PoolMember, MonthlyCalculation, ProductivityWindow } from '@/types/domain';
+import { DeleteAssignmentDialog } from './DeleteAssignmentDialog';
 import type { AllocationMap } from '@/lib/calc/allocationMap';
 import { getAllocation } from '@/lib/calc/allocationMap';
 import { formatMonthLabel } from '@/lib/utils/dates';
@@ -50,6 +51,7 @@ export function AllocationGrid({
   const [isRangeSelecting, setIsRangeSelecting] = useState(false);
   const [addingRow, setAddingRow] = useState(false);
   const [selectedPoolId, setSelectedPoolId] = useState('');
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [focusedCell, setFocusedCell] = useState<CellCoord | null>(null);
   const gridRef = useRef<HTMLTableElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -518,7 +520,7 @@ export function AllocationGrid({
               {hasRowControls && (
                 <td className="sticky right-0 z-10 border border-zinc-200 bg-white px-2 py-1 text-center dark:border-zinc-700 dark:bg-zinc-950">
                   <button
-                    onClick={() => onMemberDelete(member.id)}
+                    onClick={() => setPendingDeleteId(member.id)}
                     className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                     title="Remove row"
                   >
@@ -641,6 +643,18 @@ export function AllocationGrid({
           )}
         </tbody>
       </table>
+      {pendingDeleteId && onMemberDelete && (
+        <DeleteAssignmentDialog
+          memberName={
+            teamMembers.find((m) => m.id === pendingDeleteId)?.name ?? ''
+          }
+          onConfirm={() => {
+            onMemberDelete(pendingDeleteId);
+            setPendingDeleteId(null);
+          }}
+          onCancel={() => setPendingDeleteId(null)}
+        />
+      )}
     </div>
   );
 }
