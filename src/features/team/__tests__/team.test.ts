@@ -11,7 +11,6 @@ function makeProject(overrides: Partial<Project> = {}): Project {
     name: 'Test Project',
     startDate: '2025-01-01',
     endDate: '2025-12-31',
-    baselineBudget: 500000,
     assignments: [],
     reforecasts: [
       {
@@ -19,9 +18,11 @@ function makeProject(overrides: Partial<Project> = {}): Project {
         name: 'Baseline',
         createdAt: '2025-01-01T00:00:00Z',
         startDate: '2025-01',
+        reforecastDate: '2025-01-01',
         allocations: [],
         productivityWindows: [],
         actualCost: 0,
+        baselineBudget: 500000,
       },
     ],
     activeReforecastId: 'rf-baseline',

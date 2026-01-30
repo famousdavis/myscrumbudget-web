@@ -12,7 +12,6 @@ function makeProject(overrides: Partial<Project> = {}): Project {
     name: 'Test Project',
     startDate: '2026-06-15',
     endDate: '2027-07-15',
-    baselineBudget: 1000000,
     assignments: [],
     reforecasts: [
       {
@@ -20,9 +19,11 @@ function makeProject(overrides: Partial<Project> = {}): Project {
         name: 'Baseline',
         createdAt: '2026-06-01T00:00:00Z',
         startDate: '2026-06',
+        reforecastDate: '2026-06-01',
         allocations: [],
         productivityWindows: [],
         actualCost: 200000,
+        baselineBudget: 1000000,
       },
     ],
     activeReforecastId: 'rf-baseline',
@@ -116,7 +117,7 @@ describe('LocalStorage Repository', () => {
       const project = makeProject();
       await repo.saveProject(project);
       const exported = await repo.exportAll();
-      expect(exported.version).toBe('0.4.0');
+      expect(exported.version).toBe('0.5.0');
       expect(exported.settings).toEqual(DEFAULT_SETTINGS);
       expect(exported.teamPool).toEqual([]);
       expect(exported.projects).toEqual([project]);
@@ -212,6 +213,11 @@ describe('LocalStorage Repository', () => {
       expect(projects[0].reforecasts[0].actualCost).toBe(0);
       expect(projects[0].activeReforecastId).toBe(projects[0].reforecasts[0].id);
 
+      // v0.5.0 migration: baselineBudget moved into reforecast, reforecastDate added
+      expect((projects[0] as any).baselineBudget).toBeUndefined();
+      expect(projects[0].reforecasts[0].baselineBudget).toBe(100000);
+      expect(projects[0].reforecasts[0].reforecastDate).toBeTruthy();
+
       // hoursPerMonth should be stripped
       const settings = await repo.getSettings();
       expect((settings as any).hoursPerMonth).toBeUndefined();
@@ -233,7 +239,7 @@ describe('LocalStorage Repository', () => {
   describe('Version', () => {
     it('returns current version when none stored', async () => {
       const version = await repo.getVersion();
-      expect(version).toBe('0.4.0');
+      expect(version).toBe('0.5.0');
     });
   });
 });

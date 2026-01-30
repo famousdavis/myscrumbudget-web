@@ -1,6 +1,6 @@
 import type { AppState, PoolMember, ProjectAssignment } from '@/types/domain';
 
-export const DATA_VERSION = '0.4.0';
+export const DATA_VERSION = '0.5.0';
 
 type Migration = {
   version: string;
@@ -121,6 +121,41 @@ const MIGRATIONS: Migration[] = [
       return {
         ...data,
         version: '0.4.0',
+        projects: migratedProjects,
+      };
+    },
+  },
+  {
+    version: '0.5.0',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    migrate: (data: any): AppState => {
+      // Move baselineBudget from Project into each Reforecast.
+      // All reforecasts inherit the same project-level budget
+      // (they were all created under one budget).
+      // Add reforecastDate to each reforecast (derived from createdAt).
+      const migratedProjects = (data.projects ?? []).map(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (project: any) => {
+          const { baselineBudget: bb, ...restProject } = project;
+          const budget = typeof bb === 'number' && Number.isFinite(bb) ? bb : 0;
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const migratedReforecasts = (project.reforecasts ?? []).map((rf: any) => ({
+            ...rf,
+            baselineBudget: budget,
+            reforecastDate: rf.createdAt ? rf.createdAt.slice(0, 10) : new Date().toISOString().slice(0, 10),
+          }));
+
+          return {
+            ...restProject,
+            reforecasts: migratedReforecasts,
+          };
+        },
+      );
+
+      return {
+        ...data,
+        version: '0.5.0',
         projects: migratedProjects,
       };
     },

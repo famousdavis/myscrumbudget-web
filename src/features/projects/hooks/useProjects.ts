@@ -21,10 +21,11 @@ export function useProjects() {
   }, [reload]);
 
   const createProject = useCallback(
-    async (data: Omit<Project, 'id' | 'assignments' | 'reforecasts' | 'activeReforecastId'>) => {
-      const baseline = createBaselineReforecast(data.startDate);
+    async (data: { name: string; startDate: string; endDate: string; baselineBudget: number }) => {
+      const { baselineBudget, ...projectData } = data;
+      const baseline = createBaselineReforecast(projectData.startDate, baselineBudget);
       const project: Project = {
-        ...data,
+        ...projectData,
         id: generateId(),
         assignments: [],
         reforecasts: [baseline],

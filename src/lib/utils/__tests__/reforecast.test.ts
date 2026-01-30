@@ -10,8 +10,26 @@ describe('createBaselineReforecast', () => {
     expect(rf.allocations).toEqual([]);
     expect(rf.productivityWindows).toEqual([]);
     expect(rf.actualCost).toBe(0);
+    expect(rf.baselineBudget).toBe(0);
     expect(rf.id).toBeTruthy();
     expect(rf.createdAt).toBeTruthy();
+    expect(rf.reforecastDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('accepts baselineBudget parameter', () => {
+    const rf = createBaselineReforecast('2026-06-15', 500000);
+    expect(rf.baselineBudget).toBe(500000);
+  });
+
+  it('defaults baselineBudget to 0 when omitted', () => {
+    const rf = createBaselineReforecast('2026-06-15');
+    expect(rf.baselineBudget).toBe(0);
+  });
+
+  it('sets reforecastDate to today in YYYY-MM-DD format', () => {
+    const rf = createBaselineReforecast('2026-06-15');
+    const today = new Date().toISOString().slice(0, 10);
+    expect(rf.reforecastDate).toBe(today);
   });
 
   it('slices startDate to YYYY-MM format', () => {
@@ -34,6 +52,8 @@ describe('createNewReforecast', () => {
     expect(rf.allocations).toEqual([]);
     expect(rf.productivityWindows).toEqual([]);
     expect(rf.actualCost).toBe(0);
+    expect(rf.baselineBudget).toBe(0);
+    expect(rf.reforecastDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
   it('copies allocations from source reforecast', () => {
@@ -42,6 +62,7 @@ describe('createNewReforecast', () => {
       name: 'Baseline',
       createdAt: '2026-06-01T00:00:00Z',
       startDate: '2026-06',
+      reforecastDate: '2026-06-01',
       allocations: [
         { memberId: 'a1', month: '2026-06', allocation: 0.5 },
         { memberId: 'a2', month: '2026-07', allocation: 0.8 },
@@ -50,6 +71,7 @@ describe('createNewReforecast', () => {
         { id: 'pw1', startDate: '2026-12-01', endDate: '2026-12-31', factor: 0.5 },
       ],
       actualCost: 75000,
+      baselineBudget: 500000,
     };
 
     const rf = createNewReforecast('Copy', '2026-06', source);
@@ -58,6 +80,43 @@ describe('createNewReforecast', () => {
     expect(rf.productivityWindows).toHaveLength(1);
     expect(rf.productivityWindows[0].factor).toBe(0.5);
     expect(rf.actualCost).toBe(75000);
+    expect(rf.baselineBudget).toBe(500000);
+  });
+
+  it('copies baselineBudget from source reforecast', () => {
+    const source: Reforecast = {
+      id: 'src',
+      name: 'Baseline',
+      createdAt: '2026-06-01T00:00:00Z',
+      startDate: '2026-06',
+      reforecastDate: '2026-06-01',
+      allocations: [],
+      productivityWindows: [],
+      actualCost: 0,
+      baselineBudget: 750000,
+    };
+
+    const rf = createNewReforecast('Reforecast 2', '2026-06', source);
+    expect(rf.baselineBudget).toBe(750000);
+  });
+
+  it('sets reforecastDate to today (not source date)', () => {
+    const source: Reforecast = {
+      id: 'src',
+      name: 'Baseline',
+      createdAt: '2026-06-01T00:00:00Z',
+      startDate: '2026-06',
+      reforecastDate: '2026-06-01',
+      allocations: [],
+      productivityWindows: [],
+      actualCost: 0,
+      baselineBudget: 0,
+    };
+
+    const rf = createNewReforecast('Copy', '2026-06', source);
+    const today = new Date().toISOString().slice(0, 10);
+    expect(rf.reforecastDate).toBe(today);
+    expect(rf.reforecastDate).not.toBe(source.reforecastDate);
   });
 
   it('deep-clones allocations (source is not mutated)', () => {
@@ -66,11 +125,13 @@ describe('createNewReforecast', () => {
       name: 'Baseline',
       createdAt: '2026-06-01T00:00:00Z',
       startDate: '2026-06',
+      reforecastDate: '2026-06-01',
       allocations: [
         { memberId: 'a1', month: '2026-06', allocation: 0.5 },
       ],
       productivityWindows: [],
       actualCost: 0,
+      baselineBudget: 0,
     };
 
     const rf = createNewReforecast('Copy', '2026-06', source);
@@ -84,11 +145,13 @@ describe('createNewReforecast', () => {
       name: 'Baseline',
       createdAt: '2026-06-01T00:00:00Z',
       startDate: '2026-06',
+      reforecastDate: '2026-06-01',
       allocations: [],
       productivityWindows: [
         { id: 'pw1', startDate: '2026-12-01', endDate: '2026-12-31', factor: 0.5 },
       ],
       actualCost: 0,
+      baselineBudget: 0,
     };
 
     const rf = createNewReforecast('Copy', '2026-06', source);
@@ -105,5 +168,10 @@ describe('createNewReforecast', () => {
   it('defaults actualCost to 0 when source is undefined', () => {
     const rf = createNewReforecast('Fresh', '2026-06', undefined);
     expect(rf.actualCost).toBe(0);
+  });
+
+  it('defaults baselineBudget to 0 when source is undefined', () => {
+    const rf = createNewReforecast('Fresh', '2026-06', undefined);
+    expect(rf.baselineBudget).toBe(0);
   });
 });

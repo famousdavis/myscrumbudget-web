@@ -185,11 +185,13 @@ interface ProductivityWindow {
 interface Reforecast {
   id: string;
   name: string;
-  createdAt: string;      // ISO datetime
-  startDate: string;      // forecast start month
+  createdAt: string;        // ISO datetime
+  startDate: string;        // forecast start month
+  reforecastDate: string;   // ISO date (YYYY-MM-DD) — when this reforecast was prepared (v0.7.0)
   allocations: MonthlyAllocation[];
   productivityWindows: ProductivityWindow[];
-  actualCost: number;     // per-reforecast actual cost (v0.6.0)
+  actualCost: number;       // per-reforecast actual cost (v0.6.0)
+  baselineBudget: number;   // per-reforecast baseline budget (v0.7.0)
 }
 
 // Project
@@ -198,7 +200,7 @@ interface Project {
   name: string;
   startDate: string;
   endDate: string;
-  baselineBudget: number;
+  // baselineBudget removed in v0.7.0 — now lives in Reforecast
   assignments: ProjectAssignment[];
   reforecasts: Reforecast[];
   activeReforecastId: string | null;
@@ -281,7 +283,7 @@ diverge to use standard annual rate semantics.
 ```typescript
 // Full application state
 interface AppState {
-  version: string;        // Schema version (e.g., "0.4.0")
+  version: string;        // Schema version (e.g., "0.5.0")
   settings: Settings;
   teamPool: PoolMember[];
   projects: Project[];
@@ -289,7 +291,7 @@ interface AppState {
 
 // Example stored data
 const exampleState: AppState = {
-  version: "0.4.0",
+  version: "0.5.0",
   settings: {
     discountRateAnnual: 0.03,
     laborRates: [
@@ -310,7 +312,7 @@ const exampleState: AppState = {
     name: "Alpha Project",
     startDate: "2026-06-15",
     endDate: "2027-07-15",
-    baselineBudget: 1000000,
+    // baselineBudget removed — now lives in Reforecast
     assignments: [
       { id: "tm_001", poolMemberId: "tm_001" },
       { id: "tm_002", poolMemberId: "tm_002" }
@@ -320,13 +322,15 @@ const exampleState: AppState = {
       name: "Q3 2026 Reforecast",
       createdAt: "2026-07-01T10:00:00Z",
       startDate: "2026-06",
+      reforecastDate: "2026-07-01",
       allocations: [
         { memberId: "tm_001", month: "2026-06", allocation: 0.25 },
         { memberId: "tm_001", month: "2026-07", allocation: 0.50 },
         { memberId: "tm_002", month: "2026-06", allocation: 0.40 }
       ],
       productivityWindows: [],
-      actualCost: 200000
+      actualCost: 200000,
+      baselineBudget: 1000000
     }],
     activeReforecastId: "rf_001"
   }]
@@ -656,6 +660,17 @@ src/
 - [x] Removed Actual Cost from project create/edit form
 - [x] Every new project auto-creates a Baseline reforecast with $0 actual cost
 
+### Phase 13: Per-Reforecast Budget + Reforecast Date (Sprint 12 — DONE)
+- [x] Moved `baselineBudget` from `Project` into each `Reforecast` for per-snapshot budget tracking
+- [x] Added `reforecastDate` (user-editable, defaults to today) to record when the reforecast was prepared
+- [x] Data migration v0.5.0 copies baselineBudget into all reforecasts, derives reforecastDate from createdAt
+- [x] Dashboard project tiles now show metrics from the most-recent reforecast by reforecastDate
+- [x] Inline-editable Baseline Budget in project summary bar (click-to-edit)
+- [x] Reforecast Date picker in toolbar alongside reforecast dropdown
+- [x] Switching reforecasts updates Baseline Budget, variance, budget ratio, and chart budget line
+- [x] Creating a reforecast copies the source budget; reforecastDate always defaults to today
+- [x] 328 passing tests across 18 test files
+
 ### Deferred (Future)
 - XLSX timecard import (with project alias mapping)
 - Traffic-light dashboard
@@ -801,6 +816,22 @@ Delivered:
 - Removed Actual Cost from ProjectForm (create/edit) — only Baseline Budget remains
 - Every new project auto-creates a Baseline reforecast with $0 actual cost
 - Updated all 16 test files with new migration and actualCost-per-reforecast tests
+
+### Sprint 12: Per-Reforecast Budget + Reforecast Date — COMPLETE (v0.7.0)
+**Goal**: Move baselineBudget into each reforecast, add reforecastDate, dashboard uses most-recent reforecast
+
+Delivered:
+- Moved `baselineBudget` from `Project` interface into `Reforecast` interface
+- Added `reforecastDate: string` (ISO date) to `Reforecast` — user-editable, defaults to today
+- Data migration v0.5.0: copies project.baselineBudget into all reforecasts, derives reforecastDate from createdAt
+- `getMostRecentReforecast(project)` helper sorts by reforecastDate desc with createdAt tie-breaking
+- Dashboard `ProjectCard` uses most-recent reforecast for metrics (not activeReforecastId)
+- `updateBaselineBudget` and `updateReforecastDate` callbacks in `useReforecast` hook
+- Inline-editable Baseline Budget in project summary bar (click-to-edit, same pattern as Actual Cost)
+- Reforecast Date `<input type="date">` added to ReforecastToolbar alongside dropdown
+- Edit page reads/writes baselineBudget to/from active reforecast
+- Shared reforecast factory (`createBaselineReforecast`, `createNewReforecast`) updated for both fields
+- 328 passing tests across 18 test files
 
 ---
 
@@ -1156,15 +1187,16 @@ export const repo = createLocalStorageRepository();
 The localStorage implementation (`localStorage.ts`) uses `STORAGE_KEYS` from `types/storage.ts` and handles team pool via `getTeamPool()`/`saveTeamPool()`. The `exportAll()`/`importAll()` methods include `teamPool` in the `AppState` round-trip.
 
 ```typescript
-// lib/storage/migrations.ts — current data version is 0.4.0
+// lib/storage/migrations.ts — current data version is 0.5.0
 
-export const DATA_VERSION = '0.4.0';
+export const DATA_VERSION = '0.5.0';
 
-// Migration chain: v1.0.0 → v0.1.0 → v0.2.0 → v0.3.0 → v0.4.0
+// Migration chain: v1.0.0 → v0.1.0 → v0.2.0 → v0.3.0 → v0.4.0 → v0.5.0
 // v0.1.0: Extracts teamMembers from projects into global teamPool, rewrites to assignments
 // v0.2.0: (structural migration)
 // v0.3.0: Strips deprecated hoursPerMonth from settings
 // v0.4.0: Moves actualCost from Project into each Reforecast; creates Baseline for projects without reforecasts
+// v0.5.0: Moves baselineBudget from Project into each Reforecast; adds reforecastDate (derived from createdAt)
 ```
 
 ---

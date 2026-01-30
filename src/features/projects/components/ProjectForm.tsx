@@ -145,7 +145,7 @@ export function ProjectForm({
           <input
             type="number"
             min="0"
-            value={data.baselineBudget || ''}
+            value={data.baselineBudget}
             onChange={(e) => handleChange('baselineBudget', e.target.value)}
             onBlur={() => setBudgetFocused(false)}
             autoFocus
@@ -155,7 +155,7 @@ export function ProjectForm({
           <input
             type="text"
             readOnly
-            value={data.baselineBudget ? formatCurrency(data.baselineBudget) : ''}
+            value={formatCurrency(data.baselineBudget)}
             onFocus={() => setBudgetFocused(true)}
             placeholder="$0"
             className="w-full cursor-pointer rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"

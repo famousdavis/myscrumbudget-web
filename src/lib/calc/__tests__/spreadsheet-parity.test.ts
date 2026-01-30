@@ -195,7 +195,6 @@ describe('Regression Tests — Workday-Based Calculation Engine', () => {
         name: 'Regression Test Project',
         startDate: FIX.project.startDate,
         endDate: FIX.project.endDate,
-        baselineBudget: 1_000_000,
         assignments: FIX.teamMembers.map((m) => ({
           id: m.id,
           poolMemberId: m.id,
@@ -205,9 +204,11 @@ describe('Regression Tests — Workday-Based Calculation Engine', () => {
           name: 'Baseline',
           createdAt: new Date().toISOString(),
           startDate: '2026-06',
+          reforecastDate: '2026-06-15',
           allocations: FIX.allocations,
           productivityWindows: [],
           actualCost: FIX.project.actualCost,
+          baselineBudget: 1_000_000,
         }],
         activeReforecastId: 'rf-baseline',
       };

@@ -42,3 +42,19 @@ export function getActiveReforecast(project: Project): Reforecast | undefined {
     ? project.reforecasts.find((r) => r.id === project.activeReforecastId)
     : project.reforecasts[0];
 }
+
+/**
+ * Get the most recent reforecast by reforecastDate.
+ * Used by the dashboard to show metrics from the newest forecast.
+ * Tie-breaker: createdAt descending (most recently created wins).
+ */
+export function getMostRecentReforecast(project: Project): Reforecast | undefined {
+  if (project.reforecasts.length === 0) return undefined;
+  if (project.reforecasts.length === 1) return project.reforecasts[0];
+
+  return [...project.reforecasts].sort((a, b) => {
+    const dateCmp = b.reforecastDate.localeCompare(a.reforecastDate);
+    if (dateCmp !== 0) return dateCmp;
+    return b.createdAt.localeCompare(a.createdAt);
+  })[0];
+}

@@ -12,6 +12,31 @@ interface ChangelogEntry {
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.7.0',
+    date: '2026-01-30',
+    sections: [
+      {
+        title: 'Architecture',
+        items: [
+          'Moved Baseline Budget from project-level into each Reforecast for per-snapshot budget tracking',
+          'Added Reforecast Date — user-editable date recording when the reforecast was prepared',
+          'Data migration v0.5.0 moves baselineBudget into all reforecasts, derives reforecastDate from createdAt',
+          'Dashboard project tiles now show metrics from the most-recent reforecast (by date)',
+          'New getMostRecentReforecast() helper with date sort and createdAt tie-breaking',
+        ],
+      },
+      {
+        title: 'UX',
+        items: [
+          'Baseline Budget is now inline-editable in the project summary bar (click to edit)',
+          'Reforecast Date picker appears alongside the reforecast dropdown in the toolbar',
+          'Switching reforecasts updates Baseline Budget, variance, budget ratio, and chart budget line',
+          'Creating a reforecast copies the source budget; date always defaults to today',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.6.0',
     date: '2026-01-30',
     sections: [

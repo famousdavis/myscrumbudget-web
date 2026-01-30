@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useProject } from '@/features/projects/hooks/useProject';
 import { ProjectForm } from '@/features/projects/components/ProjectForm';
 import { generateMonthRange } from '@/lib/utils/dates';
+import { getActiveReforecast } from '@/lib/utils/teamResolution';
 
 interface PendingSave {
   allocationCount: number;
@@ -36,6 +37,8 @@ export default function EditProjectPage({
     );
   }
 
+  const activeRf = getActiveReforecast(project);
+
   return (
     <div>
       <h1 className="text-2xl font-bold">Edit Project</h1>
@@ -45,18 +48,30 @@ export default function EditProjectPage({
             name: project.name,
             startDate: project.startDate,
             endDate: project.endDate,
-            baselineBudget: project.baselineBudget,
+            baselineBudget: activeRf?.baselineBudget ?? 0,
           }}
           submitLabel="Save Changes"
           onSubmit={async (data) => {
+            const { baselineBudget, ...projectFields } = data;
+
+            // Helper to apply baselineBudget to the active reforecast
+            const applyBudget = (prev: typeof project) => {
+              const activeId = prev.activeReforecastId ?? prev.reforecasts[0]?.id;
+              return prev.reforecasts.map((rf) =>
+                rf.id === activeId
+                  ? { ...rf, baselineBudget }
+                  : rf,
+              );
+            };
+
             // Check if timeline changed
             const timelineChanged =
-              data.startDate !== project.startDate ||
-              data.endDate !== project.endDate;
+              projectFields.startDate !== project.startDate ||
+              projectFields.endDate !== project.endDate;
 
             if (timelineChanged && project.reforecasts.length > 0) {
-              const newStartMonth = data.startDate.slice(0, 7);
-              const newEndMonth = data.endDate.slice(0, 7);
+              const newStartMonth = projectFields.startDate.slice(0, 7);
+              const newEndMonth = projectFields.endDate.slice(0, 7);
               const newMonths = new Set(
                 generateMonthRange(newStartMonth, newEndMonth),
               );
@@ -81,16 +96,19 @@ export default function EditProjectPage({
                   setPendingSave({
                     allocationCount: outOfRangeCount,
                     apply: () => {
-                      updateProject((prev) => ({
-                        ...prev,
-                        ...data,
-                        reforecasts: prev.reforecasts.map((rf) => ({
-                          ...rf,
-                          allocations: rf.allocations.filter((a) =>
-                            newMonths.has(a.month),
-                          ),
-                        })),
-                      }));
+                      updateProject((prev) => {
+                        const rfWithBudget = applyBudget(prev);
+                        return {
+                          ...prev,
+                          ...projectFields,
+                          reforecasts: rfWithBudget.map((rf) => ({
+                            ...rf,
+                            allocations: rf.allocations.filter((a) =>
+                              newMonths.has(a.month),
+                            ),
+                          })),
+                        };
+                      });
                       flush();
                       setPendingSave(null);
                       resolve();
@@ -103,7 +121,8 @@ export default function EditProjectPage({
             // No allocation conflict — apply directly
             updateProject((prev) => ({
               ...prev,
-              ...data,
+              ...projectFields,
+              reforecasts: applyBudget(prev),
             }));
             flush();
           }}

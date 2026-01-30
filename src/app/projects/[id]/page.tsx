@@ -49,11 +49,15 @@ export default function ProjectDetailPage({
     updateProductivityWindow,
     removeProductivityWindow,
     updateActualCost,
+    updateBaselineBudget,
+    updateReforecastDate,
   } = useReforecast({
     project,
     updateProject,
   });
   const actualCost = activeReforecast?.actualCost ?? 0;
+  const baselineBudget = activeReforecast?.baselineBudget ?? 0;
+  const reforecastDate = activeReforecast?.reforecastDate ?? '';
   const metrics = useProjectMetrics(project, settings, pool);
   const router = useRouter();
   const [showDelete, setShowDelete] = useState(false);
@@ -109,7 +113,9 @@ export default function ProjectDetailPage({
           project={project}
           metrics={metrics}
           actualCost={actualCost}
+          baselineBudget={baselineBudget}
           onActualCostChange={updateActualCost}
+          onBaselineBudgetChange={updateBaselineBudget}
         />
       </div>
 
@@ -120,9 +126,11 @@ export default function ProjectDetailPage({
           <ReforecastToolbar
             reforecasts={reforecasts}
             activeReforecastId={project.activeReforecastId}
+            reforecastDate={reforecastDate}
             onSwitch={switchReforecast}
             onCreate={createReforecast}
             onDelete={deleteReforecast}
+            onReforecastDateChange={updateReforecastDate}
           />
         </div>
         <div className="mt-3">
@@ -173,7 +181,7 @@ export default function ProjectDetailPage({
               <h3 className="mb-2 text-sm font-medium text-zinc-600 dark:text-zinc-400">Cumulative Cost vs Budget</h3>
               <CumulativeCostLineChart
                 monthlyData={metrics.monthlyData}
-                baselineBudget={project.baselineBudget}
+                baselineBudget={baselineBudget}
                 actualCost={actualCost}
               />
             </div>

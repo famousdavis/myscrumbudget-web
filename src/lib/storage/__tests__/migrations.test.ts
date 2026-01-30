@@ -4,7 +4,7 @@ import type { AppState } from '@/types/domain';
 
 function makeAppState(overrides: Partial<AppState> = {}): AppState {
   return {
-    version: '0.4.0',
+    version: '0.5.0',
     settings: {
       discountRateAnnual: 0.03,
       laborRates: [],
@@ -23,13 +23,13 @@ describe('Migrations', () => {
   });
 
   it('returns data unchanged when no migrations are pending', () => {
-    const data = makeAppState({ version: '0.4.0' });
-    const result = runMigrations(data, '0.4.0');
+    const data = makeAppState({ version: '0.5.0' });
+    const result = runMigrations(data, '0.5.0');
     expect(result).toEqual(data);
   });
 
   it('exports current version constant', () => {
-    expect(DATA_VERSION).toBe('0.4.0');
+    expect(DATA_VERSION).toBe('0.5.0');
   });
 
   it('migrates v1 data to v2 (extracts team pool from projects)', () => {
@@ -62,7 +62,7 @@ describe('Migrations', () => {
     const result = runMigrations(v1Data, '1.0.0');
 
     // Version should be bumped to latest
-    expect(result.version).toBe('0.4.0');
+    expect(result.version).toBe('0.5.0');
 
     // Pool should contain both members
     expect(result.teamPool).toHaveLength(2);
@@ -100,6 +100,11 @@ describe('Migrations', () => {
     expect(proj.reforecasts[0].name).toBe('Baseline');
     expect(proj.reforecasts[0].actualCost).toBe(200000);
     expect(proj.activeReforecastId).toBe(proj.reforecasts[0].id);
+
+    // v0.5.0 migration: baselineBudget moved to reforecast, reforecastDate added
+    expect((proj as Record<string, unknown>).baselineBudget).toBeUndefined();
+    expect(proj.reforecasts[0].baselineBudget).toBe(1000000);
+    expect(proj.reforecasts[0].reforecastDate).toBeTruthy();
   });
 
   it('migrates v0.2.0 to v0.3.0 (strips hoursPerMonth from settings)', () => {
@@ -116,7 +121,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v2Data, '0.2.0');
 
-    expect(result.version).toBe('0.4.0');
+    expect(result.version).toBe('0.5.0');
     // hoursPerMonth should be removed
     expect((result.settings as Record<string, unknown>).hoursPerMonth).toBeUndefined();
     // Other settings preserved
@@ -154,7 +159,7 @@ describe('Migrations', () => {
 
     const migrated = runMigrations(importedData, '1.0.0');
 
-    expect(migrated.version).toBe('0.4.0');
+    expect(migrated.version).toBe('0.5.0');
     expect(migrated.teamPool).toHaveLength(1);
     expect(migrated.teamPool[0].name).toBe('Alice');
     expect(migrated.projects[0].assignments).toHaveLength(1);
@@ -168,6 +173,11 @@ describe('Migrations', () => {
     expect((migrated.projects[0] as Record<string, unknown>).actualCost).toBeUndefined();
     expect(migrated.projects[0].reforecasts).toHaveLength(1);
     expect(migrated.projects[0].reforecasts[0].actualCost).toBe(5000);
+
+    // v0.5.0 migration: baselineBudget moved to reforecast, reforecastDate added
+    expect((migrated.projects[0] as Record<string, unknown>).baselineBudget).toBeUndefined();
+    expect(migrated.projects[0].reforecasts[0].baselineBudget).toBe(100000);
+    expect(migrated.projects[0].reforecasts[0].reforecastDate).toBeTruthy();
   });
 
   it('migrates v0.3.0 to v0.4.0 (moves actualCost into existing reforecasts)', () => {
@@ -212,7 +222,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v3Data, '0.3.0');
 
-    expect(result.version).toBe('0.4.0');
+    expect(result.version).toBe('0.5.0');
     const proj = result.projects[0];
 
     // actualCost should be removed from project level
@@ -229,6 +239,13 @@ describe('Migrations', () => {
 
     // activeReforecastId preserved
     expect(proj.activeReforecastId).toBe('rf_2');
+
+    // v0.5.0 migration: baselineBudget moved to reforecast, reforecastDate added
+    expect((proj as Record<string, unknown>).baselineBudget).toBeUndefined();
+    expect(proj.reforecasts[0].baselineBudget).toBe(500000);
+    expect(proj.reforecasts[1].baselineBudget).toBe(500000);
+    expect(proj.reforecasts[0].reforecastDate).toBe('2026-06-01');
+    expect(proj.reforecasts[1].reforecastDate).toBe('2026-09-01');
   });
 
   it('migrates v0.3.0 to v0.4.0 (creates Baseline for project without reforecasts)', () => {
@@ -256,7 +273,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v3Data, '0.3.0');
 
-    expect(result.version).toBe('0.4.0');
+    expect(result.version).toBe('0.5.0');
     const proj = result.projects[0];
 
     // actualCost removed from project
@@ -270,6 +287,11 @@ describe('Migrations', () => {
 
     // activeReforecastId set to the new Baseline
     expect(proj.activeReforecastId).toBe(proj.reforecasts[0].id);
+
+    // v0.5.0 migration: baselineBudget moved to reforecast, reforecastDate added
+    expect((proj as Record<string, unknown>).baselineBudget).toBeUndefined();
+    expect(proj.reforecasts[0].baselineBudget).toBe(500000);
+    expect(proj.reforecasts[0].reforecastDate).toBeTruthy();
   });
 
   it('migrates v0.3.0 to v0.4.0 with null/undefined actualCost (defaults to 0)', () => {
@@ -360,5 +382,244 @@ describe('Migrations', () => {
     // Pool should deduplicate by id — 2 unique members, not 3
     expect(result.teamPool).toHaveLength(2);
     expect(result.teamPool.map(m => m.id).sort()).toEqual(['tm1', 'tm3']);
+  });
+
+  it('migrates v0.4.0 to v0.5.0 (moves baselineBudget into reforecasts, adds reforecastDate)', () => {
+    const v4Data = {
+      version: '0.4.0',
+      settings: {
+        discountRateAnnual: 0.03,
+        laborRates: [],
+      },
+      teamPool: [],
+      projects: [
+        {
+          id: 'proj1',
+          name: 'Budget Project',
+          startDate: '2026-06-15',
+          endDate: '2027-07-15',
+          baselineBudget: 750000,
+          assignments: [],
+          reforecasts: [
+            {
+              id: 'rf_1',
+              name: 'Baseline',
+              createdAt: '2026-06-01T00:00:00Z',
+              startDate: '2026-06',
+              allocations: [],
+              productivityWindows: [],
+              actualCost: 10000,
+            },
+            {
+              id: 'rf_2',
+              name: 'Q3 Reforecast',
+              createdAt: '2026-09-15T12:00:00Z',
+              startDate: '2026-09',
+              allocations: [],
+              productivityWindows: [],
+              actualCost: 50000,
+            },
+          ],
+          activeReforecastId: 'rf_2',
+        },
+      ],
+    } as unknown as AppState;
+
+    const result = runMigrations(v4Data, '0.4.0');
+
+    expect(result.version).toBe('0.5.0');
+    const proj = result.projects[0];
+
+    // baselineBudget removed from project level
+    expect((proj as Record<string, unknown>).baselineBudget).toBeUndefined();
+
+    // All reforecasts inherit the project's baselineBudget
+    expect(proj.reforecasts[0].baselineBudget).toBe(750000);
+    expect(proj.reforecasts[1].baselineBudget).toBe(750000);
+
+    // reforecastDate derived from createdAt
+    expect(proj.reforecasts[0].reforecastDate).toBe('2026-06-01');
+    expect(proj.reforecasts[1].reforecastDate).toBe('2026-09-15');
+  });
+
+  it('migrates v0.4.0 to v0.5.0 with missing/undefined baselineBudget (defaults to 0)', () => {
+    const v4Data = {
+      version: '0.4.0',
+      settings: {
+        discountRateAnnual: 0.03,
+        laborRates: [],
+      },
+      teamPool: [],
+      projects: [
+        {
+          id: 'proj_no_bb',
+          name: 'No Budget Project',
+          startDate: '2026-06-15',
+          endDate: '2027-07-15',
+          // baselineBudget intentionally omitted
+          assignments: [],
+          reforecasts: [
+            {
+              id: 'rf_1',
+              name: 'Baseline',
+              createdAt: '2026-06-01T00:00:00Z',
+              startDate: '2026-06',
+              allocations: [],
+              productivityWindows: [],
+              actualCost: 0,
+            },
+          ],
+          activeReforecastId: 'rf_1',
+        },
+      ],
+    } as unknown as AppState;
+
+    const result = runMigrations(v4Data, '0.4.0');
+
+    expect(result.version).toBe('0.5.0');
+    const proj = result.projects[0];
+
+    // Missing baselineBudget defaults to 0
+    expect(proj.reforecasts[0].baselineBudget).toBe(0);
+    expect(proj.reforecasts[0].reforecastDate).toBe('2026-06-01');
+  });
+
+  it('migrates v0.4.0 to v0.5.0 with null baselineBudget (defaults to 0)', () => {
+    const v4Data = {
+      version: '0.4.0',
+      settings: {
+        discountRateAnnual: 0.03,
+        laborRates: [],
+      },
+      teamPool: [],
+      projects: [
+        {
+          id: 'proj_null_bb',
+          name: 'Null Budget',
+          startDate: '2026-06-15',
+          endDate: '2027-07-15',
+          baselineBudget: null,
+          assignments: [],
+          reforecasts: [
+            {
+              id: 'rf_1',
+              name: 'Baseline',
+              createdAt: '2026-06-01T00:00:00Z',
+              startDate: '2026-06',
+              allocations: [],
+              productivityWindows: [],
+              actualCost: 0,
+            },
+          ],
+          activeReforecastId: 'rf_1',
+        },
+      ],
+    } as unknown as AppState;
+
+    const result = runMigrations(v4Data, '0.4.0');
+
+    expect(result.version).toBe('0.5.0');
+    expect(result.projects[0].reforecasts[0].baselineBudget).toBe(0);
+  });
+
+  it('migrates v0.4.0 to v0.5.0 with NaN/Infinity baselineBudget (defaults to 0)', () => {
+    const v4Data = {
+      version: '0.4.0',
+      settings: {
+        discountRateAnnual: 0.03,
+        laborRates: [],
+      },
+      teamPool: [],
+      projects: [
+        {
+          id: 'proj_nan_bb',
+          name: 'NaN Budget',
+          startDate: '2026-06-15',
+          endDate: '2027-07-15',
+          baselineBudget: NaN,
+          assignments: [],
+          reforecasts: [
+            {
+              id: 'rf_1',
+              name: 'Baseline',
+              createdAt: '2026-06-01T00:00:00Z',
+              startDate: '2026-06',
+              allocations: [],
+              productivityWindows: [],
+              actualCost: 0,
+            },
+          ],
+          activeReforecastId: 'rf_1',
+        },
+        {
+          id: 'proj_inf_bb',
+          name: 'Infinity Budget',
+          startDate: '2026-06-15',
+          endDate: '2027-07-15',
+          baselineBudget: Infinity,
+          assignments: [],
+          reforecasts: [
+            {
+              id: 'rf_2',
+              name: 'Baseline',
+              createdAt: '2026-06-01T00:00:00Z',
+              startDate: '2026-06',
+              allocations: [],
+              productivityWindows: [],
+              actualCost: 0,
+            },
+          ],
+          activeReforecastId: 'rf_2',
+        },
+      ],
+    } as unknown as AppState;
+
+    const result = runMigrations(v4Data, '0.4.0');
+
+    expect(result.version).toBe('0.5.0');
+    expect(result.projects[0].reforecasts[0].baselineBudget).toBe(0);
+    expect(result.projects[1].reforecasts[0].baselineBudget).toBe(0);
+  });
+
+  it('migrates v0.4.0 to v0.5.0 with reforecast missing createdAt (uses today)', () => {
+    const v4Data = {
+      version: '0.4.0',
+      settings: {
+        discountRateAnnual: 0.03,
+        laborRates: [],
+      },
+      teamPool: [],
+      projects: [
+        {
+          id: 'proj_no_created',
+          name: 'No CreatedAt',
+          startDate: '2026-06-15',
+          endDate: '2027-07-15',
+          baselineBudget: 100000,
+          assignments: [],
+          reforecasts: [
+            {
+              id: 'rf_1',
+              name: 'Baseline',
+              // createdAt intentionally omitted
+              startDate: '2026-06',
+              allocations: [],
+              productivityWindows: [],
+              actualCost: 0,
+            },
+          ],
+          activeReforecastId: 'rf_1',
+        },
+      ],
+    } as unknown as AppState;
+
+    const result = runMigrations(v4Data, '0.4.0');
+
+    expect(result.version).toBe('0.5.0');
+    const proj = result.projects[0];
+
+    // reforecastDate falls back to today when createdAt is missing
+    expect(proj.reforecasts[0].reforecastDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(proj.reforecasts[0].baselineBudget).toBe(100000);
   });
 });

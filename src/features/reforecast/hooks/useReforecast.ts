@@ -25,7 +25,7 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
 
   const activeReforecast = useMemo(() => {
     if (!project || project.reforecasts.length === 0) return null;
-    return getActiveReforecast(project) ?? project.reforecasts[0];
+    return getActiveReforecast(project);
   }, [project]);
 
   const allocationMap = useMemo(() => {
@@ -54,6 +54,22 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
       return { project: updated, reforecastId: rf.id };
     },
     [],
+  );
+
+  /** Apply an updater to the active reforecast only. */
+  const updateActiveRf = useCallback(
+    (rfUpdater: (rf: Reforecast) => Reforecast) => {
+      updateProject((prev) => {
+        const { project: withRf, reforecastId } = ensureReforecast(prev);
+        return {
+          ...withRf,
+          reforecasts: withRf.reforecasts.map((rf) =>
+            rf.id === reforecastId ? rfUpdater(rf) : rf,
+          ),
+        };
+      });
+    },
+    [updateProject, ensureReforecast],
   );
 
   const onAllocationChange = useCallback(
@@ -131,28 +147,18 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
 
   const addProductivityWindow = useCallback(
     (startDate: string, endDate: string, factor: number) => {
-      updateProject((prev) => {
-        const { project: withRf, reforecastId } = ensureReforecast(prev);
-        const newWindow: ProductivityWindow = {
-          id: generateId(),
-          startDate,
-          endDate,
-          factor,
-        };
-        return {
-          ...withRf,
-          reforecasts: withRf.reforecasts.map((rf) =>
-            rf.id === reforecastId
-              ? {
-                  ...rf,
-                  productivityWindows: [...rf.productivityWindows, newWindow],
-                }
-              : rf,
-          ),
-        };
-      });
+      const newWindow: ProductivityWindow = {
+        id: generateId(),
+        startDate,
+        endDate,
+        factor,
+      };
+      updateActiveRf((rf) => ({
+        ...rf,
+        productivityWindows: [...rf.productivityWindows, newWindow],
+      }));
     },
-    [updateProject, ensureReforecast],
+    [updateActiveRf],
   );
 
   const updateProductivityWindow = useCallback(
@@ -160,24 +166,14 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
       windowId: string,
       updates: Partial<Omit<ProductivityWindow, 'id'>>,
     ) => {
-      updateProject((prev) => {
-        const { project: withRf, reforecastId } = ensureReforecast(prev);
-        return {
-          ...withRf,
-          reforecasts: withRf.reforecasts.map((rf) =>
-            rf.id === reforecastId
-              ? {
-                  ...rf,
-                  productivityWindows: rf.productivityWindows.map((w) =>
-                    w.id === windowId ? { ...w, ...updates } : w,
-                  ),
-                }
-              : rf,
-          ),
-        };
-      });
+      updateActiveRf((rf) => ({
+        ...rf,
+        productivityWindows: rf.productivityWindows.map((w) =>
+          w.id === windowId ? { ...w, ...updates } : w,
+        ),
+      }));
     },
-    [updateProject, ensureReforecast],
+    [updateActiveRf],
   );
 
   const deleteReforecast = useCallback(
@@ -192,7 +188,7 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
           ...prev,
           reforecasts: remaining,
           activeReforecastId: wasActive
-            ? (remaining.length > 0 ? remaining[0].id : null)
+            ? remaining[0].id
             : prev.activeReforecastId,
         };
       });
@@ -202,43 +198,41 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
 
   const removeProductivityWindow = useCallback(
     (windowId: string) => {
-      updateProject((prev) => {
-        const { project: withRf, reforecastId } = ensureReforecast(prev);
-        return {
-          ...withRf,
-          reforecasts: withRf.reforecasts.map((rf) =>
-            rf.id === reforecastId
-              ? {
-                  ...rf,
-                  productivityWindows: rf.productivityWindows.filter(
-                    (w) => w.id !== windowId,
-                  ),
-                }
-              : rf,
-          ),
-        };
-      });
+      updateActiveRf((rf) => ({
+        ...rf,
+        productivityWindows: rf.productivityWindows.filter(
+          (w) => w.id !== windowId,
+        ),
+      }));
     },
-    [updateProject, ensureReforecast],
+    [updateActiveRf],
   );
+
+  /** Sanitize a currency value: clamp NaN/Infinity to 0, enforce >= 0. */
+  const sanitizeCurrency = (value: number): number =>
+    Number.isFinite(value) ? Math.max(0, value) : 0;
 
   const updateActualCost = useCallback(
     (value: number) => {
-      updateProject((prev) => {
-        const { project: withRf, reforecastId } = ensureReforecast(prev);
-        // Guard against NaN/Infinity — clamp to 0 if not a finite number
-        const sanitized = Number.isFinite(value) ? Math.max(0, value) : 0;
-        return {
-          ...withRf,
-          reforecasts: withRf.reforecasts.map((rf) =>
-            rf.id === reforecastId
-              ? { ...rf, actualCost: sanitized }
-              : rf,
-          ),
-        };
-      });
+      const sanitized = sanitizeCurrency(value);
+      updateActiveRf((rf) => ({ ...rf, actualCost: sanitized }));
     },
-    [updateProject, ensureReforecast],
+    [updateActiveRf],
+  );
+
+  const updateBaselineBudget = useCallback(
+    (value: number) => {
+      const sanitized = sanitizeCurrency(value);
+      updateActiveRf((rf) => ({ ...rf, baselineBudget: sanitized }));
+    },
+    [updateActiveRf],
+  );
+
+  const updateReforecastDate = useCallback(
+    (date: string) => {
+      updateActiveRf((rf) => ({ ...rf, reforecastDate: date }));
+    },
+    [updateActiveRf],
   );
 
   return {
@@ -254,5 +248,7 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
     updateProductivityWindow,
     removeProductivityWindow,
     updateActualCost,
+    updateBaselineBudget,
+    updateReforecastDate,
   };
 }

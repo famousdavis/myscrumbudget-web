@@ -6,7 +6,7 @@ import type { Project, Settings, PoolMember } from '@/types/domain';
 import { formatCurrency } from '@/lib/utils/format';
 import { formatMonthLabel } from '@/lib/utils/dates';
 import { calculateProjectMetrics } from '@/lib/calc';
-import { resolveAssignments, getActiveReforecast } from '@/lib/utils/teamResolution';
+import { resolveAssignments, getMostRecentReforecast } from '@/lib/utils/teamResolution';
 
 interface ProjectCardProps {
   project: Project;
@@ -48,17 +48,28 @@ export function ProjectCard({
   const startLabel = formatMonthLabel(project.startDate);
   const endLabel = formatMonthLabel(project.endDate);
 
+  // Dashboard uses the most-recent reforecast by date
+  const mostRecentRf = useMemo(
+    () => getMostRecentReforecast(project),
+    [project],
+  );
+
   const metrics = useMemo(() => {
     if (!settings) return null;
-    if (project.reforecasts.length === 0) return null;
-    const rf = getActiveReforecast(project);
-    if (!rf || rf.allocations.length === 0) return null;
+    if (!mostRecentRf || mostRecentRf.allocations.length === 0) return null;
+    // Build a view of the project with the most-recent RF as active
+    const dashProject = {
+      ...project,
+      activeReforecastId: mostRecentRf.id,
+    };
     const teamMembers = resolveAssignments(project.assignments ?? [], pool);
-    return calculateProjectMetrics(project, settings, teamMembers);
-  }, [project, settings, pool]);
+    return calculateProjectMetrics(dashProject, settings, teamMembers);
+  }, [project, settings, pool, mostRecentRf]);
+
+  const budget = mostRecentRf?.baselineBudget ?? 0;
 
   const eacStatus = metrics
-    ? metrics.eac <= project.baselineBudget
+    ? metrics.eac <= budget
       ? { color: 'text-green-600 dark:text-green-400', label: '(under budget)' }
       : { color: 'text-red-600 dark:text-red-400', label: '(over budget)' }
     : { color: '', label: '' };
@@ -145,7 +156,7 @@ export function ProjectCard({
             <div>
               <span className="text-zinc-500 dark:text-zinc-400">Budget: </span>
               <span className="font-medium">
-                {formatCurrency(project.baselineBudget)}
+                {formatCurrency(budget)}
               </span>
             </div>
             {metrics && (
