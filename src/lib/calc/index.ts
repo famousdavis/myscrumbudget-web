@@ -13,7 +13,7 @@ import {
 } from './metrics';
 import { calculateNPV } from './npv';
 import { getProductivityFactor } from './productivity';
-import { generateMonthRange } from '@/lib/utils/dates';
+import { generateMonthRange, getMonthlyWorkHours } from '@/lib/utils/dates';
 import { getActiveReforecast } from '@/lib/utils/teamResolution';
 
 /**
@@ -55,11 +55,12 @@ export function calculateProjectMetrics(
 
   for (const month of months) {
     const factor = getProductivityFactor(month, reforecast.productivityWindows);
+    const availableHours = getMonthlyWorkHours(month, project.startDate, project.endDate);
     const cost = calculateTotalMonthlyCost(
-      month, allocationMap, teamMembers, settings, factor,
+      month, allocationMap, teamMembers, settings, availableHours, factor,
     );
     const hours = calculateTotalMonthlyHours(
-      month, allocationMap, settings, factor,
+      month, allocationMap, availableHours, factor,
     );
     monthlyCostValues.push(cost);
     monthlyHourValues.push(hours);

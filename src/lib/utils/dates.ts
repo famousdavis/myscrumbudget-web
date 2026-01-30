@@ -1,3 +1,5 @@
+import { HOURS_PER_DAY } from '@/lib/constants';
+
 /**
  * Generate an array of month strings (YYYY-MM) between two dates inclusive.
  */
@@ -72,4 +74,51 @@ export function nextBusinessDay(dateStr: string): string {
   const mm = String(date.getMonth() + 1).padStart(2, '0');
   const dd = String(date.getDate()).padStart(2, '0');
   return `${yyyy}-${mm}-${dd}`;
+}
+
+/**
+ * Count weekdays (Mon-Fri) between two YYYY-MM-DD dates, inclusive of both ends.
+ */
+export function countWorkdays(startDate: string, endDate: string): number {
+  const [sy, sm, sd] = startDate.split('-').map(Number);
+  const [ey, em, ed] = endDate.split('-').map(Number);
+  const start = new Date(sy, sm - 1, sd);
+  const end = new Date(ey, em - 1, ed);
+
+  let count = 0;
+  const current = new Date(start);
+  while (current <= end) {
+    const dow = current.getDay();
+    if (dow >= 1 && dow <= 5) count++;
+    current.setDate(current.getDate() + 1);
+  }
+  return count;
+}
+
+/**
+ * Get available workday hours for a YYYY-MM month, clipped to project date range.
+ * - First month: count workdays from project startDate to end of month
+ * - Last month: count workdays from start of month to project endDate
+ * - Middle months: count all workdays in the full month
+ * Returns workdays * HOURS_PER_DAY.
+ */
+export function getMonthlyWorkHours(
+  month: string,
+  projectStartDate: string,
+  projectEndDate: string,
+): number {
+  const [year, mon] = month.split('-').map(Number);
+
+  // Full month boundaries
+  const monthStart = `${year}-${String(mon).padStart(2, '0')}-01`;
+  const lastDay = new Date(year, mon, 0).getDate(); // last day of month
+  const monthEnd = `${year}-${String(mon).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+  // Clip to project date range
+  const effectiveStart = projectStartDate > monthStart ? projectStartDate : monthStart;
+  const effectiveEnd = projectEndDate < monthEnd ? projectEndDate : monthEnd;
+
+  if (effectiveStart > effectiveEnd) return 0;
+
+  return countWorkdays(effectiveStart, effectiveEnd) * HOURS_PER_DAY;
 }

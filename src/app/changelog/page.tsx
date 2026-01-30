@@ -12,6 +12,46 @@ interface ChangelogEntry {
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.5.0',
+    date: '2026-01-29',
+    sections: [
+      {
+        title: 'Calculation Engine',
+        items: [
+          'Replaced fixed "Working Hours per Month" setting with workday-based calculation engine',
+          'Available hours derived from actual weekdays (Mon\u2013Fri) \u00D7 8 hours/day',
+          'Partial first/last months clipped to project start/end dates for accurate cost calculation',
+          'A 2-day project now correctly calculates 16 hours instead of 160',
+          'Removed "Working Hours per Month" input from Settings page',
+        ],
+      },
+      {
+        title: 'UX',
+        items: [
+          'Confirmation dialog for team member removal from allocation grid',
+          'Empty team pool shows link to Team Pool page instead of dead-end dropdown',
+          'Consistent add-member experience in allocation grid',
+        ],
+      },
+      {
+        title: 'Architecture',
+        items: [
+          'Data migration v0.3.0 strips deprecated hoursPerMonth from stored settings',
+          'New countWorkdays() and getMonthlyWorkHours() date utilities',
+          'HOURS_PER_DAY = 8 constant replaces configurable hoursPerMonth setting',
+        ],
+      },
+      {
+        title: 'Testing',
+        items: [
+          'New workday utility tests (countWorkdays, getMonthlyWorkHours)',
+          'Recomputed all golden-file regression test values for workday-based engine',
+          '224 passing tests across 16 test files',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.4.0',
     date: '2026-01-29',
     sections: [

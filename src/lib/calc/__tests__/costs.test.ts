@@ -10,7 +10,6 @@ import { buildAllocationMap } from '../allocationMap';
 import type { Settings, TeamMember } from '@/types/domain';
 
 const SETTINGS: Settings = {
-  hoursPerMonth: 160,
   discountRateAnnual: 0.03,
   laborRates: [
     { role: 'BA', hourlyRate: 75 },
@@ -34,12 +33,12 @@ describe('getHourlyRate', () => {
 });
 
 describe('calculateMemberMonthlyCost', () => {
-  it('calculates cost = rate * hours * allocation', () => {
+  it('calculates cost = rate * availableHours * allocation', () => {
     expect(calculateMemberMonthlyCost(0.5, 100, 160)).toBe(8_000);
   });
 
-  it('calculates Aaliyah example: 75 * 160 * 0.25 = 3000', () => {
-    expect(calculateMemberMonthlyCost(0.25, 75, 160)).toBe(3_000);
+  it('calculates with 96 available hours: 75 * 96 * 0.25 = 1800', () => {
+    expect(calculateMemberMonthlyCost(0.25, 75, 96)).toBe(1_800);
   });
 
   it('applies productivity factor', () => {
@@ -60,7 +59,7 @@ describe('calculateMemberMonthlyCost', () => {
 });
 
 describe('calculateMemberMonthlyHours', () => {
-  it('calculates hours = hoursPerMonth * allocation', () => {
+  it('calculates hours = availableHours * allocation', () => {
     expect(calculateMemberMonthlyHours(0.5, 160)).toBe(80);
   });
 
@@ -89,12 +88,12 @@ describe('calculateTotalMonthlyCost', () => {
       { memberId: 'tm2', month: '2026-06', allocation: 1.0 },
     ]);
     // BA: 75*160*0.5=6000, SoftEng: 100*160*1.0=16000
-    expect(calculateTotalMonthlyCost('2026-06', map, members, SETTINGS)).toBe(22_000);
+    expect(calculateTotalMonthlyCost('2026-06', map, members, SETTINGS, 160)).toBe(22_000);
   });
 
   it('returns 0 for month with no allocations', () => {
     const map = buildAllocationMap([]);
-    expect(calculateTotalMonthlyCost('2026-06', map, members, SETTINGS)).toBe(0);
+    expect(calculateTotalMonthlyCost('2026-06', map, members, SETTINGS, 160)).toBe(0);
   });
 
   it('ignores members with zero allocation', () => {
@@ -102,7 +101,7 @@ describe('calculateTotalMonthlyCost', () => {
       { memberId: 'tm1', month: '2026-06', allocation: 0 },
       { memberId: 'tm2', month: '2026-06', allocation: 0.5 },
     ]);
-    expect(calculateTotalMonthlyCost('2026-06', map, members, SETTINGS)).toBe(8_000);
+    expect(calculateTotalMonthlyCost('2026-06', map, members, SETTINGS, 160)).toBe(8_000);
   });
 
   it('applies productivity factor to all members', () => {
@@ -110,7 +109,7 @@ describe('calculateTotalMonthlyCost', () => {
       { memberId: 'tm1', month: '2026-06', allocation: 0.5 },
       { memberId: 'tm2', month: '2026-06', allocation: 1.0 },
     ]);
-    expect(calculateTotalMonthlyCost('2026-06', map, members, SETTINGS, 0.5)).toBe(11_000);
+    expect(calculateTotalMonthlyCost('2026-06', map, members, SETTINGS, 160, 0.5)).toBe(11_000);
   });
 });
 
@@ -121,18 +120,18 @@ describe('calculateTotalMonthlyHours', () => {
       { memberId: 'tm2', month: '2026-06', allocation: 1.0 },
     ]);
     // 160*0.5 + 160*1.0 = 240
-    expect(calculateTotalMonthlyHours('2026-06', map, SETTINGS)).toBe(240);
+    expect(calculateTotalMonthlyHours('2026-06', map, 160)).toBe(240);
   });
 
   it('returns 0 for month with no allocations', () => {
     const map = buildAllocationMap([]);
-    expect(calculateTotalMonthlyHours('2026-06', map, SETTINGS)).toBe(0);
+    expect(calculateTotalMonthlyHours('2026-06', map, 160)).toBe(0);
   });
 
   it('applies productivity factor', () => {
     const map = buildAllocationMap([
       { memberId: 'tm1', month: '2026-06', allocation: 1.0 },
     ]);
-    expect(calculateTotalMonthlyHours('2026-06', map, SETTINGS, 0.5)).toBe(80);
+    expect(calculateTotalMonthlyHours('2026-06', map, 160, 0.5)).toBe(80);
   });
 });

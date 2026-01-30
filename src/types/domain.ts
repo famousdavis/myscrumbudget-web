@@ -5,7 +5,6 @@ export interface LaborRate {
 }
 
 export interface Settings {
-  hoursPerMonth: number;
   discountRateAnnual: number;
   laborRates: LaborRate[];
 }

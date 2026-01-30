@@ -12,27 +12,27 @@ export function getHourlyRate(role: string, settings: Settings): number {
 
 /**
  * Calculate a single member's monthly cost.
- *   cost = hourlyRate * hoursPerMonth * allocation * productivityFactor
+ *   cost = hourlyRate * availableHours * allocation * productivityFactor
  */
 export function calculateMemberMonthlyCost(
   allocation: number,
   hourlyRate: number,
-  hoursPerMonth: number,
+  availableHours: number,
   productivityFactor: number = 1,
 ): number {
-  return hourlyRate * hoursPerMonth * allocation * productivityFactor;
+  return hourlyRate * availableHours * allocation * productivityFactor;
 }
 
 /**
  * Calculate a single member's monthly hours.
- *   hours = hoursPerMonth * allocation * productivityFactor
+ *   hours = availableHours * allocation * productivityFactor
  */
 export function calculateMemberMonthlyHours(
   allocation: number,
-  hoursPerMonth: number,
+  availableHours: number,
   productivityFactor: number = 1,
 ): number {
-  return hoursPerMonth * allocation * productivityFactor;
+  return availableHours * allocation * productivityFactor;
 }
 
 /**
@@ -44,6 +44,7 @@ export function calculateTotalMonthlyCost(
   allocationMap: AllocationMap,
   teamMembers: TeamMember[],
   settings: Settings,
+  availableHours: number,
   productivityFactor: number = 1,
 ): number {
   const monthAllocations = allocationMap.get(month);
@@ -55,7 +56,7 @@ export function calculateTotalMonthlyCost(
     if (allocation > 0) {
       const rate = getHourlyRate(member.role, settings);
       total += calculateMemberMonthlyCost(
-        allocation, rate, settings.hoursPerMonth, productivityFactor,
+        allocation, rate, availableHours, productivityFactor,
       );
     }
   }
@@ -69,7 +70,7 @@ export function calculateTotalMonthlyCost(
 export function calculateTotalMonthlyHours(
   month: string,
   allocationMap: AllocationMap,
-  settings: Settings,
+  availableHours: number,
   productivityFactor: number = 1,
 ): number {
   const monthAllocations = allocationMap.get(month);
@@ -78,7 +79,7 @@ export function calculateTotalMonthlyHours(
   let total = 0;
   for (const [, allocation] of monthAllocations) {
     total += calculateMemberMonthlyHours(
-      allocation, settings.hoursPerMonth, productivityFactor,
+      allocation, availableHours, productivityFactor,
     );
   }
   return total;

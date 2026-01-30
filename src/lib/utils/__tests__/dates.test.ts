@@ -1,0 +1,95 @@
+import { describe, it, expect } from 'vitest';
+import { countWorkdays, getMonthlyWorkHours } from '../dates';
+
+describe('countWorkdays', () => {
+  it('counts 2 workdays for Thu-Fri range (1/29-1/30/2026)', () => {
+    expect(countWorkdays('2026-01-29', '2026-01-30')).toBe(2);
+  });
+
+  it('counts 22 workdays in January 2026 (starts Thu)', () => {
+    expect(countWorkdays('2026-01-01', '2026-01-31')).toBe(22);
+  });
+
+  it('counts 20 workdays in February 2026 (starts Sun)', () => {
+    expect(countWorkdays('2026-02-01', '2026-02-28')).toBe(20);
+  });
+
+  it('counts 22 workdays in June 2026 (starts Mon)', () => {
+    expect(countWorkdays('2026-06-01', '2026-06-30')).toBe(22);
+  });
+
+  it('counts 1 workday for a single weekday', () => {
+    expect(countWorkdays('2026-01-05', '2026-01-05')).toBe(1); // Monday
+  });
+
+  it('counts 0 workdays for a single Saturday', () => {
+    expect(countWorkdays('2026-01-03', '2026-01-03')).toBe(0); // Saturday
+  });
+
+  it('counts 0 workdays for a single Sunday', () => {
+    expect(countWorkdays('2026-01-04', '2026-01-04')).toBe(0); // Sunday
+  });
+
+  it('counts 0 workdays for a Sat-Sun weekend', () => {
+    expect(countWorkdays('2026-01-03', '2026-01-04')).toBe(0);
+  });
+
+  it('counts 5 workdays for a full Mon-Fri week', () => {
+    expect(countWorkdays('2026-01-05', '2026-01-09')).toBe(5);
+  });
+
+  it('counts 12 workdays from June 15-30, 2026 (Mon-Tue)', () => {
+    // June 15 is Monday, June 30 is Tuesday
+    expect(countWorkdays('2026-06-15', '2026-06-30')).toBe(12);
+  });
+
+  it('counts 11 workdays from July 1-15, 2027 (Thu-Tue)', () => {
+    // July 1 is Thursday, July 15 is Thursday
+    expect(countWorkdays('2027-07-01', '2027-07-15')).toBe(11);
+  });
+});
+
+describe('getMonthlyWorkHours', () => {
+  it('returns full-month hours for a middle month', () => {
+    // July 2026 has 23 workdays = 184 hours
+    expect(getMonthlyWorkHours('2026-07', '2026-06-15', '2027-07-15')).toBe(184);
+  });
+
+  it('clips first month to project start date', () => {
+    // June 2026, project starts 6/15: 12 workdays * 8 = 96 hours
+    expect(getMonthlyWorkHours('2026-06', '2026-06-15', '2027-07-15')).toBe(96);
+  });
+
+  it('clips last month to project end date', () => {
+    // July 2027, project ends 7/15: 11 workdays * 8 = 88 hours
+    expect(getMonthlyWorkHours('2027-07', '2026-06-15', '2027-07-15')).toBe(88);
+  });
+
+  it('handles a 2-day project within a single month', () => {
+    // 1/29-1/30/2026: 2 workdays * 8 = 16 hours
+    expect(getMonthlyWorkHours('2026-01', '2026-01-29', '2026-01-30')).toBe(16);
+  });
+
+  it('returns 0 for a month outside the project date range', () => {
+    expect(getMonthlyWorkHours('2026-05', '2026-06-15', '2027-07-15')).toBe(0);
+    expect(getMonthlyWorkHours('2027-08', '2026-06-15', '2027-07-15')).toBe(0);
+  });
+
+  it('handles a full-month project (Jan 2026)', () => {
+    // 22 workdays * 8 = 176
+    expect(getMonthlyWorkHours('2026-01', '2026-01-01', '2026-01-31')).toBe(176);
+  });
+
+  it('handles February 2026 (20 workdays)', () => {
+    expect(getMonthlyWorkHours('2026-02', '2026-01-01', '2026-12-31')).toBe(160);
+  });
+
+  it('varies month-to-month based on calendar', () => {
+    const jan = getMonthlyWorkHours('2026-01', '2026-01-01', '2026-12-31');
+    const feb = getMonthlyWorkHours('2026-02', '2026-01-01', '2026-12-31');
+    // January has 22 workdays, February has 20
+    expect(jan).toBe(176);
+    expect(feb).toBe(160);
+    expect(jan).not.toBe(feb);
+  });
+});

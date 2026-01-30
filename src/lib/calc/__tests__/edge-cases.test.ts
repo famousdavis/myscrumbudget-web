@@ -8,7 +8,6 @@ import { getProductivityFactor } from '../productivity';
 import type { Project, Settings, TeamMember, Reforecast } from '@/types/domain';
 
 const SETTINGS: Settings = {
-  hoursPerMonth: 160,
   discountRateAnnual: 0.03,
   laborRates: [{ role: 'Dev', hourlyRate: 100 }],
 };
@@ -93,9 +92,10 @@ describe('Edge Cases', () => {
 
       const metrics = calculateProjectMetrics(project, SETTINGS, TEAM);
       expect(metrics.monthlyData).toHaveLength(1);
-      // 1.0 allocation * 100 $/hr * 160 hr/mo = $16,000
-      expect(metrics.etc).toBe(16000);
-      expect(metrics.totalHours).toBe(160);
+      // June 2026 (full month): 22 workdays * 8 hrs = 176 available hours
+      // 1.0 allocation * 100 $/hr * 176 hrs = $17,600
+      expect(metrics.etc).toBe(17_600);
+      expect(metrics.totalHours).toBe(176);
     });
   });
 
@@ -115,9 +115,8 @@ describe('Edge Cases', () => {
       // Only 'a1' is in the team — orphan should not cause errors
       const metrics = calculateProjectMetrics(project, SETTINGS, TEAM);
       expect(Number.isFinite(metrics.etc)).toBe(true);
-      // Cost should only reflect 'a1' (0.5 * 100 * 160 = 8000 per month)
-      // not the orphaned member
-      expect(metrics.monthlyData[0].cost).toBe(8000);
+      // Cost should only reflect 'a1': 0.5 * 100 * 96 (12 workdays in Jun 15-30) = 4800
+      expect(metrics.monthlyData[0].cost).toBe(4_800);
     });
 
     it('handles empty team with allocations', () => {

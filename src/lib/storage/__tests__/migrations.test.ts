@@ -4,9 +4,8 @@ import type { AppState } from '@/types/domain';
 
 function makeAppState(overrides: Partial<AppState> = {}): AppState {
   return {
-    version: '0.2.0',
+    version: '0.3.0',
     settings: {
-      hoursPerMonth: 160,
       discountRateAnnual: 0.03,
       laborRates: [],
     },
@@ -24,13 +23,13 @@ describe('Migrations', () => {
   });
 
   it('returns data unchanged when no migrations are pending', () => {
-    const data = makeAppState({ version: '0.2.0' });
-    const result = runMigrations(data, '0.2.0');
+    const data = makeAppState({ version: '0.3.0' });
+    const result = runMigrations(data, '0.3.0');
     expect(result).toEqual(data);
   });
 
   it('exports current version constant', () => {
-    expect(DATA_VERSION).toBe('0.2.0');
+    expect(DATA_VERSION).toBe('0.3.0');
   });
 
   it('migrates v1 data to v2 (extracts team pool from projects)', () => {
@@ -62,8 +61,8 @@ describe('Migrations', () => {
 
     const result = runMigrations(v1Data, '1.0.0');
 
-    // Version should be bumped
-    expect(result.version).toBe('0.2.0');
+    // Version should be bumped to latest
+    expect(result.version).toBe('0.3.0');
 
     // Pool should contain both members
     expect(result.teamPool).toHaveLength(2);
@@ -91,6 +90,33 @@ describe('Migrations', () => {
     });
     // teamMembers should be gone
     expect((proj as Record<string, unknown>).teamMembers).toBeUndefined();
+
+    // hoursPerMonth should be stripped from settings
+    expect((result.settings as Record<string, unknown>).hoursPerMonth).toBeUndefined();
+  });
+
+  it('migrates v0.2.0 to v0.3.0 (strips hoursPerMonth from settings)', () => {
+    const v2Data = {
+      version: '0.2.0',
+      settings: {
+        hoursPerMonth: 160,
+        discountRateAnnual: 0.03,
+        laborRates: [{ role: 'Dev', hourlyRate: 100 }],
+      },
+      teamPool: [{ id: 'pm1', name: 'Alice', role: 'Dev' }],
+      projects: [],
+    } as unknown as AppState;
+
+    const result = runMigrations(v2Data, '0.2.0');
+
+    expect(result.version).toBe('0.3.0');
+    // hoursPerMonth should be removed
+    expect((result.settings as Record<string, unknown>).hoursPerMonth).toBeUndefined();
+    // Other settings preserved
+    expect(result.settings.discountRateAnnual).toBe(0.03);
+    expect(result.settings.laborRates).toEqual([{ role: 'Dev', hourlyRate: 100 }]);
+    // Pool and projects unchanged
+    expect(result.teamPool).toHaveLength(1);
   });
 
   it('migrates imported older data through runMigrations', () => {
@@ -121,12 +147,15 @@ describe('Migrations', () => {
 
     const migrated = runMigrations(importedData, '1.0.0');
 
-    expect(migrated.version).toBe('0.2.0');
+    expect(migrated.version).toBe('0.3.0');
     expect(migrated.teamPool).toHaveLength(1);
     expect(migrated.teamPool[0].name).toBe('Alice');
     expect(migrated.projects[0].assignments).toHaveLength(1);
     expect(migrated.projects[0].assignments[0].poolMemberId).toBe('tm1');
     expect((migrated.projects[0] as Record<string, unknown>).teamMembers).toBeUndefined();
+    // hoursPerMonth stripped
+    expect((migrated.settings as Record<string, unknown>).hoursPerMonth).toBeUndefined();
+    expect(migrated.settings.discountRateAnnual).toBe(0.05);
   });
 
   it('deduplicates pool members across projects', () => {

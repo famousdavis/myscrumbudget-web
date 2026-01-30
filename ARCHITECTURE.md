@@ -636,6 +636,18 @@ src/
 - [x] Edge case tests (zero-budget, single-month, orphaned assignments, productivity windows, import round-trip)
 - [x] 204 passing tests across 15 test files
 
+### Phase 11: Workday-Based Calculation Engine (Sprint 10 — DONE)
+- [x] Replaced fixed `hoursPerMonth` setting with workday-based calculation (Mon-Fri × 8 hrs/day)
+- [x] Partial first/last months clipped to project start/end dates
+- [x] Removed "Working Hours per Month" input from Settings page
+- [x] Data migration v0.3.0 strips `hoursPerMonth` from stored settings
+- [x] New `countWorkdays()` and `getMonthlyWorkHours()` date utilities
+- [x] Confirmation dialog for team member removal from allocation grid
+- [x] Empty pool shows link to Team Pool page instead of dead-end dropdown
+- [x] Consistent add-member UX (always uses grid table row)
+- [x] Recomputed golden-file regression test values for workday-based engine
+- [x] 224 passing tests across 16 test files
+
 ### Deferred (Future)
 - XLSX timecard import (with project alias mapping)
 - Traffic-light dashboard
@@ -749,6 +761,24 @@ Delivered:
 - Keyboard-accessible project reordering (move up/down buttons flanking drag handle)
 - Edge case tests: zero-budget projects, single-month projects, orphaned assignments, non-overlapping productivity windows, import/export round-trip, migration-on-import
 - 204 total tests across 15 test files
+
+### Sprint 10: Workday-Based Calculation Engine — COMPLETE (v0.5.0)
+**Goal**: Replace fixed hoursPerMonth with calendar-based workday calculation
+
+Delivered:
+- Replaced fixed `hoursPerMonth` setting (default 160) with workday-based engine: `countWorkdays(start, end) × HOURS_PER_DAY`
+- Partial first/last months clipped to project start/end dates (a 2-day project now calculates correctly: 2 workdays × 8 × $100 = $1,600 instead of $16,000)
+- `HOURS_PER_DAY = 8` constant in `lib/constants.ts` (not configurable)
+- New date utilities: `countWorkdays()`, `getMonthlyWorkHours()` in `lib/utils/dates.ts`
+- Removed "Working Hours per Month" input from Settings page
+- Removed `hoursPerMonth` from `Settings` interface and `DEFAULT_SETTINGS`
+- Data migration v0.3.0 strips `hoursPerMonth` from stored settings
+- Confirmation dialog for team member removal from allocation grid (DeleteAssignmentDialog.tsx)
+- Empty pool: link to Team Pool page instead of dead-end dropdown
+- Consistent add-member UX: removed standalone empty-state UI, always uses grid table row
+- Recomputed all golden-file regression test values for workday-based engine
+- New dates.test.ts with 19 tests for workday utilities
+- 224 total tests across 16 test files
 
 ---
 

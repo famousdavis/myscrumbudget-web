@@ -1,8 +1,9 @@
 /**
- * Spreadsheet Parity Tests - MyScrumBudget_1.5.xlsx
+ * Regression Tests — MyScrumBudget Calculation Engine
  *
- * These golden-file tests verify that our calculation engine produces
- * the same results as the original Excel spreadsheet.
+ * These tests verify that the workday-based calculation engine produces
+ * consistent, correct results. Originally derived from Excel parity tests,
+ * now using workday-based hours instead of fixed 160 hours/month.
  *
  * If PMs lose trust in the math, they go back to Excel.
  * These tests are the foundation of that trust.
@@ -28,66 +29,78 @@ import {
 } from '../metrics';
 import { calculateNPV } from '../npv';
 import { calculateProjectMetrics } from '../index';
+import { getMonthlyWorkHours } from '@/lib/utils/dates';
 
 const FIX = SPREADSHEET_FIXTURE;
 const allocationMap = buildAllocationMap(FIX.allocations);
 
-describe('Spreadsheet Parity - MyScrumBudget_1.5.xlsx', () => {
+describe('Regression Tests — Workday-Based Calculation Engine', () => {
   describe('Individual Member Calculations', () => {
-    it('Aaliyah month 1 cost = $3,000 (BA, $75/hr, 25%)', () => {
+    it('Aaliyah month 1 cost = $1,800 (BA, $75/hr, 25%, 96 avail hrs)', () => {
       const rate = getHourlyRate('BA', FIX.settings);
-      const cost = calculateMemberMonthlyCost(0.25, rate, FIX.settings.hoursPerMonth);
+      const availableHours = FIX.expected.monthlyAvailableHours[0]; // 96
+      const cost = calculateMemberMonthlyCost(0.25, rate, availableHours);
       expect(cost).toBe(FIX.expected.aaliyahMonth1Cost);
     });
 
-    it('Aaliyah month 1 hours = 40', () => {
-      const hours = calculateMemberMonthlyHours(0.25, FIX.settings.hoursPerMonth);
+    it('Aaliyah month 1 hours = 24', () => {
+      const availableHours = FIX.expected.monthlyAvailableHours[0]; // 96
+      const hours = calculateMemberMonthlyHours(0.25, availableHours);
       expect(hours).toBe(FIX.expected.aaliyahMonth1Hours);
     });
 
-    it('Sofia month 1 cost = $1,872 (IT-Security, $90/hr, 13%)', () => {
+    it('Sofia month 1 cost (IT-Security, $90/hr, 13%, 96 avail hrs)', () => {
       const rate = getHourlyRate('IT-Security', FIX.settings);
-      const cost = calculateMemberMonthlyCost(0.13, rate, FIX.settings.hoursPerMonth);
-      expect(cost).toBe(1_872);
+      const availableHours = FIX.expected.monthlyAvailableHours[0];
+      const cost = calculateMemberMonthlyCost(0.13, rate, availableHours);
+      expect(cost).toBeCloseTo(90 * 96 * 0.13, 2);
     });
 
-    it('Ethan month 2 cost = $12,800 (IT-SoftEng, $100/hr, 80%)', () => {
+    it('Ethan month 2 cost (IT-SoftEng, $100/hr, 80%, 184 avail hrs)', () => {
       const rate = getHourlyRate('IT-SoftEng', FIX.settings);
-      const cost = calculateMemberMonthlyCost(0.80, rate, FIX.settings.hoursPerMonth);
-      expect(cost).toBe(12_800);
+      const availableHours = FIX.expected.monthlyAvailableHours[1]; // 184
+      const cost = calculateMemberMonthlyCost(0.80, rate, availableHours);
+      expect(cost).toBe(100 * 184 * 0.80);
     });
 
-    it('Luca month 1 cost = $720 (Manager, $150/hr, 3%)', () => {
+    it('Luca month 1 cost (Manager, $150/hr, 3%, 96 avail hrs)', () => {
       const rate = getHourlyRate('Manager', FIX.settings);
-      const cost = calculateMemberMonthlyCost(0.03, rate, FIX.settings.hoursPerMonth);
-      expect(cost).toBe(720);
+      const availableHours = FIX.expected.monthlyAvailableHours[0];
+      const cost = calculateMemberMonthlyCost(0.03, rate, availableHours);
+      expect(cost).toBe(150 * 96 * 0.03);
     });
   });
 
-  describe('Monthly Cost Totals (Row 213)', () => {
+  describe('Monthly Cost Totals', () => {
     FIX.months.forEach((month, i) => {
       it(`month ${i + 1} (${month}) cost = $${FIX.expected.totalMonthlyCosts[i].toLocaleString()}`, () => {
-        const cost = calculateTotalMonthlyCost(
-          month, allocationMap, FIX.teamMembers, FIX.settings,
+        const availableHours = getMonthlyWorkHours(
+          month, FIX.project.startDate, FIX.project.endDate,
         );
-        expect(cost).toBe(FIX.expected.totalMonthlyCosts[i]);
+        const cost = calculateTotalMonthlyCost(
+          month, allocationMap, FIX.teamMembers, FIX.settings, availableHours,
+        );
+        expect(cost).toBeCloseTo(FIX.expected.totalMonthlyCosts[i], 2);
       });
     });
   });
 
-  describe('Monthly Hours Totals (Row 315)', () => {
+  describe('Monthly Hours Totals', () => {
     FIX.months.forEach((month, i) => {
       it(`month ${i + 1} (${month}) hours = ${FIX.expected.totalMonthlyHours[i]}`, () => {
-        const hours = calculateTotalMonthlyHours(
-          month, allocationMap, FIX.settings,
+        const availableHours = getMonthlyWorkHours(
+          month, FIX.project.startDate, FIX.project.endDate,
         );
-        expect(hours).toBeCloseTo(FIX.expected.totalMonthlyHours[i], 0);
+        const hours = calculateTotalMonthlyHours(
+          month, allocationMap, availableHours,
+        );
+        expect(hours).toBeCloseTo(FIX.expected.totalMonthlyHours[i], 1);
       });
     });
   });
 
   describe('Cumulative Calculations', () => {
-    it('cumulative costs match Excel Row 214', () => {
+    it('cumulative costs match expected values', () => {
       const monthlyCosts = new Map(
         FIX.months.map((m, i) => [m, FIX.expected.totalMonthlyCosts[i]]),
       );
@@ -96,11 +109,11 @@ describe('Spreadsheet Parity - MyScrumBudget_1.5.xlsx', () => {
       );
       const calcs = generateMonthlyCalculations(FIX.months, monthlyCosts, monthlyHours);
       calcs.forEach((calc, i) => {
-        expect(calc.cumulativeCost).toBe(FIX.expected.cumulativeCosts[i]);
+        expect(calc.cumulativeCost).toBeCloseTo(FIX.expected.cumulativeCosts[i], 1);
       });
     });
 
-    it('cumulative hours match Excel Row 316', () => {
+    it('cumulative hours match expected values', () => {
       const monthlyCosts = new Map(
         FIX.months.map((m, i) => [m, FIX.expected.totalMonthlyCosts[i]]),
       );
@@ -109,25 +122,30 @@ describe('Spreadsheet Parity - MyScrumBudget_1.5.xlsx', () => {
       );
       const calcs = generateMonthlyCalculations(FIX.months, monthlyCosts, monthlyHours);
       calcs.forEach((calc, i) => {
-        expect(calc.cumulativeHours).toBeCloseTo(FIX.expected.cumulativeHours[i], 0);
+        expect(calc.cumulativeHours).toBeCloseTo(FIX.expected.cumulativeHours[i], 1);
       });
     });
   });
 
   describe('Project Metrics', () => {
-    it('ETC = $856,656 (Cell K3)', () => {
-      const monthlyCosts = FIX.months.map(m =>
-        calculateTotalMonthlyCost(m, allocationMap, FIX.teamMembers, FIX.settings),
-      );
-      expect(calculateETC(monthlyCosts)).toBe(FIX.expected.etc);
+    it('ETC matches expected value', () => {
+      const monthlyCosts = FIX.months.map((m, i) => {
+        const availableHours = getMonthlyWorkHours(
+          m, FIX.project.startDate, FIX.project.endDate,
+        );
+        return calculateTotalMonthlyCost(
+          m, allocationMap, FIX.teamMembers, FIX.settings, availableHours,
+        );
+      });
+      expect(calculateETC(monthlyCosts)).toBeCloseTo(FIX.expected.etc, 1);
     });
 
-    it('EAC = $1,056,656 (Cell K4 = AC + ETC)', () => {
+    it('EAC = AC + ETC', () => {
       expect(calculateEAC(FIX.project.actualCost, FIX.expected.etc))
-        .toBe(FIX.expected.eac);
+        .toBeCloseTo(FIX.expected.eac, 1);
     });
 
-    it('weekly burn rate = $14,043.54 (Cell P2)', () => {
+    it('weekly burn rate matches expected value', () => {
       const activeMonths = getActiveMonths(FIX.allocations);
       const burnRate = calculateWeeklyBurnRate(
         FIX.expected.etc,
@@ -137,24 +155,32 @@ describe('Spreadsheet Parity - MyScrumBudget_1.5.xlsx', () => {
       expect(burnRate).toBeCloseTo(FIX.expected.weeklyBurnRate, 2);
     });
 
-    it('total hours = 8,712 (Cell P4)', () => {
-      const monthlyHours = FIX.months.map(m =>
-        calculateTotalMonthlyHours(m, allocationMap, FIX.settings),
-      );
+    it('total hours matches expected value', () => {
+      const monthlyHours = FIX.months.map((m) => {
+        const availableHours = getMonthlyWorkHours(
+          m, FIX.project.startDate, FIX.project.endDate,
+        );
+        return calculateTotalMonthlyHours(m, allocationMap, availableHours);
+      });
       const total = monthlyHours.reduce((sum, h) => sum + h, 0);
       expect(total).toBeCloseTo(FIX.expected.totalHours, 0);
     });
   });
 
   describe('NPV (intentional divergence from Excel)', () => {
-    // Excel uses 0.03 as per-period (monthly) rate → NPV = $690,379.25
-    // Our app uses 0.03 as annual rate → monthly = 0.0025 → NPV ≈ $846,055
+    // Excel uses 0.03 as per-period (monthly) rate
+    // Our app uses 0.03 as annual rate → monthly = 0.0025
     // This divergence is intentional and documented.
 
     it('NPV uses annual-to-monthly conversion (0.03 / 12 = 0.0025)', () => {
-      const monthlyCosts = FIX.months.map(m =>
-        calculateTotalMonthlyCost(m, allocationMap, FIX.teamMembers, FIX.settings),
-      );
+      const monthlyCosts = FIX.months.map((m) => {
+        const availableHours = getMonthlyWorkHours(
+          m, FIX.project.startDate, FIX.project.endDate,
+        );
+        return calculateTotalMonthlyCost(
+          m, allocationMap, FIX.teamMembers, FIX.settings, availableHours,
+        );
+      });
       const npv = calculateNPV(FIX.settings.discountRateAnnual, monthlyCosts);
       // With 0.25% monthly rate, NPV should be close to but slightly less than ETC
       expect(npv).toBeLessThan(FIX.expected.etc);
@@ -165,8 +191,8 @@ describe('Spreadsheet Parity - MyScrumBudget_1.5.xlsx', () => {
   describe('Full Orchestrator', () => {
     it('calculateProjectMetrics produces correct aggregate results', () => {
       const project = {
-        id: 'parity-test',
-        name: 'Parity Test Project',
+        id: 'regression-test',
+        name: 'Regression Test Project',
         startDate: FIX.project.startDate,
         endDate: FIX.project.endDate,
         baselineBudget: 1_000_000,
@@ -188,11 +214,11 @@ describe('Spreadsheet Parity - MyScrumBudget_1.5.xlsx', () => {
 
       const metrics = calculateProjectMetrics(project, FIX.settings, FIX.teamMembers);
 
-      expect(metrics.etc).toBe(FIX.expected.etc);
-      expect(metrics.eac).toBe(FIX.expected.eac);
+      expect(metrics.etc).toBeCloseTo(FIX.expected.etc, 1);
+      expect(metrics.eac).toBeCloseTo(FIX.expected.eac, 1);
       expect(metrics.weeklyBurnRate).toBeCloseTo(FIX.expected.weeklyBurnRate, 2);
       expect(metrics.totalHours).toBeCloseTo(FIX.expected.totalHours, 0);
-      expect(metrics.variance).toBe(FIX.expected.eac - 1_000_000);
+      expect(metrics.variance).toBeCloseTo(FIX.expected.eac - 1_000_000, 1);
       expect(metrics.budgetRatio).toBeCloseTo(1_000_000 / FIX.expected.eac, 4);
       expect(metrics.monthlyData).toHaveLength(FIX.months.length);
     });

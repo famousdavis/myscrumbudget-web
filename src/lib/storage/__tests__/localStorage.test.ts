@@ -37,7 +37,6 @@ describe('LocalStorage Repository', () => {
 
     it('saves and retrieves settings', async () => {
       const custom: Settings = {
-        hoursPerMonth: 140,
         discountRateAnnual: 0.05,
         laborRates: [{ role: 'Dev', hourlyRate: 120 }],
       };
@@ -108,7 +107,7 @@ describe('LocalStorage Repository', () => {
       const project = makeProject();
       await repo.saveProject(project);
       const exported = await repo.exportAll();
-      expect(exported.version).toBe('0.2.0');
+      expect(exported.version).toBe('0.3.0');
       expect(exported.settings).toEqual(DEFAULT_SETTINGS);
       expect(exported.teamPool).toEqual([]);
       expect(exported.projects).toEqual([project]);
@@ -117,9 +116,8 @@ describe('LocalStorage Repository', () => {
     it('imports data and overwrites existing', async () => {
       await repo.saveProject(makeProject({ id: 'old' }));
       const importData = {
-        version: '0.2.0',
+        version: '0.3.0',
         settings: {
-          hoursPerMonth: 140,
           discountRateAnnual: 0.05,
           laborRates: [],
         },
@@ -131,7 +129,7 @@ describe('LocalStorage Repository', () => {
       expect(projects).toHaveLength(1);
       expect(projects[0].id).toBe('new');
       const settings = await repo.getSettings();
-      expect(settings.hoursPerMonth).toBe(140);
+      expect(settings.discountRateAnnual).toBe(0.05);
     });
   });
 
@@ -197,6 +195,10 @@ describe('LocalStorage Repository', () => {
       const pool = await repo.getTeamPool();
       expect(pool).toHaveLength(1);
       expect(pool[0].name).toBe('Bob');
+
+      // hoursPerMonth should be stripped
+      const settings = await repo.getSettings();
+      expect((settings as any).hoursPerMonth).toBeUndefined();
     });
   });
 
@@ -215,7 +217,7 @@ describe('LocalStorage Repository', () => {
   describe('Version', () => {
     it('returns current version when none stored', async () => {
       const version = await repo.getVersion();
-      expect(version).toBe('0.2.0');
+      expect(version).toBe('0.3.0');
     });
   });
 });

@@ -4,6 +4,30 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.5.0] - 2026-01-29
+
+### Calculation Engine
+- Replaced fixed "Working Hours per Month" setting with workday-based calculation engine
+- Available hours now derived from actual weekdays (Mon-Fri) in each month, multiplied by 8 hours/day
+- Partial first/last months clipped to project start/end dates for accurate cost calculation
+- A 2-day project now correctly calculates 16 hours instead of 160
+- Removed "Working Hours per Month" input from Settings page
+
+### UX
+- Confirmation dialog for team member removal from allocation grid (prevents accidental data loss)
+- Empty team pool now shows link to Team Pool page instead of dead-end dropdown
+- Consistent add-member experience in allocation grid (always uses grid table row)
+
+### Architecture
+- Data migration v0.3.0 strips deprecated `hoursPerMonth` from stored settings
+- New `countWorkdays()` and `getMonthlyWorkHours()` date utilities
+- `HOURS_PER_DAY = 8` constant replaces configurable `hoursPerMonth` setting
+
+### Testing
+- New workday utility tests (countWorkdays, getMonthlyWorkHours)
+- Recomputed all golden-file regression test values for workday-based engine
+- 224 passing tests across 16 test files
+
 ## [0.4.0] - 2026-01-29
 
 ### Bug Fixes

@@ -1,6 +1,6 @@
 import type { AppState, PoolMember, ProjectAssignment } from '@/types/domain';
 
-export const DATA_VERSION = '0.2.0';
+export const DATA_VERSION = '0.3.0';
 
 type Migration = {
   version: string;
@@ -51,6 +51,22 @@ const MIGRATIONS: Migration[] = [
         settings: data.settings,
         teamPool: Array.from(poolMap.values()),
         projects: migratedProjects,
+      };
+    },
+  },
+  {
+    version: '0.3.0',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    migrate: (data: any): AppState => {
+      // Remove hoursPerMonth from settings — now derived from calendar workdays.
+      const { hoursPerMonth: _, ...restSettings } = data.settings ?? {};
+      return {
+        ...data,
+        version: '0.3.0',
+        settings: {
+          discountRateAnnual: restSettings.discountRateAnnual ?? 0.03,
+          laborRates: restSettings.laborRates ?? [],
+        },
       };
     },
   },

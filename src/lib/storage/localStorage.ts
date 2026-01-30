@@ -4,7 +4,6 @@ import { STORAGE_KEYS } from '@/types/storage';
 import { runMigrations, DATA_VERSION } from './migrations';
 
 export const DEFAULT_SETTINGS: Settings = {
-  hoursPerMonth: 160,
   discountRateAnnual: 0.03,
   laborRates: [
     { role: 'BA', hourlyRate: 75 },
