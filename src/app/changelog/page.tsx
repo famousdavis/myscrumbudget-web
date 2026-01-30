@@ -12,6 +12,45 @@ interface ChangelogEntry {
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.4.0',
+    date: '2026-01-29',
+    sections: [
+      {
+        title: 'Bug Fixes',
+        items: [
+          'Last reforecast deletion guard — prevents deleting the only reforecast',
+          'Negative budget/actual cost validation with 3-layer protection (HTML, JS clamp, submit)',
+          'Import now runs data migrations before persisting (fixes stale-format imports)',
+          'Fixed empty-state early return hiding the "+ Add member" control in allocation grid',
+        ],
+      },
+      {
+        title: 'Accessibility',
+        items: [
+          'Skip-to-content keyboard link (hidden until Tab-focused)',
+          'Color-only information remediation — Unicode indicators (\u25B2/\u25BC) and text labels on variance, ratio, and EAC',
+          'Keyboard-accessible project reordering (move up/down buttons alongside drag handle)',
+        ],
+      },
+      {
+        title: 'UI/UX',
+        items: [
+          'Mobile-responsive sidebar navigation with hamburger menu',
+          'Empty states with dashed borders and hint text across allocation grid, team pool, and metrics panel',
+          'Confirmation dialog for reforecast deletion (replaces inline Yes/No)',
+        ],
+      },
+      {
+        title: 'Testing',
+        items: [
+          'Edge-case tests: zero-budget projects, single-month projects, orphaned assignments, productivity windows',
+          'Import/export round-trip and migration-on-import tests',
+          '204 passing tests across 15 test files',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.3.0',
     date: '2026-01-29',
     sections: [
