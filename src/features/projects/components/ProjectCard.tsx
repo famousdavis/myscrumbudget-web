@@ -155,7 +155,7 @@ export function ProjectCard({
                   {formatCurrency(metrics.eac)}
                 </span>
                 {eacStatus.label && (
-                  <span className={`ml-1 text-xs ${eacStatus.color}`}>{eacStatus.label}</span>
+                  <span className={`ml-1 text-sm ${eacStatus.color}`}>{eacStatus.label}</span>
                 )}
               </div>
             )}

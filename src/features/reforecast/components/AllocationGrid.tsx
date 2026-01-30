@@ -305,7 +305,7 @@ export function AllocationGrid({
     <div ref={scrollContainerRef} className="max-w-full overflow-x-auto">
       <table
         ref={gridRef}
-        className="border-collapse text-sm select-none"
+        className="border-collapse text-base select-none"
         tabIndex={0}
         onFocus={() => {
           if (!focusedCell && teamMembers.length > 0 && months.length > 0) {
@@ -316,7 +316,7 @@ export function AllocationGrid({
       >
         <thead>
           <tr>
-            <th className="sticky left-0 z-10 border border-zinc-200 bg-zinc-50 px-3 py-2 text-left text-xs font-medium dark:border-zinc-700 dark:bg-zinc-900">
+            <th className="sticky left-0 z-10 border border-zinc-200 bg-zinc-50 px-3 py-2 text-left text-sm font-medium dark:border-zinc-700 dark:bg-zinc-900">
               Team Member
             </th>
             {months.map((month) => {
@@ -326,7 +326,7 @@ export function AllocationGrid({
               return (
                 <th
                   key={month}
-                  className="border border-zinc-200 bg-zinc-50 px-2 py-2 text-center text-xs font-medium whitespace-nowrap dark:border-zinc-700 dark:bg-zinc-900"
+                  className="border border-zinc-200 bg-zinc-50 px-2 py-2 text-center text-sm font-medium whitespace-nowrap dark:border-zinc-700 dark:bg-zinc-900"
                   title={
                     factor < 1
                       ? `Productivity: ${Math.round(factor * 100)}% (reduced capacity)`
@@ -343,7 +343,7 @@ export function AllocationGrid({
               );
             })}
             {hasRowControls && (
-              <th className="sticky right-0 z-10 border border-zinc-200 bg-zinc-50 px-2 py-2 text-center text-xs font-medium dark:border-zinc-700 dark:bg-zinc-900">
+              <th className="sticky right-0 z-10 border border-zinc-200 bg-zinc-50 px-2 py-2 text-center text-sm font-medium dark:border-zinc-700 dark:bg-zinc-900">
               </th>
             )}
           </tr>
@@ -352,7 +352,7 @@ export function AllocationGrid({
           {teamMembers.map((member, rowIdx) => (
             <tr key={member.id}>
               <td className="sticky left-0 z-10 border border-zinc-200 bg-white px-1 py-1 dark:border-zinc-700 dark:bg-zinc-950">
-                <div className="px-2 text-xs font-medium whitespace-nowrap">
+                <div className="px-2 text-sm font-medium whitespace-nowrap">
                   {member.name}
                   <span className="ml-1 text-zinc-400">({member.role})</span>
                 </div>
@@ -404,7 +404,7 @@ export function AllocationGrid({
                   return (
                     <td
                       key={`${member.id}-${month}`}
-                      className={`border border-zinc-200 px-2 py-1 text-center text-xs dark:border-zinc-700 ${getAllocationColor(value)}`}
+                      className={`border border-zinc-200 px-2 py-1 text-center text-sm dark:border-zinc-700 ${getAllocationColor(value)}`}
                     >
                       {displayText}
                     </td>
@@ -492,10 +492,10 @@ export function AllocationGrid({
                             setEditingCell(null);
                           }
                         }}
-                        className="absolute inset-0 z-10 bg-white text-center text-xs outline-none dark:bg-zinc-950"
+                        className="absolute inset-0 z-10 bg-white text-center text-sm outline-none dark:bg-zinc-950"
                       />
                     ) : (
-                      <div className="px-2 py-1 text-center text-xs whitespace-nowrap">
+                      <div className="px-2 py-1 text-center text-sm whitespace-nowrap">
                         {displayText}
                       </div>
                     )}
@@ -521,7 +521,7 @@ export function AllocationGrid({
                 <td className="sticky right-0 z-10 border border-zinc-200 bg-white px-2 py-1 text-center dark:border-zinc-700 dark:bg-zinc-950">
                   <button
                     onClick={() => setPendingDeleteId(member.id)}
-                    className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                    className="text-sm text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                     title="Remove row"
                   >
                     ✕
@@ -534,7 +534,7 @@ export function AllocationGrid({
           {monthlyData && monthlyData.length > 0 && (
             <>
               <tr>
-                <td className="sticky left-0 z-10 border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-medium whitespace-nowrap dark:border-zinc-700 dark:bg-zinc-900">
+                <td className="sticky left-0 z-10 border border-zinc-200 bg-zinc-50 px-3 py-1 text-sm font-medium whitespace-nowrap dark:border-zinc-700 dark:bg-zinc-900">
                   Monthly Cost
                 </td>
                 {months.map((month) => {
@@ -542,7 +542,7 @@ export function AllocationGrid({
                   return (
                     <td
                       key={`cost-${month}`}
-                      className="border border-zinc-200 bg-zinc-50 px-2 py-1 text-center text-xs font-medium whitespace-nowrap dark:border-zinc-700 dark:bg-zinc-900"
+                      className="border border-zinc-200 bg-zinc-50 px-2 py-1 text-center text-sm font-medium whitespace-nowrap dark:border-zinc-700 dark:bg-zinc-900"
                     >
                       {md ? formatCurrency(md.cost) : ''}
                     </td>
@@ -553,7 +553,7 @@ export function AllocationGrid({
                 )}
               </tr>
               <tr>
-                <td className="sticky left-0 z-10 border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-medium whitespace-nowrap dark:border-zinc-700 dark:bg-zinc-900">
+                <td className="sticky left-0 z-10 border border-zinc-200 bg-zinc-50 px-3 py-1 text-sm font-medium whitespace-nowrap dark:border-zinc-700 dark:bg-zinc-900">
                   Monthly Hours
                 </td>
                 {months.map((month) => {
@@ -561,7 +561,7 @@ export function AllocationGrid({
                   return (
                     <td
                       key={`hours-${month}`}
-                      className="border border-zinc-200 bg-zinc-50 px-2 py-1 text-center text-xs font-medium whitespace-nowrap dark:border-zinc-700 dark:bg-zinc-900"
+                      className="border border-zinc-200 bg-zinc-50 px-2 py-1 text-center text-sm font-medium whitespace-nowrap dark:border-zinc-700 dark:bg-zinc-900"
                     >
                       {md ? Math.round(md.hours) : ''}
                     </td>
@@ -585,7 +585,7 @@ export function AllocationGrid({
                       autoFocus
                       value={selectedPoolId}
                       onChange={(e) => setSelectedPoolId(e.target.value)}
-                      className="w-full rounded border border-zinc-300 px-1 py-0.5 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+                      className="w-full rounded border border-zinc-300 px-1 py-0.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
                     >
                       <option value="">Select member...</option>
                       {pool.map((pm) => (
@@ -603,7 +603,7 @@ export function AllocationGrid({
                       <button
                         onClick={handleAddRow}
                         disabled={!selectedPoolId}
-                        className="rounded bg-blue-600 px-2 py-0.5 text-xs text-white hover:bg-blue-700 disabled:opacity-40"
+                        className="rounded bg-blue-600 px-2 py-0.5 text-sm text-white hover:bg-blue-700 disabled:opacity-40"
                       >
                         Add
                       </button>
@@ -612,7 +612,7 @@ export function AllocationGrid({
                           setAddingRow(false);
                           setSelectedPoolId('');
                         }}
-                        className="text-xs text-zinc-500 hover:text-zinc-700 dark:text-zinc-400"
+                        className="text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400"
                       >
                         Cancel
                       </button>
@@ -627,7 +627,7 @@ export function AllocationGrid({
                   >
                     <button
                       onClick={() => setAddingRow(true)}
-                      className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400"
+                      className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400"
                     >
                       + Add member
                     </button>

@@ -55,6 +55,7 @@ export interface Reforecast {
   startDate: string;
   allocations: MonthlyAllocation[];
   productivityWindows: ProductivityWindow[];
+  actualCost: number;
 }
 
 // Project
@@ -64,7 +65,6 @@ export interface Project {
   startDate: string;
   endDate: string;
   baselineBudget: number;
-  actualCost: number;
   assignments: ProjectAssignment[];
   reforecasts: Reforecast[];
   activeReforecastId: string | null;

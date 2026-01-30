@@ -11,10 +11,19 @@ function makeProject(overrides: Partial<Project> = {}): Project {
     startDate: '2025-01-01',
     endDate: '2025-12-31',
     baselineBudget: 500000,
-    actualCost: 100000,
     assignments: [],
-    reforecasts: [],
-    activeReforecastId: null,
+    reforecasts: [
+      {
+        id: 'rf-baseline',
+        name: 'Baseline',
+        createdAt: '2025-01-01T00:00:00Z',
+        startDate: '2025-01',
+        allocations: [],
+        productivityWindows: [],
+        actualCost: 100000,
+      },
+    ],
+    activeReforecastId: 'rf-baseline',
     ...overrides,
   };
 }
@@ -50,12 +59,19 @@ describe('Project CRUD', () => {
     const project = makeProject();
     await repo.saveProject(project);
 
-    const updated = { ...project, name: 'Updated Name', actualCost: 200000 };
+    const updated = {
+      ...project,
+      name: 'Updated Name',
+      reforecasts: project.reforecasts.map((rf) => ({
+        ...rf,
+        actualCost: 200000,
+      })),
+    };
     await repo.saveProject(updated);
 
     const retrieved = await repo.getProject('test-project-1');
     expect(retrieved?.name).toBe('Updated Name');
-    expect(retrieved?.actualCost).toBe(200000);
+    expect(retrieved?.reforecasts[0].actualCost).toBe(200000);
   });
 
   it('deletes a project', async () => {
@@ -87,6 +103,7 @@ describe('Project CRUD', () => {
           startDate: '2025-07-01',
           allocations: [],
           productivityWindows: [],
+          actualCost: 50000,
         },
       ],
       activeReforecastId: 'rf1',
@@ -98,5 +115,6 @@ describe('Project CRUD', () => {
     expect(retrieved?.assignments[0].poolMemberId).toBe('pm1');
     expect(retrieved?.reforecasts).toHaveLength(1);
     expect(retrieved?.activeReforecastId).toBe('rf1');
+    expect(retrieved?.reforecasts[0].actualCost).toBe(50000);
   });
 });

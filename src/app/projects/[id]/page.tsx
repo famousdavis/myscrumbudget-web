@@ -38,6 +38,7 @@ export default function ProjectDetailPage({
   });
   const {
     reforecasts,
+    activeReforecast,
     allocationMap,
     productivityWindows,
     onAllocationChange,
@@ -47,10 +48,12 @@ export default function ProjectDetailPage({
     addProductivityWindow,
     updateProductivityWindow,
     removeProductivityWindow,
+    updateActualCost,
   } = useReforecast({
     project,
     updateProject,
   });
+  const actualCost = activeReforecast?.actualCost ?? 0;
   const metrics = useProjectMetrics(project, settings, pool);
   const router = useRouter();
   const [showDelete, setShowDelete] = useState(false);
@@ -102,7 +105,12 @@ export default function ProjectDetailPage({
       </div>
 
       <div className="mt-6">
-        <ProjectSummary project={project} metrics={metrics} />
+        <ProjectSummary
+          project={project}
+          metrics={metrics}
+          actualCost={actualCost}
+          onActualCostChange={updateActualCost}
+        />
       </div>
 
       {/* Allocation Grid */}
@@ -166,7 +174,7 @@ export default function ProjectDetailPage({
               <CumulativeCostLineChart
                 monthlyData={metrics.monthlyData}
                 baselineBudget={project.baselineBudget}
-                actualCost={project.actualCost}
+                actualCost={actualCost}
               />
             </div>
           </div>
@@ -180,7 +188,7 @@ export default function ProjectDetailPage({
           <div className="mt-3">
             <CostByPeriodTable
               monthlyData={metrics.monthlyData}
-              actualCost={project.actualCost}
+              actualCost={actualCost}
             />
           </div>
         </div>

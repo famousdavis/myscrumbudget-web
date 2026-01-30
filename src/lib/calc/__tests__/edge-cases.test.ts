@@ -19,7 +19,6 @@ function makeProject(overrides: Partial<Project> = {}): Project {
     startDate: '2026-06-15',
     endDate: '2027-07-15',
     baselineBudget: 1000000,
-    actualCost: 200000,
     assignments: [{ id: 'a1', poolMemberId: 'pm1' }],
     reforecasts: [],
     activeReforecastId: null,
@@ -35,6 +34,7 @@ function makeReforecast(overrides: Partial<Reforecast> = {}): Reforecast {
     startDate: '2026-06',
     allocations: [],
     productivityWindows: [],
+    actualCost: 0,
     ...overrides,
   };
 }
@@ -46,10 +46,10 @@ describe('Edge Cases', () => {
     it('calculates metrics without division-by-zero errors', () => {
       const rf = makeReforecast({
         allocations: [{ memberId: 'a1', month: '2026-06', allocation: 0.5 }],
+        actualCost: 0,
       });
       const project = makeProject({
         baselineBudget: 0,
-        actualCost: 0,
         reforecasts: [rf],
         activeReforecastId: rf.id,
       });
@@ -80,12 +80,12 @@ describe('Edge Cases', () => {
     it('calculates metrics for a one-month project', () => {
       const rf = makeReforecast({
         allocations: [{ memberId: 'a1', month: '2026-06', allocation: 1.0 }],
+        actualCost: 0,
       });
       const project = makeProject({
         startDate: '2026-06-01',
         endDate: '2026-06-30',
         baselineBudget: 50000,
-        actualCost: 0,
         reforecasts: [rf],
         activeReforecastId: rf.id,
       });
@@ -132,6 +132,57 @@ describe('Edge Cases', () => {
       const metrics = calculateProjectMetrics(project, SETTINGS, []);
       expect(metrics.etc).toBe(0);
       expect(Number.isFinite(metrics.eac)).toBe(true);
+    });
+  });
+
+  describe('EAC uses reforecast.actualCost', () => {
+    it('EAC = reforecast.actualCost + ETC', () => {
+      const rf = makeReforecast({
+        allocations: [{ memberId: 'a1', month: '2026-06', allocation: 1.0 }],
+        actualCost: 50000,
+      });
+      const project = makeProject({
+        startDate: '2026-06-01',
+        endDate: '2026-06-30',
+        baselineBudget: 100000,
+        reforecasts: [rf],
+        activeReforecastId: rf.id,
+      });
+
+      const metrics = calculateProjectMetrics(project, SETTINGS, TEAM);
+      // June 2026 full month: 22 workdays * 8 hrs = 176 hrs
+      // ETC = 1.0 * 100 * 176 = 17,600
+      expect(metrics.etc).toBe(17_600);
+      expect(metrics.eac).toBe(50000 + 17_600);
+    });
+
+    it('different reforecasts produce different EAC values', () => {
+      const rf1 = makeReforecast({
+        id: 'rf1',
+        allocations: [{ memberId: 'a1', month: '2026-06', allocation: 1.0 }],
+        actualCost: 10000,
+      });
+      const rf2 = makeReforecast({
+        id: 'rf2',
+        name: 'Q3',
+        allocations: [{ memberId: 'a1', month: '2026-06', allocation: 1.0 }],
+        actualCost: 90000,
+      });
+      const project = makeProject({
+        startDate: '2026-06-01',
+        endDate: '2026-06-30',
+        baselineBudget: 100000,
+        reforecasts: [rf1, rf2],
+        activeReforecastId: 'rf1',
+      });
+
+      const metrics1 = calculateProjectMetrics(project, SETTINGS, TEAM);
+      expect(metrics1.eac).toBe(10000 + 17_600);
+
+      // Switch active reforecast
+      const project2 = { ...project, activeReforecastId: 'rf2' };
+      const metrics2 = calculateProjectMetrics(project2, SETTINGS, TEAM);
+      expect(metrics2.eac).toBe(90000 + 17_600);
     });
   });
 

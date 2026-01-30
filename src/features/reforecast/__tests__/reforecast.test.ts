@@ -14,7 +14,6 @@ function makeProject(overrides: Partial<Project> = {}): Project {
     startDate: '2026-06-15',
     endDate: '2027-07-15',
     baselineBudget: 1000000,
-    actualCost: 200000,
     assignments: [
       { id: 'a_1', poolMemberId: 'pm_1' },
       { id: 'a_2', poolMemberId: 'pm_2' },
@@ -39,6 +38,7 @@ function makeReforecast(overrides: Partial<Reforecast> = {}): Reforecast {
     productivityWindows: [
       { id: 'pw_1', startDate: '2026-12-01', endDate: '2026-12-31', factor: 0.5 },
     ],
+    actualCost: 0,
     ...overrides,
   };
 }
@@ -67,6 +67,7 @@ function createReforecastUpdater(
             id: `pw_new_${w.id}`,
           }))
         : [],
+      actualCost: sourceReforecast ? sourceReforecast.actualCost : 0,
     };
 
     return {
@@ -96,6 +97,7 @@ describe('Reforecast Management', () => {
       expect(updated.reforecasts[0].name).toBe('Q3 Reforecast');
       expect(updated.reforecasts[0].allocations).toEqual([]);
       expect(updated.reforecasts[0].productivityWindows).toEqual([]);
+      expect(updated.reforecasts[0].actualCost).toBe(0);
       expect(updated.activeReforecastId).toBe('rf_new');
     });
 
@@ -385,6 +387,172 @@ describe('Reforecast Management', () => {
 
       expect(updated.reforecasts[0].productivityWindows).toHaveLength(0);
       expect(updated.reforecasts[1].productivityWindows).toHaveLength(1);
+    });
+  });
+
+  describe('actualCost per reforecast', () => {
+    it('copies actualCost when creating from source reforecast', () => {
+      const rf = makeReforecast({ actualCost: 50000 });
+      const project = makeProject({
+        reforecasts: [rf],
+        activeReforecastId: rf.id,
+      });
+
+      const updated = createReforecastUpdater('Copy', rf.id)(project);
+      expect(updated.reforecasts[1].actualCost).toBe(50000);
+    });
+
+    it('defaults actualCost to 0 when starting fresh', () => {
+      const project = makeProject();
+      const updated = createReforecastUpdater('New')(project);
+      expect(updated.reforecasts[0].actualCost).toBe(0);
+    });
+
+    it('defaults actualCost to 0 when copyFromId does not match', () => {
+      const rf = makeReforecast({ actualCost: 50000 });
+      const project = makeProject({
+        reforecasts: [rf],
+        activeReforecastId: rf.id,
+      });
+
+      const updated = createReforecastUpdater('New', 'nonexistent')(project);
+      expect(updated.reforecasts[1].actualCost).toBe(0);
+    });
+
+    it('reforecasts maintain independent actualCost values', () => {
+      const rf1 = makeReforecast({ id: 'rf_1', actualCost: 50000 });
+      const rf2 = makeReforecast({ id: 'rf_2', name: 'Q3', actualCost: 75000 });
+      const project = makeProject({
+        reforecasts: [rf1, rf2],
+        activeReforecastId: 'rf_1',
+      });
+
+      // Each reforecast retains its own value
+      expect(project.reforecasts[0].actualCost).toBe(50000);
+      expect(project.reforecasts[1].actualCost).toBe(75000);
+
+      // Switching active reforecast doesn't change either value
+      const switched = switchReforecastUpdater('rf_2')(project);
+      expect(switched.reforecasts[0].actualCost).toBe(50000);
+      expect(switched.reforecasts[1].actualCost).toBe(75000);
+    });
+  });
+
+  describe('updateActualCost sanitization', () => {
+    // Simulate the updateActualCost updater logic from useReforecast
+    function updateActualCostUpdater(value: number) {
+      return (prev: Project): Project => {
+        if (prev.reforecasts.length === 0) return prev;
+        const reforecastId = prev.activeReforecastId ?? prev.reforecasts[0].id;
+        const sanitized = Number.isFinite(value) ? Math.max(0, value) : 0;
+        return {
+          ...prev,
+          reforecasts: prev.reforecasts.map((rf) =>
+            rf.id === reforecastId
+              ? { ...rf, actualCost: sanitized }
+              : rf,
+          ),
+        };
+      };
+    }
+
+    it('sets a valid positive value', () => {
+      const rf = makeReforecast({ actualCost: 0 });
+      const project = makeProject({
+        reforecasts: [rf],
+        activeReforecastId: rf.id,
+      });
+
+      const updated = updateActualCostUpdater(50000)(project);
+      expect(updated.reforecasts[0].actualCost).toBe(50000);
+    });
+
+    it('clamps NaN to 0', () => {
+      const rf = makeReforecast({ actualCost: 10000 });
+      const project = makeProject({
+        reforecasts: [rf],
+        activeReforecastId: rf.id,
+      });
+
+      const updated = updateActualCostUpdater(NaN)(project);
+      expect(updated.reforecasts[0].actualCost).toBe(0);
+    });
+
+    it('clamps Infinity to 0', () => {
+      const rf = makeReforecast({ actualCost: 10000 });
+      const project = makeProject({
+        reforecasts: [rf],
+        activeReforecastId: rf.id,
+      });
+
+      const updated = updateActualCostUpdater(Infinity)(project);
+      expect(updated.reforecasts[0].actualCost).toBe(0);
+    });
+
+    it('clamps -Infinity to 0', () => {
+      const rf = makeReforecast({ actualCost: 10000 });
+      const project = makeProject({
+        reforecasts: [rf],
+        activeReforecastId: rf.id,
+      });
+
+      const updated = updateActualCostUpdater(-Infinity)(project);
+      expect(updated.reforecasts[0].actualCost).toBe(0);
+    });
+
+    it('clamps negative values to 0', () => {
+      const rf = makeReforecast({ actualCost: 10000 });
+      const project = makeProject({
+        reforecasts: [rf],
+        activeReforecastId: rf.id,
+      });
+
+      const updated = updateActualCostUpdater(-500)(project);
+      expect(updated.reforecasts[0].actualCost).toBe(0);
+    });
+
+    it('only updates the active reforecast', () => {
+      const rf1 = makeReforecast({ id: 'rf_1', actualCost: 10000 });
+      const rf2 = makeReforecast({ id: 'rf_2', name: 'Q3', actualCost: 20000 });
+      const project = makeProject({
+        reforecasts: [rf1, rf2],
+        activeReforecastId: 'rf_1',
+      });
+
+      const updated = updateActualCostUpdater(99000)(project);
+      expect(updated.reforecasts[0].actualCost).toBe(99000);
+      expect(updated.reforecasts[1].actualCost).toBe(20000);
+    });
+  });
+
+  describe('deleteReforecast and actualCost', () => {
+    function deleteReforecastUpdater(reforecastId: string) {
+      return (prev: Project): Project => {
+        if (prev.reforecasts.length <= 1) return prev;
+        const remaining = prev.reforecasts.filter((r) => r.id !== reforecastId);
+        const wasActive = prev.activeReforecastId === reforecastId;
+        return {
+          ...prev,
+          reforecasts: remaining,
+          activeReforecastId: wasActive
+            ? (remaining.length > 0 ? remaining[0].id : null)
+            : prev.activeReforecastId,
+        };
+      };
+    }
+
+    it('preserves actualCost of remaining reforecasts after deletion', () => {
+      const rf1 = makeReforecast({ id: 'rf_1', actualCost: 10000 });
+      const rf2 = makeReforecast({ id: 'rf_2', name: 'Q3', actualCost: 25000 });
+      const project = makeProject({
+        reforecasts: [rf1, rf2],
+        activeReforecastId: 'rf_1',
+      });
+
+      const updated = deleteReforecastUpdater('rf_1')(project);
+      expect(updated.reforecasts).toHaveLength(1);
+      expect(updated.reforecasts[0].actualCost).toBe(25000);
+      expect(updated.activeReforecastId).toBe('rf_2');
     });
   });
 });

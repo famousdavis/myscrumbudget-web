@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createLocalStorageRepository } from '@/lib/storage/localStorage';
 import type { Project, ProjectAssignment, PoolMember } from '@/types/domain';
 import { resolveAssignments } from '@/lib/utils/teamResolution';
@@ -12,10 +12,19 @@ function makeProject(overrides: Partial<Project> = {}): Project {
     startDate: '2025-01-01',
     endDate: '2025-12-31',
     baselineBudget: 500000,
-    actualCost: 0,
     assignments: [],
-    reforecasts: [],
-    activeReforecastId: null,
+    reforecasts: [
+      {
+        id: 'rf-baseline',
+        name: 'Baseline',
+        createdAt: '2025-01-01T00:00:00Z',
+        startDate: '2025-01',
+        allocations: [],
+        productivityWindows: [],
+        actualCost: 0,
+      },
+    ],
+    activeReforecastId: 'rf-baseline',
     ...overrides,
   };
 }
@@ -114,5 +123,49 @@ describe('Team Assignment CRUD', () => {
     // But they have different ids (assignment ids)
     expect(members[0].id).toBe('a1');
     expect(members[1].id).toBe('a2');
+  });
+});
+
+describe('resolveAssignments edge cases', () => {
+  it('returns (Unknown) with empty role for missing pool member', () => {
+    const assignments = [{ id: 'a1', poolMemberId: 'nonexistent' }];
+    const members = resolveAssignments(assignments, pool);
+    expect(members).toHaveLength(1);
+    expect(members[0].name).toBe('(Unknown)');
+    expect(members[0].role).toBe('');
+    expect(members[0].id).toBe('a1');
+  });
+
+  it('logs a warning for missing pool members', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const assignments = [{ id: 'a1', poolMemberId: 'nonexistent' }];
+    resolveAssignments(assignments, pool);
+    expect(warnSpy).toHaveBeenCalledOnce();
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Pool member not found'),
+    );
+    warnSpy.mockRestore();
+  });
+
+  it('does not warn for valid pool members', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const assignments = [{ id: 'a1', poolMemberId: 'pm1' }];
+    resolveAssignments(assignments, pool);
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it('handles empty assignments array', () => {
+    const members = resolveAssignments([], pool);
+    expect(members).toEqual([]);
+  });
+
+  it('handles empty pool', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const assignments = [{ id: 'a1', poolMemberId: 'pm1' }];
+    const members = resolveAssignments(assignments, []);
+    expect(members).toHaveLength(1);
+    expect(members[0].name).toBe('(Unknown)');
+    warnSpy.mockRestore();
   });
 });

@@ -30,12 +30,14 @@ export function calculateProjectMetrics(
   const reforecast = getActiveReforecast(project);
 
   if (!reforecast) {
+    // Safety fallback — should not happen in v0.6.0+ since every project
+    // has at least one reforecast, but retained as a guard.
     return {
       etc: 0,
-      eac: project.actualCost,
-      variance: calculateVariance(project.actualCost, project.baselineBudget),
-      variancePercent: calculateVariancePercent(project.actualCost, project.baselineBudget),
-      budgetRatio: calculateBudgetPerformanceRatio(project.baselineBudget, project.actualCost),
+      eac: 0,
+      variance: calculateVariance(0, project.baselineBudget),
+      variancePercent: calculateVariancePercent(0, project.baselineBudget),
+      budgetRatio: calculateBudgetPerformanceRatio(project.baselineBudget, 0),
       weeklyBurnRate: 0,
       npv: 0,
       totalHours: 0,
@@ -69,7 +71,7 @@ export function calculateProjectMetrics(
   }
 
   const etc = calculateETC(monthlyCostValues);
-  const eac = calculateEAC(project.actualCost, etc);
+  const eac = calculateEAC(reforecast.actualCost, etc);
   const activeMonths = getActiveMonths(reforecast.allocations);
   const monthlyData = generateMonthlyCalculations(months, costMap, hourMap);
 

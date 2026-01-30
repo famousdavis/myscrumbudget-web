@@ -24,7 +24,7 @@ export function AddPoolMemberForm({ laborRates, onAdd }: AddPoolMemberFormProps)
   return (
     <div className="flex flex-wrap items-end gap-3">
       <div>
-        <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
+        <label className="mb-1 block text-sm font-medium text-zinc-500 dark:text-zinc-400">
           Name
         </label>
         <input
@@ -36,7 +36,7 @@ export function AddPoolMemberForm({ laborRates, onAdd }: AddPoolMemberFormProps)
         />
       </div>
       <div>
-        <label className="mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
+        <label className="mb-1 block text-sm font-medium text-zinc-500 dark:text-zinc-400">
           Role
         </label>
         <RoleSelect value={role} laborRates={laborRates} onChange={setRole} />

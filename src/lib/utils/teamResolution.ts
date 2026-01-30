@@ -16,6 +16,9 @@ export function resolveAssignments(
   return (assignments ?? []).map((assignment) => {
     const pm = poolMap.get(assignment.poolMemberId);
     if (!pm) {
+      console.warn(
+        `[resolveAssignments] Pool member not found for assignment "${assignment.id}" (poolMemberId: "${assignment.poolMemberId}"). Rendering as "(Unknown)".`,
+      );
       return {
         id: assignment.id,
         name: '(Unknown)',

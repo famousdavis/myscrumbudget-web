@@ -46,7 +46,6 @@ export default function EditProjectPage({
             startDate: project.startDate,
             endDate: project.endDate,
             baselineBudget: project.baselineBudget,
-            actualCost: project.actualCost,
           }}
           submitLabel="Save Changes"
           onSubmit={async (data) => {

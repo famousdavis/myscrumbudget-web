@@ -13,10 +13,19 @@ function makeProject(overrides: Partial<Project> = {}): Project {
     startDate: '2026-06-15',
     endDate: '2027-07-15',
     baselineBudget: 1000000,
-    actualCost: 200000,
     assignments: [],
-    reforecasts: [],
-    activeReforecastId: null,
+    reforecasts: [
+      {
+        id: 'rf-baseline',
+        name: 'Baseline',
+        createdAt: '2026-06-01T00:00:00Z',
+        startDate: '2026-06',
+        allocations: [],
+        productivityWindows: [],
+        actualCost: 200000,
+      },
+    ],
+    activeReforecastId: 'rf-baseline',
     ...overrides,
   };
 }
@@ -107,7 +116,7 @@ describe('LocalStorage Repository', () => {
       const project = makeProject();
       await repo.saveProject(project);
       const exported = await repo.exportAll();
-      expect(exported.version).toBe('0.3.0');
+      expect(exported.version).toBe('0.4.0');
       expect(exported.settings).toEqual(DEFAULT_SETTINGS);
       expect(exported.teamPool).toEqual([]);
       expect(exported.projects).toEqual([project]);
@@ -196,6 +205,13 @@ describe('LocalStorage Repository', () => {
       expect(pool).toHaveLength(1);
       expect(pool[0].name).toBe('Bob');
 
+      // v0.4.0 migration: actualCost moved into Baseline reforecast
+      expect((projects[0] as any).actualCost).toBeUndefined();
+      expect(projects[0].reforecasts).toHaveLength(1);
+      expect(projects[0].reforecasts[0].name).toBe('Baseline');
+      expect(projects[0].reforecasts[0].actualCost).toBe(0);
+      expect(projects[0].activeReforecastId).toBe(projects[0].reforecasts[0].id);
+
       // hoursPerMonth should be stripped
       const settings = await repo.getSettings();
       expect((settings as any).hoursPerMonth).toBeUndefined();
@@ -217,7 +233,7 @@ describe('LocalStorage Repository', () => {
   describe('Version', () => {
     it('returns current version when none stored', async () => {
       const version = await repo.getVersion();
-      expect(version).toBe('0.3.0');
+      expect(version).toBe('0.4.0');
     });
   });
 });

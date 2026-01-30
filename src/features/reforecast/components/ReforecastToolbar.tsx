@@ -31,7 +31,7 @@ export function ReforecastToolbar({
       <div className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-2 dark:border-zinc-800 dark:bg-zinc-900">
         <label
           htmlFor="rf-select"
-          className="text-xs font-medium text-zinc-500 dark:text-zinc-400"
+          className="text-sm font-medium text-zinc-500 dark:text-zinc-400"
         >
           Reforecast
         </label>
@@ -50,7 +50,7 @@ export function ReforecastToolbar({
             ))}
           </select>
         ) : (
-          <span className="text-xs text-zinc-400 dark:text-zinc-500">
+          <span className="text-sm text-zinc-400 dark:text-zinc-500">
             No reforecasts yet
           </span>
         )}
@@ -59,7 +59,7 @@ export function ReforecastToolbar({
           {reforecasts.length > 1 && (
             <button
               onClick={() => setShowDeleteDialog(true)}
-              className="rounded border border-red-200 px-3 py-1 text-xs font-medium text-red-500 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950"
+              className="rounded border border-red-200 px-3 py-1 text-sm font-medium text-red-500 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950"
             >
               Delete
             </button>
@@ -67,7 +67,7 @@ export function ReforecastToolbar({
 
           <button
             onClick={() => setShowNewDialog(true)}
-            className="rounded border border-blue-300 px-3 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-950"
+            className="rounded border border-blue-300 px-3 py-1 text-sm font-medium text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-950"
           >
             + New Reforecast
           </button>

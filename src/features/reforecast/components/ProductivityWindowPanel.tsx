@@ -126,7 +126,7 @@ export function ProductivityWindowPanel({
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-zinc-200 text-left text-xs font-medium text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+                  <tr className="border-b border-zinc-200 text-left text-sm font-medium text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
                     <th className="pb-2 pr-4">Start Date</th>
                     <th className="pb-2 pr-4">End Date</th>
                     <th className="pb-2 pr-4">Factor (%)</th>
@@ -190,7 +190,7 @@ export function ProductivityWindowPanel({
                             <div className="flex gap-2">
                               <button
                                 onClick={() => handleEditSave(w.id)}
-                                className="text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                                className="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                               >
                                 Save
                               </button>
@@ -199,7 +199,7 @@ export function ProductivityWindowPanel({
                                   setEditingId(null);
                                   setEditError('');
                                 }}
-                                className="text-xs font-medium text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+                                className="text-sm font-medium text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
                               >
                                 Cancel
                               </button>
@@ -222,13 +222,13 @@ export function ProductivityWindowPanel({
                             <div className="flex gap-2">
                               <button
                                 onClick={() => startEdit(w)}
-                                className="text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                                className="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                               >
                                 Edit
                               </button>
                               <button
                                 onClick={() => onRemove(w.id)}
-                                className="text-xs font-medium text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                                className="text-sm font-medium text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
                               >
                                 Delete
                               </button>
@@ -247,7 +247,7 @@ export function ProductivityWindowPanel({
             <div className="mt-3 rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900">
               <div className="flex flex-wrap items-end gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                  <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400">
                     Start Date
                   </label>
                   <input
@@ -268,7 +268,7 @@ export function ProductivityWindowPanel({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                  <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400">
                     End Date
                   </label>
                   <input
@@ -283,7 +283,7 @@ export function ProductivityWindowPanel({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400">
+                  <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400">
                     Factor (%)
                   </label>
                   <input
@@ -301,7 +301,7 @@ export function ProductivityWindowPanel({
                 <div className="flex gap-2">
                   <button
                     onClick={handleAdd}
-                    className="rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
+                    className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
                   >
                     Add
                   </button>
@@ -311,7 +311,7 @@ export function ProductivityWindowPanel({
                       setAddForm(emptyForm);
                       setAddError('');
                     }}
-                    className="rounded border border-zinc-300 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                    className="rounded border border-zinc-300 px-3 py-1.5 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
                   >
                     Cancel
                   </button>
@@ -328,7 +328,7 @@ export function ProductivityWindowPanel({
           {!showAddForm && (
             <button
               onClick={() => setShowAddForm(true)}
-              className="mt-3 rounded border border-blue-300 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-950"
+              className="mt-3 rounded border border-blue-300 px-3 py-1.5 text-sm font-medium text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-950"
             >
               + Add Window
             </button>

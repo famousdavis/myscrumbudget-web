@@ -10,21 +10,11 @@ import type {
 import { generateId } from '@/lib/utils/id';
 import { buildAllocationMap } from '@/lib/calc/allocationMap';
 import { getActiveReforecast } from '@/lib/utils/teamResolution';
+import { createBaselineReforecast, createNewReforecast } from '@/lib/utils/reforecast';
 
 interface UseReforecastOptions {
   project: Project | null;
   updateProject: (updater: (prev: Project) => Project) => void;
-}
-
-function createDefaultReforecast(startDate: string): Reforecast {
-  return {
-    id: generateId(),
-    name: 'Baseline',
-    createdAt: new Date().toISOString(),
-    startDate,
-    allocations: [],
-    productivityWindows: [],
-  };
 }
 
 export function useReforecast({ project, updateProject }: UseReforecastOptions) {
@@ -55,7 +45,7 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
         return { project: prev, reforecastId: id };
       }
 
-      const rf = createDefaultReforecast(prev.startDate);
+      const rf = createBaselineReforecast(prev.startDate);
       const updated = {
         ...prev,
         reforecasts: [rf],
@@ -123,25 +113,11 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
   const createReforecast = useCallback(
     (name: string, copyFromId?: string) => {
       updateProject((prev) => {
-        const sourceReforecast = copyFromId
+        const source = copyFromId
           ? prev.reforecasts.find((r) => r.id === copyFromId)
-          : null;
+          : undefined;
 
-        const newRf: Reforecast = {
-          id: generateId(),
-          name,
-          createdAt: new Date().toISOString(),
-          startDate: prev.startDate,
-          allocations: sourceReforecast
-            ? sourceReforecast.allocations.map((a) => ({ ...a }))
-            : [],
-          productivityWindows: sourceReforecast
-            ? sourceReforecast.productivityWindows.map((w) => ({
-                ...w,
-                id: generateId(),
-              }))
-            : [],
-        };
+        const newRf = createNewReforecast(name, prev.startDate, source);
 
         return {
           ...prev,
@@ -246,6 +222,25 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
     [updateProject, ensureReforecast],
   );
 
+  const updateActualCost = useCallback(
+    (value: number) => {
+      updateProject((prev) => {
+        const { project: withRf, reforecastId } = ensureReforecast(prev);
+        // Guard against NaN/Infinity — clamp to 0 if not a finite number
+        const sanitized = Number.isFinite(value) ? Math.max(0, value) : 0;
+        return {
+          ...withRf,
+          reforecasts: withRf.reforecasts.map((rf) =>
+            rf.id === reforecastId
+              ? { ...rf, actualCost: sanitized }
+              : rf,
+          ),
+        };
+      });
+    },
+    [updateProject, ensureReforecast],
+  );
+
   return {
     reforecasts,
     activeReforecast,
@@ -258,5 +253,6 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
     addProductivityWindow,
     updateProductivityWindow,
     removeProductivityWindow,
+    updateActualCost,
   };
 }

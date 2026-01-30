@@ -189,6 +189,7 @@ interface Reforecast {
   startDate: string;      // forecast start month
   allocations: MonthlyAllocation[];
   productivityWindows: ProductivityWindow[];
+  actualCost: number;     // per-reforecast actual cost (v0.6.0)
 }
 
 // Project
@@ -198,7 +199,6 @@ interface Project {
   startDate: string;
   endDate: string;
   baselineBudget: number;
-  actualCost: number;
   assignments: ProjectAssignment[];
   reforecasts: Reforecast[];
   activeReforecastId: string | null;
@@ -281,7 +281,7 @@ diverge to use standard annual rate semantics.
 ```typescript
 // Full application state
 interface AppState {
-  version: string;        // Schema version (e.g., "0.2.0")
+  version: string;        // Schema version (e.g., "0.4.0")
   settings: Settings;
   teamPool: PoolMember[];
   projects: Project[];
@@ -289,9 +289,8 @@ interface AppState {
 
 // Example stored data
 const exampleState: AppState = {
-  version: "0.2.0",
+  version: "0.4.0",
   settings: {
-    hoursPerMonth: 160,
     discountRateAnnual: 0.03,
     laborRates: [
       { role: "BA", hourlyRate: 75 },
@@ -312,7 +311,6 @@ const exampleState: AppState = {
     startDate: "2026-06-15",
     endDate: "2027-07-15",
     baselineBudget: 1000000,
-    actualCost: 200000,
     assignments: [
       { id: "tm_001", poolMemberId: "tm_001" },
       { id: "tm_002", poolMemberId: "tm_002" }
@@ -327,7 +325,8 @@ const exampleState: AppState = {
         { memberId: "tm_001", month: "2026-07", allocation: 0.50 },
         { memberId: "tm_002", month: "2026-06", allocation: 0.40 }
       ],
-      productivityWindows: []
+      productivityWindows: [],
+      actualCost: 200000
     }],
     activeReforecastId: "rf_001"
   }]
@@ -648,6 +647,15 @@ src/
 - [x] Recomputed golden-file regression test values for workday-based engine
 - [x] 224 passing tests across 16 test files
 
+### Phase 12: Per-Reforecast Actual Cost (Sprint 11 — DONE)
+- [x] Moved `actualCost` from `Project` into each `Reforecast` for point-in-time cost snapshots
+- [x] Data migration v0.4.0 moves existing actualCost to active reforecast, creates Baseline for projects without reforecasts
+- [x] Inline-editable Actual Cost in project summary bar (click-to-edit)
+- [x] Switching reforecasts updates Actual Cost, EAC, charts, and cost table
+- [x] Creating a reforecast from an existing one copies its actualCost
+- [x] Removed Actual Cost from project create/edit form
+- [x] Every new project auto-creates a Baseline reforecast with $0 actual cost
+
 ### Deferred (Future)
 - XLSX timecard import (with project alias mapping)
 - Traffic-light dashboard
@@ -779,6 +787,20 @@ Delivered:
 - Recomputed all golden-file regression test values for workday-based engine
 - New dates.test.ts with 19 tests for workday utilities
 - 224 total tests across 16 test files
+
+### Sprint 11: Per-Reforecast Actual Cost — COMPLETE (v0.6.0)
+**Goal**: Move actualCost from project-level into each reforecast snapshot
+
+Delivered:
+- Moved `actualCost` from `Project` interface into `Reforecast` interface
+- Data migration v0.4.0: moves project.actualCost to active reforecast (others get 0); creates Baseline for projects without reforecasts
+- `updateActualCost` callback in `useReforecast` hook updates active reforecast's actualCost
+- Inline-editable Actual Cost in project summary bar (click-to-edit pattern)
+- Switching reforecasts updates Actual Cost, EAC, variance, charts, and cost table
+- Creating a reforecast from an existing one copies its actualCost
+- Removed Actual Cost from ProjectForm (create/edit) — only Baseline Budget remains
+- Every new project auto-creates a Baseline reforecast with $0 actual cost
+- Updated all 16 test files with new migration and actualCost-per-reforecast tests
 
 ---
 
@@ -1134,15 +1156,15 @@ export const repo = createLocalStorageRepository();
 The localStorage implementation (`localStorage.ts`) uses `STORAGE_KEYS` from `types/storage.ts` and handles team pool via `getTeamPool()`/`saveTeamPool()`. The `exportAll()`/`importAll()` methods include `teamPool` in the `AppState` round-trip.
 
 ```typescript
-// lib/storage/migrations.ts — current data version is 0.2.0
+// lib/storage/migrations.ts — current data version is 0.4.0
 
-export const DATA_VERSION = '0.2.0';
+export const DATA_VERSION = '0.4.0';
 
-// Migration from v1.0.0 (legacy) → v0.2.0:
-// - Extracts teamMembers from each project into a global teamPool
-// - Rewrites project.teamMembers → project.assignments (ProjectAssignment[])
-// - Preserves original member IDs so MonthlyAllocation.memberId stays valid
-// - Deduplicates pool members across projects by id
+// Migration chain: v1.0.0 → v0.1.0 → v0.2.0 → v0.3.0 → v0.4.0
+// v0.1.0: Extracts teamMembers from projects into global teamPool, rewrites to assignments
+// v0.2.0: (structural migration)
+// v0.3.0: Strips deprecated hoursPerMonth from settings
+// v0.4.0: Moves actualCost from Project into each Reforecast; creates Baseline for projects without reforecasts
 ```
 
 ---
@@ -1355,8 +1377,8 @@ This architecture document provides:
 2. **Clean TypeScript domain model** with global team pool + project assignments
 3. **Repository pattern** with shared singleton and migration support
 4. **Feature-based folder structure** optimized for solo maintenance
-5. **Incremental build plan** with testable milestones (Sprints 1–9 complete)
-6. **Pure calculation functions** with 204 unit tests
+5. **Incremental build plan** with testable milestones (Sprints 1–11 complete)
+6. **Pure calculation functions** with 224+ unit tests
 7. **Golden-file parity tests** ensuring spreadsheet accuracy
 
 Key design decisions:

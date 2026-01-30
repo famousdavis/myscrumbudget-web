@@ -10,7 +10,6 @@ interface ProjectFormData {
   startDate: string;
   endDate: string;
   baselineBudget: number;
-  actualCost: number;
 }
 
 interface ProjectFormProps {
@@ -25,7 +24,6 @@ const defaultData: ProjectFormData = {
   startDate: '',
   endDate: '',
   baselineBudget: 0,
-  actualCost: 0,
 };
 
 export function ProjectForm({
@@ -39,14 +37,13 @@ export function ProjectForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [budgetFocused, setBudgetFocused] = useState(false);
-  const [costFocused, setCostFocused] = useState(false);
 
   const handleChange = (field: keyof ProjectFormData, value: string) => {
     setData((prev) => {
       const next = {
         ...prev,
         [field]:
-          field === 'baselineBudget' || field === 'actualCost'
+          field === 'baselineBudget'
             ? Math.max(0, parseFloat(value) || 0)
             : value,
       };
@@ -80,10 +77,6 @@ export function ProjectForm({
     }
     if (data.baselineBudget < 0) {
       setError('Baseline budget cannot be negative.');
-      return;
-    }
-    if (data.actualCost < 0) {
-      setError('Actual cost cannot be negative.');
       return;
     }
 
@@ -144,57 +137,30 @@ export function ProjectForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="mb-1 block text-sm font-medium">
-            Baseline Budget
-          </label>
-          {budgetFocused ? (
-            <input
-              type="number"
-              min="0"
-              value={data.baselineBudget || ''}
-              onChange={(e) => handleChange('baselineBudget', e.target.value)}
-              onBlur={() => setBudgetFocused(false)}
-              autoFocus
-              className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-            />
-          ) : (
-            <input
-              type="text"
-              readOnly
-              value={data.baselineBudget ? formatCurrency(data.baselineBudget) : ''}
-              onFocus={() => setBudgetFocused(true)}
-              placeholder="$0"
-              className="w-full cursor-pointer rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-            />
-          )}
-        </div>
-        <div>
-          <label className="mb-1 block text-sm font-medium">
-            Actual Cost
-          </label>
-          {costFocused ? (
-            <input
-              type="number"
-              min="0"
-              value={data.actualCost || ''}
-              onChange={(e) => handleChange('actualCost', e.target.value)}
-              onBlur={() => setCostFocused(false)}
-              autoFocus
-              className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-            />
-          ) : (
-            <input
-              type="text"
-              readOnly
-              value={data.actualCost ? formatCurrency(data.actualCost) : ''}
-              onFocus={() => setCostFocused(true)}
-              placeholder="$0"
-              className="w-full cursor-pointer rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-            />
-          )}
-        </div>
+      <div>
+        <label className="mb-1 block text-sm font-medium">
+          Baseline Budget
+        </label>
+        {budgetFocused ? (
+          <input
+            type="number"
+            min="0"
+            value={data.baselineBudget || ''}
+            onChange={(e) => handleChange('baselineBudget', e.target.value)}
+            onBlur={() => setBudgetFocused(false)}
+            autoFocus
+            className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          />
+        ) : (
+          <input
+            type="text"
+            readOnly
+            value={data.baselineBudget ? formatCurrency(data.baselineBudget) : ''}
+            onFocus={() => setBudgetFocused(true)}
+            placeholder="$0"
+            className="w-full cursor-pointer rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          />
+        )}
       </div>
 
       <div className="flex gap-3 pt-2">

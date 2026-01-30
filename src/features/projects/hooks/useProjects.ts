@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { Project } from '@/types/domain';
 import { repo } from '@/lib/storage/repo';
 import { generateId } from '@/lib/utils/id';
+import { createBaselineReforecast } from '@/lib/utils/reforecast';
 
 export function useProjects() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -21,12 +22,13 @@ export function useProjects() {
 
   const createProject = useCallback(
     async (data: Omit<Project, 'id' | 'assignments' | 'reforecasts' | 'activeReforecastId'>) => {
+      const baseline = createBaselineReforecast(data.startDate);
       const project: Project = {
         ...data,
         id: generateId(),
         assignments: [],
-        reforecasts: [],
-        activeReforecastId: null,
+        reforecasts: [baseline],
+        activeReforecastId: baseline.id,
       };
       await repo.saveProject(project);
       await reload();

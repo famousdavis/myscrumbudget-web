@@ -1,6 +1,6 @@
 import type { AppState, PoolMember, ProjectAssignment } from '@/types/domain';
 
-export const DATA_VERSION = '0.3.0';
+export const DATA_VERSION = '0.4.0';
 
 type Migration = {
   version: string;
@@ -67,6 +67,61 @@ const MIGRATIONS: Migration[] = [
           discountRateAnnual: restSettings.discountRateAnnual ?? 0.03,
           laborRates: restSettings.laborRates ?? [],
         },
+      };
+    },
+  },
+  {
+    version: '0.4.0',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    migrate: (data: any): AppState => {
+      // Move actualCost from Project into each Reforecast.
+      // Active reforecast inherits the project's actualCost; others get 0.
+      // Projects without reforecasts get a synthetic Baseline.
+      const migratedProjects = (data.projects ?? []).map(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (project: any) => {
+          const { actualCost: ac, ...restProject } = project;
+          const cost = ac ?? 0;
+
+          if (project.reforecasts && project.reforecasts.length > 0) {
+            const activeId =
+              project.activeReforecastId ?? project.reforecasts[0].id;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const migratedReforecasts = project.reforecasts.map((rf: any) => ({
+              ...rf,
+              actualCost: rf.id === activeId ? cost : 0,
+            }));
+            return {
+              ...restProject,
+              reforecasts: migratedReforecasts,
+              activeReforecastId: activeId,
+            };
+          } else {
+            // No reforecasts — create a Baseline
+            const baselineId = `rf_baseline_${project.id}`;
+            return {
+              ...restProject,
+              reforecasts: [
+                {
+                  id: baselineId,
+                  name: 'Baseline',
+                  createdAt: new Date().toISOString(),
+                  startDate: (project.startDate ?? '').slice(0, 7),
+                  allocations: [],
+                  productivityWindows: [],
+                  actualCost: cost,
+                },
+              ],
+              activeReforecastId: baselineId,
+            };
+          }
+        },
+      );
+
+      return {
+        ...data,
+        version: '0.4.0',
+        projects: migratedProjects,
       };
     },
   },

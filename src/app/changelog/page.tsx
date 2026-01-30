@@ -12,6 +12,30 @@ interface ChangelogEntry {
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.6.0',
+    date: '2026-01-30',
+    sections: [
+      {
+        title: 'Architecture',
+        items: [
+          'Moved Actual Cost from project-level into each Reforecast for point-in-time cost snapshots',
+          'Data migration v0.4.0 moves existing actualCost into the active reforecast',
+          'Every new project auto-creates a Baseline reforecast with $0 actual cost',
+          'Projects without reforecasts receive a synthetic Baseline during migration',
+        ],
+      },
+      {
+        title: 'UX',
+        items: [
+          'Actual Cost is now inline-editable in the project summary bar (click to edit)',
+          'Switching reforecasts updates Actual Cost, EAC, charts, and cost table',
+          'Removed Actual Cost from the project create/edit form',
+          'Creating a reforecast from an existing one copies its Actual Cost',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.5.0',
     date: '2026-01-29',
     sections: [
