@@ -45,7 +45,7 @@ export function ReforecastToolbar({
             id="rf-select"
             value={selectedId}
             onChange={(e) => onSwitch(e.target.value)}
-            className="rounded border border-zinc-300 bg-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            className="min-w-48 rounded border border-zinc-300 bg-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
           >
             {reforecasts.map((rf) => (
               <option key={rf.id} value={rf.id}>
