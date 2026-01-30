@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
 import type { TeamMember, PoolMember, MonthlyCalculation, ProductivityWindow } from '@/types/domain';
 import type { AllocationMap } from '@/lib/calc/allocationMap';
 import { getAllocation } from '@/lib/calc/allocationMap';
@@ -275,7 +276,26 @@ export function AllocationGrid({
 
   const hasRowControls = !readonly && onMemberDelete && onMemberAdd;
 
-  if (teamMembers.length === 0) {
+  if (teamMembers.length === 0 && pool.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed border-zinc-300 p-8 text-center dark:border-zinc-700">
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          No team members assigned to this project.
+        </p>
+        <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
+          <Link
+            href="/team"
+            className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+          >
+            Go to Team Pool
+          </Link>{' '}
+          to add team members, then return here to assign them.
+        </p>
+      </div>
+    );
+  }
+
+  if (teamMembers.length === 0 && hasRowControls) {
     return (
       <>
         <div className="rounded-lg border border-dashed border-zinc-300 p-8 text-center dark:border-zinc-700">
@@ -283,56 +303,65 @@ export function AllocationGrid({
             No team members assigned to this project.
           </p>
           <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
-            {hasRowControls
-              ? 'Add team members from the pool using the control below.'
-              : 'Go to the Team page to create a pool, then return here to assign members.'}
+            Add team members from the pool using the control below.
           </p>
         </div>
-        {hasRowControls && (
-          <div className="mt-4">
-            {addingRow ? (
-              <div className="flex items-center gap-2">
-                <select
-                  autoFocus
-                  value={selectedPoolId}
-                  onChange={(e) => setSelectedPoolId(e.target.value)}
-                  className="rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                >
-                  <option value="">Select member...</option>
-                  {pool.map((pm) => (
-                    <option key={pm.id} value={pm.id}>
-                      {pm.name} ({pm.role})
-                    </option>
-                  ))}
-                </select>
-                <button
-                  onClick={handleAddRow}
-                  disabled={!selectedPoolId}
-                  className="rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700 disabled:opacity-40"
-                >
-                  Add
-                </button>
-                <button
-                  onClick={() => {
-                    setAddingRow(false);
-                    setSelectedPoolId('');
-                  }}
-                  className="text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400"
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setAddingRow(true)}
-                className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400"
+        <div className="mt-4">
+          {addingRow ? (
+            <div className="flex items-center gap-2">
+              <select
+                autoFocus
+                value={selectedPoolId}
+                onChange={(e) => setSelectedPoolId(e.target.value)}
+                className="rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
               >
-                + Add member
+                <option value="">Select member...</option>
+                {pool.map((pm) => (
+                  <option key={pm.id} value={pm.id}>
+                    {pm.name} ({pm.role})
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={handleAddRow}
+                disabled={!selectedPoolId}
+                className="rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700 disabled:opacity-40"
+              >
+                Add
               </button>
-            )}
-          </div>
-        )}
+              <button
+                onClick={() => {
+                  setAddingRow(false);
+                  setSelectedPoolId('');
+                }}
+                className="text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setAddingRow(true)}
+              className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400"
+            >
+              + Add member
+            </button>
+          )}
+        </div>
       </>
+    );
+  }
+
+  if (teamMembers.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed border-zinc-300 p-8 text-center dark:border-zinc-700">
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">
+          No team members assigned to this project.
+        </p>
+        <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
+          Go to the Team page to create a pool, then return here to assign members.
+        </p>
+      </div>
     );
   }
 
