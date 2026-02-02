@@ -12,6 +12,29 @@ interface ChangelogEntry {
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.10.0',
+    date: '2026-02-02',
+    sections: [
+      {
+        title: 'Dependencies',
+        items: [
+          'Updated react and react-dom from 19.2.3 to 19.2.4',
+          'Updated @vitejs/plugin-react from 5.1.2 to 5.1.3',
+          'Updated @types/node from ^20 to ^24 (matching Node.js 24 LTS runtime)',
+          'Updated jsdom from ^27.4.0 to ^28.0.0',
+          'Cleaned up extraneous native addon packages',
+          'All dependencies at latest stable versions for JFrog vulnerability scan compliance',
+        ],
+      },
+      {
+        title: 'Testing',
+        items: [
+          '387 passing tests across 21 test files (unchanged)',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.9.0',
     date: '2026-02-01',
     sections: [
