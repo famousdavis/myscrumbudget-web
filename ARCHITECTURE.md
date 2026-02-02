@@ -923,6 +923,18 @@ Delivered:
 - Deleted stale untracked files (`AddMemberForm.tsx`, `TeamTable.tsx`)
 - 387 passing tests across 21 test files
 
+### Sprint 15: Dependency Update — COMPLETE (v0.10.0)
+**Goal**: Update all dependencies to latest stable versions for JFrog vulnerability scan compliance
+
+Delivered:
+- Updated react and react-dom from 19.2.3 to 19.2.4
+- Updated @vitejs/plugin-react from 5.1.2 to 5.1.3
+- Updated @types/node from ^20 (20.19.30) to ^24 (24.10.9) matching Node.js 24 LTS runtime
+- Updated jsdom from ^27.4.0 (27.4.0) to ^28.0.0 (28.0.0)
+- Cleaned up 5 extraneous native addon packages (@emnapi/*, @napi-rs/*, @tybys/*)
+- npm audit: 0 vulnerabilities
+- 387 passing tests across 21 test files (unchanged)
+
 ---
 
 ## Part 8: TypeScript Calculation Functions
@@ -1501,8 +1513,8 @@ This architecture document provides:
 2. **Clean TypeScript domain model** with global team pool + project assignments
 3. **Repository pattern** with shared singleton and migration support
 4. **Feature-based folder structure** optimized for solo maintenance
-5. **Incremental build plan** with testable milestones (Sprints 1–13 complete)
-6. **Pure calculation functions** with 364+ unit tests
+5. **Incremental build plan** with testable milestones (Sprints 1–15 complete)
+6. **Pure calculation functions** with 387 unit tests
 7. **Golden-file parity tests** ensuring spreadsheet accuracy
 
 Key design decisions:
