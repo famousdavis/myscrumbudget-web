@@ -112,3 +112,4 @@ export {
 } from './metrics';
 export { calculateNPV } from './npv';
 export { getProductivityFactor } from './productivity';
+export { getTrafficLightStatus, getTrafficLightDisplay, DEFAULT_THRESHOLDS } from './trafficLight';

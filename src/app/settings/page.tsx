@@ -4,6 +4,7 @@ import { useSettings } from '@/features/settings/hooks/useSettings';
 import { SettingsForm } from '@/features/settings/components/SettingsForm';
 import { RateTable } from '@/features/settings/components/RateTable';
 import { HolidayTable } from '@/features/settings/components/HolidayTable';
+import { ThresholdSettings } from '@/features/settings/components/ThresholdSettings';
 import { DataPortability } from '@/features/settings/components/DataPortability';
 
 export default function SettingsPage() {
@@ -31,6 +32,12 @@ export default function SettingsPage() {
         <RateTable rates={settings.laborRates} onUpdate={updateSettings} />
         <hr className="border-zinc-200 dark:border-zinc-800" />
         <HolidayTable holidays={settings.holidays} onUpdate={updateSettings} />
+        <hr className="border-zinc-200 dark:border-zinc-800" />
+        <ThresholdSettings
+          amberPercent={settings.trafficLightThresholds.amberPercent}
+          redPercent={settings.trafficLightThresholds.redPercent}
+          onUpdate={updateSettings}
+        />
         <hr className="border-zinc-200 dark:border-zinc-800" />
         <DataPortability onImportComplete={handleImportComplete} />
       </div>

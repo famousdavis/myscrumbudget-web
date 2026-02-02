@@ -50,7 +50,7 @@ export function Sidebar() {
 
       {/* Sidebar nav */}
       <nav
-        className={`fixed z-40 h-full w-56 shrink-0 border-r border-zinc-200 bg-zinc-50 transition-transform md:static md:translate-x-0 dark:border-zinc-800 dark:bg-zinc-950 ${
+        className={`fixed z-40 h-full w-56 shrink-0 border-r border-zinc-200 bg-zinc-50 transition-transform md:sticky md:top-0 md:h-screen md:translate-x-0 dark:border-zinc-800 dark:bg-zinc-950 ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >

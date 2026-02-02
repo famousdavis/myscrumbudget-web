@@ -14,6 +14,7 @@ export const DEFAULT_SETTINGS: Settings = {
     { role: 'PMO', hourlyRate: 120 },
   ],
   holidays: [],
+  trafficLightThresholds: { amberPercent: 5, redPercent: 15 },
 };
 
 function get<T>(key: string, fallback: T): T {

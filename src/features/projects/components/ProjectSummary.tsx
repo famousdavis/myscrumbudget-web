@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import type { Project, ProjectMetrics } from '@/types/domain';
+import type { Project, ProjectMetrics, TrafficLightThresholds } from '@/types/domain';
 import { formatCurrency } from '@/lib/utils/format';
 import { formatMonthLabel } from '@/lib/utils/dates';
+import { getTrafficLightStatus, getTrafficLightDisplay, DEFAULT_THRESHOLDS } from '@/lib/calc';
 
 const editableClass =
   'rounded-lg border border-zinc-200 p-4 dark:border-zinc-800 cursor-pointer hover:border-blue-300 hover:bg-blue-50/50 dark:hover:border-blue-800 dark:hover:bg-blue-950/30 transition-colors';
@@ -96,6 +97,7 @@ interface ProjectSummaryProps {
   metrics?: ProjectMetrics | null;
   actualCost: number;
   baselineBudget: number;
+  trafficLightThresholds?: TrafficLightThresholds;
   onActualCostChange?: (value: number) => void;
   onBaselineBudgetChange?: (value: number) => void;
 }
@@ -105,14 +107,15 @@ export function ProjectSummary({
   metrics,
   actualCost,
   baselineBudget,
+  trafficLightThresholds,
   onActualCostChange,
   onBaselineBudgetChange,
 }: ProjectSummaryProps) {
-  const eacStatus = metrics
-    ? metrics.eac <= baselineBudget
-      ? { color: 'text-green-600 dark:text-green-400', label: '(under)' }
-      : { color: 'text-red-600 dark:text-red-400', label: '(over)' }
-    : { color: '', label: '' };
+  const trafficLight = metrics
+    ? getTrafficLightDisplay(
+        getTrafficLightStatus(metrics, trafficLightThresholds ?? DEFAULT_THRESHOLDS),
+      )
+    : null;
 
   return (
     <div className="space-y-4">
@@ -142,10 +145,14 @@ export function ProjectSummary({
         </div>
         <div className={readonlyClass}>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">EAC</p>
-          <p className={`mt-1 text-base font-medium ${eacStatus.color}`}>
+          <p className={`mt-1 text-base font-medium ${trafficLight?.color ?? ''}`}>
             {metrics ? formatCurrency(metrics.eac) : '\u2014'}
-            {eacStatus.label && (
-              <span className="ml-1 text-xs font-normal">{eacStatus.label}</span>
+            {trafficLight && (
+              <span className="ml-1 text-xs font-normal">
+                <span aria-hidden="true">{trafficLight.indicator}</span>
+                {' '}
+                {trafficLight.label}
+              </span>
             )}
           </p>
         </div>

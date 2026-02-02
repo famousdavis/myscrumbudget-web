@@ -118,7 +118,7 @@ describe('LocalStorage Repository', () => {
       const project = makeProject();
       await repo.saveProject(project);
       const exported = await repo.exportAll();
-      expect(exported.version).toBe('0.6.0');
+      expect(exported.version).toBe('0.7.0');
       expect(exported.settings).toEqual(DEFAULT_SETTINGS);
       expect(exported.teamPool).toEqual([]);
       expect(exported.projects).toEqual([project]);
@@ -241,7 +241,7 @@ describe('LocalStorage Repository', () => {
   describe('Version', () => {
     it('returns current version when none stored', async () => {
       const version = await repo.getVersion();
-      expect(version).toBe('0.6.0');
+      expect(version).toBe('0.7.0');
     });
   });
 });

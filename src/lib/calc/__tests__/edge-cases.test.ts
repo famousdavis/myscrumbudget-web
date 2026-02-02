@@ -11,6 +11,7 @@ const SETTINGS: Settings = {
   discountRateAnnual: 0.03,
   laborRates: [{ role: 'Dev', hourlyRate: 100 }],
   holidays: [],
+  trafficLightThresholds: { amberPercent: 5, redPercent: 15 },
 };
 
 function makeProject(overrides: Partial<Project> = {}): Project {
@@ -243,6 +244,115 @@ describe('Edge Cases', () => {
       // Key assertion: different budgets → different variance
       expect(metrics1.variance).not.toBe(metrics2.variance);
       expect(metrics1.budgetRatio).not.toBe(metrics2.budgetRatio);
+    });
+  });
+
+  describe('Holiday subtraction flows through full pipeline', () => {
+    it('reduces cost and hours when holidays fall on workdays', () => {
+      // June 2026 full month: 22 workdays = 176 hrs baseline
+      // Add 2 weekday holidays → 20 workdays = 160 hrs
+      const settingsWithHolidays: Settings = {
+        ...SETTINGS,
+        holidays: [
+          { id: 'h1', name: 'Holiday A', startDate: '2026-06-01', endDate: '2026-06-01' }, // Monday
+          { id: 'h2', name: 'Holiday B', startDate: '2026-06-02', endDate: '2026-06-02' }, // Tuesday
+        ],
+      };
+      const rf = makeReforecast({
+        allocations: [{ memberId: 'a1', month: '2026-06', allocation: 1.0 }],
+        actualCost: 0,
+        baselineBudget: 50000,
+      });
+      const project = makeProject({
+        startDate: '2026-06-01',
+        endDate: '2026-06-30',
+        reforecasts: [rf],
+        activeReforecastId: rf.id,
+      });
+
+      const metrics = calculateProjectMetrics(project, settingsWithHolidays, TEAM);
+      // 20 workdays * 8 = 160 hrs, 1.0 * 100 * 160 = 16,000
+      expect(metrics.totalHours).toBe(160);
+      expect(metrics.etc).toBe(16_000);
+    });
+
+    it('weekend holidays do not reduce workday count', () => {
+      const settingsWithWeekendHoliday: Settings = {
+        ...SETTINGS,
+        holidays: [
+          { id: 'h1', name: 'Weekend Day', startDate: '2026-06-06', endDate: '2026-06-07' }, // Sat-Sun
+        ],
+      };
+      const rf = makeReforecast({
+        allocations: [{ memberId: 'a1', month: '2026-06', allocation: 1.0 }],
+        actualCost: 0,
+        baselineBudget: 50000,
+      });
+      const project = makeProject({
+        startDate: '2026-06-01',
+        endDate: '2026-06-30',
+        reforecasts: [rf],
+        activeReforecastId: rf.id,
+      });
+
+      const metrics = calculateProjectMetrics(project, settingsWithWeekendHoliday, TEAM);
+      // Still 22 workdays since holidays fell on weekend
+      expect(metrics.totalHours).toBe(176);
+      expect(metrics.etc).toBe(17_600);
+    });
+  });
+
+  describe('Productivity windows in full pipeline', () => {
+    it('reduces cost and hours by productivity factor', () => {
+      const rf = makeReforecast({
+        allocations: [{ memberId: 'a1', month: '2026-06', allocation: 1.0 }],
+        productivityWindows: [
+          { id: 'w1', startDate: '2026-06-01', endDate: '2026-06-30', factor: 0.5 },
+        ],
+        actualCost: 0,
+        baselineBudget: 50000,
+      });
+      const project = makeProject({
+        startDate: '2026-06-01',
+        endDate: '2026-06-30',
+        reforecasts: [rf],
+        activeReforecastId: rf.id,
+      });
+
+      const metrics = calculateProjectMetrics(project, SETTINGS, TEAM);
+      // June 2026: 22 workdays = 176 hrs, factor 0.5 → 88 hrs, cost = 100 * 88 = 8,800
+      expect(metrics.totalHours).toBe(88);
+      expect(metrics.etc).toBe(8_800);
+    });
+
+    it('applies productivity to some months but not others', () => {
+      const rf = makeReforecast({
+        allocations: [
+          { memberId: 'a1', month: '2026-06', allocation: 1.0 },
+          { memberId: 'a1', month: '2026-07', allocation: 1.0 },
+        ],
+        productivityWindows: [
+          { id: 'w1', startDate: '2026-07-01', endDate: '2026-07-31', factor: 0.5 },
+        ],
+        actualCost: 0,
+        baselineBudget: 100000,
+      });
+      const project = makeProject({
+        startDate: '2026-06-01',
+        endDate: '2026-07-31',
+        reforecasts: [rf],
+        activeReforecastId: rf.id,
+      });
+
+      const metrics = calculateProjectMetrics(project, SETTINGS, TEAM);
+      // June: 22 workdays * 8 = 176 hrs, factor 1.0 → 176 hrs, cost = 17,600
+      // July: 23 workdays * 8 = 184 hrs, factor 0.5 → 92 hrs, cost = 9,200
+      expect(metrics.monthlyData[0].hours).toBe(176);
+      expect(metrics.monthlyData[0].cost).toBe(17_600);
+      expect(metrics.monthlyData[1].hours).toBe(92);
+      expect(metrics.monthlyData[1].cost).toBe(9_200);
+      expect(metrics.totalHours).toBe(176 + 92);
+      expect(metrics.etc).toBe(17_600 + 9_200);
     });
   });
 

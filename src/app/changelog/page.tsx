@@ -12,6 +12,78 @@ interface ChangelogEntry {
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.0',
+    date: '2026-02-01',
+    sections: [
+      {
+        title: 'Traffic-Light Dashboard',
+        items: [
+          'Three-state traffic-light status on dashboard project tiles (Green/Amber/Red)',
+          'Status derived from variance percentage against configurable thresholds',
+          'Colored EAC value with status indicator and text label ("On Track" / "At Risk" / "Over Budget")',
+          'Traffic-light thresholds configurable in Settings > Dashboard Thresholds',
+          'Traffic-light coloring applied to EAC on project detail page summary bar',
+        ],
+      },
+      {
+        title: 'Refactoring',
+        items: [
+          'Consolidated 3 delete dialogs into a single reusable ConfirmDialog component',
+          'Extracted drag-to-reorder logic into a generic useDragReorder hook',
+          'Extracted collapsible section pattern into a shared CollapsibleSection component',
+          'Removed dashboard arrow-key reorder buttons (drag handles are sufficient)',
+          'Sticky sidebar navigation on desktop',
+        ],
+      },
+      {
+        title: 'Architecture',
+        items: [
+          'TrafficLightThresholds type added to Settings with data migration v0.7.0',
+          'Pure getTrafficLightStatus() and getTrafficLightDisplay() calculation functions',
+          'Deleted 3 redundant dialog components and 2 stale untracked files',
+        ],
+      },
+      {
+        title: 'Testing',
+        items: [
+          'Traffic-light status and display tests',
+          'Holiday subtraction and productivity window integration tests for calculateProjectMetrics',
+          'generateId utility tests',
+          '387 passing tests across 21 test files',
+        ],
+      },
+    ],
+  },
+  {
+    version: '0.8.0',
+    date: '2026-01-31',
+    sections: [
+      {
+        title: 'Holiday Calendar',
+        items: [
+          'Global holiday calendar in Settings — non-work days subtracted from workday calculations',
+          'Holiday CRUD table with inline editing, delete confirmation, and date auto-fill',
+          'Collapsible Settings sections (Labor Rates, Holiday Calendar) with chevron toggle and count badges',
+        ],
+      },
+      {
+        title: 'Allocation Grid',
+        items: [
+          'Sortable "Team Member" column header (cycles None \u2192 Name A\u2192Z \u2192 Role\u2192Name)',
+          'Inline drag handles (\u2839) for manual row reorder',
+          'Sticky name column with z-index layering for cell selection outlines',
+        ],
+      },
+      {
+        title: 'UX',
+        items: [
+          'Reforecast dropdown widened with min-w-48',
+          'Form input UX polish: placeholder styling, submit guard, numeric clearing',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.7.0',
     date: '2026-01-30',
     sections: [

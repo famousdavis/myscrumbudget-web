@@ -1,12 +1,13 @@
 'use client';
 
-import { useCallback, useState, useRef, useEffect } from 'react';
+import { useCallback, useState, useRef, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import type { TeamMember, PoolMember, MonthlyCalculation, ProductivityWindow } from '@/types/domain';
-import { DeleteAssignmentDialog } from './DeleteAssignmentDialog';
+import { ConfirmDialog } from '@/components/BaseDialog';
 import type { AllocationMap } from '@/lib/calc/allocationMap';
 import { getAllocation } from '@/lib/calc/allocationMap';
 import { formatMonthLabel } from '@/lib/utils/dates';
+import { useDragReorder } from '@/hooks/useDragReorder';
 import { formatCurrency } from '@/lib/utils/format';
 import { getProductivityFactor } from '@/lib/calc/productivity';
 import type { CellCoord, SelectionRange, FillDragState } from '../lib/gridHelpers';
@@ -60,61 +61,16 @@ export function AllocationGrid({
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [focusedCell, setFocusedCell] = useState<CellCoord | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>('none');
-  const [draggedRowId, setDraggedRowId] = useState<string | null>(null);
-  const [dragOverRowId, setDragOverRowId] = useState<string | null>(null);
-  const rowDragCounterRef = useRef<Map<string, number>>(new Map());
+  const rowReorderCallback = useMemo(
+    () => onReorder
+      ? (ids: string[]) => { onReorder(ids); setSortMode('none'); }
+      : () => {},
+    [onReorder],
+  );
+  const rowDrag = useDragReorder(teamMembers, 'id', rowReorderCallback);
   const gridRef = useRef<HTMLTableElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const mousePositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-
-  // --- Row drag-to-reorder handlers ---
-  const handleRowDragStart = useCallback((memberId: string, e: React.DragEvent) => {
-    setDraggedRowId(memberId);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', memberId);
-  }, []);
-
-  const handleRowDragEnd = useCallback(() => {
-    setDraggedRowId(null);
-    setDragOverRowId(null);
-    rowDragCounterRef.current.clear();
-  }, []);
-
-  const handleRowDragEnter = useCallback((memberId: string) => {
-    const count = (rowDragCounterRef.current.get(memberId) ?? 0) + 1;
-    rowDragCounterRef.current.set(memberId, count);
-    setDragOverRowId(memberId);
-  }, []);
-
-  const handleRowDragLeave = useCallback((memberId: string) => {
-    const count = (rowDragCounterRef.current.get(memberId) ?? 1) - 1;
-    rowDragCounterRef.current.set(memberId, count);
-    if (count <= 0) {
-      rowDragCounterRef.current.delete(memberId);
-      setDragOverRowId((prev) => (prev === memberId ? null : prev));
-    }
-  }, []);
-
-  const handleRowDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  }, []);
-
-  const handleRowDrop = useCallback((targetId: string, e: React.DragEvent) => {
-    e.preventDefault();
-    const sourceId = draggedRowId;
-    if (!sourceId || sourceId === targetId || !onReorder) return;
-
-    const ids = teamMembers.map((m) => m.id);
-    const fromIndex = ids.indexOf(sourceId);
-    const toIndex = ids.indexOf(targetId);
-    if (fromIndex < 0 || toIndex < 0) return;
-
-    ids.splice(fromIndex, 1);
-    ids.splice(toIndex, 0, sourceId);
-    onReorder(ids);
-    setSortMode('none'); // Manual reorder clears sort indicator
-  }, [draggedRowId, teamMembers, onReorder]);
 
   // --- Sort column header handler ---
   const handleSortClick = useCallback(() => {
@@ -437,19 +393,19 @@ export function AllocationGrid({
           {teamMembers.map((member, rowIdx) => (
             <tr
               key={member.id}
-              className={`${draggedRowId === member.id ? 'opacity-40' : ''}${dragOverRowId === member.id && draggedRowId !== member.id ? ' bg-blue-50 dark:bg-blue-950' : ''}`}
-              onDragOver={hasRowControls && onReorder ? handleRowDragOver : undefined}
-              onDragEnter={hasRowControls && onReorder ? () => handleRowDragEnter(member.id) : undefined}
-              onDragLeave={hasRowControls && onReorder ? () => handleRowDragLeave(member.id) : undefined}
-              onDrop={hasRowControls && onReorder ? (e) => handleRowDrop(member.id, e) : undefined}
+              className={`${rowDrag.isDragging(member.id) ? 'opacity-40' : ''}${rowDrag.isDragOver(member.id) ? ' bg-blue-50 dark:bg-blue-950' : ''}`}
+              onDragOver={hasRowControls && onReorder ? rowDrag.handleDragOver : undefined}
+              onDragEnter={hasRowControls && onReorder ? () => rowDrag.handleDragEnter(member.id) : undefined}
+              onDragLeave={hasRowControls && onReorder ? () => rowDrag.handleDragLeave(member.id) : undefined}
+              onDrop={hasRowControls && onReorder ? (e) => rowDrag.handleDrop(member.id, e) : undefined}
             >
               <td className="sticky left-0 z-10 border border-zinc-200 bg-white px-1 py-1 dark:border-zinc-700 dark:bg-zinc-950">
                 <div className="flex items-center gap-1 px-1 text-sm font-medium whitespace-nowrap">
                   {hasRowControls && onReorder && (
                     <div
                       draggable
-                      onDragStart={(e) => handleRowDragStart(member.id, e)}
-                      onDragEnd={handleRowDragEnd}
+                      onDragStart={(e) => rowDrag.handleDragStart(member.id, e)}
+                      onDragEnd={rowDrag.handleDragEnd}
                       className="cursor-grab text-zinc-400 hover:text-zinc-600 active:cursor-grabbing dark:text-zinc-500 dark:hover:text-zinc-300"
                       title="Drag to reorder"
                       aria-label={`Drag ${member.name} to reorder`}
@@ -751,10 +707,10 @@ export function AllocationGrid({
         </tbody>
       </table>
       {pendingDeleteId && onMemberDelete && (
-        <DeleteAssignmentDialog
-          memberName={
-            teamMembers.find((m) => m.id === pendingDeleteId)?.name ?? ''
-          }
+        <ConfirmDialog
+          title="Remove Team Member"
+          confirmLabel="Remove"
+          message={<>Are you sure you want to remove <strong>{teamMembers.find((m) => m.id === pendingDeleteId)?.name ?? ''}</strong>? All allocations for this member across every reforecast will be lost.</>}
           onConfirm={() => {
             onMemberDelete(pendingDeleteId);
             setPendingDeleteId(null);
