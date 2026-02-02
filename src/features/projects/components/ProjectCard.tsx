@@ -5,7 +5,7 @@ import Link from 'next/link';
 import type { Project, Settings, PoolMember } from '@/types/domain';
 import { formatCurrency } from '@/lib/utils/format';
 import { formatMonthLabel } from '@/lib/utils/dates';
-import { calculateProjectMetrics } from '@/lib/calc';
+import { calculateProjectMetrics, getTrafficLightStatus, getTrafficLightDisplay } from '@/lib/calc';
 import { resolveAssignments, getMostRecentReforecast } from '@/lib/utils/teamResolution';
 
 interface ProjectCardProps {
@@ -13,10 +13,6 @@ interface ProjectCardProps {
   settings?: Settings | null;
   pool: PoolMember[];
   onDelete: (id: string) => void;
-  onMoveUp?: () => void;
-  onMoveDown?: () => void;
-  canMoveUp?: boolean;
-  canMoveDown?: boolean;
   isDragging?: boolean;
   isDragOver?: boolean;
   onDragStart?: (e: React.DragEvent) => void;
@@ -32,10 +28,6 @@ export function ProjectCard({
   settings,
   pool,
   onDelete,
-  onMoveUp,
-  onMoveDown,
-  canMoveUp,
-  canMoveDown,
   isDragging,
   isDragOver,
   onDragStart,
@@ -68,11 +60,11 @@ export function ProjectCard({
 
   const budget = mostRecentRf?.baselineBudget ?? 0;
 
-  const eacStatus = metrics
-    ? metrics.eac <= budget
-      ? { color: 'text-green-600 dark:text-green-400', label: '(under budget)' }
-      : { color: 'text-red-600 dark:text-red-400', label: '(over budget)' }
-    : { color: '', label: '' };
+  const trafficLight = useMemo(() => {
+    if (!metrics || !settings) return null;
+    const status = getTrafficLightStatus(metrics, settings.trafficLightThresholds);
+    return getTrafficLightDisplay(status);
+  }, [metrics, settings]);
 
   return (
     <div
@@ -91,21 +83,8 @@ export function ProjectCard({
             : 'border-zinc-200 hover:border-zinc-400 dark:border-zinc-800 dark:hover:border-zinc-600'
       }`}
     >
-      {/* Reorder controls */}
-      <div className="mr-3 flex flex-col items-center gap-0.5 pt-1">
-        {onMoveUp && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
-            disabled={!canMoveUp}
-            title="Move up"
-            aria-label={`Move ${project.name} up`}
-            className="rounded p-0.5 text-zinc-400 hover:text-zinc-600 disabled:cursor-default disabled:opacity-30 dark:text-zinc-500 dark:hover:text-zinc-300"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-3 w-3">
-              <path fillRule="evenodd" d="M8 3.5a.75.75 0 01.53.22l3.25 3.25a.75.75 0 01-1.06 1.06L8 5.31 5.28 8.03a.75.75 0 01-1.06-1.06l3.25-3.25A.75.75 0 018 3.5z" clipRule="evenodd" />
-            </svg>
-          </button>
-        )}
+      {/* Drag handle */}
+      <div className="mr-3 flex items-start pt-1">
         <div
           className="cursor-grab text-zinc-300 hover:text-zinc-500 active:cursor-grabbing dark:text-zinc-600 dark:hover:text-zinc-400"
           title="Drag to reorder"
@@ -120,19 +99,6 @@ export function ProjectCard({
             <circle cx="11" cy="13" r="1.5" />
           </svg>
         </div>
-        {onMoveDown && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onMoveDown(); }}
-            disabled={!canMoveDown}
-            title="Move down"
-            aria-label={`Move ${project.name} down`}
-            className="rounded p-0.5 text-zinc-400 hover:text-zinc-600 disabled:cursor-default disabled:opacity-30 dark:text-zinc-500 dark:hover:text-zinc-300"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-3 w-3">
-              <path fillRule="evenodd" d="M8 12.5a.75.75 0 01-.53-.22l-3.25-3.25a.75.75 0 011.06-1.06L8 10.69l2.72-2.72a.75.75 0 011.06 1.06l-3.25 3.25a.75.75 0 01-.53.22z" clipRule="evenodd" />
-            </svg>
-          </button>
-        )}
       </div>
       <div className="min-w-0 flex-1">
         <button
@@ -159,15 +125,17 @@ export function ProjectCard({
                 {formatCurrency(budget)}
               </span>
             </div>
-            {metrics && (
+            {metrics && trafficLight && (
               <div>
                 <span className="text-zinc-500 dark:text-zinc-400">EAC: </span>
-                <span className={`font-medium ${eacStatus.color}`}>
+                <span className={`font-medium ${trafficLight.color}`}>
                   {formatCurrency(metrics.eac)}
                 </span>
-                {eacStatus.label && (
-                  <span className={`ml-1 text-sm ${eacStatus.color}`}>{eacStatus.label}</span>
-                )}
+                <span className={`ml-1 text-sm ${trafficLight.color}`}>
+                  <span aria-hidden="true">{trafficLight.indicator}</span>
+                  {' '}
+                  {trafficLight.label}
+                </span>
               </div>
             )}
           </div>

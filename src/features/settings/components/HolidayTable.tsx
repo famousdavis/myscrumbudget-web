@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { Settings, Holiday } from '@/types/domain';
 import { generateId } from '@/lib/utils/id';
+import { CollapsibleSection } from '@/components/CollapsibleSection';
 
 function formatDate(dateStr: string): string {
   const [y, m, d] = dateStr.split('-');
@@ -15,7 +16,6 @@ interface HolidayTableProps {
 }
 
 export function HolidayTable({ holidays, onUpdate }: HolidayTableProps) {
-  const [isOpen, setIsOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [newStartDate, setNewStartDate] = useState('');
   const [newEndDate, setNewEndDate] = useState('');
@@ -86,26 +86,7 @@ export function HolidayTable({ holidays, onUpdate }: HolidayTableProps) {
   };
 
   return (
-    <div>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300"
-      >
-        <span
-          className="inline-block transition-transform"
-          style={{ transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}
-        >
-          &#9654;
-        </span>
-        Holiday Calendar
-        {holidays.length > 0 && (
-          <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-            {holidays.length}
-          </span>
-        )}
-      </button>
-      {isOpen && (
-      <div className="mt-3">
+    <CollapsibleSection title="Holiday Calendar" count={holidays.length}>
       <p className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
         Non-work days subtracted from workday calculations across all projects.
       </p>
@@ -227,8 +208,6 @@ export function HolidayTable({ holidays, onUpdate }: HolidayTableProps) {
           Add
         </button>
       </div>
-      </div>
-      )}
-    </div>
+    </CollapsibleSection>
   );
 }

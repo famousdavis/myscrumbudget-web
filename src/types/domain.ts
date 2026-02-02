@@ -12,10 +12,20 @@ export interface Holiday {
   endDate: string;   // YYYY-MM-DD (same as startDate for single-day holidays)
 }
 
+// Traffic-light thresholds for dashboard status indicators.
+// Based on variancePercent: positive = over budget.
+export interface TrafficLightThresholds {
+  amberPercent: number; // variance% above this → Amber (default: 5)
+  redPercent: number;   // variance% above this → Red (default: 15)
+}
+
+export type TrafficLightStatus = 'green' | 'amber' | 'red';
+
 export interface Settings {
   discountRateAnnual: number;
   laborRates: LaborRate[];
   holidays: Holiday[];
+  trafficLightThresholds: TrafficLightThresholds;
 }
 
 // Global Team Member Pool

@@ -55,3 +55,41 @@ export const dialogButtonStyles = {
   primary:
     'rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed',
 } as const;
+
+/* ── Reusable confirmation dialog ───────────────────────────────────── */
+
+interface ConfirmDialogProps {
+  title: string;
+  message: React.ReactNode;
+  confirmLabel?: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+export function ConfirmDialog({
+  title,
+  message,
+  confirmLabel = 'Delete',
+  onConfirm,
+  onCancel,
+}: ConfirmDialogProps) {
+  return (
+    <BaseDialog
+      title={title}
+      actions={
+        <>
+          <button onClick={onCancel} className={dialogButtonStyles.cancel}>
+            Cancel
+          </button>
+          <button onClick={onConfirm} className={dialogButtonStyles.danger}>
+            {confirmLabel}
+          </button>
+        </>
+      }
+    >
+      <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+        {message}
+      </p>
+    </BaseDialog>
+  );
+}

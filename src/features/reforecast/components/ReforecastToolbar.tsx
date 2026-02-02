@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { Reforecast } from '@/types/domain';
 import { NewReforecastDialog } from './NewReforecastDialog';
-import { DeleteReforecastDialog } from './DeleteReforecastDialog';
+import { ConfirmDialog } from '@/components/BaseDialog';
 
 interface ReforecastToolbarProps {
   reforecasts: Reforecast[];
@@ -101,10 +101,9 @@ export function ReforecastToolbar({
       )}
 
       {showDeleteDialog && (
-        <DeleteReforecastDialog
-          reforecastName={
-            reforecasts.find((r) => r.id === selectedId)?.name ?? ''
-          }
+        <ConfirmDialog
+          title="Delete Reforecast"
+          message={<>Are you sure you want to delete <strong>{reforecasts.find((r) => r.id === selectedId)?.name ?? ''}</strong>? All allocations and productivity windows in this reforecast will be lost.</>}
           onConfirm={() => {
             onDelete(selectedId);
             setShowDeleteDialog(false);

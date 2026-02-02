@@ -904,6 +904,25 @@ Delivered:
 - Selected/focused allocation cells elevated to `z-20` to render outline above sticky columns (`z-10`)
 - No data model changes — `project.assignments` is already an ordered array
 
+### Sprint 14: Traffic-Light Dashboard + Refactoring — COMPLETE (v0.9.0)
+**Goal**: Three-state traffic-light status on dashboard project tiles, configurable thresholds, codebase refactoring
+
+Delivered:
+- `TrafficLightThresholds` and `TrafficLightStatus` types added to `domain.ts`
+- `trafficLightThresholds` added to `Settings` interface with defaults `{ amberPercent: 5, redPercent: 15 }`
+- Pure `getTrafficLightStatus()` and `getTrafficLightDisplay()` functions in `lib/calc/trafficLight.ts`
+- Data migration v0.7.0 adds `trafficLightThresholds` to settings with defaults
+- `ThresholdSettings.tsx` — collapsible settings section for amber/red thresholds
+- `ProjectCard.tsx` — colored EAC value with status indicator dot and text label ("On Track" / "At Risk" / "Over Budget")
+- `ProjectSummary.tsx` — traffic-light coloring on EAC in project detail page
+- Consolidated 3 delete dialogs (`DeleteProjectDialog`, `DeleteReforecastDialog`, `DeleteAssignmentDialog`) into a single reusable `ConfirmDialog` component
+- Extracted drag-to-reorder logic into generic `useDragReorder` hook (used by dashboard and allocation grid)
+- Extracted collapsible section pattern into shared `CollapsibleSection` component (used by all Settings sections)
+- Removed dashboard arrow-key reorder buttons (drag handles sufficient)
+- Sticky sidebar navigation on desktop
+- Deleted stale untracked files (`AddMemberForm.tsx`, `TeamTable.tsx`)
+- 387 passing tests across 21 test files
+
 ---
 
 ## Part 8: TypeScript Calculation Functions
@@ -1258,17 +1277,18 @@ export const repo = createLocalStorageRepository();
 The localStorage implementation (`localStorage.ts`) uses `STORAGE_KEYS` from `types/storage.ts` and handles team pool via `getTeamPool()`/`saveTeamPool()`. The `exportAll()`/`importAll()` methods include `teamPool` in the `AppState` round-trip.
 
 ```typescript
-// lib/storage/migrations.ts — current data version is 0.6.0
+// lib/storage/migrations.ts — current data version is 0.7.0
 
-export const DATA_VERSION = '0.6.0';
+export const DATA_VERSION = '0.7.0';
 
-// Migration chain: v1.0.0 → v0.1.0 → v0.2.0 → v0.3.0 → v0.4.0 → v0.5.0 → v0.6.0
+// Migration chain: v1.0.0 → v0.1.0 → v0.2.0 → v0.3.0 → v0.4.0 → v0.5.0 → v0.6.0 → v0.7.0
 // v0.1.0: Extracts teamMembers from projects into global teamPool, rewrites to assignments
 // v0.2.0: (structural migration)
 // v0.3.0: Strips deprecated hoursPerMonth from settings
 // v0.4.0: Moves actualCost from Project into each Reforecast; creates Baseline for projects without reforecasts
 // v0.5.0: Moves baselineBudget from Project into each Reforecast; adds reforecastDate (derived from createdAt)
 // v0.6.0: Adds holidays array to settings (empty default)
+// v0.7.0: Adds trafficLightThresholds to settings (default: amber 5%, red 15%)
 ```
 
 ---

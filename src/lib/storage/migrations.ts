@@ -1,6 +1,6 @@
 import type { AppState, PoolMember, ProjectAssignment } from '@/types/domain';
 
-export const DATA_VERSION = '0.6.0';
+export const DATA_VERSION = '0.7.0';
 
 type Migration = {
   version: string;
@@ -171,6 +171,24 @@ const MIGRATIONS: Migration[] = [
         settings: {
           ...data.settings,
           holidays: data.settings?.holidays ?? [],
+        },
+      };
+    },
+  },
+  {
+    version: '0.7.0',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    migrate: (data: any): AppState => {
+      // Add trafficLightThresholds to settings with defaults.
+      return {
+        ...data,
+        version: '0.7.0',
+        settings: {
+          ...data.settings,
+          trafficLightThresholds: data.settings?.trafficLightThresholds ?? {
+            amberPercent: 5,
+            redPercent: 15,
+          },
         },
       };
     },

@@ -10,7 +10,7 @@ import { useTeamPool } from '@/features/team/hooks/useTeamPool';
 import { useTeam } from '@/features/team/hooks/useTeam';
 import { useReforecast } from '@/features/reforecast/hooks/useReforecast';
 import { ProjectSummary } from '@/features/projects/components/ProjectSummary';
-import { DeleteProjectDialog } from '@/features/projects/components/DeleteProjectDialog';
+import { ConfirmDialog } from '@/components/BaseDialog';
 import { AllocationGrid } from '@/features/reforecast/components/AllocationGrid';
 import { ReforecastToolbar } from '@/features/reforecast/components/ReforecastToolbar';
 import { ProductivityWindowPanel } from '@/features/reforecast/components/ProductivityWindowPanel';
@@ -114,6 +114,7 @@ export default function ProjectDetailPage({
           metrics={metrics}
           actualCost={actualCost}
           baselineBudget={baselineBudget}
+          trafficLightThresholds={settings?.trafficLightThresholds}
           onActualCostChange={updateActualCost}
           onBaselineBudgetChange={updateBaselineBudget}
         />
@@ -205,8 +206,9 @@ export default function ProjectDetailPage({
       )}
 
       {showDelete && (
-        <DeleteProjectDialog
-          projectName={project.name}
+        <ConfirmDialog
+          title="Delete Project"
+          message={<>Are you sure you want to delete <strong>{project.name}</strong>? This action cannot be undone.</>}
           onConfirm={async () => {
             await deleteProject(project.id);
             router.push('/');
