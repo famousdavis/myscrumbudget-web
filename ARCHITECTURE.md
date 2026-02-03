@@ -958,6 +958,19 @@ Delivered:
 - Bug fixes: useDarkMode dark detection, RateTable key, reorderAssignments null safety, SettingsForm discount rate validation
 - 437 passing tests across 24 test files
 
+### Sprint 17: Security Hardening — COMPLETE (v0.12.0)
+**Goal**: Implement security improvements from full codebase security review
+
+Delivered:
+- **Deep validation for imported JSON** (`validateAppState` in `validation.ts`) — validates nested structures (reforecasts, allocations, assignments, settings)
+- **Type guards in migration functions** — `assertArray`/`assertObject` throw descriptive errors instead of silent data corruption
+- **Runtime type validation on localStorage reads** — optional validator callbacks with lenient type guards (`isValidSettings`, `isValidProjectArray`, `isValidPoolMemberArray`)
+- **Storage quota error detection** — `StorageQuotaError` class throws user-friendly error when localStorage is full
+- **Text input length limits** — project names (150), member names (100), holiday names (100), role names (50)
+- **Theme init script documented** — comment in layout.tsx references `STORAGE_KEYS.theme` constant
+- New validation utility module: `src/lib/utils/validation.ts`
+- 437 passing tests across 24 test files
+
 ---
 
 ## Part 8: TypeScript Calculation Functions
@@ -1536,7 +1549,7 @@ This architecture document provides:
 2. **Clean TypeScript domain model** with global team pool + project assignments
 3. **Repository pattern** with shared singleton and migration support
 4. **Feature-based folder structure** optimized for solo maintenance
-5. **Incremental build plan** with testable milestones (Sprints 1–16 complete)
+5. **Incremental build plan** with testable milestones (Sprints 1–17 complete)
 6. **Pure calculation functions** with 437 unit tests
 7. **Golden-file parity tests** ensuring spreadsheet accuracy
 

@@ -152,6 +152,7 @@ export function HolidayTable({ holidays, onUpdate }: HolidayTableProps) {
                       type="text"
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
+                      maxLength={100}
                       className="w-full rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
                     />
                   </td>
@@ -222,6 +223,7 @@ export function HolidayTable({ holidays, onUpdate }: HolidayTableProps) {
           placeholder="Holiday name"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
+          maxLength={100}
           className="rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
         />
         <input
