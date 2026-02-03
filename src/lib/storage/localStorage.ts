@@ -2,6 +2,7 @@ import type { Repository } from './repository';
 import type { Settings, PoolMember, Project, AppState } from '@/types/domain';
 import { STORAGE_KEYS } from '@/types/storage';
 import { runMigrations, DATA_VERSION } from './migrations';
+import { isValidSettings, isValidProjectArray, isValidPoolMemberArray } from '@/lib/utils/validation';
 
 export const DEFAULT_SETTINGS: Settings = {
   discountRateAnnual: 0.03,
@@ -17,22 +18,56 @@ export const DEFAULT_SETTINGS: Settings = {
   trafficLightThresholds: { amberPercent: 5, redPercent: 15 },
 };
 
-function get<T>(key: string, fallback: T): T {
+/**
+ * Custom error class for storage quota exceeded
+ */
+export class StorageQuotaError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'StorageQuotaError';
+  }
+}
+
+/**
+ * Read from localStorage with optional type validation
+ * Returns fallback if key not found, parse fails, or validation fails
+ */
+function get<T>(key: string, fallback: T, validator?: (val: unknown) => val is T): T {
   if (typeof window === 'undefined') return fallback;
   try {
     const data = localStorage.getItem(key);
-    return data ? JSON.parse(data) : fallback;
+    if (!data) return fallback;
+
+    const parsed = JSON.parse(data);
+
+    // If validator provided, check type at runtime
+    if (validator && !validator(parsed)) {
+      console.warn(`[storage] Type validation failed for "${key}", using fallback`);
+      return fallback;
+    }
+
+    return parsed as T;
   } catch (e) {
     console.warn(`[storage] Failed to read "${key}":`, e);
     return fallback;
   }
 }
 
+/**
+ * Write to localStorage with quota error detection
+ * Throws StorageQuotaError if quota is exceeded
+ */
 function set(key: string, value: unknown): void {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(key, JSON.stringify(value));
+    const json = JSON.stringify(value);
+    localStorage.setItem(key, json);
   } catch (e) {
+    // Detect quota exceeded error (DOMException code 22 or name QuotaExceededError)
+    if (e instanceof DOMException && (e.code === 22 || e.name === 'QuotaExceededError')) {
+      console.error(`[storage] Quota exceeded for "${key}"`);
+      throw new StorageQuotaError('Storage quota exceeded. Cannot save changes. Try exporting your data and clearing old projects.');
+    }
     console.error(`[storage] Failed to write "${key}":`, e);
   }
 }
@@ -40,7 +75,7 @@ function set(key: string, value: unknown): void {
 export function createLocalStorageRepository(): Repository {
   const repo: Repository = {
     async getSettings() {
-      return get<Settings>(STORAGE_KEYS.settings, DEFAULT_SETTINGS);
+      return get<Settings>(STORAGE_KEYS.settings, DEFAULT_SETTINGS, isValidSettings);
     },
 
     async saveSettings(settings) {
@@ -48,7 +83,7 @@ export function createLocalStorageRepository(): Repository {
     },
 
     async getTeamPool() {
-      return get<PoolMember[]>(STORAGE_KEYS.teamPool, []);
+      return get<PoolMember[]>(STORAGE_KEYS.teamPool, [], isValidPoolMemberArray);
     },
 
     async saveTeamPool(pool) {
@@ -56,7 +91,7 @@ export function createLocalStorageRepository(): Repository {
     },
 
     async getProjects() {
-      return get<Project[]>(STORAGE_KEYS.projects, []);
+      return get<Project[]>(STORAGE_KEYS.projects, [], isValidProjectArray);
     },
 
     async getProject(id) {

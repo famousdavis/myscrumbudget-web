@@ -8,10 +8,33 @@ type Migration = {
   migrate: (data: any) => AppState;
 };
 
+/**
+ * Runtime guard to assert expected array type during migration
+ * Throws descriptive error instead of silently corrupting data
+ */
+function assertArray(value: unknown, fieldName: string, migrationVersion: string): asserts value is unknown[] | undefined | null {
+  if (value !== undefined && value !== null && !Array.isArray(value)) {
+    throw new Error(`Migration ${migrationVersion}: Expected "${fieldName}" to be an array, got ${typeof value}`);
+  }
+}
+
+/**
+ * Runtime guard to assert expected object type during migration
+ */
+function assertObject(value: unknown, fieldName: string, migrationVersion: string): asserts value is Record<string, unknown> | undefined | null {
+  if (value !== undefined && value !== null && (typeof value !== 'object' || Array.isArray(value))) {
+    throw new Error(`Migration ${migrationVersion}: Expected "${fieldName}" to be an object, got ${typeof value}`);
+  }
+}
+
 const MIGRATIONS: Migration[] = [
   {
     version: '0.2.0',
     migrate: (data): AppState => {
+      // Type guards for critical fields
+      assertArray(data.projects, 'projects', '0.2.0');
+      assertObject(data.settings, 'settings', '0.2.0');
+
       // Extract team members from projects into a global pool.
       // Rewrite project.teamMembers → project.assignments.
       // Preserve original member IDs so MonthlyAllocation.memberId stays valid.
@@ -58,6 +81,10 @@ const MIGRATIONS: Migration[] = [
     version: '0.3.0',
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     migrate: (data: any): AppState => {
+      // Type guards
+      assertObject(data.settings, 'settings', '0.3.0');
+      assertArray(data.projects, 'projects', '0.3.0');
+
       // Remove hoursPerMonth from settings — now derived from calendar workdays.
       const { hoursPerMonth: _, ...restSettings } = data.settings ?? {};
       return {
@@ -74,6 +101,9 @@ const MIGRATIONS: Migration[] = [
     version: '0.4.0',
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     migrate: (data: any): AppState => {
+      // Type guards
+      assertArray(data.projects, 'projects', '0.4.0');
+
       // Move actualCost from Project into each Reforecast.
       // Active reforecast inherits the project's actualCost; others get 0.
       // Projects without reforecasts get a synthetic Baseline.
@@ -129,6 +159,9 @@ const MIGRATIONS: Migration[] = [
     version: '0.5.0',
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     migrate: (data: any): AppState => {
+      // Type guards
+      assertArray(data.projects, 'projects', '0.5.0');
+
       // Move baselineBudget from Project into each Reforecast.
       // All reforecasts inherit the same project-level budget
       // (they were all created under one budget).
@@ -164,6 +197,9 @@ const MIGRATIONS: Migration[] = [
     version: '0.6.0',
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     migrate: (data: any): AppState => {
+      // Type guards
+      assertObject(data.settings, 'settings', '0.6.0');
+
       // Add holidays array to settings (empty by default).
       return {
         ...data,
@@ -179,6 +215,9 @@ const MIGRATIONS: Migration[] = [
     version: '0.7.0',
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     migrate: (data: any): AppState => {
+      // Type guards
+      assertObject(data.settings, 'settings', '0.7.0');
+
       // Add trafficLightThresholds to settings with defaults.
       return {
         ...data,

@@ -85,6 +85,7 @@ export function RateTable({ rates, onUpdate }: RateTableProps) {
                       type="text"
                       value={editRole}
                       onChange={(e) => setEditRole(e.target.value)}
+                      maxLength={50}
                       className="w-full rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
                     />
                   </td>
@@ -141,6 +142,7 @@ export function RateTable({ rates, onUpdate }: RateTableProps) {
           placeholder="Role name"
           value={newRole}
           onChange={(e) => setNewRole(e.target.value)}
+          maxLength={50}
           className="rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
         />
         <input

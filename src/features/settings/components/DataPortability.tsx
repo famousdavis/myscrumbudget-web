@@ -3,6 +3,7 @@
 import { useRef } from 'react';
 import { repo } from '@/lib/storage/repo';
 import { runMigrations } from '@/lib/storage/migrations';
+import { validateAppState } from '@/lib/utils/validation';
 import type { AppState } from '@/types/domain';
 
 interface DataPortabilityProps {
@@ -47,6 +48,15 @@ export function DataPortability({ onImportComplete }: DataPortabilityProps) {
 
       // Run migrations if importing data from an older version
       const migrated = runMigrations(data as AppState, data.version);
+
+      // Deep validation of migrated data structure
+      const validation = validateAppState(migrated);
+      if (!validation.valid) {
+        const errorSummary = validation.errors.slice(0, 5).join('\n');
+        const moreErrors = validation.errors.length > 5 ? `\n...and ${validation.errors.length - 5} more errors` : '';
+        alert(`Invalid data structure:\n${errorSummary}${moreErrors}`);
+        return;
+      }
 
       if (
         !confirm(

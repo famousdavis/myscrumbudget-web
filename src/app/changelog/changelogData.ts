@@ -9,6 +9,31 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.12.0',
+    date: '2026-02-03',
+    sections: [
+      {
+        title: 'Security Hardening',
+        items: [
+          'Deep validation for imported JSON — validates nested structures (reforecasts, allocations, assignments)',
+          'Type guards in migration functions — throws descriptive errors instead of silent data corruption',
+          'Runtime type validation on localStorage reads with optional validator callbacks',
+          'Storage quota error detection — throws user-friendly error when localStorage is full',
+          'Text input length limits — project names (150), member names (100), holiday names (100), role names (50)',
+        ],
+      },
+      {
+        title: 'Codebase Improvements',
+        items: [
+          'New validation utility module (src/lib/utils/validation.ts)',
+          'StorageQuotaError class for explicit quota handling',
+          'Theme init script documented with STORAGE_KEYS reference',
+          '437 passing tests across 24 test files',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.11.0',
     date: '2026-02-02',
     sections: [

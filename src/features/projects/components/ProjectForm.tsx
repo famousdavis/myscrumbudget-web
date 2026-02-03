@@ -109,6 +109,7 @@ export function ProjectForm({
           value={data.name}
           onChange={(e) => handleChange('name', e.target.value)}
           autoFocus={autoFocusName}
+          maxLength={150}
           className="w-full rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
         />
       </div>
