@@ -18,6 +18,7 @@ import {
   computeFillRegion,
   isCellInFillPreview,
   moveCellInDirection,
+  moveCellDown,
 } from '../lib/gridHelpers';
 
 type SortMode = 'none' | 'name' | 'role-name';
@@ -57,7 +58,6 @@ export function AllocationGrid({
   const [fillDrag, setFillDrag] = useState<FillDragState | null>(null);
   const [isRangeSelecting, setIsRangeSelecting] = useState(false);
   const [addingRow, setAddingRow] = useState(false);
-  const [selectedPoolId, setSelectedPoolId] = useState('');
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [focusedCell, setFocusedCell] = useState<CellCoord | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>('none');
@@ -199,7 +199,7 @@ export function AllocationGrid({
         if (e.key === 'Enter') {
           e.preventDefault();
           commitEdit();
-          const next = moveCellInDirection(focusedCell, 1, 0, maxRow, maxCol);
+          const next = moveCellDown(focusedCell, maxRow);
           setFocusedCell(next);
           setSelection({ startRow: next.row, startCol: next.col, endRow: next.row, endCol: next.col });
         } else if (e.key === 'Escape') {
@@ -285,13 +285,6 @@ export function AllocationGrid({
     onAllocationChange,
     commitEdit,
   ]);
-
-  const handleAddRow = () => {
-    if (!selectedPoolId || !onMemberAdd) return;
-    onMemberAdd(selectedPoolId);
-    setSelectedPoolId('');
-    setAddingRow(false);
-  };
 
   if (months.length === 0) {
     return (
@@ -548,12 +541,9 @@ export function AllocationGrid({
                         onChange={(e) => setInputValue(e.target.value)}
                         onBlur={commitEdit}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            commitEdit();
-                          }
-                          if (e.key === 'Escape') {
-                            setEditingCell(null);
-                          }
+                          // Enter and Escape handled by document-level handleKeyDown
+                          // (commits edit + moves cursor down for Enter, cancels for Escape)
+                          if (e.key === 'Enter' || e.key === 'Escape') return;
                         }}
                         className="absolute inset-0 z-10 bg-white text-center text-sm outline-none dark:bg-zinc-950"
                       />
@@ -646,8 +636,13 @@ export function AllocationGrid({
                   >
                     <select
                       autoFocus
-                      value={selectedPoolId}
-                      onChange={(e) => setSelectedPoolId(e.target.value)}
+                      value=""
+                      onChange={(e) => {
+                        if (e.target.value && onMemberAdd) {
+                          onMemberAdd(e.target.value);
+                        }
+                      }}
+                      onBlur={() => setAddingRow(false)}
                       className="w-full rounded border border-zinc-300 px-1 py-0.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
                     >
                       <option value="">Select member...</option>
@@ -660,27 +655,8 @@ export function AllocationGrid({
                   </td>
                   <td
                     colSpan={months.length}
-                    className="border border-zinc-200 px-2 py-1 dark:border-zinc-700"
-                  >
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={handleAddRow}
-                        disabled={!selectedPoolId}
-                        className="rounded bg-blue-600 px-2 py-0.5 text-sm text-white hover:bg-blue-700 disabled:opacity-40"
-                      >
-                        Add
-                      </button>
-                      <button
-                        onClick={() => {
-                          setAddingRow(false);
-                          setSelectedPoolId('');
-                        }}
-                        className="text-sm text-zinc-500 hover:text-zinc-700 dark:text-zinc-400"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </td>
+                    className="border border-zinc-200 dark:border-zinc-700"
+                  />
                   <td className="sticky right-0 z-10 border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-950" />
                 </>
               ) : (

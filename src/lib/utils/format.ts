@@ -32,3 +32,35 @@ export function formatNumber(value: number, decimals = 0): string {
 export function formatPercentValue(value: number, decimals = 1): string {
   return `${value.toFixed(decimals)}%`;
 }
+
+/* ── Date formatting ─────────────────────────────────────────────── */
+
+/** Parse a YYYY-MM-DD string into a local Date (avoids timezone shifts). */
+function parseLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+/** "01/15/2026" — compact tabular format */
+export function formatDateSlash(dateStr: string): string {
+  const [y, m, d] = dateStr.split('-');
+  return `${m}/${d}/${y}`;
+}
+
+/** "January 15, 2026" — full prose format (changelog) */
+export function formatDateLong(dateStr: string): string {
+  return parseLocalDate(dateStr).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+/** "Jan 15, 2026" — medium format (project summary) */
+export function formatDateMedium(dateStr: string): string {
+  return parseLocalDate(dateStr).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}

@@ -935,6 +935,29 @@ Delivered:
 - npm audit: 0 vulnerabilities
 - 387 passing tests across 21 test files (unchanged)
 
+### Sprint 16: Dark Mode Toggle & Housekeeping — COMPLETE (v0.11.0)
+**Goal**: Add user-facing dark mode toggle and clean up stale files
+
+Delivered:
+- Three-state theme toggle (Light / Dark / System) in sidebar with sun/moon/monitor icons
+- `useTheme` hook manages theme state, persists to `msb:theme` localStorage key, toggles `.dark` class on `<html>`
+- `ThemeToggle` component with `role="radiogroup"` for accessibility
+- Blocking inline `<script>` in `<head>` prevents flash of wrong theme (FOIUC)
+- Tailwind v4 class-based dark mode via `@custom-variant dark` directive (replaces media-query-based)
+- CSS variables switched from `@media (prefers-color-scheme: dark)` to `:root.dark` selector
+- System preference mode tracks OS changes in real time
+- `suppressHydrationWarning` on `<html>` for SSR/client class mismatch
+- Theme preference is UI-only — not part of `Settings`, `AppState`, or migrations
+- `useTheme` returns `mounted` flag; returns `'system'` before mount to prevent SSR hydration mismatch on ThemeToggle buttons
+- Deleted 4 stale duplicate files (macOS " 2" copies)
+- Existing `useDarkMode` hook unchanged — its MutationObserver works with class-based approach
+- US Federal Holidays bulk-add — checkboxes for 2026/2027/2028 (11 holidays/year, observed dates, duplicate detection)
+- Allocation grid: one-click add member, Enter saves + cursor down with wrap-around
+- Shared date formatters extracted to `format.ts`; shared chart colors extracted to `svg-utils.ts`
+- Changelog data extracted to `changelogData.ts`
+- Bug fixes: useDarkMode dark detection, RateTable key, reorderAssignments null safety, SettingsForm discount rate validation
+- 437 passing tests across 24 test files
+
 ---
 
 ## Part 8: TypeScript Calculation Functions
@@ -1513,8 +1536,8 @@ This architecture document provides:
 2. **Clean TypeScript domain model** with global team pool + project assignments
 3. **Repository pattern** with shared singleton and migration support
 4. **Feature-based folder structure** optimized for solo maintenance
-5. **Incremental build plan** with testable milestones (Sprints 1–15 complete)
-6. **Pure calculation functions** with 387 unit tests
+5. **Incremental build plan** with testable milestones (Sprints 1–16 complete)
+6. **Pure calculation functions** with 437 unit tests
 7. **Golden-file parity tests** ensuring spreadsheet accuracy
 
 Key design decisions:

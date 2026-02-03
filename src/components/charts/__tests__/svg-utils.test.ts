@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createLinearScale, computeNiceTicks, formatAxisValue } from '../svg-utils';
+import { createLinearScale, computeNiceTicks, formatAxisValue, getChartColors } from '../svg-utils';
 
 describe('createLinearScale', () => {
   it('maps domain boundaries to range boundaries', () => {
@@ -98,5 +98,33 @@ describe('formatAxisValue', () => {
   it('handles negative values', () => {
     expect(formatAxisValue(-5_000)).toBe('-$5K');
     expect(formatAxisValue(-1_200_000)).toBe('-$1.2M');
+  });
+});
+
+describe('getChartColors', () => {
+  it('returns different colors for light and dark modes', () => {
+    const light = getChartColors(false);
+    const dark = getChartColors(true);
+    expect(light.primary).not.toBe(dark.primary);
+    expect(light.grid).not.toBe(dark.grid);
+    expect(light.text).not.toBe(dark.text);
+  });
+
+  it('returns all required color keys', () => {
+    const colors = getChartColors(false);
+    expect(colors).toHaveProperty('primary');
+    expect(colors).toHaveProperty('primaryHover');
+    expect(colors).toHaveProperty('grid');
+    expect(colors).toHaveProperty('text');
+    expect(colors).toHaveProperty('baseline');
+    expect(colors).toHaveProperty('areaFill');
+    expect(colors).toHaveProperty('overBudget');
+  });
+
+  it('returns valid color strings', () => {
+    const colors = getChartColors(true);
+    expect(colors.primary).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(colors.grid).toMatch(/^#[0-9a-f]{6}$/i);
+    expect(colors.areaFill).toMatch(/^rgba\(/);
   });
 });

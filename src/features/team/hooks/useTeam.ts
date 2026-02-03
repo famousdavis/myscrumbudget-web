@@ -52,9 +52,9 @@ export function useTeam({ project, updateProject, pool }: UseTeamOptions) {
     (orderedIds: string[]) => {
       updateProject((prev) => ({
         ...prev,
-        assignments: orderedIds.map(
-          (id) => prev.assignments.find((a) => a.id === id)!,
-        ),
+        assignments: orderedIds
+          .map((id) => prev.assignments.find((a) => a.id === id))
+          .filter((a): a is NonNullable<typeof a> => a != null),
       }));
     },
     [updateProject],

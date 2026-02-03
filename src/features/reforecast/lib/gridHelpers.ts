@@ -143,6 +143,15 @@ export function moveCellInDirection(
   );
 }
 
+/** Move down one row, wrapping to row 0 when at the bottom */
+export function moveCellDown(
+  cell: CellCoord,
+  maxRow: number,
+): CellCoord {
+  const nextRow = cell.row >= maxRow ? 0 : cell.row + 1;
+  return { row: nextRow, col: cell.col };
+}
+
 export function isCellInFillPreview(
   drag: FillDragState | null,
   allocationMap: AllocationMap,

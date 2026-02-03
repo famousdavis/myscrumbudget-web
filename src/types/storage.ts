@@ -3,4 +3,5 @@ export const STORAGE_KEYS = {
   teamPool: 'msb:teamPool',
   projects: 'msb:projects',
   version: 'msb:version',
+  theme: 'msb:theme',
 } as const;

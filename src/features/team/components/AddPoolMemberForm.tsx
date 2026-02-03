@@ -21,8 +21,13 @@ export function AddPoolMemberForm({ laborRates, onAdd }: AddPoolMemberFormProps)
     setRole('');
   };
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleAdd();
+  };
+
   return (
-    <div className="flex flex-wrap items-end gap-3">
+    <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
       <div>
         <label className="mb-1 block text-sm font-medium text-zinc-500 dark:text-zinc-400">
           Name
@@ -42,11 +47,11 @@ export function AddPoolMemberForm({ laborRates, onAdd }: AddPoolMemberFormProps)
         <RoleSelect value={role} laborRates={laborRates} onChange={setRole} />
       </div>
       <button
-        onClick={handleAdd}
+        type="submit"
         className="rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
       >
         Add
       </button>
-    </div>
+    </form>
   );
 }

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { MonthlyCalculation } from '@/types/domain';
 import { useDarkMode } from '@/hooks/useDarkMode';
-import { createLinearScale, computeNiceTicks, formatAxisValue, CHART_WIDTH, CHART_HEIGHT, MARGIN, PLOT_W, PLOT_H } from './svg-utils';
+import { createLinearScale, computeNiceTicks, formatAxisValue, getChartColors, CHART_WIDTH, CHART_HEIGHT, MARGIN, PLOT_W, PLOT_H } from './svg-utils';
 import { ChartTooltip } from './ChartTooltip';
 import { formatCurrency } from '@/lib/utils/format';
 import { formatShortMonth } from '@/lib/utils/dates';
@@ -49,15 +49,16 @@ export function CumulativeCostLineChart({
   const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
   const areaPath = `${linePath} L${points[points.length - 1].x},${PLOT_H} L${points[0].x},${PLOT_H} Z`;
 
+  const palette = getChartColors(isDark);
   const colors = {
-    line: isDark ? '#60a5fa' : '#3b82f6',
-    areaFill: isDark ? 'rgba(96,165,250,0.15)' : 'rgba(59,130,246,0.1)',
-    baseline: isDark ? '#4ade80' : '#22c55e',
-    dot: isDark ? '#60a5fa' : '#3b82f6',
-    dotHover: isDark ? '#93c5fd' : '#2563eb',
-    grid: isDark ? '#3f3f46' : '#e4e4e7',
-    text: isDark ? '#a1a1aa' : '#71717a',
-    overBudget: isDark ? '#f87171' : '#ef4444',
+    line: palette.primary,
+    areaFill: palette.areaFill,
+    baseline: palette.baseline,
+    dot: palette.primary,
+    dotHover: palette.primaryHover,
+    grid: palette.grid,
+    text: palette.text,
+    overBudget: palette.overBudget,
   };
 
   const baselineY = yScale(baselineBudget);
@@ -162,16 +163,12 @@ export function CumulativeCostLineChart({
         })}
 
         {/* Tooltip */}
-        {hoverIndex !== null && (() => {
-          const d = monthlyData[hoverIndex];
-          const p = points[hoverIndex];
-          return (
-            <ChartTooltip x={p.x} y={p.y} visible chartWidth={PLOT_W}>
-              <p className="font-medium">{d.month}</p>
-              <p>Actual + Forecast: {formatCurrency(actualCost + d.cumulativeCost)}</p>
-            </ChartTooltip>
-          );
-        })()}
+        {hoverIndex !== null && (
+          <ChartTooltip x={points[hoverIndex].x} y={points[hoverIndex].y} visible chartWidth={PLOT_W}>
+            <p className="font-medium">{monthlyData[hoverIndex].month}</p>
+            <p>Actual + Forecast: {formatCurrency(actualCost + monthlyData[hoverIndex].cumulativeCost)}</p>
+          </ChartTooltip>
+        )}
       </g>
     </svg>
   );

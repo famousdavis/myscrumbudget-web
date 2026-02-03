@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import type { Project, ProjectMetrics, TrafficLightThresholds } from '@/types/domain';
-import { formatCurrency } from '@/lib/utils/format';
+import { formatCurrency, formatDateMedium } from '@/lib/utils/format';
 import { formatMonthLabel } from '@/lib/utils/dates';
 import { getTrafficLightStatus, getTrafficLightDisplay, DEFAULT_THRESHOLDS } from '@/lib/calc';
 
@@ -121,11 +121,10 @@ export function ProjectSummary({
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
         <Link href={`/projects/${project.id}/edit`} className={editableClass}>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">Timeline</p>
-          <p className="mt-1 text-sm font-medium">
-            {formatMonthLabel(project.startDate)} &ndash;{' '}
-            {formatMonthLabel(project.endDate)}
-          </p>
+          <div className="space-y-0.5 text-sm font-medium">
+            <p><span className="font-normal text-zinc-500 dark:text-zinc-400">Start:</span> {formatDateMedium(project.startDate)}</p>
+            <p><span className="font-normal text-zinc-500 dark:text-zinc-400">Finish:</span> {formatDateMedium(project.endDate)}</p>
+          </div>
         </Link>
         <InlineEditableField
           label="Baseline Budget"
@@ -147,14 +146,14 @@ export function ProjectSummary({
           <p className="text-sm text-zinc-500 dark:text-zinc-400">EAC</p>
           <p className={`mt-1 text-base font-medium ${trafficLight?.color ?? ''}`}>
             {metrics ? formatCurrency(metrics.eac) : '\u2014'}
-            {trafficLight && (
-              <span className="ml-1 text-xs font-normal">
-                <span aria-hidden="true">{trafficLight.indicator}</span>
-                {' '}
-                {trafficLight.label}
-              </span>
-            )}
           </p>
+          {trafficLight && (
+            <p className={`mt-0.5 text-xs ${trafficLight.color}`}>
+              <span aria-hidden="true">{trafficLight.indicator}</span>
+              {' '}
+              {trafficLight.label}
+            </p>
+          )}
         </div>
       </div>
     </div>
