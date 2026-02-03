@@ -3,36 +3,30 @@
 import { useState, useEffect } from 'react';
 
 /**
- * Detect whether dark mode is active.
- * Checks both Tailwind's `dark` class on <html> and prefers-color-scheme.
- * Needed because SVG inline attributes can't use Tailwind's `dark:` variant.
+ * Detect whether dark mode is active by reading the `.dark` class on <html>.
+ * The `useTheme` hook is authoritative for toggling the class; this hook
+ * is a read-only observer used by SVG charts (which can't use Tailwind's
+ * `dark:` variant on inline attributes).
  */
 export function useDarkMode(): boolean {
   const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
     function check() {
-      const htmlDark = document.documentElement.classList.contains('dark');
-      const mediaDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setIsDark(htmlDark || mediaDark);
+      setIsDark(document.documentElement.classList.contains('dark'));
     }
 
     check();
 
-    // Watch for class changes on <html> (Tailwind toggling)
+    // Watch for class changes on <html> (toggled by useTheme)
     const observer = new MutationObserver(check);
     observer.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ['class'],
     });
 
-    // Watch for system preference changes
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    mq.addEventListener('change', check);
-
     return () => {
       observer.disconnect();
-      mq.removeEventListener('change', check);
     };
   }, []);
 

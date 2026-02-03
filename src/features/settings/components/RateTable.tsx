@@ -12,7 +12,7 @@ interface RateTableProps {
 export function RateTable({ rates, onUpdate }: RateTableProps) {
   const [newRole, setNewRole] = useState('');
   const [newRate, setNewRate] = useState('');
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editingRole, setEditingRole] = useState<string | null>(null);
   const [editRole, setEditRole] = useState('');
   const [editRate, setEditRate] = useState('');
 
@@ -30,36 +30,36 @@ export function RateTable({ rates, onUpdate }: RateTableProps) {
     setNewRate('');
   };
 
-  const handleDelete = (index: number) => {
+  const handleDelete = (role: string) => {
     onUpdate((prev) => ({
       ...prev,
-      laborRates: prev.laborRates.filter((_, i) => i !== index),
+      laborRates: prev.laborRates.filter((r) => r.role !== role),
     }));
   };
 
-  const startEdit = (index: number) => {
-    setEditingIndex(index);
-    setEditRole(rates[index].role);
-    setEditRate(String(rates[index].hourlyRate));
+  const startEdit = (rate: LaborRate) => {
+    setEditingRole(rate.role);
+    setEditRole(rate.role);
+    setEditRate(String(rate.hourlyRate));
   };
 
   const handleSaveEdit = () => {
-    if (editingIndex === null) return;
+    if (editingRole === null) return;
     const role = editRole.trim();
     const hourlyRate = parseFloat(editRate);
     if (!role || isNaN(hourlyRate) || hourlyRate <= 0) return;
 
     onUpdate((prev) => ({
       ...prev,
-      laborRates: prev.laborRates.map((r, i) =>
-        i === editingIndex ? { role, hourlyRate } : r
+      laborRates: prev.laborRates.map((r) =>
+        r.role === editingRole ? { role, hourlyRate } : r
       ),
     }));
-    setEditingIndex(null);
+    setEditingRole(null);
   };
 
   const handleCancelEdit = () => {
-    setEditingIndex(null);
+    setEditingRole(null);
   };
 
   return (
@@ -73,12 +73,12 @@ export function RateTable({ rates, onUpdate }: RateTableProps) {
           </tr>
         </thead>
         <tbody>
-          {rates.map((rate, index) => (
+          {rates.map((rate) => (
             <tr
-              key={index}
+              key={rate.role}
               className="border-b border-zinc-100 dark:border-zinc-800"
             >
-              {editingIndex === index ? (
+              {editingRole === rate.role ? (
                 <>
                   <td className="py-2 pr-2">
                     <input
@@ -117,13 +117,13 @@ export function RateTable({ rates, onUpdate }: RateTableProps) {
                   <td className="py-2">${rate.hourlyRate}</td>
                   <td className="py-2 text-right">
                     <button
-                      onClick={() => startEdit(index)}
+                      onClick={() => startEdit(rate)}
                       className="mr-2 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400"
                     >
                       Edit
                     </button>
                     <button
-                      onClick={() => handleDelete(index)}
+                      onClick={() => handleDelete(rate.role)}
                       className="text-sm text-red-600 hover:text-red-800 dark:text-red-400"
                     >
                       Delete

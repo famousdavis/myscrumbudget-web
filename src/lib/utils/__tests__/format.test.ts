@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formatCurrency, formatNumber, formatPercentValue } from '../format';
+import { formatCurrency, formatNumber, formatPercentValue, formatDateSlash, formatDateLong, formatDateMedium } from '../format';
 
 describe('formatCurrency', () => {
   it('formats positive integers without cents by default', () => {
@@ -71,5 +71,28 @@ describe('formatPercentValue', () => {
   it('does NOT multiply by 100 (unlike a ratio-to-percent formatter)', () => {
     // 50 → "50.0%", NOT "5000.0%"
     expect(formatPercentValue(50)).toBe('50.0%');
+  });
+});
+
+/* ── Date formatting ─────────────────────────────────────────────── */
+
+describe('formatDateSlash', () => {
+  it('formats YYYY-MM-DD as MM/DD/YYYY', () => {
+    expect(formatDateSlash('2026-01-15')).toBe('01/15/2026');
+    expect(formatDateSlash('2026-12-25')).toBe('12/25/2026');
+  });
+});
+
+describe('formatDateLong', () => {
+  it('formats as full long date (e.g. "January 15, 2026")', () => {
+    expect(formatDateLong('2026-01-15')).toBe('January 15, 2026');
+    expect(formatDateLong('2026-12-25')).toBe('December 25, 2026');
+  });
+});
+
+describe('formatDateMedium', () => {
+  it('formats as medium date (e.g. "Jan 15, 2026")', () => {
+    expect(formatDateMedium('2026-01-15')).toBe('Jan 15, 2026');
+    expect(formatDateMedium('2026-12-25')).toBe('Dec 25, 2026');
   });
 });

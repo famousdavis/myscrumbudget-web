@@ -26,7 +26,7 @@ export function SettingsForm({ settings, onUpdate }: SettingsFormProps) {
           value={(settings.discountRateAnnual * 100).toFixed(1)}
           onChange={(e) => {
             const val = parseFloat(e.target.value);
-            if (!isNaN(val) && val >= 0) {
+            if (!isNaN(val) && val >= 0 && val <= 100) {
               onUpdate((prev) => ({
                 ...prev,
                 discountRateAnnual: val / 100,

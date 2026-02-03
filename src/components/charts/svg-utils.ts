@@ -75,3 +75,17 @@ export function formatAxisValue(value: number): string {
   }
   return `${sign}$${abs}`;
 }
+
+/* ── Shared chart color palette ──────────────────────────────────── */
+
+export function getChartColors(isDark: boolean) {
+  return {
+    primary: isDark ? '#60a5fa' : '#3b82f6',
+    primaryHover: isDark ? '#93c5fd' : '#2563eb',
+    grid: isDark ? '#3f3f46' : '#e4e4e7',
+    text: isDark ? '#a1a1aa' : '#71717a',
+    baseline: isDark ? '#4ade80' : '#22c55e',
+    areaFill: isDark ? 'rgba(96,165,250,0.15)' : 'rgba(59,130,246,0.1)',
+    overBudget: isDark ? '#f87171' : '#ef4444',
+  };
+}

@@ -3,12 +3,11 @@
 import { useState } from 'react';
 import type { Settings, Holiday } from '@/types/domain';
 import { generateId } from '@/lib/utils/id';
+import { formatDateSlash } from '@/lib/utils/format';
+import { getUSAFederalHolidays } from '@/lib/utils/usaFederalHolidays';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 
-function formatDate(dateStr: string): string {
-  const [y, m, d] = dateStr.split('-');
-  return `${m}/${d}/${y}`;
-}
+const BULK_YEARS = [2026, 2027, 2028] as const;
 
 interface HolidayTableProps {
   holidays: Holiday[];
@@ -23,6 +22,47 @@ export function HolidayTable({ holidays, onUpdate }: HolidayTableProps) {
   const [editName, setEditName] = useState('');
   const [editStartDate, setEditStartDate] = useState('');
   const [editEndDate, setEditEndDate] = useState('');
+  const [bulkYears, setBulkYears] = useState<Set<number>>(new Set());
+
+  const toggleBulkYear = (year: number) => {
+    setBulkYears((prev) => {
+      const next = new Set(prev);
+      if (next.has(year)) next.delete(year);
+      else next.add(year);
+      return next;
+    });
+  };
+
+  const handleBulkAdd = () => {
+    if (bulkYears.size === 0) return;
+
+    // Build a set of existing holiday dates to avoid duplicates
+    const existingDates = new Set(holidays.map((h) => h.startDate));
+
+    const newHolidays: Holiday[] = [];
+    for (const year of Array.from(bulkYears).sort()) {
+      const entries = getUSAFederalHolidays(year);
+      for (const entry of entries) {
+        if (!existingDates.has(entry.date)) {
+          newHolidays.push({
+            id: generateId('hol'),
+            name: entry.name,
+            startDate: entry.date,
+            endDate: entry.date,
+          });
+          existingDates.add(entry.date);
+        }
+      }
+    }
+
+    if (newHolidays.length > 0) {
+      onUpdate((prev) => ({
+        ...prev,
+        holidays: [...prev.holidays, ...newHolidays],
+      }));
+    }
+    setBulkYears(new Set());
+  };
 
   const sortedHolidays = [...holidays].sort((a, b) =>
     a.startDate.localeCompare(b.startDate),
@@ -149,8 +189,8 @@ export function HolidayTable({ holidays, onUpdate }: HolidayTableProps) {
               ) : (
                 <>
                   <td className="py-2">{holiday.name}</td>
-                  <td className="py-2">{formatDate(holiday.startDate)}</td>
-                  <td className="py-2">{formatDate(holiday.endDate)}</td>
+                  <td className="py-2">{formatDateSlash(holiday.startDate)}</td>
+                  <td className="py-2">{formatDateSlash(holiday.endDate)}</td>
                   <td className="py-2 text-right">
                     <button
                       onClick={() => startEdit(holiday)}
@@ -207,6 +247,34 @@ export function HolidayTable({ holidays, onUpdate }: HolidayTableProps) {
         >
           Add
         </button>
+      </div>
+
+      {/* Bulk-add US Federal Holidays */}
+      <div className="mt-5 border-t border-zinc-200 pt-4 dark:border-zinc-700">
+        <p className="mb-2 text-sm font-medium">Add US Federal Holidays</p>
+        <div className="flex flex-wrap items-center gap-3">
+          {BULK_YEARS.map((year) => (
+            <label key={year} className="flex items-center gap-1.5 text-sm">
+              <input
+                type="checkbox"
+                checked={bulkYears.has(year)}
+                onChange={() => toggleBulkYear(year)}
+                className="rounded border-zinc-300 dark:border-zinc-600"
+              />
+              {year}
+            </label>
+          ))}
+          <button
+            onClick={handleBulkAdd}
+            disabled={bulkYears.size === 0}
+            className="rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Add Holidays
+          </button>
+        </div>
+        <p className="mt-1.5 text-xs text-zinc-400 dark:text-zinc-500">
+          Includes all 11 federal holidays plus observed dates. Duplicates are skipped.
+        </p>
       </div>
     </CollapsibleSection>
   );

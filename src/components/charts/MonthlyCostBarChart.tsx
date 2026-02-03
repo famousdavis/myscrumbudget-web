@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type { MonthlyCalculation } from '@/types/domain';
 import { useDarkMode } from '@/hooks/useDarkMode';
-import { createLinearScale, computeNiceTicks, formatAxisValue, CHART_WIDTH, CHART_HEIGHT, MARGIN, PLOT_W, PLOT_H } from './svg-utils';
+import { createLinearScale, computeNiceTicks, formatAxisValue, getChartColors, CHART_WIDTH, CHART_HEIGHT, MARGIN, PLOT_W, PLOT_H } from './svg-utils';
 import { ChartTooltip } from './ChartTooltip';
 import { formatCurrency } from '@/lib/utils/format';
 import { formatShortMonth } from '@/lib/utils/dates';
@@ -28,11 +28,12 @@ export function MonthlyCostBarChart({ monthlyData }: MonthlyCostBarChartProps) {
   const barWidth = Math.max(4, PLOT_W / monthlyData.length - 4);
   const barGap = (PLOT_W - barWidth * monthlyData.length) / (monthlyData.length + 1);
 
+  const palette = getChartColors(isDark);
   const colors = {
-    bar: isDark ? '#60a5fa' : '#3b82f6',
-    barHover: isDark ? '#93c5fd' : '#2563eb',
-    grid: isDark ? '#3f3f46' : '#e4e4e7',
-    text: isDark ? '#a1a1aa' : '#71717a',
+    bar: palette.primary,
+    barHover: palette.primaryHover,
+    grid: palette.grid,
+    text: palette.text,
   };
 
   return (
@@ -101,17 +102,17 @@ export function MonthlyCostBarChart({ monthlyData }: MonthlyCostBarChartProps) {
         })}
 
         {/* Tooltip */}
-        {hoverIndex !== null && (() => {
-          const d = monthlyData[hoverIndex];
-          const x = barGap + hoverIndex * (barWidth + barGap) + barWidth / 2;
-          const y = yScale(d.cost);
-          return (
-            <ChartTooltip x={x} y={y} visible chartWidth={PLOT_W}>
-              <p className="font-medium">{d.month}</p>
-              <p>{formatCurrency(d.cost)}</p>
-            </ChartTooltip>
-          );
-        })()}
+        {hoverIndex !== null && (
+          <ChartTooltip
+            x={barGap + hoverIndex * (barWidth + barGap) + barWidth / 2}
+            y={yScale(monthlyData[hoverIndex].cost)}
+            visible
+            chartWidth={PLOT_W}
+          >
+            <p className="font-medium">{monthlyData[hoverIndex].month}</p>
+            <p>{formatCurrency(monthlyData[hoverIndex].cost)}</p>
+          </ChartTooltip>
+        )}
       </g>
     </svg>
   );

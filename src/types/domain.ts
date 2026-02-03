@@ -111,6 +111,9 @@ export interface ProjectMetrics {
   monthlyData: MonthlyCalculation[];
 }
 
+// Theme preference (UI-only, not part of AppState or migrations)
+export type ThemeMode = 'light' | 'dark' | 'system';
+
 // Full application state
 export interface AppState {
   version: string;

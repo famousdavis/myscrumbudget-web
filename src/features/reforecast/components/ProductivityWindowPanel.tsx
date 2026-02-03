@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { ProductivityWindow } from '@/types/domain';
 import { nextBusinessDay } from '@/lib/utils/dates';
+import { CollapsibleSection } from '@/components/CollapsibleSection';
 
 interface ProductivityWindowPanelProps {
   windows: ProductivityWindow[];
@@ -44,7 +45,6 @@ export function ProductivityWindowPanel({
   onUpdate,
   onRemove,
 }: ProductivityWindowPanelProps) {
-  const [isOpen, setIsOpen] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [addForm, setAddForm] = useState<FormState>(emptyForm);
   const [addError, setAddError] = useState('');
@@ -94,27 +94,7 @@ export function ProductivityWindowPanel({
   };
 
   return (
-    <div>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 text-lg font-semibold"
-      >
-        <span
-          className="inline-block transition-transform"
-          style={{ transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}
-        >
-          &#9654;
-        </span>
-        Productivity Windows
-        {windows.length > 0 && (
-          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900 dark:text-amber-300">
-            {windows.length}
-          </span>
-        )}
-      </button>
-
-      {isOpen && (
-        <div className="mt-3">
+    <CollapsibleSection title="Productivity Windows" count={windows.length}>
           {windows.length === 0 && !showAddForm && (
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
               No productivity windows defined. Add one to model reduced capacity
@@ -333,8 +313,6 @@ export function ProductivityWindowPanel({
               + Add Window
             </button>
           )}
-        </div>
-      )}
-    </div>
+    </CollapsibleSection>
   );
 }

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   clampCell,
   moveCellInDirection,
+  moveCellDown,
   normalizeRange,
   isCellInRange,
   getAllocationColor,
@@ -284,5 +285,25 @@ describe('moveCellInDirection', () => {
       row: 2,
       col: 10,
     });
+  });
+});
+
+/* ── moveCellDown ──────────────────────────────────────────────────── */
+
+describe('moveCellDown', () => {
+  it('moves down by one row', () => {
+    expect(moveCellDown({ row: 0, col: 3 }, 5)).toEqual({ row: 1, col: 3 });
+  });
+
+  it('wraps to row 0 when at the last row', () => {
+    expect(moveCellDown({ row: 5, col: 3 }, 5)).toEqual({ row: 0, col: 3 });
+  });
+
+  it('preserves the column', () => {
+    expect(moveCellDown({ row: 2, col: 7 }, 10)).toEqual({ row: 3, col: 7 });
+  });
+
+  it('wraps correctly with maxRow of 0 (single row)', () => {
+    expect(moveCellDown({ row: 0, col: 2 }, 0)).toEqual({ row: 0, col: 2 });
   });
 });

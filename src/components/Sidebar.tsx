@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { ThemeToggle } from './ThemeToggle';
 
 export function Sidebar() {
   const [open, setOpen] = useState(false);
@@ -54,56 +55,61 @@ export function Sidebar() {
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="p-4">
-          <Link
-            href="/"
-            className="text-lg font-bold tracking-tight"
-            onClick={() => setOpen(false)}
-          >
-            MyScrumBudget
-            <sup className="text-[7px] font-normal text-zinc-400 dark:text-zinc-500">
-              TM
-            </sup>
-          </Link>
-        </div>
-        <ul className="flex flex-col gap-1 px-2">
-          <li>
+        <div className="flex h-full flex-col">
+          <div className="p-4">
             <Link
               href="/"
+              className="text-lg font-bold tracking-tight"
               onClick={() => setOpen(false)}
-              className="block rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-200 dark:text-zinc-300 dark:hover:bg-zinc-800"
             >
-              Dashboard
+              MyScrumBudget
+              <sup className="text-[7px] font-normal text-zinc-400 dark:text-zinc-500">
+                TM
+              </sup>
             </Link>
-          </li>
-          <li>
-            <Link
-              href="/team"
-              onClick={() => setOpen(false)}
-              className="block rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-200 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
-              Team Pool
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/settings"
-              onClick={() => setOpen(false)}
-              className="block rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-200 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
-              Settings
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/about"
-              onClick={() => setOpen(false)}
-              className="block rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-200 dark:text-zinc-300 dark:hover:bg-zinc-800"
-            >
-              About
-            </Link>
-          </li>
-        </ul>
+          </div>
+          <ul className="flex flex-col gap-1 px-2">
+            <li>
+              <Link
+                href="/"
+                onClick={() => setOpen(false)}
+                className="block rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-200 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                Dashboard
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/team"
+                onClick={() => setOpen(false)}
+                className="block rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-200 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                Team Pool
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/settings"
+                onClick={() => setOpen(false)}
+                className="block rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-200 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                Settings
+              </Link>
+            </li>
+            <li>
+              <Link
+                href="/about"
+                onClick={() => setOpen(false)}
+                className="block rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-200 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                About
+              </Link>
+            </li>
+          </ul>
+          <div className="mt-auto border-t border-zinc-200 px-3 py-3 dark:border-zinc-800">
+            <ThemeToggle />
+          </div>
+        </div>
       </nav>
     </>
   );
