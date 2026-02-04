@@ -6,6 +6,7 @@ import { generateId } from '@/lib/utils/id';
 import { formatDateSlash } from '@/lib/utils/format';
 import { getUSAFederalHolidays } from '@/lib/utils/usaFederalHolidays';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
+import { ConfirmDialog } from '@/components/BaseDialog';
 
 const BULK_YEARS = [2026, 2027, 2028] as const;
 
@@ -23,6 +24,7 @@ export function HolidayTable({ holidays, onUpdate }: HolidayTableProps) {
   const [editStartDate, setEditStartDate] = useState('');
   const [editEndDate, setEditEndDate] = useState('');
   const [bulkYears, setBulkYears] = useState<Set<number>>(new Set());
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const toggleBulkYear = (year: number) => {
     setBulkYears((prev) => {
@@ -89,12 +91,17 @@ export function HolidayTable({ holidays, onUpdate }: HolidayTableProps) {
     setNewEndDate('');
   };
 
-  const handleDelete = (id: string, name: string) => {
-    if (!window.confirm(`Are you sure you want to delete "${name}"?`)) return;
+  const handleDelete = (id: string) => {
+    setPendingDeleteId(id);
+  };
+
+  const confirmDelete = () => {
+    if (!pendingDeleteId) return;
     onUpdate((prev) => ({
       ...prev,
-      holidays: prev.holidays.filter((h) => h.id !== id),
+      holidays: prev.holidays.filter((h) => h.id !== pendingDeleteId),
     }));
+    setPendingDeleteId(null);
   };
 
   const startEdit = (holiday: Holiday) => {
@@ -133,10 +140,10 @@ export function HolidayTable({ holidays, onUpdate }: HolidayTableProps) {
       <table className="w-full max-w-2xl text-sm">
         <thead>
           <tr className="border-b border-zinc-200 dark:border-zinc-700">
-            <th className="pb-2 text-left font-medium">Name</th>
-            <th className="pb-2 text-left font-medium">Start Date</th>
-            <th className="pb-2 text-left font-medium">End Date</th>
-            <th className="pb-2 text-right font-medium">Actions</th>
+            <th scope="col" className="pb-2 text-left font-medium">Name</th>
+            <th scope="col" className="pb-2 text-left font-medium">Start Date</th>
+            <th scope="col" className="pb-2 text-left font-medium">End Date</th>
+            <th scope="col" className="pb-2 text-right font-medium">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -200,7 +207,7 @@ export function HolidayTable({ holidays, onUpdate }: HolidayTableProps) {
                       Edit
                     </button>
                     <button
-                      onClick={() => handleDelete(holiday.id, holiday.name)}
+                      onClick={() => handleDelete(holiday.id)}
                       className="text-sm text-red-600 hover:text-red-800 dark:text-red-400"
                     >
                       Delete
@@ -278,6 +285,22 @@ export function HolidayTable({ holidays, onUpdate }: HolidayTableProps) {
           Includes all 11 federal holidays plus observed dates. Duplicates are skipped.
         </p>
       </div>
+    {pendingDeleteId && (
+        <ConfirmDialog
+          title="Delete Holiday"
+          message={
+            <>
+              Are you sure you want to delete{' '}
+              <strong>
+                {sortedHolidays.find((h) => h.id === pendingDeleteId)?.name ?? ''}
+              </strong>
+              ?
+            </>
+          }
+          onConfirm={confirmDelete}
+          onCancel={() => setPendingDeleteId(null)}
+        />
+      )}
     </CollapsibleSection>
   );
 }
