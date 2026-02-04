@@ -107,10 +107,10 @@ export function ProductivityWindowPanel({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-zinc-200 text-left text-sm font-medium text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
-                    <th className="pb-2 pr-4">Start Date</th>
-                    <th className="pb-2 pr-4">End Date</th>
-                    <th className="pb-2 pr-4">Factor (%)</th>
-                    <th className="pb-2">Actions</th>
+                    <th scope="col" className="pb-2 pr-4">Start Date</th>
+                    <th scope="col" className="pb-2 pr-4">End Date</th>
+                    <th scope="col" className="pb-2 pr-4">Factor (%)</th>
+                    <th scope="col" className="pb-2">Actions</th>
                   </tr>
                 </thead>
                 <tbody>

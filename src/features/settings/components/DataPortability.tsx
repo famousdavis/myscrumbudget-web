@@ -1,10 +1,16 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { repo } from '@/lib/storage/repo';
 import { runMigrations } from '@/lib/storage/migrations';
 import { validateAppState } from '@/lib/utils/validation';
+import { AlertDialog, ConfirmDialog } from '@/components/BaseDialog';
 import type { AppState } from '@/types/domain';
+
+type AlertState =
+  | { kind: 'error'; title: string; message: string }
+  | { kind: 'confirm-import' }
+  | null;
 
 interface DataPortabilityProps {
   onImportComplete: () => void;
@@ -12,6 +18,8 @@ interface DataPortabilityProps {
 
 export function DataPortability({ onImportComplete }: DataPortabilityProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [alertState, setAlertState] = useState<AlertState>(null);
+  const [pendingImportData, setPendingImportData] = useState<AppState | null>(null);
 
   const handleExport = async () => {
     const data = await repo.exportAll();
@@ -34,15 +42,27 @@ export function DataPortability({ onImportComplete }: DataPortabilityProps) {
       const data = JSON.parse(text);
 
       if (!data.version || typeof data.version !== 'string') {
-        alert('Invalid file format. Missing or invalid version field.');
+        setAlertState({
+          kind: 'error',
+          title: 'Invalid File',
+          message: 'Missing or invalid version field.',
+        });
         return;
       }
       if (!data.settings || typeof data.settings !== 'object') {
-        alert('Invalid file format. Missing settings.');
+        setAlertState({
+          kind: 'error',
+          title: 'Invalid File',
+          message: 'Missing settings.',
+        });
         return;
       }
       if (!Array.isArray(data.projects)) {
-        alert('Invalid file format. Missing or invalid projects array.');
+        setAlertState({
+          kind: 'error',
+          title: 'Invalid File',
+          message: 'Missing or invalid projects array.',
+        });
         return;
       }
 
@@ -53,28 +73,49 @@ export function DataPortability({ onImportComplete }: DataPortabilityProps) {
       const validation = validateAppState(migrated);
       if (!validation.valid) {
         const errorSummary = validation.errors.slice(0, 5).join('\n');
-        const moreErrors = validation.errors.length > 5 ? `\n...and ${validation.errors.length - 5} more errors` : '';
-        alert(`Invalid data structure:\n${errorSummary}${moreErrors}`);
+        const moreErrors =
+          validation.errors.length > 5
+            ? `\n...and ${validation.errors.length - 5} more errors`
+            : '';
+        setAlertState({
+          kind: 'error',
+          title: 'Invalid Data Structure',
+          message: `${errorSummary}${moreErrors}`,
+        });
         return;
       }
 
-      if (
-        !confirm(
-          'This will replace all existing data. Are you sure you want to continue?'
-        )
-      ) {
-        return;
-      }
-
-      await repo.importAll(migrated);
-      onImportComplete();
+      // Store data and show confirmation dialog
+      setPendingImportData(migrated);
+      setAlertState({ kind: 'confirm-import' });
     } catch {
-      alert('Failed to parse the file. Please check the format.');
+      setAlertState({
+        kind: 'error',
+        title: 'Import Failed',
+        message: 'Failed to parse the file. Please check the format.',
+      });
     }
 
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+  };
+
+  const handleConfirmImport = async () => {
+    if (!pendingImportData) return;
+    await repo.importAll(pendingImportData);
+    setPendingImportData(null);
+    setAlertState(null);
+    onImportComplete();
+  };
+
+  const handleCancelImport = () => {
+    setPendingImportData(null);
+    setAlertState(null);
+  };
+
+  const handleCloseAlert = () => {
+    setAlertState(null);
   };
 
   return (
@@ -100,6 +141,24 @@ export function DataPortability({ onImportComplete }: DataPortabilityProps) {
           />
         </label>
       </div>
+
+      {alertState?.kind === 'error' && (
+        <AlertDialog
+          title={alertState.title}
+          message={alertState.message}
+          onClose={handleCloseAlert}
+        />
+      )}
+
+      {alertState?.kind === 'confirm-import' && (
+        <ConfirmDialog
+          title="Replace All Data"
+          message="This will replace all existing data. Are you sure you want to continue?"
+          confirmLabel="Import"
+          onConfirm={handleConfirmImport}
+          onCancel={handleCancelImport}
+        />
+      )}
     </div>
   );
 }

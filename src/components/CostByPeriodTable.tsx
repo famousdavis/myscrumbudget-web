@@ -61,10 +61,10 @@ export function CostByPeriodTable({ monthlyData, actualCost }: CostByPeriodTable
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-zinc-200 bg-zinc-50 text-left dark:border-zinc-800 dark:bg-zinc-900">
-            <th className="px-4 py-2 font-medium text-zinc-600 dark:text-zinc-400">Year</th>
-            <th className="px-4 py-2 font-medium text-zinc-600 dark:text-zinc-400">Months</th>
-            <th className="px-4 py-2 text-right font-medium text-zinc-600 dark:text-zinc-400">Hours</th>
-            <th className="px-4 py-2 text-right font-medium text-zinc-600 dark:text-zinc-400">Cost</th>
+            <th scope="col" className="px-4 py-2 font-medium text-zinc-600 dark:text-zinc-400">Year</th>
+            <th scope="col" className="px-4 py-2 font-medium text-zinc-600 dark:text-zinc-400">Months</th>
+            <th scope="col" className="px-4 py-2 text-right font-medium text-zinc-600 dark:text-zinc-400">Hours</th>
+            <th scope="col" className="px-4 py-2 text-right font-medium text-zinc-600 dark:text-zinc-400">Cost</th>
           </tr>
         </thead>
         <tbody>

@@ -340,6 +340,7 @@ export function AllocationGrid({
         <thead>
           <tr>
             <th
+              scope="col"
               className={`sticky left-0 z-10 border border-zinc-200 bg-zinc-50 px-3 py-2 text-left text-sm font-medium dark:border-zinc-700 dark:bg-zinc-900${onSort ? ' cursor-pointer select-none hover:bg-zinc-100 dark:hover:bg-zinc-800' : ''}`}
               onClick={onSort ? handleSortClick : undefined}
               title={onSort ? (sortMode === 'none' ? 'Sort by name' : sortMode === 'name' ? 'Sort by role, then name' : 'Clear sort') : undefined}
@@ -359,6 +360,7 @@ export function AllocationGrid({
                 : 1;
               return (
                 <th
+                  scope="col"
                   key={month}
                   className="border border-zinc-200 bg-zinc-50 px-2 py-2 text-center text-sm font-medium whitespace-nowrap dark:border-zinc-700 dark:bg-zinc-900"
                   title={
@@ -377,7 +379,7 @@ export function AllocationGrid({
               );
             })}
             {hasRowControls && (
-              <th className="sticky right-0 z-10 border border-zinc-200 bg-zinc-50 px-2 py-2 text-center text-sm font-medium dark:border-zinc-700 dark:bg-zinc-900">
+              <th scope="col" className="sticky right-0 z-10 border border-zinc-200 bg-zinc-50 px-2 py-2 text-center text-sm font-medium dark:border-zinc-700 dark:bg-zinc-900">
               </th>
             )}
           </tr>

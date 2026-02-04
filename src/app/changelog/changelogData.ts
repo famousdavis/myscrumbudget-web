@@ -9,6 +9,27 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.13.0',
+    date: '2026-02-03',
+    sections: [
+      {
+        title: 'Accessibility & UX Polish',
+        items: [
+          'Replaced browser window.confirm() in Holiday Calendar with styled ConfirmDialog',
+          'Replaced browser alert() and confirm() in Data Export/Import with styled dialogs',
+          'Added unique ARIA IDs to BaseDialog for accessibility compliance (useId)',
+          'Added scope="col" to all table headers for screen reader compatibility',
+        ],
+      },
+      {
+        title: 'New Components',
+        items: [
+          'AlertDialog — informational dialog for error/success messages (non-destructive variant of ConfirmDialog)',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.12.0',
     date: '2026-02-03',
     sections: [

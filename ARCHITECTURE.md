@@ -971,6 +971,17 @@ Delivered:
 - New validation utility module: `src/lib/utils/validation.ts`
 - 437 passing tests across 24 test files
 
+### Sprint 18: Accessibility & UX Polish — COMPLETE (v0.13.0)
+**Goal**: Replace browser-native dialogs with styled components, improve accessibility compliance
+
+Delivered:
+- **Replaced `window.confirm()` in HolidayTable** with styled `ConfirmDialog` — dark mode compatible, consistent UX
+- **Replaced `alert()` and `confirm()` in DataPortability** with `AlertDialog` and `ConfirmDialog` — 6 browser dialogs → styled components
+- **AlertDialog component** (`src/components/BaseDialog.tsx`) — informational dialog for error/success messages with single OK button
+- **Unique ARIA IDs via `useId()`** — fixes `aria-labelledby` uniqueness violation in BaseDialog (WCAG 4.1.1)
+- **`scope="col"` on all table headers** — 6 table components updated for screen reader compatibility (WCAG 1.3.1)
+- 437 passing tests across 24 test files
+
 ---
 
 ## Part 8: TypeScript Calculation Functions

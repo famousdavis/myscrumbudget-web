@@ -82,18 +82,20 @@ export function PoolMemberTable({
         <thead>
           <tr className="border-b border-zinc-200 dark:border-zinc-700">
             <th
+              scope="col"
               className="cursor-pointer select-none pb-2 text-left font-medium hover:text-blue-600 dark:hover:text-blue-400"
               onClick={() => setSortField('name')}
             >
               Name{sortIndicator('name')}
             </th>
             <th
+              scope="col"
               className="cursor-pointer select-none pb-2 text-left font-medium hover:text-blue-600 dark:hover:text-blue-400"
               onClick={() => setSortField('role')}
             >
               Role{sortIndicator('role')}
             </th>
-            <th className="pb-2 text-right font-medium">Actions</th>
+            <th scope="col" className="pb-2 text-right font-medium">Actions</th>
           </tr>
         </thead>
         <tbody>

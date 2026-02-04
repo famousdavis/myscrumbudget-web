@@ -67,9 +67,9 @@ export function RateTable({ rates, onUpdate }: RateTableProps) {
       <table className="w-full max-w-md text-sm">
         <thead>
           <tr className="border-b border-zinc-200 dark:border-zinc-700">
-            <th className="pb-2 text-left font-medium">Role</th>
-            <th className="pb-2 text-left font-medium">Hourly Rate ($)</th>
-            <th className="pb-2 text-right font-medium">Actions</th>
+            <th scope="col" className="pb-2 text-left font-medium">Role</th>
+            <th scope="col" className="pb-2 text-left font-medium">Hourly Rate ($)</th>
+            <th scope="col" className="pb-2 text-right font-medium">Actions</th>
           </tr>
         </thead>
         <tbody>

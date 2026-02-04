@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useId } from 'react';
 
 interface BaseDialogProps {
   /** Dialog title displayed in the header */
@@ -16,6 +16,7 @@ interface BaseDialogProps {
  * and focus-trap on mount. All confirmation/form dialogs compose this.
  */
 export function BaseDialog({ title, children, actions }: BaseDialogProps) {
+  const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -28,14 +29,14 @@ export function BaseDialog({ title, children, actions }: BaseDialogProps) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="dialog-title"
+      aria-labelledby={titleId}
     >
       <div
         ref={dialogRef}
         tabIndex={-1}
         className="mx-4 w-full max-w-sm rounded-lg bg-white p-6 shadow-lg outline-none dark:bg-zinc-900"
       >
-        <h3 id="dialog-title" className="text-lg font-semibold">
+        <h3 id={titleId} className="text-lg font-semibold">
           {title}
         </h3>
         {children}
@@ -88,6 +89,41 @@ export function ConfirmDialog({
       }
     >
       <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+        {message}
+      </p>
+    </BaseDialog>
+  );
+}
+
+/* ── Reusable alert/info dialog ────────────────────────────────────── */
+
+interface AlertDialogProps {
+  /** Dialog title */
+  title: string;
+  /** Message content (supports JSX for formatting) */
+  message: React.ReactNode;
+  /** Button label (default: "OK") */
+  buttonLabel?: string;
+  /** Called when user dismisses the dialog */
+  onClose: () => void;
+}
+
+export function AlertDialog({
+  title,
+  message,
+  buttonLabel = 'OK',
+  onClose,
+}: AlertDialogProps) {
+  return (
+    <BaseDialog
+      title={title}
+      actions={
+        <button onClick={onClose} className={dialogButtonStyles.primary}>
+          {buttonLabel}
+        </button>
+      }
+    >
+      <p className="mt-2 whitespace-pre-wrap text-sm text-zinc-600 dark:text-zinc-400">
         {message}
       </p>
     </BaseDialog>
