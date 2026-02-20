@@ -5,6 +5,7 @@ import type { Project } from '@/types/domain';
 import { repo } from '@/lib/storage/repo';
 import { generateId } from '@/lib/utils/id';
 import { createBaselineReforecast } from '@/lib/utils/reforecast';
+import { ensureOriginRef, appendToChangeLog } from '@/lib/storage/fingerprint';
 
 export function useProjects() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -32,6 +33,8 @@ export function useProjects() {
         activeReforecastId: baseline.id,
       };
       await repo.saveProject(project);
+      ensureOriginRef();
+      appendToChangeLog({ op: 'add', entity: 'project', id: project.id });
       await reload();
       return project;
     },
@@ -41,6 +44,7 @@ export function useProjects() {
   const deleteProject = useCallback(
     async (id: string) => {
       await repo.deleteProject(id);
+      appendToChangeLog({ op: 'delete', entity: 'project', id });
       await reload();
     },
     [reload]

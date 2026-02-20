@@ -120,4 +120,10 @@ export interface AppState {
   settings: Settings;
   teamPool: PoolMember[];
   projects: Project[];
+  // Workspace reconciliation tokens (optional for backward compatibility)
+  _originRef?: string;
+  _storageRef?: string;
+  _changeLog?: import('@/lib/storage/fingerprint').ChangeLogEntry[];
+  _exportedBy?: string;
+  _exportedById?: string;
 }

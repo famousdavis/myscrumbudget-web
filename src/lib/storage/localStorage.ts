@@ -3,6 +3,10 @@ import type { Settings, PoolMember, Project, AppState } from '@/types/domain';
 import { STORAGE_KEYS } from '@/types/storage';
 import { runMigrations, DATA_VERSION } from './migrations';
 import { isValidSettings, isValidProjectArray, isValidPoolMemberArray } from '@/lib/utils/validation';
+import {
+  ensureOriginRef, getWorkspaceId, getChangeLog, getExportAttribution,
+  setOriginRef, setChangeLog, type ChangeLogEntry,
+} from './fingerprint';
 
 export const DEFAULT_SETTINGS: Settings = {
   discountRateAnnual: 0.03,
@@ -128,12 +132,23 @@ export function createLocalStorageRepository(): Repository {
     },
 
     async exportAll() {
-      return {
+      const data: AppState = {
         version: DATA_VERSION,
         settings: await repo.getSettings(),
         teamPool: await repo.getTeamPool(),
         projects: await repo.getProjects(),
+        // Workspace reconciliation tokens
+        _originRef: ensureOriginRef(),
+        _storageRef: getWorkspaceId(),
+        _changeLog: getChangeLog(),
       };
+
+      // Conditionally inject export attribution
+      const attr = getExportAttribution();
+      if (attr.name) data._exportedBy = attr.name;
+      if (attr.id) data._exportedById = attr.id;
+
+      return data;
     },
 
     async importAll(state) {
@@ -141,6 +156,23 @@ export function createLocalStorageRepository(): Repository {
       set(STORAGE_KEYS.settings, state.settings);
       set(STORAGE_KEYS.teamPool, state.teamPool);
       set(STORAGE_KEYS.projects, state.projects);
+
+      // Preserve _originRef from imported file; backfill with current workspace if absent
+      const importedOrigin = state._originRef;
+      const originRef = typeof importedOrigin === 'string' && importedOrigin
+        ? importedOrigin
+        : getWorkspaceId();
+      setOriginRef(originRef);
+
+      // Preserve imported changelog, append import event
+      const importedLog: ChangeLogEntry[] = Array.isArray(state._changeLog) ? state._changeLog : [];
+      const withImportEvent: ChangeLogEntry[] = [...importedLog, {
+        t: Math.floor(Date.now() / 1000),
+        op: 'import',
+        entity: 'dataset',
+        source: 'file',
+      }];
+      setChangeLog(withImportEvent);
     },
 
     async clear() {
