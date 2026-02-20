@@ -5,6 +5,7 @@ import type { PoolMember } from '@/types/domain';
 import { repo } from '@/lib/storage/repo';
 import { useDebouncedSave } from '@/hooks/useDebouncedSave';
 import { generateId } from '@/lib/utils/id';
+import { ensureOriginRef, appendToChangeLog } from '@/lib/storage/fingerprint';
 
 export function useTeamPool() {
   const [pool, setPool] = useState<PoolMember[]>([]);
@@ -27,6 +28,8 @@ export function useTeamPool() {
         persist(updated);
         return updated;
       });
+      ensureOriginRef();
+      appendToChangeLog({ op: 'add', entity: 'pool-member', id: member.id });
       return member;
     },
     [persist],
@@ -62,6 +65,7 @@ export function useTeamPool() {
         persist(updated);
         return updated;
       });
+      appendToChangeLog({ op: 'delete', entity: 'pool-member', id });
       return { ok: true };
     },
     [persist],

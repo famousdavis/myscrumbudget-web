@@ -11,6 +11,7 @@ import { generateId } from '@/lib/utils/id';
 import { buildAllocationMap } from '@/lib/calc/allocationMap';
 import { getActiveReforecast } from '@/lib/utils/teamResolution';
 import { createBaselineReforecast, createNewReforecast } from '@/lib/utils/reforecast';
+import { ensureOriginRef, appendToChangeLog } from '@/lib/storage/fingerprint';
 
 interface UseReforecastOptions {
   project: Project | null;
@@ -128,12 +129,14 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
 
   const createReforecast = useCallback(
     (name: string, copyFromId?: string) => {
+      let newRfId = '';
       updateProject((prev) => {
         const source = copyFromId
           ? prev.reforecasts.find((r) => r.id === copyFromId)
           : undefined;
 
         const newRf = createNewReforecast(name, prev.startDate, source);
+        newRfId = newRf.id;
 
         return {
           ...prev,
@@ -141,6 +144,8 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
           activeReforecastId: newRf.id,
         };
       });
+      ensureOriginRef();
+      appendToChangeLog({ op: 'add', entity: 'reforecast', id: newRfId });
     },
     [updateProject],
   );
@@ -157,6 +162,8 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
         ...rf,
         productivityWindows: [...rf.productivityWindows, newWindow],
       }));
+      ensureOriginRef();
+      appendToChangeLog({ op: 'add', entity: 'productivity-window', id: newWindow.id });
     },
     [updateActiveRf],
   );
@@ -192,6 +199,7 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
             : prev.activeReforecastId,
         };
       });
+      appendToChangeLog({ op: 'delete', entity: 'reforecast', id: reforecastId });
     },
     [updateProject],
   );
@@ -204,6 +212,7 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
           (w) => w.id !== windowId,
         ),
       }));
+      appendToChangeLog({ op: 'delete', entity: 'productivity-window', id: windowId });
     },
     [updateActiveRf],
   );

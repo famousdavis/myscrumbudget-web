@@ -4,7 +4,12 @@ import {
   DEFAULT_SETTINGS,
 } from '../localStorage';
 import { STORAGE_KEYS } from '@/types/storage';
-import type { Project, Settings } from '@/types/domain';
+import type { Project, Settings, AppState } from '@/types/domain';
+import {
+  WORKSPACE_ID_KEY,
+  setExportAttribution,
+  getChangeLog,
+} from '../fingerprint';
 
 function makeProject(overrides: Partial<Project> = {}): Project {
   return {
@@ -242,6 +247,90 @@ describe('LocalStorage Repository', () => {
     it('returns current version when none stored', async () => {
       const version = await repo.getVersion();
       expect(version).toBe('0.7.0');
+    });
+  });
+
+  describe('Export with fingerprinting', () => {
+    it('includes _originRef, _storageRef, and _changeLog in exported data', async () => {
+      await repo.saveProject(makeProject());
+      const exported = await repo.exportAll();
+      expect(exported._originRef).toBeTruthy();
+      expect(exported._storageRef).toBeTruthy();
+      expect(exported._originRef).toBe(exported._storageRef); // same browser
+      expect(Array.isArray(exported._changeLog)).toBe(true);
+    });
+
+    it('includes _exportedBy and _exportedById when attribution is set', async () => {
+      setExportAttribution({ name: 'Jane', id: 'j123' });
+      const exported = await repo.exportAll();
+      expect(exported._exportedBy).toBe('Jane');
+      expect(exported._exportedById).toBe('j123');
+    });
+
+    it('omits _exportedBy and _exportedById when attribution is empty', async () => {
+      setExportAttribution({ name: '', id: '' });
+      const exported = await repo.exportAll();
+      expect(exported._exportedBy).toBeUndefined();
+      expect(exported._exportedById).toBeUndefined();
+    });
+  });
+
+  describe('Import with fingerprinting', () => {
+    it('preserves _originRef from imported data', async () => {
+      const importData: AppState = {
+        version: '0.7.0',
+        settings: DEFAULT_SETTINGS,
+        teamPool: [],
+        projects: [],
+        _originRef: 'foreign-browser-id',
+        _changeLog: [],
+      };
+      await repo.importAll(importData);
+      expect(localStorage.getItem(STORAGE_KEYS.originRef)).toBe('foreign-browser-id');
+    });
+
+    it('backfills _originRef with workspace ID when missing from imported data', async () => {
+      const importData: AppState = {
+        version: '0.7.0',
+        settings: DEFAULT_SETTINGS,
+        teamPool: [],
+        projects: [],
+      };
+      await repo.importAll(importData);
+      const storedRef = localStorage.getItem(STORAGE_KEYS.originRef);
+      expect(storedRef).toBeTruthy();
+      // Should be the local workspace ID
+      expect(storedRef).toBe(localStorage.getItem(WORKSPACE_ID_KEY));
+    });
+
+    it('appends import event to _changeLog', async () => {
+      const importData: AppState = {
+        version: '0.7.0',
+        settings: DEFAULT_SETTINGS,
+        teamPool: [],
+        projects: [],
+        _changeLog: [{ t: 1000, op: 'add', entity: 'project', id: 'p1' }],
+      };
+      await repo.importAll(importData);
+      const log = getChangeLog();
+      expect(log).toHaveLength(2);
+      expect(log[0].op).toBe('add');
+      expect(log[1].op).toBe('import');
+      expect(log[1].entity).toBe('dataset');
+      expect(log[1].source).toBe('file');
+    });
+
+    it('creates import event even with empty imported changelog', async () => {
+      const importData: AppState = {
+        version: '0.7.0',
+        settings: DEFAULT_SETTINGS,
+        teamPool: [],
+        projects: [],
+      };
+      await repo.importAll(importData);
+      const log = getChangeLog();
+      expect(log).toHaveLength(1);
+      expect(log[0].op).toBe('import');
     });
   });
 });

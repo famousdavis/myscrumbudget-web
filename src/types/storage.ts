@@ -4,4 +4,7 @@ export const STORAGE_KEYS = {
   projects: 'msb:projects',
   version: 'msb:version',
   theme: 'msb:theme',
+  originRef: 'msb:originRef',
+  changeLog: 'msb:changeLog',
+  exportAttribution: 'msb:exportAttribution',
 } as const;

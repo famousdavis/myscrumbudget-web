@@ -1552,6 +1552,41 @@ export function createIndexedDbRepository(): Repository {
 
 ---
 
+## Part 13: Workspace Reconciliation Tokens (v0.14.0)
+
+Exports include metadata for cross-session data provenance tracking and localStorage hydration recovery.
+
+### Storage Keys
+
+| Key | Format | Purpose |
+|-----|--------|---------|
+| `msb-workspace-id` | UUID v4 | Stable per-browser workspace binding (persists across `clear()`) |
+| `msb:originRef` | UUID v4 | Origin workspace token — set on first structural operation |
+| `msb:changeLog` | JSON array | Structural operation log for export pipeline diagnostics |
+| `msb:exportAttribution` | JSON object | User-entered name and identifier for export traceability |
+
+### Export Envelope Fields
+
+| Field | Source | Persisted in state? |
+|-------|--------|-------------------|
+| `_originRef` | `msb:originRef` (lazy-init from workspace ID) | No (separate key) |
+| `_storageRef` | `msb-workspace-id` (fresh at export time) | No (export-only) |
+| `_changeLog` | `msb:changeLog` (structural operation log) | No (separate key) |
+| `_exportedBy` | `msb:exportAttribution` name (conditional) | No (export-only) |
+| `_exportedById` | `msb:exportAttribution` id (conditional) | No (export-only) |
+
+### Import Behavior
+
+On import, `_originRef` is preserved from the source file (backfilled with local workspace ID if absent). The `_changeLog` is preserved and an `import` event is appended. `_storageRef` and attribution fields are naturally stripped since `importAll()` only writes domain data to localStorage.
+
+### Design Notes
+
+- `msb-workspace-id` uses hyphen format (not `msb:` prefix) so it is excluded from `STORAGE_KEYS` and survives `repo.clear()`
+- Changelog entries are appended from hooks (where structural mutation intent lives), not from the repository layer
+- The changelog is capped at 500 entries via `appendToChangeLog()` in `src/lib/storage/fingerprint.ts`
+
+---
+
 ## Summary
 
 This architecture document provides:

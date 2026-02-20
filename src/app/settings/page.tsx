@@ -6,6 +6,7 @@ import { RateTable } from '@/features/settings/components/RateTable';
 import { HolidayTable } from '@/features/settings/components/HolidayTable';
 import { ThresholdSettings } from '@/features/settings/components/ThresholdSettings';
 import { DataPortability } from '@/features/settings/components/DataPortability';
+import { ExportAttribution } from '@/features/settings/components/ExportAttribution';
 
 export default function SettingsPage() {
   const { settings, loading, updateSettings } = useSettings();
@@ -38,6 +39,8 @@ export default function SettingsPage() {
           redPercent={settings.trafficLightThresholds.redPercent}
           onUpdate={updateSettings}
         />
+        <hr className="border-zinc-200 dark:border-zinc-800" />
+        <ExportAttribution />
         <hr className="border-zinc-200 dark:border-zinc-800" />
         <DataPortability onImportComplete={handleImportComplete} />
       </div>

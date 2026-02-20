@@ -9,6 +9,28 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.14.0',
+    date: '2026-02-20',
+    sections: [
+      {
+        title: 'New Features',
+        items: [
+          'Export attribution — new section in Settings for attaching name and identifier to JSON exports for team workflow traceability',
+          'Workspace reconciliation tokens — exports include _originRef and _storageRef for cross-session data provenance tracking and localStorage hydration recovery',
+          'Export pipeline diagnostics — dataset maintains a lightweight _changeLog of structural operations for client-side telemetry',
+        ],
+      },
+      {
+        title: 'Technical',
+        items: [
+          'New localStorage key msb-workspace-id for deterministic workspace binding',
+          'Workspace utilities in src/lib/storage/fingerprint.ts for identity, changelog, and attribution management',
+          'Import preserves _originRef and _changeLog from source data for provenance chain continuity',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.13.0',
     date: '2026-02-03',
     sections: [
