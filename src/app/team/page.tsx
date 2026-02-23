@@ -1,17 +1,28 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useTeamPool } from '@/features/team/hooks/useTeamPool';
 import { useSettings } from '@/features/settings/hooks/useSettings';
 import { PoolMemberTable } from '@/features/team/components/PoolMemberTable';
 import { AddPoolMemberForm } from '@/features/team/components/AddPoolMemberForm';
+import { Skeleton } from '@/components/Skeleton';
 
 export default function TeamPoolPage() {
-  const { pool, loading, addPoolMember, updatePoolMember, deletePoolMember } =
+  const { pool, loading, addPoolMember, updatePoolMember, deletePoolMember, flush } =
     useTeamPool();
   const { settings } = useSettings();
 
+  useEffect(() => () => { flush(); }, [flush]);
+
   if (loading) {
-    return <p className="text-zinc-500">Loading team pool...</p>;
+    return (
+      <div>
+        <Skeleton className="h-8 w-40" />
+        <Skeleton className="mt-2 h-4 w-64" />
+        <Skeleton className="mt-6 h-10 w-full max-w-md" />
+        <Skeleton className="mt-6 h-48 w-full" />
+      </div>
+    );
   }
 
   return (

@@ -6,20 +6,18 @@ import type { TeamMember, PoolMember, MonthlyCalculation, ProductivityWindow } f
 import { ConfirmDialog } from '@/components/BaseDialog';
 import type { AllocationMap } from '@/lib/calc/allocationMap';
 import { getAllocation } from '@/lib/calc/allocationMap';
-import { formatMonthLabel } from '@/lib/utils/dates';
 import { useDragReorder } from '@/hooks/useDragReorder';
-import { formatCurrency } from '@/lib/utils/format';
-import { getProductivityFactor } from '@/lib/calc/productivity';
 import type { CellCoord, SelectionRange, FillDragState } from '../lib/gridHelpers';
 import {
   normalizeRange,
-  isCellInRange,
-  getAllocationColor,
   computeFillRegion,
-  isCellInFillPreview,
   moveCellInDirection,
   moveCellDown,
 } from '../lib/gridHelpers';
+import { AllocationGridHeader } from './AllocationGridHeader';
+import { AllocationGridRow } from './AllocationGridRow';
+import { AllocationGridSummaryRows } from './AllocationGridSummaryRows';
+import { AllocationGridAddRow } from './AllocationGridAddRow';
 
 type SortMode = 'none' | 'name' | 'role-name';
 
@@ -82,7 +80,6 @@ export function AllocationGrid({
       onSort('role-name');
       setSortMode('role-name');
     } else {
-      // role-name → none: no action needed, just clear indicator
       setSortMode('none');
     }
   }, [sortMode, onSort]);
@@ -190,7 +187,6 @@ export function AllocationGrid({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!focusedCell) return;
 
-      // Don't interfere with select dropdowns or non-grid inputs
       const target = e.target as HTMLElement;
       if (target.tagName === 'SELECT') return;
       if (target.tagName === 'INPUT' && !target.hasAttribute('data-grid-input')) return;
@@ -286,6 +282,50 @@ export function AllocationGrid({
     commitEdit,
   ]);
 
+  // --- Cell interaction callbacks ---
+  const handleCellMouseDown = useCallback((rowIdx: number, colIdx: number, shiftKey: boolean) => {
+    commitEdit();
+    setFocusedCell({ row: rowIdx, col: colIdx });
+
+    if (shiftKey && selection) {
+      setSelection((prev) =>
+        prev
+          ? { startRow: prev.startRow, startCol: prev.startCol, endRow: rowIdx, endCol: colIdx }
+          : { startRow: rowIdx, startCol: colIdx, endRow: rowIdx, endCol: colIdx },
+      );
+    } else {
+      setSelection({ startRow: rowIdx, startCol: colIdx, endRow: rowIdx, endCol: colIdx });
+      setIsRangeSelecting(true);
+    }
+  }, [commitEdit, selection]);
+
+  const handleCellMouseEnter = useCallback((rowIdx: number, colIdx: number) => {
+    if (fillDrag) {
+      setFillDrag((prev) =>
+        prev ? { ...prev, current: { row: rowIdx, col: colIdx } } : null,
+      );
+    } else if (isRangeSelecting) {
+      setSelection((prev) =>
+        prev ? { ...prev, endRow: rowIdx, endCol: colIdx } : null,
+      );
+    }
+  }, [fillDrag, isRangeSelecting]);
+
+  const handleCellDoubleClick = useCallback((rowIdx: number, colIdx: number, pctValue: number) => {
+    setSelection({ startRow: rowIdx, startCol: colIdx, endRow: rowIdx, endCol: colIdx });
+    setFocusedCell({ row: rowIdx, col: colIdx });
+    setEditingCell({ row: rowIdx, col: colIdx });
+    setInputValue(pctValue > 0 ? String(pctValue) : '');
+  }, []);
+
+  const handleFillHandleMouseDown = useCallback((_rowIdx: number, _colIdx: number, sel: SelectionRange) => {
+    setFillDrag({
+      source: sel,
+      current: { row: _rowIdx, col: _colIdx },
+    });
+  }, []);
+
+  // --- Empty states ---
   if (months.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-zinc-300 p-8 text-center dark:border-zinc-700">
@@ -299,7 +339,7 @@ export function AllocationGrid({
     );
   }
 
-  const hasRowControls = !readonly && onMemberDelete && onMemberAdd;
+  const hasRowControls = !readonly && !!onMemberDelete && !!onMemberAdd;
 
   if (teamMembers.length === 0 && pool.length === 0) {
     return (
@@ -337,351 +377,71 @@ export function AllocationGrid({
           }
         }}
       >
-        <thead>
-          <tr>
-            <th
-              scope="col"
-              className={`sticky left-0 z-10 border border-zinc-200 bg-zinc-50 px-3 py-2 text-left text-sm font-medium dark:border-zinc-700 dark:bg-zinc-900${onSort ? ' cursor-pointer select-none hover:bg-zinc-100 dark:hover:bg-zinc-800' : ''}`}
-              onClick={onSort ? handleSortClick : undefined}
-              title={onSort ? (sortMode === 'none' ? 'Sort by name' : sortMode === 'name' ? 'Sort by role, then name' : 'Clear sort') : undefined}
-            >
-              <span className="flex items-center gap-1">
-                Team Member
-                {onSort && (
-                  <span className="text-xs text-zinc-400 dark:text-zinc-500">
-                    {sortMode === 'name' ? '▲ A–Z' : sortMode === 'role-name' ? '▲ Role' : '⇅'}
-                  </span>
-                )}
-              </span>
-            </th>
-            {months.map((month) => {
-              const factor = productivityWindows
-                ? getProductivityFactor(month, productivityWindows)
-                : 1;
-              return (
-                <th
-                  scope="col"
-                  key={month}
-                  className="border border-zinc-200 bg-zinc-50 px-2 py-2 text-center text-sm font-medium whitespace-nowrap dark:border-zinc-700 dark:bg-zinc-900"
-                  title={
-                    factor < 1
-                      ? `Productivity: ${Math.round(factor * 100)}% (reduced capacity)`
-                      : undefined
-                  }
-                >
-                  <div>{formatMonthLabel(month)}</div>
-                  {factor < 1 && (
-                    <div className="text-[10px] font-normal text-amber-600 dark:text-amber-400">
-                      {Math.round(factor * 100)}%
-                    </div>
-                  )}
-                </th>
-              );
-            })}
-            {hasRowControls && (
-              <th scope="col" className="sticky right-0 z-10 border border-zinc-200 bg-zinc-50 px-2 py-2 text-center text-sm font-medium dark:border-zinc-700 dark:bg-zinc-900">
-              </th>
-            )}
-          </tr>
-        </thead>
+        <AllocationGridHeader
+          months={months}
+          productivityWindows={productivityWindows}
+          sortMode={sortMode}
+          onSortClick={handleSortClick}
+          hasRowControls={hasRowControls}
+          sortable={!!onSort}
+        />
         <tbody>
           {teamMembers.map((member, rowIdx) => (
-            <tr
+            <AllocationGridRow
               key={member.id}
-              className={`${rowDrag.isDragging(member.id) ? 'opacity-40' : ''}${rowDrag.isDragOver(member.id) ? ' bg-blue-50 dark:bg-blue-950' : ''}`}
-              onDragOver={hasRowControls && onReorder ? rowDrag.handleDragOver : undefined}
-              onDragEnter={hasRowControls && onReorder ? () => rowDrag.handleDragEnter(member.id) : undefined}
-              onDragLeave={hasRowControls && onReorder ? () => rowDrag.handleDragLeave(member.id) : undefined}
-              onDrop={hasRowControls && onReorder ? (e) => rowDrag.handleDrop(member.id, e) : undefined}
-            >
-              <td className="sticky left-0 z-10 border border-zinc-200 bg-white px-1 py-1 dark:border-zinc-700 dark:bg-zinc-950">
-                <div className="flex items-center gap-1 px-1 text-sm font-medium whitespace-nowrap">
-                  {hasRowControls && onReorder && (
-                    <div
-                      draggable
-                      onDragStart={(e) => rowDrag.handleDragStart(member.id, e)}
-                      onDragEnd={rowDrag.handleDragEnd}
-                      className="cursor-grab text-zinc-400 hover:text-zinc-600 active:cursor-grabbing dark:text-zinc-500 dark:hover:text-zinc-300"
-                      title="Drag to reorder"
-                      aria-label={`Drag ${member.name} to reorder`}
-                    >
-                      ⠿
-                    </div>
-                  )}
-                  <span>
-                    {member.name}
-                    <span className="ml-1 text-zinc-400">({member.role})</span>
-                  </span>
-                </div>
-              </td>
-              {months.map((month, colIdx) => {
-                const value = getAllocation(allocationMap, month, member.id);
-                const pctValue = value ? Math.round(value * 100) : 0;
-                const isEditing =
-                  editingCell?.row === rowIdx && editingCell?.col === colIdx;
-                const isSelected = isCellInRange(normalizedSel, rowIdx, colIdx);
-                const isFocused =
-                  focusedCell?.row === rowIdx && focusedCell?.col === colIdx;
-                const isInFillPreview = isCellInFillPreview(
-                  fillDrag,
-                  allocationMap,
-                  teamMembers,
-                  months,
-                  rowIdx,
-                  colIdx,
-                );
-
-                const displayText = pctValue > 0 ? `${pctValue}%` : '';
-
-                const showFillHandle =
-                  !isEditing &&
-                  fillHandleRow === rowIdx &&
-                  fillHandleCol === colIdx &&
-                  !fillDrag;
-
-                const needsElevation = (isSelected || isFocused) && !isEditing;
-                let cellClasses =
-                  `relative border border-zinc-200 p-0 dark:border-zinc-700${needsElevation ? ' z-20' : ''}`;
-
-                if (!isInFillPreview) {
-                  cellClasses += ` ${getAllocationColor(value)}`;
-                }
-
-                if (isSelected && !isEditing) {
-                  cellClasses +=
-                    ' outline outline-2 outline-blue-500 -outline-offset-1';
-                } else if (isFocused && !isEditing) {
-                  cellClasses +=
-                    ' ring-2 ring-blue-400 ring-inset';
-                }
-                if (isInFillPreview) {
-                  cellClasses += ' bg-blue-200/60 dark:bg-blue-700/60';
-                }
-
-                if (readonly) {
-                  return (
-                    <td
-                      key={`${member.id}-${month}`}
-                      className={`border border-zinc-200 px-2 py-1 text-center text-sm dark:border-zinc-700 ${getAllocationColor(value)}`}
-                    >
-                      {displayText}
-                    </td>
-                  );
-                }
-
-                return (
-                  <td
-                    key={`${member.id}-${month}`}
-                    className={cellClasses}
-                    onMouseDown={(e) => {
-                      if ((e.target as HTMLElement).dataset.fillHandle) return;
-
-                      if (isEditing) return;
-                      commitEdit();
-
-                      setFocusedCell({ row: rowIdx, col: colIdx });
-
-                      if (e.shiftKey && selection) {
-                        setSelection((prev) =>
-                          prev
-                            ? {
-                                startRow: prev.startRow,
-                                startCol: prev.startCol,
-                                endRow: rowIdx,
-                                endCol: colIdx,
-                              }
-                            : {
-                                startRow: rowIdx,
-                                startCol: colIdx,
-                                endRow: rowIdx,
-                                endCol: colIdx,
-                              },
-                        );
-                      } else {
-                        setSelection({
-                          startRow: rowIdx,
-                          startCol: colIdx,
-                          endRow: rowIdx,
-                          endCol: colIdx,
-                        });
-                        setIsRangeSelecting(true);
-                      }
-                    }}
-                    onMouseEnter={() => {
-                      if (fillDrag) {
-                        setFillDrag((prev) =>
-                          prev
-                            ? { ...prev, current: { row: rowIdx, col: colIdx } }
-                            : null,
-                        );
-                      } else if (isRangeSelecting) {
-                        setSelection((prev) =>
-                          prev
-                            ? { ...prev, endRow: rowIdx, endCol: colIdx }
-                            : null,
-                        );
-                      }
-                    }}
-                    onDoubleClick={() => {
-                      setSelection({
-                        startRow: rowIdx,
-                        startCol: colIdx,
-                        endRow: rowIdx,
-                        endCol: colIdx,
-                      });
-                      setFocusedCell({ row: rowIdx, col: colIdx });
-                      setEditingCell({ row: rowIdx, col: colIdx });
-                      setInputValue(pctValue > 0 ? String(pctValue) : '');
-                    }}
-                  >
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        autoFocus
-                        data-grid-input="true"
-                        value={inputValue}
-                        onChange={(e) => setInputValue(e.target.value)}
-                        onBlur={commitEdit}
-                        onKeyDown={(e) => {
-                          // Enter and Escape handled by document-level handleKeyDown
-                          // (commits edit + moves cursor down for Enter, cancels for Escape)
-                          if (e.key === 'Enter' || e.key === 'Escape') return;
-                        }}
-                        className="absolute inset-0 z-10 bg-white text-center text-sm outline-none dark:bg-zinc-950"
-                      />
-                    ) : (
-                      <div className="px-2 py-1 text-center text-sm whitespace-nowrap">
-                        {displayText}
-                      </div>
-                    )}
-                    {showFillHandle && (
-                      <div
-                        data-fill-handle="true"
-                        className="absolute -right-[4px] -bottom-[4px] z-20 h-[8px] w-[8px] cursor-crosshair border border-white bg-blue-600"
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          if (!normalizedSel) return;
-                          setFillDrag({
-                            source: normalizedSel,
-                            current: { row: rowIdx, col: colIdx },
-                          });
-                        }}
-                      />
-                    )}
-                  </td>
-                );
-              })}
-              {hasRowControls && (
-                <td className="sticky right-0 z-10 border border-zinc-200 bg-white px-2 py-1 text-center dark:border-zinc-700 dark:bg-zinc-950">
-                  <button
-                    onClick={() => setPendingDeleteId(member.id)}
-                    className="text-sm text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                    title="Remove row"
-                  >
-                    ✕
-                  </button>
-                </td>
-              )}
-            </tr>
+              member={member}
+              rowIdx={rowIdx}
+              months={months}
+              allocationMap={allocationMap}
+              readonly={readonly}
+              hasRowControls={hasRowControls}
+              normalizedSel={normalizedSel}
+              editingCell={editingCell}
+              focusedCell={focusedCell}
+              fillDrag={fillDrag}
+              fillHandleRow={fillHandleRow}
+              fillHandleCol={fillHandleCol}
+              inputValue={inputValue}
+              teamMembers={teamMembers}
+              onInputChange={setInputValue}
+              onCellCommitEdit={commitEdit}
+              onCellMouseDown={handleCellMouseDown}
+              onCellMouseEnter={handleCellMouseEnter}
+              onCellDoubleClick={handleCellDoubleClick}
+              onFillHandleMouseDown={handleFillHandleMouseDown}
+              onDeleteClick={setPendingDeleteId}
+              isDragging={rowDrag.isDragging(member.id)}
+              isDragOver={rowDrag.isDragOver(member.id)}
+              dragHandlers={
+                hasRowControls && onReorder
+                  ? {
+                      onDragOver: rowDrag.handleDragOver,
+                      onDragEnter: () => rowDrag.handleDragEnter(member.id),
+                      onDragLeave: () => rowDrag.handleDragLeave(member.id),
+                      onDrop: (e: React.DragEvent) => rowDrag.handleDrop(member.id, e),
+                      onDragStart: (e: React.DragEvent) => rowDrag.handleDragStart(member.id, e),
+                      onDragEnd: rowDrag.handleDragEnd,
+                    }
+                  : {}
+              }
+              canReorder={!!onReorder}
+            />
           ))}
-          {/* Summary rows */}
           {monthlyData && monthlyData.length > 0 && (
-            <>
-              <tr>
-                <td className="sticky left-0 z-10 border border-zinc-200 bg-zinc-50 px-3 py-1 text-sm font-medium whitespace-nowrap dark:border-zinc-700 dark:bg-zinc-900">
-                  Monthly Cost
-                </td>
-                {months.map((month) => {
-                  const md = monthlyData.find((d) => d.month === month);
-                  return (
-                    <td
-                      key={`cost-${month}`}
-                      className="border border-zinc-200 bg-zinc-50 px-2 py-1 text-center text-sm font-medium whitespace-nowrap dark:border-zinc-700 dark:bg-zinc-900"
-                    >
-                      {md ? formatCurrency(md.cost) : ''}
-                    </td>
-                  );
-                })}
-                {hasRowControls && (
-                  <td className="sticky right-0 z-10 border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900" />
-                )}
-              </tr>
-              <tr>
-                <td className="sticky left-0 z-10 border border-zinc-200 bg-zinc-50 px-3 py-1 text-sm font-medium whitespace-nowrap dark:border-zinc-700 dark:bg-zinc-900">
-                  Monthly Hours
-                </td>
-                {months.map((month) => {
-                  const md = monthlyData.find((d) => d.month === month);
-                  return (
-                    <td
-                      key={`hours-${month}`}
-                      className="border border-zinc-200 bg-zinc-50 px-2 py-1 text-center text-sm font-medium whitespace-nowrap dark:border-zinc-700 dark:bg-zinc-900"
-                    >
-                      {md ? Math.round(md.hours) : ''}
-                    </td>
-                  );
-                })}
-                {hasRowControls && (
-                  <td className="sticky right-0 z-10 border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900" />
-                )}
-              </tr>
-            </>
+            <AllocationGridSummaryRows
+              months={months}
+              monthlyData={monthlyData}
+              hasRowControls={hasRowControls}
+            />
           )}
-          {/* Add row */}
-          {hasRowControls && (
-            <tr>
-              {addingRow ? (
-                <>
-                  <td
-                    className="sticky left-0 z-10 border border-zinc-200 bg-white px-1 py-1 dark:border-zinc-700 dark:bg-zinc-950"
-                  >
-                    <select
-                      autoFocus
-                      value=""
-                      onChange={(e) => {
-                        if (e.target.value && onMemberAdd) {
-                          onMemberAdd(e.target.value);
-                        }
-                      }}
-                      onBlur={() => setAddingRow(false)}
-                      className="w-full rounded border border-zinc-300 px-1 py-0.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
-                    >
-                      <option value="">Select member...</option>
-                      {pool.map((pm) => (
-                        <option key={pm.id} value={pm.id}>
-                          {pm.name} ({pm.role})
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td
-                    colSpan={months.length}
-                    className="border border-zinc-200 dark:border-zinc-700"
-                  />
-                  <td className="sticky right-0 z-10 border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-950" />
-                </>
-              ) : (
-                <>
-                  <td
-                    className="sticky left-0 z-10 border border-zinc-200 bg-white px-3 py-1 dark:border-zinc-700 dark:bg-zinc-950"
-                  >
-                    <button
-                      onClick={() => setAddingRow(true)}
-                      className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400"
-                    >
-                      + Add member
-                    </button>
-                  </td>
-                  <td
-                    colSpan={months.length}
-                    className="border border-zinc-200 dark:border-zinc-700"
-                  />
-                  <td className="sticky right-0 z-10 border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-950" />
-                </>
-              )}
-            </tr>
-          )}
+          <AllocationGridAddRow
+            months={months}
+            pool={pool}
+            addingRow={addingRow}
+            onAddingRowChange={setAddingRow}
+            onMemberAdd={onMemberAdd!}
+            hasRowControls={hasRowControls}
+          />
         </tbody>
       </table>
       {pendingDeleteId && onMemberDelete && (
