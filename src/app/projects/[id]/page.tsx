@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState, useMemo } from 'react';
+import { use, useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useProject } from '@/features/projects/hooks/useProject';
@@ -20,6 +20,7 @@ import { MonthlyCostBarChart } from '@/components/charts/MonthlyCostBarChart';
 import { CumulativeCostLineChart } from '@/components/charts/CumulativeCostLineChart';
 import { CostByPeriodTable } from '@/components/CostByPeriodTable';
 import { generateMonthRange } from '@/lib/utils/dates';
+import { SkeletonProjectDetail } from '@/components/Skeleton';
 
 export default function ProjectDetailPage({
   params,
@@ -27,7 +28,9 @@ export default function ProjectDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const { project, loading, updateProject } = useProject(id);
+  const { project, loading, updateProject, flush } = useProject(id);
+
+  useEffect(() => () => { flush(); }, [flush]);
   const { deleteProject } = useProjects();
   const { settings } = useSettings();
   const { pool } = useTeamPool();
@@ -71,7 +74,7 @@ export default function ProjectDetailPage({
   }, [project]);
 
   if (loading) {
-    return <p className="text-zinc-500">Loading project...</p>;
+    return <SkeletonProjectDetail />;
   }
 
   if (!project) {

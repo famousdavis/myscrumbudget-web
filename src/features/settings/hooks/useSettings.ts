@@ -16,7 +16,7 @@ export function useSettings() {
     });
   }, []);
 
-  const { save: persistSettings } = useDebouncedSave<Settings>((s) => repo.saveSettings(s));
+  const { save: persistSettings, flush } = useDebouncedSave<Settings>((s) => repo.saveSettings(s));
 
   const updateSettings = useCallback(
     (updater: (prev: Settings) => Settings) => {
@@ -30,5 +30,5 @@ export function useSettings() {
     [persistSettings]
   );
 
-  return { settings, loading, updateSettings };
+  return { settings, loading, updateSettings, flush };
 }

@@ -1,11 +1,12 @@
 'use client';
 
-import { use, useState, useRef } from 'react';
+import { use, useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useProject } from '@/features/projects/hooks/useProject';
 import { ProjectForm } from '@/features/projects/components/ProjectForm';
 import { generateMonthRange } from '@/lib/utils/dates';
 import { getActiveReforecast } from '@/lib/utils/teamResolution';
+import { Skeleton } from '@/components/Skeleton';
 
 interface PendingSave {
   allocationCount: number;
@@ -20,10 +21,24 @@ export default function EditProjectPage({
   const { id } = use(params);
   const { project, loading, updateProject, flush } = useProject(id);
   const [pendingSave, setPendingSave] = useState<PendingSave | null>(null);
+
+  useEffect(() => () => { flush(); }, [flush]);
   const rejectRef = useRef<(() => void) | null>(null);
 
   if (loading) {
-    return <p className="text-zinc-500">Loading project...</p>;
+    return (
+      <div>
+        <Skeleton className="h-8 w-32" />
+        <div className="mt-6 max-w-md space-y-4">
+          <Skeleton className="h-10 w-full" />
+          <div className="grid grid-cols-2 gap-4">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+          <Skeleton className="h-10 w-full" />
+        </div>
+      </div>
+    );
   }
 
   if (!project) {

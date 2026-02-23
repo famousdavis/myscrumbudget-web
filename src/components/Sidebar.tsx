@@ -1,11 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import Link from 'next/link';
 import { ThemeToggle } from './ThemeToggle';
+import { ShortcutsDialog } from './ShortcutsDialog';
+import { useKeyboardShortcut } from '@/hooks/useKeyboardShortcut';
 
 export function Sidebar() {
   const [open, setOpen] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const toggleShortcuts = useCallback(() => setShowShortcuts((v) => !v), []);
+  useKeyboardShortcut('?', toggleShortcuts, { ctrl: true });
 
   return (
     <>
@@ -107,10 +112,21 @@ export function Sidebar() {
             </li>
           </ul>
           <div className="mt-auto border-t border-zinc-200 px-3 py-3 dark:border-zinc-800">
+            <button
+              onClick={() => setShowShortcuts(true)}
+              className="mb-2 w-full rounded-md px-3 py-1.5 text-left text-sm text-zinc-500 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-zinc-800"
+              title="Keyboard shortcuts (Ctrl+?)"
+              aria-label="Show keyboard shortcuts"
+            >
+              Keyboard Shortcuts
+            </button>
             <ThemeToggle />
           </div>
         </div>
       </nav>
+      {showShortcuts && (
+        <ShortcutsDialog onClose={() => setShowShortcuts(false)} />
+      )}
     </>
   );
 }

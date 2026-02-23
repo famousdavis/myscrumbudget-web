@@ -9,6 +9,52 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.15.0',
+    date: '2026-02-22',
+    sections: [
+      {
+        title: 'Data Integrity',
+        items: [
+          'Hook flush consistency — useSettings and useTeamPool now expose flush(), matching useProject pattern',
+          'Unmount cleanup on all pages with pending saves — Settings, Team Pool, Project Detail, and Edit Project pages flush debounced saves on navigation',
+        ],
+      },
+      {
+        title: 'Code Quality',
+        items: [
+          'Decomposed AllocationGrid (701 lines) into 4 focused sub-components: AllocationGridHeader, AllocationGridRow, AllocationGridSummaryRows, AllocationGridAddRow',
+          'Deleted 7 macOS duplicate files ("file 2.ext" artifacts)',
+        ],
+      },
+      {
+        title: 'New Features',
+        items: [
+          'Toast notification system — auto-dismissing success/error/info toasts for export, import, bulk holiday add, and project delete operations',
+          'Skeleton loading screens — shimmer placeholders on Dashboard, Project Detail, Edit Project, Team Pool, and Settings pages',
+          'Keyboard shortcuts help modal — press Ctrl+? or click "Keyboard Shortcuts" in sidebar to view all allocation grid and global shortcuts',
+        ],
+      },
+      {
+        title: 'New Components & Hooks',
+        items: [
+          'ToastProvider + useToast (src/components/Toast.tsx)',
+          'Skeleton, SkeletonProjectCard, SkeletonProjectDetail (src/components/Skeleton.tsx)',
+          'ShortcutsDialog (src/components/ShortcutsDialog.tsx)',
+          'useKeyboardShortcut (src/hooks/useKeyboardShortcut.ts)',
+          'AllocationGridHeader, AllocationGridRow, AllocationGridSummaryRows, AllocationGridAddRow (src/features/reforecast/components/)',
+        ],
+      },
+      {
+        title: 'Testing',
+        items: [
+          '548 passing tests across 34 test files (+111 tests, +10 test files)',
+          'New component tests: BaseDialog, Toast, Skeleton, ShortcutsDialog, ProjectForm, ReforecastToolbar, AllocationGrid',
+          'New hook tests: useSettings, useTeamPool',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.14.0',
     date: '2026-02-20',
     sections: [

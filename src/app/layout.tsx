@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import { Sidebar } from '@/components/Sidebar';
 import { MigrationGuard } from '@/components/MigrationGuard';
 import { Footer } from '@/components/Footer';
+import { ToastProvider } from '@/components/Toast';
 import './globals.css';
 
 const geistSans = Geist({
@@ -48,7 +49,7 @@ export default function RootLayout({
         <div className="flex min-h-screen">
           <Sidebar />
           <main id="main-content" className="min-w-0 flex-1 p-8 pt-16 md:pt-8">
-            <MigrationGuard>{children}</MigrationGuard>
+            <MigrationGuard><ToastProvider>{children}</ToastProvider></MigrationGuard>
             <Footer />
           </main>
         </div>

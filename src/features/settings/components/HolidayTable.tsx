@@ -7,6 +7,7 @@ import { formatDateSlash } from '@/lib/utils/format';
 import { getUSAFederalHolidays } from '@/lib/utils/usaFederalHolidays';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { ConfirmDialog } from '@/components/BaseDialog';
+import { useToast } from '@/components/Toast';
 
 const BULK_YEARS = [2026, 2027, 2028] as const;
 
@@ -25,6 +26,7 @@ export function HolidayTable({ holidays, onUpdate }: HolidayTableProps) {
   const [editEndDate, setEditEndDate] = useState('');
   const [bulkYears, setBulkYears] = useState<Set<number>>(new Set());
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const { addToast } = useToast();
 
   const toggleBulkYear = (year: number) => {
     setBulkYears((prev) => {
@@ -62,6 +64,8 @@ export function HolidayTable({ holidays, onUpdate }: HolidayTableProps) {
         ...prev,
         holidays: [...prev.holidays, ...newHolidays],
       }));
+      const yearList = Array.from(bulkYears).sort().join(', ');
+      addToast(`Added ${newHolidays.length} holidays for ${yearList}`, 'success');
     }
     setBulkYears(new Set());
   };

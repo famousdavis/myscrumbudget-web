@@ -5,6 +5,7 @@ import { repo } from '@/lib/storage/repo';
 import { runMigrations } from '@/lib/storage/migrations';
 import { validateAppState } from '@/lib/utils/validation';
 import { AlertDialog, ConfirmDialog } from '@/components/BaseDialog';
+import { useToast } from '@/components/Toast';
 import type { AppState } from '@/types/domain';
 
 type AlertState =
@@ -17,6 +18,7 @@ interface DataPortabilityProps {
 }
 
 export function DataPortability({ onImportComplete }: DataPortabilityProps) {
+  const { addToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [alertState, setAlertState] = useState<AlertState>(null);
   const [pendingImportData, setPendingImportData] = useState<AppState | null>(null);
@@ -31,6 +33,7 @@ export function DataPortability({ onImportComplete }: DataPortabilityProps) {
     a.download = `myscrumbudget-export-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
+    addToast('Export complete', 'success');
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -104,6 +107,7 @@ export function DataPortability({ onImportComplete }: DataPortabilityProps) {
   const handleConfirmImport = async () => {
     if (!pendingImportData) return;
     await repo.importAll(pendingImportData);
+    addToast('Data imported successfully', 'success');
     setPendingImportData(null);
     setAlertState(null);
     onImportComplete();

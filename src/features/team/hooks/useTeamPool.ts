@@ -18,7 +18,7 @@ export function useTeamPool() {
     });
   }, []);
 
-  const { save: persist } = useDebouncedSave<PoolMember[]>((p) => repo.saveTeamPool(p));
+  const { save: persist, flush } = useDebouncedSave<PoolMember[]>((p) => repo.saveTeamPool(p));
 
   const addPoolMember = useCallback(
     (name: string, role: string) => {
@@ -71,5 +71,5 @@ export function useTeamPool() {
     [persist],
   );
 
-  return { pool, loading, addPoolMember, updatePoolMember, deletePoolMember };
+  return { pool, loading, addPoolMember, updatePoolMember, deletePoolMember, flush };
 }

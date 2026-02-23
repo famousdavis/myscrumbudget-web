@@ -8,11 +8,14 @@ import { useTeamPool } from '@/features/team/hooks/useTeamPool';
 import { useDragReorder } from '@/hooks/useDragReorder';
 import { ProjectCard } from '@/features/projects/components/ProjectCard';
 import { ConfirmDialog } from '@/components/BaseDialog';
+import { useToast } from '@/components/Toast';
+import { SkeletonProjectCard } from '@/components/Skeleton';
 
 export default function DashboardPage() {
   const { projects, loading, deleteProject, reorderProjects } = useProjects();
   const { settings } = useSettings();
   const { pool } = useTeamPool();
+  const { addToast } = useToast();
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const drag = useDragReorder(projects, 'id', reorderProjects);
 
@@ -29,7 +32,11 @@ export default function DashboardPage() {
       </div>
 
       {loading ? (
-        <p className="mt-6 text-zinc-500">Loading projects...</p>
+        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <SkeletonProjectCard key={i} />
+          ))}
+        </div>
       ) : projects.length === 0 ? (
         <div className="mt-12 text-center">
           <p className="text-zinc-500 dark:text-zinc-400">
@@ -67,8 +74,10 @@ export default function DashboardPage() {
           title="Delete Project"
           message={<>Are you sure you want to delete <strong>{deleteTarget.name}</strong>? This action cannot be undone.</>}
           onConfirm={async () => {
+            const name = deleteTarget.name;
             await deleteProject(deleteTarget.id);
             setDeleteTarget(null);
+            addToast(`Project "${name}" deleted`, 'success');
           }}
           onCancel={() => setDeleteTarget(null)}
         />
