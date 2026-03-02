@@ -35,6 +35,7 @@ export default function TeamPoolPage() {
       <div className="mt-6">
         <AddPoolMemberForm
           laborRates={settings?.laborRates ?? []}
+          pool={pool}
           onAdd={addPoolMember}
         />
       </div>

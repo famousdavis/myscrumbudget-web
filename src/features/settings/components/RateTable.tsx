@@ -19,7 +19,7 @@ export function RateTable({ rates, onUpdate }: RateTableProps) {
   const handleAdd = () => {
     const role = newRole.trim();
     const hourlyRate = parseFloat(newRate);
-    if (!role || isNaN(hourlyRate) || hourlyRate <= 0) return;
+    if (!role || isNaN(hourlyRate) || hourlyRate < 0) return;
     if (rates.some((r) => r.role === role)) return;
 
     onUpdate((prev) => ({
@@ -47,7 +47,7 @@ export function RateTable({ rates, onUpdate }: RateTableProps) {
     if (editingRole === null) return;
     const role = editRole.trim();
     const hourlyRate = parseFloat(editRate);
-    if (!role || isNaN(hourlyRate) || hourlyRate <= 0) return;
+    if (!role || isNaN(hourlyRate) || hourlyRate < 0) return;
 
     onUpdate((prev) => ({
       ...prev,
@@ -154,7 +154,7 @@ export function RateTable({ rates, onUpdate }: RateTableProps) {
         />
         <button
           onClick={handleAdd}
-          disabled={!newRole.trim() || isNaN(parseFloat(newRate)) || parseFloat(newRate) <= 0 || rates.some((r) => r.role === newRole.trim())}
+          disabled={!newRole.trim() || isNaN(parseFloat(newRate)) || parseFloat(newRate) < 0 || rates.some((r) => r.role === newRole.trim())}
           className="rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
         >
           Add

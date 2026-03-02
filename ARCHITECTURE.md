@@ -136,7 +136,7 @@ These are display-friendly versions (in thousands):
 // Labor Rates (Global Settings)
 interface LaborRate {
   role: string;           // e.g., "BA", "IT-SoftEng"
-  hourlyRate: number;     // dollars per hour
+  hourlyRate: number;     // dollars per hour (≥ 0; $0 valid for infrastructure roles)
 }
 
 // Holiday (Global Settings — non-work days subtracted from workday calculations)
@@ -981,6 +981,16 @@ Delivered:
 - **Unique ARIA IDs via `useId()`** — fixes `aria-labelledby` uniqueness violation in BaseDialog (WCAG 4.1.1)
 - **`scope="col"` on all table headers** — 6 table components updated for screen reader compatibility (WCAG 1.3.1)
 - 437 passing tests across 24 test files
+
+### v0.15.1 UX Improvements — COMPLETE
+**Goal**: Address usability feedback from hands-on usage
+
+Delivered:
+- **Duplicate team member warning** — `AddPoolMemberForm` checks for case-insensitive name matches and shows a confirmation dialog (Cancel / Add Anyway) before adding
+- **$0/hour labor rates** — `RateTable` validation changed from `hourlyRate > 0` to `hourlyRate >= 0` for infrastructure roles used in resource planning
+- **Alphabetically sorted allocation dropdown** — `AllocationGridAddRow` sorts pool members by name (case-insensitive) with "Name — Role" format
+- **Tighter Team Pool layout** — `PoolMemberTable` constrained to `max-w-2xl` with reduced row padding (`py-1`) for better readability on large monitors
+- 548 passing tests across 34 test files (unchanged)
 
 ---
 

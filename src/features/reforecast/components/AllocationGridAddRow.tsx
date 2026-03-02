@@ -38,11 +38,13 @@ export function AllocationGridAddRow({
               className="w-full rounded border border-zinc-300 px-1 py-0.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
             >
               <option value="">Select member...</option>
-              {pool.map((pm) => (
-                <option key={pm.id} value={pm.id}>
-                  {pm.name} ({pm.role})
-                </option>
-              ))}
+              {[...pool]
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((pm) => (
+                  <option key={pm.id} value={pm.id}>
+                    {pm.name} — {pm.role}
+                  </option>
+                ))}
             </select>
           </td>
           <td
