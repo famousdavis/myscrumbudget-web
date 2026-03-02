@@ -9,6 +9,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.15.1',
+    date: '2026-03-02',
+    sections: [
+      {
+        title: 'UX Improvements',
+        items: [
+          'Duplicate team member warning — adding a member with the same name shows a confirmation dialog (Cancel / Add Anyway)',
+          '$0/hour labor rates — infrastructure roles that cost nothing to a project can now be added for resource planning',
+          'Allocation grid member dropdown sorted alphabetically by name for faster scanning and type-ahead filtering',
+          'Tighter Team Pool table layout — reduced row spacing and constrained width for better readability on large monitors',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.15.0',
     date: '2026-02-22',
     sections: [

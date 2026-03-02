@@ -72,7 +72,7 @@ export function PoolMemberTable({
     sortField === field ? ' \u25B2' : '';
 
   return (
-    <div>
+    <div className="max-w-2xl">
       {deleteError && (
         <div className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300">
           {deleteError}
@@ -83,19 +83,19 @@ export function PoolMemberTable({
           <tr className="border-b border-zinc-200 dark:border-zinc-700">
             <th
               scope="col"
-              className="cursor-pointer select-none pb-2 text-left font-medium hover:text-blue-600 dark:hover:text-blue-400"
+              className="cursor-pointer select-none pb-1 text-left font-medium hover:text-blue-600 dark:hover:text-blue-400"
               onClick={() => setSortField('name')}
             >
               Name{sortIndicator('name')}
             </th>
             <th
               scope="col"
-              className="cursor-pointer select-none pb-2 text-left font-medium hover:text-blue-600 dark:hover:text-blue-400"
+              className="cursor-pointer select-none pb-1 text-left font-medium hover:text-blue-600 dark:hover:text-blue-400"
               onClick={() => setSortField('role')}
             >
               Role{sortIndicator('role')}
             </th>
-            <th scope="col" className="pb-2 text-right font-medium">Actions</th>
+            <th scope="col" className="pb-1 text-right font-medium">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -106,7 +106,7 @@ export function PoolMemberTable({
             >
               {editingId === member.id ? (
                 <>
-                  <td className="py-2 pr-2">
+                  <td className="py-1 pr-2">
                     <input
                       type="text"
                       value={editName}
@@ -114,14 +114,14 @@ export function PoolMemberTable({
                       className="w-full rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
                     />
                   </td>
-                  <td className="py-2 pr-2">
+                  <td className="py-1 pr-2">
                     <RoleSelect
                       value={editRole}
                       laborRates={laborRates}
                       onChange={setEditRole}
                     />
                   </td>
-                  <td className="py-2 text-right">
+                  <td className="py-1 text-right">
                     <button
                       onClick={saveEdit}
                       className="mr-2 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400"
@@ -138,9 +138,9 @@ export function PoolMemberTable({
                 </>
               ) : (
                 <>
-                  <td className="py-2">{member.name}</td>
-                  <td className="py-2">{member.role}</td>
-                  <td className="py-2 text-right">
+                  <td className="py-1">{member.name}</td>
+                  <td className="py-1">{member.role}</td>
+                  <td className="py-1 text-right">
                     <button
                       onClick={() => startEdit(member)}
                       className="mr-2 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400"
