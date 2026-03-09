@@ -9,6 +9,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.15.2',
+    date: '2026-03-09',
+    sections: [
+      {
+        title: 'Documentation',
+        items: [
+          'Quick Reference Guide — PDF download link added to About page (hosted on GitHub, not bundled with Vercel deployment)',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.15.1',
     date: '2026-03-02',
     sections: [

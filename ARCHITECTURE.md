@@ -992,6 +992,14 @@ Delivered:
 - **Tighter Team Pool layout** — `PoolMemberTable` constrained to `max-w-2xl` with reduced row padding (`py-1`) for better readability on large monitors
 - 548 passing tests across 34 test files (unchanged)
 
+### v0.15.2 Quick Reference Guide — COMPLETE
+**Goal**: Add PDF quick reference guide download to About page
+
+Delivered:
+- **Quick Reference Guide section** on About page with download button linking to GitHub-hosted PDF
+- PDF hosted on GitHub main branch (not bundled with Vercel deployment) — same pattern as GanttApp
+- 548 passing tests across 34 test files (unchanged)
+
 ---
 
 ## Part 8: TypeScript Calculation Functions

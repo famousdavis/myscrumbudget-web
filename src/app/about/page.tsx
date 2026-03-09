@@ -41,6 +41,28 @@ export default function AboutPage() {
           </ul>
         </section>
 
+        {/* Quick Reference Guide */}
+        <section>
+          <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">
+            Quick Reference Guide
+          </h2>
+          <p className="mt-2">
+            New to MyScrumBudget? Download the quick reference guide for an overview of
+            creating projects, configuring rates, setting up allocations, and interpreting
+            forecast metrics and charts.
+          </p>
+          <div className="mt-3">
+            <a
+              href="https://github.com/famousdavis/myscrumbudget-web/raw/main/MyScrumBudget_Quick_Reference_Guide.pdf"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block rounded bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+            >
+              Download Quick Reference Guide (PDF)
+            </a>
+          </div>
+        </section>
+
         {/* Your Data & Privacy */}
         <section>
           <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">
