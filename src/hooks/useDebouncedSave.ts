@@ -36,5 +36,14 @@ export function useDebouncedSave<T>(saveFn: (value: T) => void) {
     }
   }, [saveFn]);
 
-  return { save, flush };
+  /** Cancel any pending debounced save without persisting. */
+  const cancel = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    pendingRef.current = null;
+  }, []);
+
+  return { save, flush, cancel };
 }

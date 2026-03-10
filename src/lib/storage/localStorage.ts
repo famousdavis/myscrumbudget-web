@@ -114,6 +114,11 @@ export function createLocalStorageRepository(): Repository {
       set(STORAGE_KEYS.projects, projects);
     },
 
+    async createProject(project) {
+      // localStorage has no ownership concept — delegate to saveProject
+      await repo.saveProject(project);
+    },
+
     async deleteProject(id) {
       const projects = await repo.getProjects();
       set(

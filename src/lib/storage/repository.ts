@@ -10,6 +10,7 @@ export interface Repository {
   getProjects(): Promise<Project[]>;
   getProject(id: string): Promise<Project | null>;
   saveProject(project: Project): Promise<void>;
+  createProject(project: Project): Promise<void>;
   deleteProject(id: string): Promise<void>;
   reorderProjects(orderedIds: string[]): Promise<void>;
 

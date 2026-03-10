@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Project } from '@/types/domain';
 import { repo } from '@/lib/storage/repo';
+import { cloudSyncBus } from '@/lib/firebase/cloudSyncBus';
 import { generateId } from '@/lib/utils/id';
 import { createBaselineReforecast } from '@/lib/utils/reforecast';
 import { ensureOriginRef, appendToChangeLog } from '@/lib/storage/fingerprint';
@@ -21,6 +22,13 @@ export function useProjects() {
     reload();
   }, [reload]);
 
+  // Subscribe to cloud sync events for projects
+  useEffect(() => {
+    return cloudSyncBus.subscribe((event) => {
+      if (event === 'projects') reload();
+    });
+  }, [reload]);
+
   const createProject = useCallback(
     async (data: { name: string; startDate: string; endDate: string; baselineBudget: number }) => {
       const { baselineBudget, ...projectData } = data;
@@ -32,7 +40,7 @@ export function useProjects() {
         reforecasts: [baseline],
         activeReforecastId: baseline.id,
       };
-      await repo.saveProject(project);
+      await repo.createProject(project);
       ensureOriginRef();
       appendToChangeLog({ op: 'add', entity: 'project', id: project.id });
       await reload();

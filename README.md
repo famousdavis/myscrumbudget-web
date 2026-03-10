@@ -23,6 +23,7 @@ npm run build     # Production build
 - **Forecast metrics** — ETC, EAC, variance, budget ratio, weekly burn rate, NPV
 - **SVG charts** — Monthly cost bar chart and cumulative cost line chart with tooltips
 - **Data portability** — JSON export/import for backup and transfer
+- **Cloud storage** — Optional Firebase cloud persistence with real-time sync, Google + Microsoft SSO, and project sharing (owner/editor/viewer roles)
 
 ## Domain Glossary
 
@@ -61,8 +62,9 @@ See `ARCHITECTURE.md` for the complete technical specification, including domain
 - TypeScript (strict mode)
 - Tailwind CSS v4
 - Vitest (test runner)
+- Firebase (optional cloud storage, auth, Firestore)
 - SVG charts (no heavy chart libraries)
-- localStorage (client-side persistence)
+- localStorage (default client-side persistence)
 
 ## License
 

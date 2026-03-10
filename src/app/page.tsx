@@ -57,6 +57,7 @@ export default function DashboardPage() {
               project={project}
               settings={settings}
               pool={pool}
+              isShared={((project as unknown as Record<string, unknown>)._memberCount as number) > 1}
               onDelete={(id) => {
                 const p = projects.find((pr) => pr.id === id);
                 if (p) setDeleteTarget({ id, name: p.name });

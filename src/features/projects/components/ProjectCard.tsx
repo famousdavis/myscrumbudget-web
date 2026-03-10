@@ -13,6 +13,7 @@ interface ProjectCardProps {
   settings?: Settings | null;
   pool: PoolMember[];
   onDelete: (id: string) => void;
+  isShared?: boolean;
   isDragging?: boolean;
   isDragOver?: boolean;
   onDragStart?: (e: React.DragEvent) => void;
@@ -28,6 +29,7 @@ export function ProjectCard({
   settings,
   pool,
   onDelete,
+  isShared,
   isDragging,
   isDragOver,
   onDragStart,
@@ -114,7 +116,14 @@ export function ProjectCard({
           </svg>
         </button>
         <Link href={`/projects/${project.id}`} className="block">
-          <h3 className="pr-6 text-lg font-semibold">{project.name}</h3>
+          <h3 className="pr-6 text-lg font-semibold">
+            {project.name}
+            {isShared && (
+              <span className="ml-2 inline-block rounded bg-blue-100 px-1.5 py-0.5 align-middle text-xs font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                Shared
+              </span>
+            )}
+          </h3>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
             {startLabel} &ndash; {endLabel}
           </p>

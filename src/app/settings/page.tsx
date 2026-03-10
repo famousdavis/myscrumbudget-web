@@ -8,6 +8,7 @@ import { HolidayTable } from '@/features/settings/components/HolidayTable';
 import { ThresholdSettings } from '@/features/settings/components/ThresholdSettings';
 import { DataPortability } from '@/features/settings/components/DataPortability';
 import { ExportAttribution } from '@/features/settings/components/ExportAttribution';
+import { CloudStorageSection } from '@/features/settings/components/CloudStorageSection';
 import { Skeleton } from '@/components/Skeleton';
 
 export default function SettingsPage() {
@@ -48,6 +49,8 @@ export default function SettingsPage() {
           redPercent={settings.trafficLightThresholds.redPercent}
           onUpdate={updateSettings}
         />
+        <hr className="border-zinc-200 dark:border-zinc-800" />
+        <CloudStorageSection />
         <hr className="border-zinc-200 dark:border-zinc-800" />
         <ExportAttribution />
         <hr className="border-zinc-200 dark:border-zinc-800" />

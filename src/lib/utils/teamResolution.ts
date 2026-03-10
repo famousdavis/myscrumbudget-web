@@ -10,12 +10,23 @@ import type { Project, ProjectAssignment, PoolMember, Reforecast, TeamMember } f
 export function resolveAssignments(
   assignments: ProjectAssignment[],
   pool: PoolMember[],
+  teamSnapshot?: Record<string, { name: string; role: string }>,
 ): TeamMember[] {
   const poolMap = new Map(pool.map((pm) => [pm.id, pm]));
 
   return (assignments ?? []).map((assignment) => {
     const pm = poolMap.get(assignment.poolMemberId);
     if (!pm) {
+      // Fallback to _teamSnapshot for shared projects where viewer
+      // doesn't have the team member in their own pool
+      const snap = teamSnapshot?.[assignment.poolMemberId];
+      if (snap) {
+        return {
+          id: assignment.id,
+          name: snap.name,
+          role: snap.role,
+        };
+      }
       console.warn(
         `[resolveAssignments] Pool member not found for assignment "${assignment.id}" (poolMemberId: "${assignment.poolMemberId}"). Rendering as "(Unknown)".`,
       );
