@@ -685,11 +685,13 @@ Public License instead of this License.  But first, please read
 
 -----------------------------------------------------------------------
 
-ADDITIONAL TERMS (per GNU GPL v3, Section 7)
----------------------------------------------
+ADDITIONAL TERMS (per GNU GPL v3, Section 7(b) — Non-Permissive Additional Terms)
+-----------------------------------------------------------------------------------
 
-As permitted under Section 7 of the GNU General Public License v3.0,
-the following additional terms apply to this software:
+As permitted under Section 7(b) of the GNU General Public License v3.0,
+the following terms are NON-PERMISSIVE ADDITIONAL RESTRICTIONS and may
+NOT be removed by downstream recipients when conveying this software or
+modified versions thereof:
 
 a) Attribution Preservation: You must retain, in the source code and
    in any user interface that displays legal notices, the name
