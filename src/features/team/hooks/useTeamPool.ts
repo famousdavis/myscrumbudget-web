@@ -6,17 +6,28 @@ import { repo } from '@/lib/storage/repo';
 import { useDebouncedSave } from '@/hooks/useDebouncedSave';
 import { generateId } from '@/lib/utils/id';
 import { ensureOriginRef, appendToChangeLog } from '@/lib/storage/fingerprint';
+import { cloudSyncBus } from '@/lib/firebase/cloudSyncBus';
 
 export function useTeamPool() {
   const [pool, setPool] = useState<PoolMember[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    repo.getTeamPool().then((p) => {
-      setPool(p);
-      setLoading(false);
-    });
+  const reload = useCallback(async () => {
+    const p = await repo.getTeamPool();
+    setPool(p);
+    setLoading(false);
   }, []);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
+
+  // Subscribe to cloud sync events for team pool
+  useEffect(() => {
+    return cloudSyncBus.subscribe((event) => {
+      if (event === 'teamPool') reload();
+    });
+  }, [reload]);
 
   const { save: persist, flush } = useDebouncedSave<PoolMember[]>((p) => repo.saveTeamPool(p));
 

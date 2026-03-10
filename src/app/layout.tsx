@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { Sidebar } from '@/components/Sidebar';
 import { MigrationGuard } from '@/components/MigrationGuard';
+import { AuthProvider } from '@/components/AuthProvider';
+import { CloudSyncProvider } from '@/components/CloudSyncProvider';
 import { Footer } from '@/components/Footer';
 import { ToastProvider } from '@/components/Toast';
 import './globals.css';
@@ -49,7 +51,7 @@ export default function RootLayout({
         <div className="flex min-h-screen">
           <Sidebar />
           <main id="main-content" className="min-w-0 flex-1 p-8 pt-16 md:pt-8">
-            <MigrationGuard><ToastProvider>{children}</ToastProvider></MigrationGuard>
+            <MigrationGuard><AuthProvider><CloudSyncProvider><ToastProvider>{children}</ToastProvider></CloudSyncProvider></AuthProvider></MigrationGuard>
             <Footer />
           </main>
         </div>

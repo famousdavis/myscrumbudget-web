@@ -713,9 +713,7 @@ src/
 
 ### Deferred (Future)
 - XLSX timecard import (with project alias mapping)
-- Traffic-light dashboard
-- Database backend
-- Multi-user support
+- Database backend (beyond Firestore)
 
 ---
 
@@ -999,6 +997,44 @@ Delivered:
 - **Quick Reference Guide section** on About page with download button linking to GitHub-hosted PDF
 - PDF hosted on GitHub main branch (not bundled with Vercel deployment) — same pattern as GanttApp
 - 548 passing tests across 34 test files (unchanged)
+
+### v0.16.0 Firebase Cloud Storage — COMPLETE
+**Goal**: Add optional Firebase cloud storage alongside existing localStorage persistence
+
+Delivered:
+- **Firebase Auth** — Google + Microsoft SSO via `AuthProvider` context (`src/components/AuthProvider.tsx`)
+- **Firestore Repository** — Full `Repository` interface implementation against Firestore (`src/lib/storage/firestoreRepo.ts`), monolithic project documents (~500KB, well under 1MB limit)
+- **Delegating repo wrapper** — `repo.ts` transformed into a proxy that delegates to whichever implementation is active via `switchRepoImpl()`, zero hook refactoring needed
+- **Real-time cloud sync** — `onSnapshot` listeners emit events on a lightweight pub/sub event bus (`cloudSyncBus.ts`); hooks subscribe and re-fetch from repo
+- **Echo prevention** — skip `onSnapshot` callbacks where `hasPendingWrites === true`
+- **Cloud Storage section in Settings** — Local/Cloud radio toggle, sign-in buttons, migration dialog with "Don't Upload" path, optional local data cleanup
+- **Project sharing** — owners can add/remove members by email with role-based access (owner/editor/viewer); "Shared" badge on dashboard
+- **`_teamSnapshot`** — embedded pool member names/roles in Firestore project docs for shared viewers who don't have those team members in their own pool
+- **Fingerprinting adaptation** — Firebase UID used for `_originRef` and `_storageRef` in cloud mode
+- **Debounced save hardening** — `cancel()` method added to `useDebouncedSave` hook
+- **HMR-safe Firebase init** — `try initializeFirestore() / catch getFirestore()` with `memoryLocalCache()`
+- **Data-loss guards** — empty cloud results never overwrite non-empty local data
+- **Firestore security rules** — `myscrumbudget_projects`, `myscrumbudget_profiles`, `myscrumbudget_settings` with membership-based access control
+- **CSP headers** — Firebase domains in script-src, frame-src, connect-src via `next.config.ts`
+- **Separate `createProject` vs `saveProject`** — only `createProject` sets owner/members; `saveProject` uses `merge:true`
+- 13 bug prevention patterns from 4 completed SPERT suite migrations incorporated
+- 568 passing tests across 38 test files
+
+**New files:**
+- `src/lib/firebase/config.ts` — Firebase initialization
+- `src/lib/firebase/auth.ts` — Auth functions
+- `src/lib/firebase/errors.ts` — Error message mapping
+- `src/lib/firebase/cloudSyncBus.ts` — Pub/sub event bus
+- `src/lib/firebase/sharing.ts` — Project sharing functions
+- `src/lib/storage/firestoreRepo.ts` — Firestore Repository implementation
+- `src/lib/storage/storageMode.ts` — Storage mode persistence
+- `src/components/AuthProvider.tsx` — Auth React context
+- `src/components/CloudSyncProvider.tsx` — Cloud sync wrapper
+- `src/hooks/useCloudSync.ts` — onSnapshot listener management
+- `src/features/settings/components/CloudStorageSection.tsx` — Cloud storage UI
+- `src/features/projects/components/SharingSection.tsx` — Project sharing UI
+- `firestore.rules` — Firestore security rules
+- `firebase.json` — Firebase project config
 
 ---
 
@@ -1613,8 +1649,8 @@ This architecture document provides:
 2. **Clean TypeScript domain model** with global team pool + project assignments
 3. **Repository pattern** with shared singleton and migration support
 4. **Feature-based folder structure** optimized for solo maintenance
-5. **Incremental build plan** with testable milestones (Sprints 1–17 complete)
-6. **Pure calculation functions** with 437 unit tests
+5. **Incremental build plan** with testable milestones (Sprints 1–18+ complete, v0.16.0)
+6. **Pure calculation functions** with 568 unit tests across 38 test files
 7. **Golden-file parity tests** ensuring spreadsheet accuracy
 
 Key design decisions:

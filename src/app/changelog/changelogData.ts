@@ -9,6 +9,74 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.16.0',
+    date: '2026-03-10',
+    sections: [
+      {
+        title: 'New Feature: Firebase Cloud Storage',
+        items: [
+          'Optional cloud storage via Firebase Firestore — sync data across devices and browsers',
+          'Firebase Authentication with Google and Microsoft SSO sign-in',
+          'Cloud Storage section in Settings — toggle between Local and Cloud modes with one-click migration',
+          'Local-to-cloud migration with upload confirmation, cleanup prompt, and re-upload detection',
+          'Real-time sync via Firestore onSnapshot — changes propagate across browser tabs automatically',
+          'Project sharing — owners can invite editors and viewers by email address',
+          '"Shared" badge on dashboard project cards for projects with multiple members',
+          'Team snapshot embedding — shared project viewers see correct team member names without needing them in their pool',
+        ],
+      },
+      {
+        title: 'Architecture',
+        items: [
+          'Delegating repository wrapper — repo.ts forwards calls to active implementation (local or cloud) with zero hook refactoring',
+          'Firestore repository implementing full Repository interface with merge-safe saves and ownership-aware creates',
+          'Cloud sync event bus (cloudSyncBus) for decoupled real-time update propagation',
+          'Echo prevention via hasPendingWrites in onSnapshot listeners',
+          'HMR-safe Firebase initialization with memoryLocalCache',
+          'User-friendly Firebase error mapping (sanitizeFirebaseError)',
+          'Storage mode persistence (msb:storageMode localStorage key)',
+          'Separate createProject vs saveProject — only createProject sets owner/members fields',
+        ],
+      },
+      {
+        title: 'New Files',
+        items: [
+          'src/lib/firebase/config.ts — Firebase initialization with HMR guard',
+          'src/lib/firebase/auth.ts — Authentication (Google, Microsoft SSO, profile management)',
+          'src/lib/firebase/errors.ts — Error code to user-friendly message mapping',
+          'src/lib/firebase/cloudSyncBus.ts — Pub/sub event bus for real-time sync',
+          'src/lib/firebase/sharing.ts — Project member management (add/remove by email)',
+          'src/lib/storage/firestoreRepo.ts — Full Firestore Repository implementation',
+          'src/lib/storage/storageMode.ts — Storage mode getter/setter',
+          'src/components/AuthProvider.tsx — React context for Firebase auth state',
+          'src/components/CloudSyncProvider.tsx — Activates onSnapshot listeners',
+          'src/hooks/useCloudSync.ts — Firestore real-time subscription management',
+          'src/features/settings/components/CloudStorageSection.tsx — Cloud storage UI in Settings',
+          'src/features/projects/components/SharingSection.tsx — Project sharing UI',
+          'firestore.rules — Firestore security rules for spert-suite project',
+          'firebase.json — Firebase project configuration',
+        ],
+      },
+      {
+        title: 'Bug Prevention',
+        items: [
+          'Incorporated 13 critical bug prevention patterns from 4 completed SPERT suite migrations',
+          'Data-loss guard: empty cloud results never overwrite non-empty local data',
+          'Debounced save cancel() method added alongside existing flush()',
+          'Collision detection during import with try/catch for PERMISSION_DENIED on non-existent docs',
+          'CSP headers updated for Firebase domains (script-src, frame-src, connect-src)',
+        ],
+      },
+      {
+        title: 'Testing',
+        items: [
+          '568 passing tests across 38 test files (+20 tests, +4 test files)',
+          'New test files: sanitizeFirebaseError, cloudSyncBus, storageMode, delegating repo wrapper',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.15.2',
     date: '2026-03-09',
     sections: [

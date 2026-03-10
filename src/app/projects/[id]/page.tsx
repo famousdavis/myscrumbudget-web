@@ -20,6 +20,7 @@ import { MonthlyCostBarChart } from '@/components/charts/MonthlyCostBarChart';
 import { CumulativeCostLineChart } from '@/components/charts/CumulativeCostLineChart';
 import { CostByPeriodTable } from '@/components/CostByPeriodTable';
 import { generateMonthRange } from '@/lib/utils/dates';
+import { SharingSection } from '@/features/projects/components/SharingSection';
 import { SkeletonProjectDetail } from '@/components/Skeleton';
 
 export default function ProjectDetailPage({
@@ -207,6 +208,11 @@ export default function ProjectDetailPage({
           </div>
         </div>
       )}
+
+      {/* Sharing (cloud mode, owner only) */}
+      <div className="mt-8">
+        <SharingSection projectId={project.id} />
+      </div>
 
       {showDelete && (
         <ConfirmDialog

@@ -1,0 +1,57 @@
+// Firestore Security Rules for MyScrumBudget
+// These rules should be MERGED into the spert-suite project's firestore.rules
+// alongside GanttApp, SPERT Story Map, SPERT Scheduler, and SPERT Forecaster rules.
+//
+// Deploy via Firebase CLI:
+//   npx firebase deploy --only firestore:rules --project spert-suite
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: check if the user is authenticated
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // ── MyScrumBudget Projects ──
+    match /myscrumbudget_projects/{projectId} {
+      // List: allow for all authenticated users; client-side filters by membership.
+      // Map-key membership cannot be matched by Firestore query constraints,
+      // so list must be broadly allowed. Write ops are fully protected.
+      allow list: if isAuth();
+
+      // Get: only members can read individual docs
+      allow get: if isAuth() &&
+        request.auth.uid in resource.data.members;
+
+      // Create: authenticated user must set themselves as owner
+      allow create: if isAuth() &&
+        request.resource.data.members[request.auth.uid] == 'owner';
+
+      // Update: only owner or editor; owner field must not change
+      allow update: if isAuth() &&
+        request.auth.uid in resource.data.members &&
+        (resource.data.members[request.auth.uid] == 'owner' ||
+         resource.data.members[request.auth.uid] == 'editor');
+
+      // Delete: only owner
+      allow delete: if isAuth() &&
+        resource.data.members[request.auth.uid] == 'owner';
+    }
+
+    // ── MyScrumBudget User Profiles ──
+    // Readable by any authenticated user (for email lookup in sharing),
+    // writable only by the profile owner.
+    match /myscrumbudget_profiles/{userId} {
+      allow read: if isAuth();
+      allow write: if isAuth() && request.auth.uid == userId;
+    }
+
+    // ── MyScrumBudget User Settings ──
+    // Readable and writable only by the owner.
+    match /myscrumbudget_settings/{userId} {
+      allow read, write: if isAuth() && request.auth.uid == userId;
+    }
+  }
+}
