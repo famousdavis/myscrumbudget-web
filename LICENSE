@@ -1,3 +1,13 @@
+Statistical PERT® Software Suite
+Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
+Original author: William W. Davis, MSPM, PMP
+Project repository: https://github.com/famousdavis/myscrumbudget-web
+
+This software is licensed under the GNU General Public License v3.0.
+See full license text below.
+
+-----------------------------------------------------------------------
+
                     GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007
 
@@ -672,3 +682,23 @@ may consider it more useful to permit linking proprietary applications with
 the library.  If this is what you want to do, use the GNU Lesser General
 Public License instead of this License.  But first, please read
 <https://www.gnu.org/licenses/why-not-lgpl.html>.
+
+-----------------------------------------------------------------------
+
+ADDITIONAL TERMS (per GNU GPL v3, Section 7)
+---------------------------------------------
+
+As permitted under Section 7 of the GNU General Public License v3.0,
+the following additional terms apply to this software:
+
+a) Attribution Preservation: You must retain, in the source code and
+   in any user interface that displays legal notices, the name
+   "William W. Davis, MSPM, PMP" as the original author of this
+   software. You may not remove, obscure, or replace this attribution
+   with another name.
+
+b) UI Notice Preservation: Any modified version of this software that
+   includes a user interface must display, in a visible and accessible
+   location (such as an About screen or application footer), a notice
+   that the original work was authored by William W. Davis, MSPM, PMP,
+   along with a link to the original repository if feasible.

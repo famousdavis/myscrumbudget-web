@@ -1,3 +1,7 @@
+// Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
+// Licensed under the GNU General Public License v3.0.
+// See LICENSE file in the project root for full license text.
+
 export interface ChangelogEntry {
   version: string;
   date: string;
@@ -8,6 +12,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '0.16.3',
+    date: '2026-03-10',
+    sections: [
+      {
+        title: 'Copyright & Attribution',
+        items: [
+          'Added copyright headers to all 134 source files (TS, TSX, CSS, MJS) with appropriate comment syntax per file type',
+          'Added author attribution block to top of LICENSE file — identifies William W. Davis, MSPM, PMP as original author with repository link',
+          'Appended Section 7 additional terms to LICENSE — attribution preservation and UI notice preservation requirements per GNU GPL v3',
+          'Added Copyright & Attribution Standing Instructions to CLAUDE.md — ensures all future sessions maintain copyright headers on new files',
+        ],
+      },
+    ],
+  },
   {
     version: '0.16.2',
     date: '2026-03-10',
