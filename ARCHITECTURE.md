@@ -1058,6 +1058,16 @@ Delivered:
 - **Dependency vulnerabilities patched** — minimatch (ReDoS), rollup (path traversal), ajv (ReDoS)
 - 584 passing tests across 39 test files
 
+### v0.16.3 Copyright Attribution & About Page — COMPLETE
+**Goal**: Harden copyright attribution across all source files; update About page for cloud storage
+
+Delivered:
+- **Copyright headers** on all 134 source files (TS, TSX, CSS, MJS) with appropriate comment syntax per file type
+- **LICENSE attribution block** at top — identifies William W. Davis, MSPM, PMP as original author with repository link
+- **LICENSE Section 7 terms** — non-permissive additional restrictions per GPL v3 §7(b) for attribution and UI notice preservation
+- **About page updated** — "Your Data & Privacy" section replaced with "Your Data & Storage" documenting Local Storage (default), Cloud Storage (optional), and Import & Export subsections, matching the pattern used across the SPERT suite
+- 584 passing tests across 39 test files
+
 ---
 
 ## Part 8: TypeScript Calculation Functions

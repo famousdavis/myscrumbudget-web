@@ -25,6 +25,13 @@ export const CHANGELOG: ChangelogEntry[] = [
           'Added Copyright & Attribution Standing Instructions to CLAUDE.md — ensures all future sessions maintain copyright headers on new files',
         ],
       },
+      {
+        title: 'About Page',
+        items: [
+          'Updated "Your Data & Privacy" section to "Your Data & Storage" — now documents both Local Storage (default) and Cloud Storage (optional) modes, matching the pattern used across the SPERT suite',
+          'Added Import & Export subsection for clearer data portability guidance',
+        ],
+      },
     ],
   },
   {

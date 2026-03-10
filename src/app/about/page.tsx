@@ -67,22 +67,35 @@ export default function AboutPage() {
           </div>
         </section>
 
-        {/* Your Data & Privacy */}
+        {/* Your Data & Storage */}
         <section>
           <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">
-            Your Data &amp; Privacy
+            Your Data &amp; Storage
           </h2>
-          <ul className="mt-2 list-disc space-y-1 pl-6">
-            <li>All data is stored locally in your browser (localStorage)</li>
-            <li><strong>Your data never leaves your device</strong> — there are no external databases or APIs</li>
-            <li>No third-party analytics or tracking</li>
+          <p className="mt-2">
+            MyScrumBudget<sup className="text-[7px] text-zinc-400 dark:text-zinc-500">TM</sup> offers
+            two storage modes, configurable in Settings:
+          </p>
+
+          <h3 className="mt-4 font-semibold text-zinc-700 dark:text-zinc-300">Local Storage (Default)</h3>
+          <ul className="mt-1 list-disc space-y-1 pl-6">
+            <li>Data is stored in your <strong>browser&apos;s localStorage</strong> and never leaves your device</li>
+            <li>No external servers, no third-party access, no data governance concerns</li>
             <li>Safe for corporate and sensitive project data</li>
-            <li>Use Settings &rarr; Export to back up your data as a JSON file</li>
-            <li>Use Settings &rarr; Import to restore data from a backup</li>
-            <li>
-              <strong>Important:</strong> Clearing your browser cache or site data will permanently
-              delete all stored projects and settings. Export your data regularly.
-            </li>
+            <li><strong>Note:</strong> Clearing your browser cache or site data will delete all stored projects unless you&apos;ve exported a backup</li>
+          </ul>
+
+          <h3 className="mt-4 font-semibold text-zinc-700 dark:text-zinc-300">Cloud Storage (Optional)</h3>
+          <ul className="mt-1 list-disc space-y-1 pl-6">
+            <li>Sign in with <strong>Google</strong> or <strong>Microsoft</strong> to sync projects across devices</li>
+            <li>Share projects with collaborators (owner, editor, and viewer roles)</li>
+            <li>Data is stored in Firebase/Firestore — encrypted in transit and at rest</li>
+          </ul>
+
+          <h3 className="mt-4 font-semibold text-zinc-700 dark:text-zinc-300">Import &amp; Export</h3>
+          <ul className="mt-1 list-disc space-y-1 pl-6">
+            <li>Use Settings &rarr; <strong>Export</strong> to back up your data as a JSON file</li>
+            <li>Use Settings &rarr; <strong>Import</strong> to restore from a backup</li>
           </ul>
         </section>
 
