@@ -42,16 +42,58 @@ export default function DashboardPage() {
           ))}
         </div>
       ) : projects.length === 0 ? (
-        <div className="mt-12 text-center">
-          <p className="text-zinc-500 dark:text-zinc-400">
-            No projects yet. Create your first project to get started.
+        <div className="mx-auto mt-12 max-w-lg rounded-lg border border-dashed border-zinc-300 p-8 dark:border-zinc-700">
+          <h2 className="text-center text-lg font-semibold">Getting Started</h2>
+          <p className="mt-1 text-center text-sm text-zinc-500 dark:text-zinc-400">
+            Follow these steps to set up your first project.
           </p>
-          <Link
-            href="/projects/new"
-            className="mt-4 inline-block rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            Create Project
-          </Link>
+          <ol className="mt-6 space-y-5">
+            <li className="flex items-start gap-3">
+              <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${settings && settings.laborRates.length > 0 ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'}`}>
+                {settings && settings.laborRates.length > 0 ? '\u2713' : '1'}
+              </span>
+              <div>
+                <Link href="/settings" className="text-sm font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                  Review Labor Rates
+                </Link>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                  Customize roles and hourly rates in Settings. Default rates are provided.
+                </p>
+              </div>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${pool.length > 0 ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'}`}>
+                {pool.length > 0 ? '\u2713' : '2'}
+              </span>
+              <div>
+                <Link href="/team" className="text-sm font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                  Build Your Team Pool
+                </Link>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                  Add team members and assign their roles. You&apos;ll pick from this pool when staffing projects.
+                </p>
+              </div>
+            </li>
+            <li className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xs font-bold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
+                3
+              </span>
+              <div>
+                <Link href="/projects/new" className="text-sm font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                  Create Your First Project
+                </Link>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                  Set up a project with start/end dates, then assign team members from your pool.
+                </p>
+                <Link
+                  href="/projects/new"
+                  className="mt-2 inline-block rounded bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+                >
+                  Create Project
+                </Link>
+              </div>
+            </li>
+          </ol>
         </div>
       ) : (
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

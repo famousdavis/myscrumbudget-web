@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.17.1',
+    date: '2026-03-10',
+    sections: [
+      {
+        title: 'UX',
+        items: [
+          'Dashboard empty state replaced with a 3-step Getting Started guide — directs new users to (1) review labor rates in Settings, (2) build the Team Pool, (3) create their first project',
+          'Steps show a green checkmark when complete (labor rates configured, team members added)',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.17.0',
     date: '2026-03-10',
     sections: [
