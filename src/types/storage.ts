@@ -11,4 +11,5 @@ export const STORAGE_KEYS = {
   originRef: 'msb:originRef',
   changeLog: 'msb:changeLog',
   exportAttribution: 'msb:exportAttribution',
+  ratesReviewed: 'msb:ratesReviewed',
 } as const;

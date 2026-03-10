@@ -10,15 +10,20 @@ interface CollapsibleSectionProps {
   title: string;
   count?: number;
   children: React.ReactNode;
+  onOpen?: () => void;
 }
 
-export function CollapsibleSection({ title, count, children }: CollapsibleSectionProps) {
+export function CollapsibleSection({ title, count, children, onOpen }: CollapsibleSectionProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
     <div>
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          const next = !isOpen;
+          setIsOpen(next);
+          if (next && onOpen) onOpen();
+        }}
         className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300"
       >
         <span

@@ -4,9 +4,10 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import type { Settings, LaborRate } from '@/types/domain';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
+import { STORAGE_KEYS } from '@/types/storage';
 
 interface RateTableProps {
   rates: LaborRate[];
@@ -66,8 +67,12 @@ export function RateTable({ rates, onUpdate }: RateTableProps) {
     setEditingRole(null);
   };
 
+  const handleRatesOpen = useCallback(() => {
+    try { localStorage.setItem(STORAGE_KEYS.ratesReviewed, '1'); } catch { /* quota */ }
+  }, []);
+
   return (
-    <CollapsibleSection title="Labor Rate Table" count={rates.length}>
+    <CollapsibleSection title="Labor Rate Table" count={rates.length} onOpen={handleRatesOpen}>
       <table className="w-full max-w-md text-sm">
         <thead>
           <tr className="border-b border-zinc-200 dark:border-zinc-700">

@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useProjects } from '@/features/projects/hooks/useProjects';
 import { useSettings } from '@/features/settings/hooks/useSettings';
@@ -14,6 +14,7 @@ import { ProjectCard } from '@/features/projects/components/ProjectCard';
 import { ConfirmDialog } from '@/components/BaseDialog';
 import { useToast } from '@/components/Toast';
 import { SkeletonProjectCard } from '@/components/Skeleton';
+import { STORAGE_KEYS } from '@/types/storage';
 
 export default function DashboardPage() {
   const { projects, loading, deleteProject, reorderProjects } = useProjects();
@@ -21,6 +22,10 @@ export default function DashboardPage() {
   const { pool } = useTeamPool();
   const { addToast } = useToast();
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [ratesReviewed, setRatesReviewed] = useState(false);
+  useEffect(() => {
+    setRatesReviewed(localStorage.getItem(STORAGE_KEYS.ratesReviewed) === '1');
+  }, []);
   const drag = useDragReorder(projects, 'id', reorderProjects);
 
   return (
@@ -49,8 +54,8 @@ export default function DashboardPage() {
           </p>
           <ol className="mt-6 space-y-5">
             <li className="flex items-start gap-3">
-              <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${settings && settings.laborRates.length > 0 ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'}`}>
-                {settings && settings.laborRates.length > 0 ? '\u2713' : '1'}
+              <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${ratesReviewed ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'}`}>
+                {ratesReviewed ? '\u2713' : '1'}
               </span>
               <div>
                 <Link href="/settings" className="text-sm font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
