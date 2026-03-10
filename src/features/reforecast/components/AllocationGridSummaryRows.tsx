@@ -9,12 +9,14 @@ interface AllocationGridSummaryRowsProps {
   months: string[];
   monthlyData: MonthlyCalculation[];
   hasRowControls: boolean;
+  mutedMonths: Set<string>;
 }
 
 export function AllocationGridSummaryRows({
   months,
   monthlyData,
   hasRowControls,
+  mutedMonths,
 }: AllocationGridSummaryRowsProps) {
   if (monthlyData.length === 0) return null;
 
@@ -26,10 +28,11 @@ export function AllocationGridSummaryRows({
         </td>
         {months.map((month) => {
           const md = monthlyData.find((d) => d.month === month);
+          const isMuted = mutedMonths.has(month);
           return (
             <td
               key={`cost-${month}`}
-              className="border border-zinc-200 bg-zinc-50 px-2 py-1 text-center text-sm font-medium whitespace-nowrap dark:border-zinc-700 dark:bg-zinc-900"
+              className={`border border-zinc-200 bg-zinc-50 px-2 py-1 text-center text-sm font-medium whitespace-nowrap dark:border-zinc-700 dark:bg-zinc-900${isMuted ? ' text-zinc-300 dark:text-zinc-600' : ''}`}
             >
               {md ? formatCurrency(md.cost) : ''}
             </td>
@@ -45,10 +48,11 @@ export function AllocationGridSummaryRows({
         </td>
         {months.map((month) => {
           const md = monthlyData.find((d) => d.month === month);
+          const isMuted = mutedMonths.has(month);
           return (
             <td
               key={`hours-${month}`}
-              className="border border-zinc-200 bg-zinc-50 px-2 py-1 text-center text-sm font-medium whitespace-nowrap dark:border-zinc-700 dark:bg-zinc-900"
+              className={`border border-zinc-200 bg-zinc-50 px-2 py-1 text-center text-sm font-medium whitespace-nowrap dark:border-zinc-700 dark:bg-zinc-900${isMuted ? ' text-zinc-300 dark:text-zinc-600' : ''}`}
             >
               {md ? Math.round(md.hours) : ''}
             </td>

@@ -159,6 +159,7 @@ export default function ProjectDetailPage({
             pool={pool}
             monthlyData={metrics?.monthlyData}
             productivityWindows={productivityWindows}
+            actualsThroughDate={actualsThroughDate}
           />
         </div>
       </div>

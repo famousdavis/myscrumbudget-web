@@ -11,6 +11,7 @@ import { ConfirmDialog } from '@/components/BaseDialog';
 import type { AllocationMap } from '@/lib/calc/allocationMap';
 import { getAllocation } from '@/lib/calc/allocationMap';
 import { useDragReorder } from '@/hooks/useDragReorder';
+import { getEtcStartDate } from '@/lib/utils/dates';
 import type { CellCoord, SelectionRange, FillDragState } from '../lib/gridHelpers';
 import {
   normalizeRange,
@@ -38,6 +39,7 @@ interface AllocationGridProps {
   readonly?: boolean;
   monthlyData?: MonthlyCalculation[];
   productivityWindows?: ProductivityWindow[];
+  actualsThroughDate?: string;
 }
 
 export function AllocationGrid({
@@ -53,6 +55,7 @@ export function AllocationGrid({
   readonly = false,
   monthlyData,
   productivityWindows,
+  actualsThroughDate,
 }: AllocationGridProps) {
   const [selection, setSelection] = useState<SelectionRange | null>(null);
   const [editingCell, setEditingCell] = useState<CellCoord | null>(null);
@@ -70,6 +73,12 @@ export function AllocationGrid({
     [onReorder],
   );
   const rowDrag = useDragReorder(teamMembers, 'id', rowReorderCallback);
+  const mutedMonths = useMemo(() => {
+    if (!actualsThroughDate) return new Set<string>();
+    const etcMonth = getEtcStartDate(actualsThroughDate).slice(0, 7);
+    return new Set(months.filter(m => m < etcMonth));
+  }, [actualsThroughDate, months]);
+
   const gridRef = useRef<HTMLTableElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const mousePositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -429,6 +438,7 @@ export function AllocationGrid({
                   : {}
               }
               canReorder={!!onReorder}
+              mutedMonths={mutedMonths}
             />
           ))}
           {monthlyData && monthlyData.length > 0 && (
@@ -436,6 +446,7 @@ export function AllocationGrid({
               months={months}
               monthlyData={monthlyData}
               hasRowControls={hasRowControls}
+              mutedMonths={mutedMonths}
             />
           )}
           <AllocationGridAddRow

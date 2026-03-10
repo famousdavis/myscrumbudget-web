@@ -46,6 +46,7 @@ interface AllocationGridRowProps {
     onDragEnd?: () => void;
   };
   canReorder: boolean;
+  mutedMonths: Set<string>;
 }
 
 export function AllocationGridRow({
@@ -74,6 +75,7 @@ export function AllocationGridRow({
   isDragOver,
   dragHandlers,
   canReorder,
+  mutedMonths,
 }: AllocationGridRowProps) {
   return (
     <tr
@@ -119,6 +121,7 @@ export function AllocationGridRow({
           rowIdx,
           colIdx,
         );
+        const isMuted = mutedMonths.has(month);
 
         const displayText = pctValue > 0 ? `${pctValue}%` : '';
 
@@ -133,7 +136,7 @@ export function AllocationGridRow({
           `relative border border-zinc-200 p-0 dark:border-zinc-700${needsElevation ? ' z-20' : ''}`;
 
         if (!isInFillPreview) {
-          cellClasses += ` ${getAllocationColor(value)}`;
+          cellClasses += isMuted ? '' : ` ${getAllocationColor(value)}`;
         }
 
         if (isSelected && !isEditing) {
@@ -147,11 +150,15 @@ export function AllocationGridRow({
           cellClasses += ' bg-blue-200/60 dark:bg-blue-700/60';
         }
 
+        const textClasses = isMuted
+          ? 'px-2 py-1 text-center text-sm whitespace-nowrap text-zinc-300 dark:text-zinc-600'
+          : 'px-2 py-1 text-center text-sm whitespace-nowrap';
+
         if (readonly) {
           return (
             <td
               key={`${member.id}-${month}`}
-              className={`border border-zinc-200 px-2 py-1 text-center text-sm dark:border-zinc-700 ${getAllocationColor(value)}`}
+              className={`border border-zinc-200 px-2 py-1 text-center text-sm dark:border-zinc-700 ${isMuted ? 'text-zinc-300 dark:text-zinc-600' : getAllocationColor(value)}`}
             >
               {displayText}
             </td>
@@ -184,7 +191,7 @@ export function AllocationGridRow({
                 className="absolute inset-0 z-10 bg-white text-center text-sm outline-none dark:bg-zinc-950"
               />
             ) : (
-              <div className="px-2 py-1 text-center text-sm whitespace-nowrap">
+              <div className={textClasses}>
                 {displayText}
               </div>
             )}
