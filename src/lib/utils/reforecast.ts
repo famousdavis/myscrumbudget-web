@@ -55,5 +55,6 @@ export function createNewReforecast(
       : [],
     actualCost: source ? source.actualCost : 0,
     baselineBudget: source ? source.baselineBudget : 0,
+    ...(source?.actualsThroughDate ? { actualsThroughDate: source.actualsThroughDate } : {}),
   };
 }

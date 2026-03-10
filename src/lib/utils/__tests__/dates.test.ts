@@ -10,6 +10,7 @@ import {
   nextBusinessDay,
   countWorkdays,
   getMonthlyWorkHours,
+  getEtcStartDate,
 } from '../dates';
 import type { Holiday } from '@/types/domain';
 
@@ -252,5 +253,75 @@ describe('getMonthlyWorkHours', () => {
     const result = getMonthlyWorkHours('2026-06', '2026-06-15', '2026-06-16', holidays);
     expect(result).toBe(0);
     expect(result).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('getEtcStartDate', () => {
+  it('returns the next calendar day', () => {
+    expect(getEtcStartDate('2026-07-15')).toBe('2026-07-16');
+  });
+
+  it('handles month boundary', () => {
+    expect(getEtcStartDate('2026-07-31')).toBe('2026-08-01');
+  });
+
+  it('handles year boundary', () => {
+    expect(getEtcStartDate('2026-12-31')).toBe('2027-01-01');
+  });
+
+  it('handles end of February (non-leap year)', () => {
+    expect(getEtcStartDate('2027-02-28')).toBe('2027-03-01');
+  });
+
+  it('handles leap year February', () => {
+    expect(getEtcStartDate('2028-02-29')).toBe('2028-03-01');
+  });
+});
+
+describe('getMonthlyWorkHours with etcStartDate', () => {
+  it('returns 0 for months entirely before etcStartDate', () => {
+    // Project spans all of 2026, etcStartDate is Aug 1 (day after Jul 31 cutoff)
+    expect(getMonthlyWorkHours('2026-06', '2026-01-01', '2026-12-31', [], '2026-08-01')).toBe(0);
+    expect(getMonthlyWorkHours('2026-07', '2026-01-01', '2026-12-31', [], '2026-08-01')).toBe(0);
+  });
+
+  it('prorates the cutoff month from etcStartDate forward', () => {
+    // July 2026, etcStartDate is Jul 16 (Thu)
+    // Jul 16-31: Thu Fri, Mon-Fri, Mon-Fri, Mon-Fri = 12 workdays
+    expect(getMonthlyWorkHours('2026-07', '2026-01-01', '2026-12-31', [], '2026-07-16')).toBe(96); // 12 * 8
+  });
+
+  it('does not affect months after etcStartDate', () => {
+    const without = getMonthlyWorkHours('2026-08', '2026-01-01', '2026-12-31');
+    const withCutoff = getMonthlyWorkHours('2026-08', '2026-01-01', '2026-12-31', [], '2026-07-16');
+    expect(withCutoff).toBe(without);
+  });
+
+  it('returns 0 when etcStartDate is after month end', () => {
+    expect(getMonthlyWorkHours('2026-06', '2026-01-01', '2026-12-31', [], '2026-08-01')).toBe(0);
+  });
+
+  it('works with holidays and etcStartDate combined', () => {
+    // July 2026, etcStartDate is Jul 16, holiday on Jul 20 (Monday)
+    const holidays: Holiday[] = [
+      { id: 'h1', name: 'Test', startDate: '2026-07-20', endDate: '2026-07-20' },
+    ];
+    const result = getMonthlyWorkHours('2026-07', '2026-01-01', '2026-12-31', holidays, '2026-07-16');
+    // 12 workdays - 1 holiday = 11 * 8 = 88
+    expect(result).toBe(88);
+  });
+
+  it('respects project start date when later than etcStartDate', () => {
+    // Project starts Jul 20, etcStartDate is Jul 16
+    // effectiveStart should be Jul 20 (project start is later)
+    const result = getMonthlyWorkHours('2026-07', '2026-07-20', '2026-12-31', [], '2026-07-16');
+    const baseline = getMonthlyWorkHours('2026-07', '2026-07-20', '2026-12-31');
+    expect(result).toBe(baseline);
+  });
+
+  it('returns 0 when etcStartDate is last day of month + 1 (next month)', () => {
+    // Actuals through Jun 30 → etcStartDate = Jul 1
+    // June should return 0
+    expect(getMonthlyWorkHours('2026-06', '2026-01-01', '2026-12-31', [], '2026-07-01')).toBe(0);
   });
 });

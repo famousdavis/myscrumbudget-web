@@ -390,4 +390,129 @@ describe('Edge Cases', () => {
       expect(getProductivityFactor('2026-06', [])).toBe(1.0);
     });
   });
+
+  describe('Actuals Through Date cutoff', () => {
+    it('zeroes out pre-cutoff months and prorates cutoff month', () => {
+      // Project: Jun 1 – Jul 31, 2026
+      // Actuals through Jun 30 → ETC starts Jul 1 → June is fully zeroed
+      const rf = makeReforecast({
+        allocations: [
+          { memberId: 'a1', month: '2026-06', allocation: 1.0 },
+          { memberId: 'a1', month: '2026-07', allocation: 1.0 },
+        ],
+        actualCost: 50000,
+        baselineBudget: 100000,
+        actualsThroughDate: '2026-06-30',
+      });
+      const project = makeProject({
+        startDate: '2026-06-01',
+        endDate: '2026-07-31',
+        reforecasts: [rf],
+        activeReforecastId: rf.id,
+      });
+
+      const metrics = calculateProjectMetrics(project, SETTINGS, TEAM);
+
+      // June should be zeroed (etcStartDate = Jul 1 > Jun 30)
+      expect(metrics.monthlyData[0].cost).toBe(0);
+      expect(metrics.monthlyData[0].hours).toBe(0);
+
+      // July: 23 workdays * 8 * 100 = 18,400
+      expect(metrics.monthlyData[1].cost).toBe(18400);
+
+      // ETC = only July
+      expect(metrics.etc).toBe(18400);
+      // EAC = 50,000 + 18,400
+      expect(metrics.eac).toBe(68400);
+    });
+
+    it('prorates mid-month cutoff', () => {
+      // Single-month project: Jul 1 – Jul 31
+      // Actuals through Jul 15 → etcStartDate = Jul 16 (Thursday)
+      // Jul 16-31: 12 workdays * 8 * 100 = 9,600
+      const rf = makeReforecast({
+        allocations: [
+          { memberId: 'a1', month: '2026-07', allocation: 1.0 },
+        ],
+        actualCost: 30000,
+        baselineBudget: 50000,
+        actualsThroughDate: '2026-07-15',
+      });
+      const project = makeProject({
+        startDate: '2026-07-01',
+        endDate: '2026-07-31',
+        reforecasts: [rf],
+        activeReforecastId: rf.id,
+      });
+
+      const metrics = calculateProjectMetrics(project, SETTINGS, TEAM);
+      expect(metrics.etc).toBe(9600);
+      expect(metrics.eac).toBe(39600);
+    });
+
+    it('does not affect metrics when actualsThroughDate is undefined', () => {
+      const rf = makeReforecast({
+        allocations: [
+          { memberId: 'a1', month: '2026-06', allocation: 1.0 },
+        ],
+        // no actualsThroughDate
+      });
+      const project = makeProject({
+        startDate: '2026-06-01',
+        endDate: '2026-06-30',
+        reforecasts: [rf],
+        activeReforecastId: rf.id,
+      });
+
+      const metrics = calculateProjectMetrics(project, SETTINGS, TEAM);
+      // Full June: 22 workdays * 8 * 100 = 17,600
+      expect(metrics.etc).toBe(17600);
+    });
+
+    it('returns zero ETC when cutoff is at or after project end', () => {
+      const rf = makeReforecast({
+        allocations: [
+          { memberId: 'a1', month: '2026-07', allocation: 1.0 },
+        ],
+        actualCost: 20000,
+        actualsThroughDate: '2026-07-31',
+      });
+      const project = makeProject({
+        startDate: '2026-07-01',
+        endDate: '2026-07-31',
+        reforecasts: [rf],
+        activeReforecastId: rf.id,
+      });
+
+      const metrics = calculateProjectMetrics(project, SETTINGS, TEAM);
+      expect(metrics.etc).toBe(0);
+      expect(metrics.eac).toBe(20000);
+    });
+
+    it('burn rate uses only post-cutoff months', () => {
+      // 3-month project: Jun-Aug. Cutoff at Jun 30 → only Jul+Aug have cost
+      const rf = makeReforecast({
+        allocations: [
+          { memberId: 'a1', month: '2026-06', allocation: 1.0 },
+          { memberId: 'a1', month: '2026-07', allocation: 1.0 },
+          { memberId: 'a1', month: '2026-08', allocation: 1.0 },
+        ],
+        actualCost: 20000,
+        actualsThroughDate: '2026-06-30',
+      });
+      const project = makeProject({
+        startDate: '2026-06-01',
+        endDate: '2026-08-31',
+        reforecasts: [rf],
+        activeReforecastId: rf.id,
+      });
+
+      const metrics = calculateProjectMetrics(project, SETTINGS, TEAM);
+      // Burn rate should be based on 2 active months, not 3
+      expect(metrics.weeklyBurnRate).toBeGreaterThan(0);
+      // ETC should not include June
+      const juneCost = metrics.monthlyData[0].cost;
+      expect(juneCost).toBe(0);
+    });
+  });
 });

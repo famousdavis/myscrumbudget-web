@@ -59,6 +59,7 @@ export default function ProjectDetailPage({
     updateActualCost,
     updateBaselineBudget,
     updateReforecastDate,
+    updateActualsThroughDate,
   } = useReforecast({
     project,
     updateProject,
@@ -66,6 +67,7 @@ export default function ProjectDetailPage({
   const actualCost = activeReforecast?.actualCost ?? 0;
   const baselineBudget = activeReforecast?.baselineBudget ?? 0;
   const reforecastDate = activeReforecast?.reforecastDate ?? '';
+  const actualsThroughDate = activeReforecast?.actualsThroughDate;
   const metrics = useProjectMetrics(project, settings, pool);
   const router = useRouter();
   const [showDelete, setShowDelete] = useState(false);
@@ -136,10 +138,12 @@ export default function ProjectDetailPage({
             reforecasts={reforecasts}
             activeReforecastId={project.activeReforecastId}
             reforecastDate={reforecastDate}
+            actualsThroughDate={actualsThroughDate}
             onSwitch={switchReforecast}
             onCreate={createReforecast}
             onDelete={deleteReforecast}
             onReforecastDateChange={updateReforecastDate}
+            onActualsThroughDateChange={updateActualsThroughDate}
           />
         </div>
         <div className="mt-3">

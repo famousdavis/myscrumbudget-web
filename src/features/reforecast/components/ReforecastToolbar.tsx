@@ -13,20 +13,24 @@ interface ReforecastToolbarProps {
   reforecasts: Reforecast[];
   activeReforecastId: string | null;
   reforecastDate: string;
+  actualsThroughDate?: string;
   onSwitch: (id: string) => void;
   onCreate: (name: string, copyFromId?: string) => void;
   onDelete: (id: string) => void;
   onReforecastDateChange: (date: string) => void;
+  onActualsThroughDateChange: (date: string | undefined) => void;
 }
 
 export function ReforecastToolbar({
   reforecasts,
   activeReforecastId,
   reforecastDate,
+  actualsThroughDate,
   onSwitch,
   onCreate,
   onDelete,
   onReforecastDateChange,
+  onActualsThroughDateChange,
 }: ReforecastToolbarProps) {
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -64,14 +68,54 @@ export function ReforecastToolbar({
         )}
 
         {reforecasts.length > 0 && (
-          <input
-            type="date"
-            value={reforecastDate}
-            onChange={(e) => onReforecastDateChange(e.target.value)}
-            title="Reforecast date"
-            aria-label="Reforecast date"
-            className="rounded border border-zinc-300 bg-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-          />
+          <div className="flex items-center gap-1.5">
+            <label
+              htmlFor="rf-date"
+              className="text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap"
+            >
+              Date
+            </label>
+            <input
+              id="rf-date"
+              type="date"
+              value={reforecastDate}
+              onChange={(e) => onReforecastDateChange(e.target.value)}
+              title="Reforecast date"
+              aria-label="Reforecast date"
+              className="rounded border border-zinc-300 bg-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            />
+          </div>
+        )}
+
+        {reforecasts.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            <label
+              htmlFor="actuals-through-date"
+              className="text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap"
+            >
+              Actuals Through
+            </label>
+            <input
+              id="actuals-through-date"
+              type="date"
+              value={actualsThroughDate ?? ''}
+              onChange={(e) => onActualsThroughDateChange(e.target.value || undefined)}
+              title="Actuals through date — ETC starts the day after this date"
+              aria-label="Actuals through date"
+              className="rounded border border-zinc-300 bg-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            />
+            {actualsThroughDate && (
+              <button
+                type="button"
+                onClick={() => onActualsThroughDateChange(undefined)}
+                className="rounded px-1.5 py-0.5 text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+                title="Clear actuals through date"
+                aria-label="Clear actuals through date"
+              >
+                &times;
+              </button>
+            )}
+          </div>
         )}
 
         <div className="ml-auto flex items-center gap-2">

@@ -223,6 +223,11 @@ function validateReforecast(reforecast: unknown, path: string): string[] {
   if (!isValidDateString(reforecast.reforecastDate)) {
     errors.push(`${path}.reforecastDate: expected YYYY-MM-DD date string`);
   }
+  if (reforecast.actualsThroughDate !== undefined && reforecast.actualsThroughDate !== null) {
+    if (!isValidDateString(reforecast.actualsThroughDate)) {
+      errors.push(`${path}.actualsThroughDate: expected YYYY-MM-DD date string`);
+    }
+  }
 
   if (!Array.isArray(reforecast.allocations)) {
     errors.push(`${path}.allocations: expected array`);

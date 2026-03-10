@@ -4,6 +4,31 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.17.0] - 2026-03-10
+
+### Actuals Through Date (ETC Cutoff)
+- New per-reforecast "Actuals Through Date" field — tells the calc engine where actuals end so ETC excludes already-covered costs
+- Pre-cutoff months automatically zeroed (fully covered by actuals)
+- Cutoff month prorated — only workdays after the cutoff date contribute to ETC
+- Post-cutoff months unchanged
+- Charts, cost table, and all derived metrics (EAC, variance, burn rate) automatically reflect the adjusted costs
+- Date picker with clear button in ReforecastToolbar alongside existing Reforecast Date
+- Field is optional — undefined means no cutoff (identical to prior behavior)
+- No data migration needed (DATA_VERSION remains 0.7.0)
+
+### Calculation Engine
+- `getEtcStartDate()` helper computes cutoff + 1 calendar day
+- `getMonthlyWorkHours()` gains optional `etcStartDate` parameter — additional lower bound on effective start date
+- Burn rate now uses cost-based active months instead of allocation-based, naturally excluding pre-cutoff months
+- `createNewReforecast()` copies `actualsThroughDate` from source when present
+
+### Testing
+- 604 passing tests across 39 test files (+20 new tests)
+- New `getEtcStartDate` tests (day+1 logic, month/year boundaries)
+- New `getMonthlyWorkHours` tests with `etcStartDate` (pre-cutoff → 0, cutoff → partial, post-cutoff → unchanged, combined with holidays)
+- New `calculateProjectMetrics` tests with `actualsThroughDate` (zeroed pre-cutoff, prorated mid-month, burn rate adjustment)
+- New `createNewReforecast` tests for `actualsThroughDate` copy behavior
+
 ## [0.5.0] - 2026-01-29
 
 ### Calculation Engine

@@ -248,6 +248,19 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
     [updateActiveRf],
   );
 
+  const updateActualsThroughDate = useCallback(
+    (date: string | undefined) => {
+      updateActiveRf((rf) => {
+        if (date === undefined || date === '') {
+          const { actualsThroughDate: _, ...rest } = rf;
+          return rest as Reforecast;
+        }
+        return { ...rf, actualsThroughDate: date };
+      });
+    },
+    [updateActiveRf],
+  );
+
   return {
     reforecasts,
     activeReforecast,
@@ -263,5 +276,6 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
     updateActualCost,
     updateBaselineBudget,
     updateReforecastDate,
+    updateActualsThroughDate,
   };
 }

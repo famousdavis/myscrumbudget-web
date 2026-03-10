@@ -200,6 +200,7 @@ interface Reforecast {
   productivityWindows: ProductivityWindow[];
   actualCost: number;       // per-reforecast actual cost (v0.6.0)
   baselineBudget: number;   // per-reforecast baseline budget (v0.7.0)
+  actualsThroughDate?: string; // YYYY-MM-DD — ETC excludes costs through this date (v0.17.0)
 }
 
 // Project
@@ -1067,6 +1068,22 @@ Delivered:
 - **LICENSE Section 7 terms** — non-permissive additional restrictions per GPL v3 §7(b) for attribution and UI notice preservation
 - **About page updated** — "Your Data & Privacy" section replaced with "Your Data & Storage" documenting Local Storage (default), Cloud Storage (optional), and Import & Export subsections, matching the pattern used across the SPERT suite
 - 584 passing tests across 39 test files
+
+### v0.17.0 Actuals Through Date (ETC Cutoff) — COMPLETE
+**Goal**: Add per-reforecast "Actuals Through Date" so ETC excludes costs already covered by actuals, preventing double-counting in EAC
+
+Delivered:
+- **`actualsThroughDate?: string`** optional field added to `Reforecast` interface (YYYY-MM-DD format)
+- **`getEtcStartDate()`** helper in `dates.ts` — computes cutoff + 1 calendar day (handles month/year boundaries)
+- **`getMonthlyWorkHours()` enhanced** — optional 5th `etcStartDate` parameter acts as additional lower bound on effective start date; pre-cutoff months → 0 hours, cutoff month → partial, post-cutoff → unchanged
+- **Burn rate adjustment** — `calculateProjectMetrics` uses cost-based active months (`months.filter(m => costMap.get(m) > 0)`) instead of allocation-based, naturally excluding pre-cutoff months
+- **`createNewReforecast()`** copies `actualsThroughDate` from source when present
+- **Validation** — optional `actualsThroughDate` format check in `validateReforecast()`
+- **`updateActualsThroughDate`** callback in `useReforecast` hook — follows existing `updateReforecastDate` pattern; `undefined`/empty clears the field
+- **ReforecastToolbar** — date picker with "Actuals Through" label + clear (×) button; also added "Date" label to existing reforecast date input
+- Charts, cost table, and all derived metrics automatically reflect adjusted costs (no chart component changes needed)
+- No data migration needed — `undefined` = no cutoff = identical to prior behavior; DATA_VERSION stays at 0.7.0
+- 604 passing tests across 39 test files (+20 new tests)
 
 ---
 

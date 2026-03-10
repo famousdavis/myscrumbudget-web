@@ -12,12 +12,11 @@ import {
   calculateVariancePercent,
   calculateBudgetPerformanceRatio,
   calculateWeeklyBurnRate,
-  getActiveMonths,
   generateMonthlyCalculations,
 } from './metrics';
 import { calculateNPV } from './npv';
 import { getProductivityFactor } from './productivity';
-import { generateMonthRange, getMonthlyWorkHours } from '@/lib/utils/dates';
+import { generateMonthRange, getMonthlyWorkHours, getEtcStartDate } from '@/lib/utils/dates';
 import { getActiveReforecast } from '@/lib/utils/teamResolution';
 
 /**
@@ -54,6 +53,11 @@ export function calculateProjectMetrics(
   const endMonth = project.endDate.slice(0, 7);
   const months = generateMonthRange(startMonth, endMonth);
 
+  // Compute ETC start date from actualsThroughDate (if set)
+  const etcStartDate = reforecast.actualsThroughDate
+    ? getEtcStartDate(reforecast.actualsThroughDate)
+    : undefined;
+
   const monthlyCostValues: number[] = [];
   const monthlyHourValues: number[] = [];
   const costMap = new Map<string, number>();
@@ -61,7 +65,9 @@ export function calculateProjectMetrics(
 
   for (const month of months) {
     const factor = getProductivityFactor(month, reforecast.productivityWindows);
-    const availableHours = getMonthlyWorkHours(month, project.startDate, project.endDate, settings.holidays);
+    const availableHours = getMonthlyWorkHours(
+      month, project.startDate, project.endDate, settings.holidays, etcStartDate,
+    );
     const cost = calculateTotalMonthlyCost(
       month, allocationMap, teamMembers, settings, availableHours, factor,
     );
@@ -76,8 +82,14 @@ export function calculateProjectMetrics(
 
   const etc = calculateETC(monthlyCostValues);
   const eac = calculateEAC(reforecast.actualCost, etc);
-  const activeMonths = getActiveMonths(reforecast.allocations);
   const monthlyData = generateMonthlyCalculations(months, costMap, hourMap);
+
+  // For burn rate: use months with non-zero cost (naturally excludes
+  // pre-cutoff months) and actualsThroughDate as the start when set
+  const burnRateActiveMonths = months.filter(m => (costMap.get(m) ?? 0) > 0);
+  const burnRateStartDate = reforecast.actualsThroughDate
+    ? new Date(reforecast.actualsThroughDate)
+    : new Date(project.startDate);
 
   return {
     etc,
@@ -86,7 +98,7 @@ export function calculateProjectMetrics(
     variancePercent: calculateVariancePercent(eac, reforecast.baselineBudget),
     budgetRatio: calculateBudgetPerformanceRatio(reforecast.baselineBudget, eac),
     weeklyBurnRate: calculateWeeklyBurnRate(
-      etc, new Date(project.startDate), activeMonths,
+      etc, burnRateStartDate, burnRateActiveMonths,
     ),
     npv: calculateNPV(settings.discountRateAnnual, monthlyCostValues),
     totalHours: monthlyHourValues.reduce((sum, h) => sum + h, 0),

@@ -81,6 +81,7 @@ export interface Reforecast {
   productivityWindows: ProductivityWindow[];
   actualCost: number;
   baselineBudget: number;
+  actualsThroughDate?: string; // YYYY-MM-DD — ETC excludes costs through this date
 }
 
 // Project

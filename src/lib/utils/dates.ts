@@ -139,11 +139,29 @@ export function countHolidayWorkdays(
 }
 
 /**
+ * Compute the ETC start date from an actuals-through date.
+ * Returns the calendar day after the cutoff. The workday engine
+ * naturally handles weekends and holidays.
+ */
+export function getEtcStartDate(actualsThroughDate: string): string {
+  const [y, m, d] = actualsThroughDate.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  date.setDate(date.getDate() + 1);
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/**
  * Get available workday hours for a YYYY-MM month, clipped to project date range.
  * - First month: count workdays from project startDate to end of month
  * - Last month: count workdays from start of month to project endDate
  * - Middle months: count all workdays in the full month
  * Holidays (non-work days) are subtracted from the workday count.
+ * When etcStartDate is provided, it acts as an additional lower bound on the
+ * effective start date — zeroing out months covered by actuals and prorating
+ * the cutoff month.
  * Returns (workdays - holidays) * HOURS_PER_DAY.
  */
 export function getMonthlyWorkHours(
@@ -151,6 +169,7 @@ export function getMonthlyWorkHours(
   projectStartDate: string,
   projectEndDate: string,
   holidays: Holiday[] = [],
+  etcStartDate?: string,
 ): number {
   const [year, mon] = month.split('-').map(Number);
 
@@ -159,8 +178,11 @@ export function getMonthlyWorkHours(
   const lastDay = new Date(year, mon, 0).getDate(); // last day of month
   const monthEnd = `${year}-${String(mon).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-  // Clip to project date range
-  const effectiveStart = projectStartDate > monthStart ? projectStartDate : monthStart;
+  // Clip to project date range and ETC start date
+  let effectiveStart = projectStartDate > monthStart ? projectStartDate : monthStart;
+  if (etcStartDate && etcStartDate > effectiveStart) {
+    effectiveStart = etcStartDate;
+  }
   const effectiveEnd = projectEndDate < monthEnd ? projectEndDate : monthEnd;
 
   if (effectiveStart > effectiveEnd) return 0;

@@ -178,4 +178,44 @@ describe('createNewReforecast', () => {
     const rf = createNewReforecast('Fresh', '2026-06', undefined);
     expect(rf.baselineBudget).toBe(0);
   });
+
+  it('copies actualsThroughDate from source reforecast', () => {
+    const source: Reforecast = {
+      id: 'src',
+      name: 'Baseline',
+      createdAt: '2026-06-01T00:00:00Z',
+      startDate: '2026-06',
+      reforecastDate: '2026-06-01',
+      allocations: [],
+      productivityWindows: [],
+      actualCost: 0,
+      baselineBudget: 0,
+      actualsThroughDate: '2026-06-30',
+    };
+
+    const rf = createNewReforecast('Copy', '2026-06', source);
+    expect(rf.actualsThroughDate).toBe('2026-06-30');
+  });
+
+  it('does not set actualsThroughDate when source has none', () => {
+    const source: Reforecast = {
+      id: 'src',
+      name: 'Baseline',
+      createdAt: '2026-06-01T00:00:00Z',
+      startDate: '2026-06',
+      reforecastDate: '2026-06-01',
+      allocations: [],
+      productivityWindows: [],
+      actualCost: 0,
+      baselineBudget: 0,
+    };
+
+    const rf = createNewReforecast('Copy', '2026-06', source);
+    expect(rf.actualsThroughDate).toBeUndefined();
+  });
+
+  it('does not set actualsThroughDate for fresh reforecast', () => {
+    const rf = createNewReforecast('Fresh', '2026-06');
+    expect(rf.actualsThroughDate).toBeUndefined();
+  });
 });
