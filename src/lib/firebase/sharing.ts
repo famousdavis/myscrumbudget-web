@@ -6,6 +6,9 @@ import { PROJECTS_COL, PROFILES_COL } from './collections';
 
 export type MemberRole = 'owner' | 'editor' | 'viewer';
 
+/** Basic email format check — not exhaustive, just a guard against junk input. */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export interface ProjectMember {
   uid: string;
   email: string;
@@ -71,11 +74,16 @@ export async function addProjectMember(
 ): Promise<{ ok: true; member: ProjectMember } | { ok: false; reason: string }> {
   if (!db) return { ok: false, reason: 'Cloud storage is not available.' };
 
-  const targetUid = await findUidByEmail(email);
+  const trimmedEmail = email.toLowerCase().trim();
+  if (!EMAIL_RE.test(trimmedEmail)) {
+    return { ok: false, reason: 'Please enter a valid email address.' };
+  }
+
+  const targetUid = await findUidByEmail(trimmedEmail);
   if (!targetUid) {
     return {
       ok: false,
-      reason: 'No user found with that email. They must sign in to MyScrumBudget first.',
+      reason: 'User not found. They need to sign in to MyScrumBudget at least once before they can be added.',
     };
   }
 

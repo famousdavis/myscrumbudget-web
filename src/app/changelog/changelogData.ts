@@ -9,6 +9,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.16.2',
+    date: '2026-03-10',
+    sections: [
+      {
+        title: 'Security Hardening',
+        items: [
+          'Removed unsafe-eval from Content Security Policy script-src directive',
+          'Added server-side email format validation in project sharing before Firestore query',
+          'Reduced email enumeration in sharing error messages — no longer reveals whether an email exists in the system',
+          'Updated minimatch (ReDoS fix), rollup (path traversal fix), and ajv (ReDoS fix) to patched versions',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.16.1',
     date: '2026-03-10',
     sections: [

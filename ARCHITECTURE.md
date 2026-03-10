@@ -1036,6 +1036,28 @@ Delivered:
 - `firestore.rules` — Firestore security rules
 - `firebase.json` — Firebase project config
 
+### v0.16.1 Bug Fixes & Refactoring — COMPLETE
+**Goal**: Fix cloud storage bugs found post-deployment, improve code organization and testability
+
+Delivered:
+- **Mode switch fix** — all local/cloud switch paths now reload the page to ensure hooks fetch from the correct data source and cloud sync listeners are properly established
+- **ensureProfile fix** — `createdAt` no longer overwritten on every sign-in; only set on first profile creation
+- **Shared Firestore collection constants** — `PROJECTS_COL`, `SETTINGS_COL`, `PROFILES_COL` extracted to `src/lib/firebase/collections.ts`, eliminating duplication across 4 files
+- **Pure utility extraction** — `buildTeamSnapshot`, `stripUndefined`, `docToProject` moved from `firestoreRepo.ts` to `src/lib/storage/firestoreUtils.ts` for independent testability
+- **useCloudSync cleanup** — removed dead `beforeunload` handler and unnecessary `initializedRef` guard
+- **Static import fix** — `deleteField` moved from dynamic `await import()` to static import in `sharing.ts`
+- 584 passing tests across 39 test files (+16 tests, +1 test file)
+
+### v0.16.2 Security Audit — COMPLETE
+**Goal**: Address security vulnerabilities identified through comprehensive audit
+
+Delivered:
+- **CSP hardened** — removed `unsafe-eval` from `script-src` directive in `next.config.ts`
+- **Email validation** — added server-side email format regex check in `sharing.ts` before Firestore query
+- **Email enumeration reduced** — sharing error message no longer reveals whether an email exists in the system
+- **Dependency vulnerabilities patched** — minimatch (ReDoS), rollup (path traversal), ajv (ReDoS)
+- 584 passing tests across 39 test files
+
 ---
 
 ## Part 8: TypeScript Calculation Functions
@@ -1649,8 +1671,8 @@ This architecture document provides:
 2. **Clean TypeScript domain model** with global team pool + project assignments
 3. **Repository pattern** with shared singleton and migration support
 4. **Feature-based folder structure** optimized for solo maintenance
-5. **Incremental build plan** with testable milestones (Sprints 1–18+ complete, v0.16.0)
-6. **Pure calculation functions** with 568 unit tests across 38 test files
+5. **Incremental build plan** with testable milestones (Sprints 1–18+ complete, v0.16.2)
+6. **Pure calculation functions** with 584 unit tests across 39 test files
 7. **Golden-file parity tests** ensuring spreadsheet accuracy
 
 Key design decisions:
