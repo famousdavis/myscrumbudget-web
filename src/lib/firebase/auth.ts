@@ -6,10 +6,9 @@ import {
   GoogleAuthProvider,
   type User,
 } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from './config';
-
-const PROFILES_COLLECTION = 'myscrumbudget_profiles';
+import { PROFILES_COL } from './collections';
 
 /**
  * Subscribe to auth state changes.
@@ -54,15 +53,17 @@ export async function signOut(): Promise<void> {
 
 /**
  * Create or update user profile document in Firestore.
- * Uses merge:true so createdAt is only set on first sign-in.
+ * Uses merge:true so existing fields are preserved.
+ * createdAt is only written when the profile doc doesn't exist yet.
  */
 async function ensureProfile(user: User): Promise<void> {
   if (!db) return;
-  const ref = doc(db, PROFILES_COLLECTION, user.uid);
+  const ref = doc(db, PROFILES_COL, user.uid);
+  const existing = await getDoc(ref);
   await setDoc(ref, {
     displayName: user.displayName ?? '',
     email: user.email ?? '',
     lastLogin: new Date().toISOString(),
-    ...(!user.metadata.creationTime ? {} : { createdAt: new Date().toISOString() }),
+    ...(!existing.exists() ? { createdAt: new Date().toISOString() } : {}),
   }, { merge: true });
 }

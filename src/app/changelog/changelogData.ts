@@ -9,6 +9,37 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.16.1',
+    date: '2026-03-10',
+    sections: [
+      {
+        title: 'Bug Fixes',
+        items: [
+          'Fixed mode switch (local/cloud) not refreshing hooks or setting up cloud sync listeners — all mode switch paths now reload the page to ensure correct data source',
+          'Fixed ensureProfile overwriting createdAt timestamp on every sign-in — now only sets createdAt on first profile creation',
+          'Removed redundant sign-in error AlertDialog (inline error display is sufficient)',
+        ],
+      },
+      {
+        title: 'Refactoring',
+        items: [
+          'Extracted shared Firestore collection name constants to src/lib/firebase/collections.ts — eliminates duplication across 4 files',
+          'Extracted pure utility functions (buildTeamSnapshot, stripUndefined, docToProject) from firestoreRepo.ts to src/lib/storage/firestoreUtils.ts for independent testability',
+          'Cleaned up useCloudSync.ts — removed dead beforeunload handler and unnecessary initializedRef guard',
+          'Moved deleteField to static import in sharing.ts for proper tree-shaking',
+        ],
+      },
+      {
+        title: 'Testing',
+        items: [
+          '584 passing tests across 39 test files (+16 tests)',
+          'New test file: firestoreUtils.test.ts — 13 tests for buildTeamSnapshot, stripUndefined, docToProject',
+          'New tests for resolveAssignments teamSnapshot fallback (shared project viewing)',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.16.0',
     date: '2026-03-10',
     sections: [

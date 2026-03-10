@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
-import { ConfirmDialog, AlertDialog, dialogButtonStyles } from '@/components/BaseDialog';
+import { ConfirmDialog } from '@/components/BaseDialog';
 import { useToast } from '@/components/Toast';
 import { getStorageMode, setStorageMode, type StorageMode } from '@/lib/storage/storageMode';
 import { switchRepoImpl } from '@/lib/storage/repo';
@@ -65,10 +65,11 @@ export function CloudStorageSection() {
     const cloudRepo = createFirestoreRepository(user.uid);
     switchRepoImpl(cloudRepo);
     setStorageMode('cloud');
-    setMode('cloud');
     setHasUploaded();
     // In cloud mode, origin ref is the Firebase UID
     setOriginRef(user.uid);
+    // Reload so hooks fetch from Firestore and cloud sync listeners are set up
+    window.location.reload();
   }, [user]);
 
   const confirmUpload = async () => {
@@ -113,11 +114,10 @@ export function CloudStorageSection() {
   };
 
   const confirmSwitchToLocal = () => {
-    setShowSwitchToLocalConfirm(false);
     switchRepoImpl(createLocalStorageRepository());
     setStorageMode('local');
-    setMode('local');
-    addToast('Switched to local storage.', 'info');
+    // Reload so hooks fetch from localStorage and cloud sync listeners are torn down
+    window.location.reload();
   };
 
   const handleClearLocalData = async () => {
@@ -125,10 +125,11 @@ export function CloudStorageSection() {
     try {
       const localRepo = createLocalStorageRepository();
       await localRepo.clear();
-      addToast('Local data cleared.', 'success');
     } catch {
-      addToast('Failed to clear local data.', 'error');
+      // Ignore — clearing local data is best-effort
     }
+    // Reload so hooks fetch from Firestore and cloud sync listeners are set up
+    window.location.reload();
   };
 
   const handleSignIn = async (provider: 'google' | 'microsoft') => {
@@ -312,7 +313,10 @@ export function CloudStorageSection() {
           message="Your data is now in the cloud. Clear local copies to prevent duplicates on future sign-ins?"
           confirmLabel="Clear Local Data"
           onConfirm={handleClearLocalData}
-          onCancel={() => setShowCleanupConfirm(false)}
+          onCancel={() => {
+            // Mode already switched to cloud in confirmUpload — reload to sync hooks
+            window.location.reload();
+          }}
         />
       )}
 
@@ -327,14 +331,6 @@ export function CloudStorageSection() {
         />
       )}
 
-      {/* Sign-in error alert */}
-      {signInError && user === null && (
-        <AlertDialog
-          title="Sign-in Error"
-          message={signInError}
-          onClose={() => setSignInError(null)}
-        />
-      )}
     </CollapsibleSection>
   );
 }

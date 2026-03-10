@@ -1,10 +1,8 @@
 import {
-  doc, getDoc, updateDoc, collection, query, where, getDocs,
+  doc, getDoc, updateDoc, deleteField, collection, query, where, getDocs,
 } from 'firebase/firestore';
 import { db } from './config';
-
-const PROJECTS_COL = 'myscrumbudget_projects';
-const PROFILES_COL = 'myscrumbudget_profiles';
+import { PROJECTS_COL, PROFILES_COL } from './collections';
 
 export type MemberRole = 'owner' | 'editor' | 'viewer';
 
@@ -130,9 +128,6 @@ export async function removeProjectMember(
     return { ok: false, reason: 'Cannot remove the project owner.' };
   }
 
-  // Remove by setting to FieldValue.delete() equivalent
-  // Use updateDoc with the key set to deleteField
-  const { deleteField } = await import('firebase/firestore');
   await updateDoc(doc(db, PROJECTS_COL, projectId), {
     [`members.${targetUid}`]: deleteField(),
   });

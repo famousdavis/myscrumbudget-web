@@ -54,6 +54,41 @@ describe('resolveAssignments', () => {
     const result = resolveAssignments(assignments, []);
     expect(result[0].name).toBe('(Unknown)');
   });
+
+  it('falls back to teamSnapshot when pool member is missing', () => {
+    const assignments: ProjectAssignment[] = [
+      { id: 'a-1', poolMemberId: 'pm-1' },
+      { id: 'a-2', poolMemberId: 'pm-shared' },
+    ];
+    const snapshot = { 'pm-shared': { name: 'Dave', role: 'QA' } };
+    const result = resolveAssignments(assignments, pool, snapshot);
+    expect(result).toEqual([
+      { id: 'a-1', name: 'Alice', role: 'BA' },
+      { id: 'a-2', name: 'Dave', role: 'QA' },
+    ]);
+  });
+
+  it('prefers pool over teamSnapshot when both have the member', () => {
+    const assignments: ProjectAssignment[] = [
+      { id: 'a-1', poolMemberId: 'pm-1' },
+    ];
+    const snapshot = { 'pm-1': { name: 'Stale Alice', role: 'Old Role' } };
+    const result = resolveAssignments(assignments, pool, snapshot);
+    expect(result).toEqual([
+      { id: 'a-1', name: 'Alice', role: 'BA' },
+    ]);
+  });
+
+  it('returns (Unknown) when neither pool nor snapshot has the member', () => {
+    const assignments: ProjectAssignment[] = [
+      { id: 'a-1', poolMemberId: 'pm-gone' },
+    ];
+    const snapshot = { 'pm-other': { name: 'Eve', role: 'Dev' } };
+    const result = resolveAssignments(assignments, pool, snapshot);
+    expect(result).toEqual([
+      { id: 'a-1', name: '(Unknown)', role: '' },
+    ]);
+  });
 });
 
 function makeReforecast(overrides: Partial<Reforecast> = {}): Reforecast {
