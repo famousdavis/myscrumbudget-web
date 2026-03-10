@@ -4,6 +4,15 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.17.1] - 2026-03-10
+
+### UX
+- Dashboard empty state replaced with a 3-step Getting Started guide — directs new users to (1) review labor rates in Settings, (2) build the Team Pool, (3) create their first project
+- Steps show a green checkmark when complete (labor rates reviewed, team members added)
+
+### Bug Fixes
+- Fixed role dropdown in Team Pool showing options in light gray text when opened — options now render in normal text color
+
 ## [0.17.0] - 2026-03-10
 
 ### Actuals Through Date (ETC Cutoff)

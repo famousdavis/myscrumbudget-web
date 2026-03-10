@@ -39,7 +39,7 @@ export function RoleSelect({ value, laborRates, onChange }: RoleSelectProps) {
     >
       <option value="" className="text-zinc-400 dark:text-zinc-500">Select role...</option>
       {laborRates.map((rate) => (
-        <option key={rate.role} value={rate.role}>
+        <option key={rate.role} value={rate.role} className="text-zinc-900 dark:text-zinc-100">
           {rate.role} (${rate.hourlyRate}/hr)
         </option>
       ))}
