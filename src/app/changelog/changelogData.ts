@@ -13,6 +13,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.18.0',
+    date: '2026-03-11',
+    sections: [
+      {
+        title: 'Legal',
+        items: [
+          'Added Terms of Service and Privacy Policy consent flow',
+          'Footer now includes links to Terms of Service and Privacy Policy',
+          'First-run banner introduces cloud storage consent for new users',
+          'Cloud sign-in gated behind ToS acceptance modal (checkbox required)',
+          'Acceptance recorded in Firestore; returning users skip modal',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.17.1',
     date: '2026-03-10',
     sections: [

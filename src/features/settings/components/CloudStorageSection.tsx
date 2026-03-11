@@ -8,6 +8,7 @@ import { useState, useCallback } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { ConfirmDialog } from '@/components/BaseDialog';
+import { TosConsentModal } from '@/components/TosConsentModal';
 import { useToast } from '@/components/Toast';
 import { getStorageMode, setStorageMode, type StorageMode } from '@/lib/storage/storageMode';
 import { switchRepoImpl } from '@/lib/storage/repo';
@@ -15,6 +16,7 @@ import { createLocalStorageRepository } from '@/lib/storage/localStorage';
 import { createFirestoreRepository } from '@/lib/storage/firestoreRepo';
 import { sanitizeFirebaseError } from '@/lib/firebase/errors';
 import { setOriginRef } from '@/lib/storage/fingerprint';
+import { isTosAccepted } from '@/lib/tos/tosHelpers';
 
 const HAS_UPLOADED_KEY = 'msb:hasUploadedToCloud';
 
@@ -37,6 +39,8 @@ export function CloudStorageSection() {
   const [migrationResult, setMigrationResult] = useState<string | null>(null);
   const [localProjectCount, setLocalProjectCount] = useState(0);
   const [signInError, setSignInError] = useState<string | null>(null);
+  const [pendingProvider, setPendingProvider] = useState<'google' | 'microsoft' | null>(null);
+  const [showTosModal, setShowTosModal] = useState(false);
 
   // If Firebase is not configured, hide entirely
   if (!firebaseAvailable) return null;
@@ -136,7 +140,7 @@ export function CloudStorageSection() {
     window.location.reload();
   };
 
-  const handleSignIn = async (provider: 'google' | 'microsoft') => {
+  const doSignIn = async (provider: 'google' | 'microsoft') => {
     setSignInError(null);
     try {
       if (provider === 'google') {
@@ -148,6 +152,22 @@ export function CloudStorageSection() {
       const msg = sanitizeFirebaseError(error);
       setSignInError(msg);
     }
+  };
+
+  const handleSignIn = (provider: 'google' | 'microsoft') => {
+    if (!isTosAccepted()) {
+      setPendingProvider(provider);
+      setShowTosModal(true);
+      return;
+    }
+    doSignIn(provider);
+  };
+
+  const handleTosAccepted = () => {
+    setShowTosModal(false);
+    // setTosAcceptedVersion already called optimistically by TosConsentModal
+    if (pendingProvider) doSignIn(pendingProvider);
+    setPendingProvider(null);
   };
 
   const handleSignOut = async () => {
@@ -332,6 +352,17 @@ export function CloudStorageSection() {
           confirmLabel="Switch to Local"
           onConfirm={confirmSwitchToLocal}
           onCancel={() => setShowSwitchToLocalConfirm(false)}
+        />
+      )}
+
+      {/* ToS consent modal */}
+      {showTosModal && (
+        <TosConsentModal
+          onAccept={handleTosAccepted}
+          onCancel={() => {
+            setShowTosModal(false);
+            setPendingProvider(null);
+          }}
         />
       )}
 
