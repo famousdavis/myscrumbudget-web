@@ -12,15 +12,6 @@ export function Footer() {
   return (
     <footer className="mt-16 border-t-2 border-zinc-100 pb-6 pt-8 text-center text-sm text-zinc-500 dark:border-zinc-800 dark:text-zinc-500">
       <div>
-        <a href={TOS_URL} target="_blank" rel="noopener noreferrer" className={legalLinkClass}>
-          Terms of Service
-        </a>
-        {' | '}
-        <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" className={legalLinkClass}>
-          Privacy Policy
-        </a>
-      </div>
-      <div className="mt-1">
         &copy; 2026 William W. Davis, MSPM, PMP |{' '}
         <Link
           href="/changelog"
@@ -29,6 +20,15 @@ export function Footer() {
           Version {APP_VERSION}
         </Link>{' '}
         | Licensed under GNU GPL v3
+      </div>
+      <div className="mt-1">
+        <a href={TOS_URL} target="_blank" rel="noopener noreferrer" className={legalLinkClass}>
+          Terms of Service
+        </a>
+        {' | '}
+        <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" className={legalLinkClass}>
+          Privacy Policy
+        </a>
       </div>
     </footer>
   );
