@@ -24,7 +24,7 @@ export function RateTable({ rates, onUpdate }: RateTableProps) {
   const handleAdd = () => {
     const role = newRole.trim();
     const hourlyRate = parseFloat(newRate);
-    if (!role || isNaN(hourlyRate) || hourlyRate < 0) return;
+    if (!role || !Number.isFinite(hourlyRate) || hourlyRate < 0) return;
     if (rates.some((r) => r.role === role)) return;
 
     onUpdate((prev) => ({
@@ -52,7 +52,7 @@ export function RateTable({ rates, onUpdate }: RateTableProps) {
     if (editingRole === null) return;
     const role = editRole.trim();
     const hourlyRate = parseFloat(editRate);
-    if (!role || isNaN(hourlyRate) || hourlyRate < 0) return;
+    if (!role || !Number.isFinite(hourlyRate) || hourlyRate < 0) return;
 
     onUpdate((prev) => ({
       ...prev,
@@ -102,6 +102,7 @@ export function RateTable({ rates, onUpdate }: RateTableProps) {
                     <input
                       type="number"
                       value={editRate}
+                      min={0}
                       onChange={(e) => setEditRate(e.target.value)}
                       className="w-24 rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
                     />
@@ -158,12 +159,13 @@ export function RateTable({ rates, onUpdate }: RateTableProps) {
           type="number"
           placeholder="Rate"
           value={newRate}
+          min={0}
           onChange={(e) => setNewRate(e.target.value)}
           className="w-24 rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
         />
         <button
           onClick={handleAdd}
-          disabled={!newRole.trim() || isNaN(parseFloat(newRate)) || parseFloat(newRate) < 0 || rates.some((r) => r.role === newRole.trim())}
+          disabled={!newRole.trim() || !Number.isFinite(parseFloat(newRate)) || parseFloat(newRate) < 0 || rates.some((r) => r.role === newRole.trim())}
           className="rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
         >
           Add

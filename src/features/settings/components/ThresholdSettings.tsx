@@ -16,7 +16,7 @@ interface ThresholdSettingsProps {
 export function ThresholdSettings({ amberPercent, redPercent, onUpdate }: ThresholdSettingsProps) {
   const handleChange = (field: 'amberPercent' | 'redPercent', value: string) => {
     const parsed = parseFloat(value);
-    if (isNaN(parsed) || parsed < 0) return;
+    if (!Number.isFinite(parsed) || parsed < 0) return;
     onUpdate((prev) => ({
       ...prev,
       trafficLightThresholds: {

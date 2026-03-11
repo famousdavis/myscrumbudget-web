@@ -1101,6 +1101,21 @@ Delivered:
 - New `useGridKeyboard` hook tests (17 tests)
 - New `sanitizeCurrency` tests in format.test.ts (5 tests)
 
+### Sprint 22: Security Audit (v0.18.2)
+
+**Security hardening:**
+- Added 10 MB file size limit on JSON import (`DataPortability.tsx`) to prevent memory exhaustion DoS
+- Replaced `isNaN()` with `Number.isFinite()` in `RateTable`, `ThresholdSettings`, and `AllocationGrid` to reject Infinity values
+- Added `min={0}` HTML constraint on `RateTable` number inputs for browser-level enforcement
+- Added `maxLength={100}` on `PoolMemberTable` edit name input for consistency with add form
+- Strengthened `isValidDateString()` in `validation.ts` to reject semantically invalid dates (e.g. `9999-99-99`, `2026-02-30`)
+- Added `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, and `Permissions-Policy` security headers to `next.config.ts`
+
+**Audit results:**
+- 0 npm vulnerabilities, 0 XSS vectors, 0 critical findings
+- CSP already configured; no eval/innerHTML/document.write usage
+- Firebase auth and Firestore rules verified secure
+
 ---
 
 ## Part 8: TypeScript Calculation Functions
@@ -1714,7 +1729,7 @@ This architecture document provides:
 2. **Clean TypeScript domain model** with global team pool + project assignments
 3. **Repository pattern** with shared singleton and migration support
 4. **Feature-based folder structure** optimized for solo maintenance
-5. **Incremental build plan** with testable milestones (Sprints 1–21 complete, v0.18.1)
+5. **Incremental build plan** with testable milestones (Sprints 1–22 complete, v0.18.2)
 6. **Pure calculation functions** with 626 unit tests across 40 test files
 7. **Golden-file parity tests** ensuring spreadsheet accuracy
 

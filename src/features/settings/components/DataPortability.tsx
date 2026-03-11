@@ -44,6 +44,18 @@ export function DataPortability({ onImportComplete }: DataPortabilityProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Guard against excessively large files (10 MB limit)
+    const MAX_IMPORT_SIZE = 10 * 1024 * 1024;
+    if (file.size > MAX_IMPORT_SIZE) {
+      setAlertState({
+        kind: 'error',
+        title: 'File Too Large',
+        message: `Import files must be under 10 MB. This file is ${(file.size / (1024 * 1024)).toFixed(1)} MB.`,
+      });
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
     try {
       const text = await file.text();
       const data = JSON.parse(text);
