@@ -66,6 +66,10 @@ See `ARCHITECTURE.md` for the complete technical specification, including domain
 - SVG charts (no heavy chart libraries)
 - localStorage (default client-side persistence)
 
+## Legal
+
+The `/legal/` directory contains reference copies of `TOS.pdf` and `PRIVACY.pdf`. The canonical runtime URLs are hosted on the SPERT® Landing Page at Vercel (`https://spert-landing.vercel.app/`).
+
 ## License
 
 GNU General Public License v3.0 — see [LICENSE](LICENSE) for details.

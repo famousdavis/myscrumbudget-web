@@ -4,6 +4,15 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.18.0] - 2026-03-11
+
+### Legal
+- Added Terms of Service and Privacy Policy consent flow
+- Footer now includes links to Terms of Service and Privacy Policy
+- First-run banner introduces cloud storage consent for new users
+- Cloud sign-in gated behind ToS acceptance modal (checkbox required)
+- Acceptance recorded in Firestore; returning users skip modal
+
 ## [0.17.1] - 2026-03-10
 
 ### UX
