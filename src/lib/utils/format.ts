@@ -37,6 +37,13 @@ export function formatPercentValue(value: number, decimals = 1): string {
   return `${value.toFixed(decimals)}%`;
 }
 
+/* ── Currency helpers ─────────────────────────────────────────────── */
+
+/** Sanitize a currency value: clamp NaN/Infinity to 0, enforce >= 0. */
+export function sanitizeCurrency(value: number): number {
+  return Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+
 /* ── Date formatting ─────────────────────────────────────────────── */
 
 /** Parse a YYYY-MM-DD string into a local Date (avoids timezone shifts). */

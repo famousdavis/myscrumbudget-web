@@ -3,7 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import { describe, it, expect } from 'vitest';
-import { formatCurrency, formatNumber, formatPercentValue, formatDateSlash, formatDateLong, formatDateMedium } from '../format';
+import { formatCurrency, formatNumber, formatPercentValue, sanitizeCurrency, formatDateSlash, formatDateLong, formatDateMedium } from '../format';
 
 describe('formatCurrency', () => {
   it('formats positive integers without cents by default', () => {
@@ -75,6 +75,33 @@ describe('formatPercentValue', () => {
   it('does NOT multiply by 100 (unlike a ratio-to-percent formatter)', () => {
     // 50 → "50.0%", NOT "5000.0%"
     expect(formatPercentValue(50)).toBe('50.0%');
+  });
+});
+
+/* ── Currency helpers ─────────────────────────────────────────────── */
+
+describe('sanitizeCurrency', () => {
+  it('returns the value unchanged for positive finite numbers', () => {
+    expect(sanitizeCurrency(1234.56)).toBe(1234.56);
+    expect(sanitizeCurrency(0.01)).toBe(0.01);
+  });
+
+  it('returns 0 for zero', () => {
+    expect(sanitizeCurrency(0)).toBe(0);
+  });
+
+  it('returns 0 for NaN', () => {
+    expect(sanitizeCurrency(NaN)).toBe(0);
+  });
+
+  it('returns 0 for Infinity and -Infinity', () => {
+    expect(sanitizeCurrency(Infinity)).toBe(0);
+    expect(sanitizeCurrency(-Infinity)).toBe(0);
+  });
+
+  it('clamps negative numbers to 0', () => {
+    expect(sanitizeCurrency(-100)).toBe(0);
+    expect(sanitizeCurrency(-0.01)).toBe(0);
   });
 });
 

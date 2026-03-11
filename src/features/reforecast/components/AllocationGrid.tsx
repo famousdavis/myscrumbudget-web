@@ -9,16 +9,14 @@ import Link from 'next/link';
 import type { TeamMember, PoolMember, MonthlyCalculation, ProductivityWindow } from '@/types/domain';
 import { ConfirmDialog } from '@/components/BaseDialog';
 import type { AllocationMap } from '@/lib/calc/allocationMap';
-import { getAllocation } from '@/lib/calc/allocationMap';
 import { useDragReorder } from '@/hooks/useDragReorder';
 import { getEtcStartDate } from '@/lib/utils/dates';
 import type { CellCoord, SelectionRange, FillDragState } from '../lib/gridHelpers';
 import {
   normalizeRange,
   computeFillRegion,
-  moveCellInDirection,
-  moveCellDown,
 } from '../lib/gridHelpers';
+import { useGridKeyboard } from '../hooks/useGridKeyboard';
 import { AllocationGridHeader } from './AllocationGridHeader';
 import { AllocationGridRow } from './AllocationGridRow';
 import { AllocationGridSummaryRows } from './AllocationGridSummaryRows';
@@ -190,100 +188,8 @@ export function AllocationGrid({
     return () => document.removeEventListener('mousedown', handleMouseDown);
   }, [commitEdit]);
 
-  // Keyboard navigation
-  useEffect(() => {
-    if (readonly || teamMembers.length === 0 || months.length === 0) return;
-
-    const maxRow = teamMembers.length - 1;
-    const maxCol = months.length - 1;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!focusedCell) return;
-
-      const target = e.target as HTMLElement;
-      if (target.tagName === 'SELECT') return;
-      if (target.tagName === 'INPUT' && !target.hasAttribute('data-grid-input')) return;
-
-      if (editingCell) {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          commitEdit();
-          const next = moveCellDown(focusedCell, maxRow);
-          setFocusedCell(next);
-          setSelection({ startRow: next.row, startCol: next.col, endRow: next.row, endCol: next.col });
-        } else if (e.key === 'Escape') {
-          e.preventDefault();
-          setEditingCell(null);
-        } else if (e.key === 'Tab') {
-          e.preventDefault();
-          commitEdit();
-          const next = moveCellInDirection(focusedCell, 0, e.shiftKey ? -1 : 1, maxRow, maxCol);
-          setFocusedCell(next);
-          setSelection({ startRow: next.row, startCol: next.col, endRow: next.row, endCol: next.col });
-        }
-        return;
-      }
-
-      const setFocusAndSelect = (cell: CellCoord) => {
-        setFocusedCell(cell);
-        setSelection({ startRow: cell.row, startCol: cell.col, endRow: cell.row, endCol: cell.col });
-      };
-
-      switch (e.key) {
-        case 'ArrowUp':
-          e.preventDefault();
-          setFocusAndSelect(moveCellInDirection(focusedCell, -1, 0, maxRow, maxCol));
-          break;
-        case 'ArrowDown':
-          e.preventDefault();
-          setFocusAndSelect(moveCellInDirection(focusedCell, 1, 0, maxRow, maxCol));
-          break;
-        case 'ArrowLeft':
-          e.preventDefault();
-          setFocusAndSelect(moveCellInDirection(focusedCell, 0, -1, maxRow, maxCol));
-          break;
-        case 'ArrowRight':
-          e.preventDefault();
-          setFocusAndSelect(moveCellInDirection(focusedCell, 0, 1, maxRow, maxCol));
-          break;
-        case 'Tab':
-          e.preventDefault();
-          setFocusAndSelect(moveCellInDirection(focusedCell, 0, e.shiftKey ? -1 : 1, maxRow, maxCol));
-          break;
-        case 'Enter': {
-          e.preventDefault();
-          const value = getAllocation(allocationMap, months[focusedCell.col], teamMembers[focusedCell.row].id);
-          const pctValue = value ? Math.round(value * 100) : 0;
-          setEditingCell(focusedCell);
-          setInputValue(pctValue > 0 ? String(pctValue) : '');
-          break;
-        }
-        case 'Delete':
-        case 'Backspace': {
-          e.preventDefault();
-          if (selection) {
-            const norm = normalizeRange(selection);
-            for (let r = norm.startRow; r <= norm.endRow; r++) {
-              for (let c = norm.startCol; c <= norm.endCol; c++) {
-                onAllocationChange(teamMembers[r].id, months[c], 0);
-              }
-            }
-          }
-          break;
-        }
-        default:
-          if (/^[0-9]$/.test(e.key)) {
-            e.preventDefault();
-            setEditingCell(focusedCell);
-            setInputValue(e.key);
-          }
-          break;
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [
+  // Keyboard navigation (arrow keys, Enter, Escape, Tab, Delete, digit entry)
+  useGridKeyboard({
     readonly,
     focusedCell,
     editingCell,
@@ -293,7 +199,11 @@ export function AllocationGrid({
     allocationMap,
     onAllocationChange,
     commitEdit,
-  ]);
+    setFocusedCell,
+    setSelection,
+    setEditingCell,
+    setInputValue,
+  });
 
   // --- Cell interaction callbacks ---
   const handleCellMouseDown = useCallback((rowIdx: number, colIdx: number, shiftKey: boolean) => {
@@ -449,14 +359,16 @@ export function AllocationGrid({
               mutedMonths={mutedMonths}
             />
           )}
-          <AllocationGridAddRow
-            months={months}
-            pool={pool}
-            addingRow={addingRow}
-            onAddingRowChange={setAddingRow}
-            onMemberAdd={onMemberAdd!}
-            hasRowControls={hasRowControls}
-          />
+          {hasRowControls && onMemberAdd && (
+            <AllocationGridAddRow
+              months={months}
+              pool={pool}
+              addingRow={addingRow}
+              onAddingRowChange={setAddingRow}
+              onMemberAdd={onMemberAdd}
+              hasRowControls={hasRowControls}
+            />
+          )}
         </tbody>
       </table>
       {pendingDeleteId && onMemberDelete && (

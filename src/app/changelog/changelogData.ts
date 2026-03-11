@@ -13,6 +13,35 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.18.1',
+    date: '2026-03-11',
+    sections: [
+      {
+        title: 'Refactoring',
+        items: [
+          'Extracted keyboard navigation logic from AllocationGrid into dedicated useGridKeyboard hook for better separation of concerns and testability',
+          'Moved sanitizeCurrency utility from useReforecast hook to shared format.ts module',
+          'Replaced non-null assertion (!) with conditional rendering for AllocationGridAddRow',
+        ],
+      },
+      {
+        title: 'Dependencies',
+        items: [
+          'Updated @vitejs/plugin-react to 5.1.4 (patch)',
+          'Updated @types/react to 19.2.14 and @types/node to 24.12.0 (patches)',
+        ],
+      },
+      {
+        title: 'Testing',
+        items: [
+          '626 passing tests across 40 test files (+22 new tests)',
+          'New useGridKeyboard hook tests (17 tests: arrow navigation, Enter/Escape/Tab, Delete, digit entry, boundary clamping, readonly guard)',
+          'New sanitizeCurrency tests (5 tests: finite values, NaN, Infinity, negative, zero)',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.18.0',
     date: '2026-03-11',
     sections: [
