@@ -12,6 +12,7 @@ import type {
   ProductivityWindow,
 } from '@/types/domain';
 import { generateId } from '@/lib/utils/id';
+import { sanitizeCurrency } from '@/lib/utils/format';
 import { buildAllocationMap } from '@/lib/calc/allocationMap';
 import { getActiveReforecast } from '@/lib/utils/teamResolution';
 import { createBaselineReforecast, createNewReforecast } from '@/lib/utils/reforecast';
@@ -220,10 +221,6 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
     },
     [updateActiveRf],
   );
-
-  /** Sanitize a currency value: clamp NaN/Infinity to 0, enforce >= 0. */
-  const sanitizeCurrency = (value: number): number =>
-    Number.isFinite(value) ? Math.max(0, value) : 0;
 
   const updateActualCost = useCallback(
     (value: number) => {

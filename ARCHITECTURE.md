@@ -1085,6 +1085,22 @@ Delivered:
 - No data migration needed — `undefined` = no cutoff = identical to prior behavior; DATA_VERSION stays at 0.7.0
 - 604 passing tests across 39 test files (+20 new tests)
 
+### Sprint 21: Maintenance & Refactoring (v0.18.1)
+
+**Refactoring:**
+- Extracted keyboard navigation from `AllocationGrid.tsx` into dedicated `useGridKeyboard` hook (`src/features/reforecast/hooks/useGridKeyboard.ts`) — reduces orchestrator from 476 to 378 LOC
+- Moved `sanitizeCurrency` pure function from `useReforecast` hook body to shared `format.ts` module
+- Replaced TypeScript non-null assertion (`onMemberAdd!`) with conditional rendering in `AllocationGrid.tsx`
+
+**Dependencies:**
+- Updated `@vitejs/plugin-react` 5.1.3 → 5.1.4 (patch)
+- Updated `@types/react` 19.2.10 → 19.2.14, `@types/node` 24.10.9 → 24.12.0 (patches)
+
+**Testing:**
+- 626 passing tests across 40 test files (+22 new tests, +1 test file)
+- New `useGridKeyboard` hook tests (17 tests)
+- New `sanitizeCurrency` tests in format.test.ts (5 tests)
+
 ---
 
 ## Part 8: TypeScript Calculation Functions
@@ -1698,8 +1714,8 @@ This architecture document provides:
 2. **Clean TypeScript domain model** with global team pool + project assignments
 3. **Repository pattern** with shared singleton and migration support
 4. **Feature-based folder structure** optimized for solo maintenance
-5. **Incremental build plan** with testable milestones (Sprints 1–18+ complete, v0.16.2)
-6. **Pure calculation functions** with 584 unit tests across 39 test files
+5. **Incremental build plan** with testable milestones (Sprints 1–21 complete, v0.18.1)
+6. **Pure calculation functions** with 626 unit tests across 40 test files
 7. **Golden-file parity tests** ensuring spreadsheet accuracy
 
 Key design decisions:

@@ -4,6 +4,22 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.18.1] - 2026-03-11
+
+### Refactoring
+- Extracted keyboard navigation logic from AllocationGrid into dedicated useGridKeyboard hook for better separation of concerns and testability
+- Moved sanitizeCurrency utility from useReforecast hook to shared format.ts module
+- Replaced non-null assertion (!) with conditional rendering for AllocationGridAddRow
+
+### Dependencies
+- Updated @vitejs/plugin-react to 5.1.4 (patch)
+- Updated @types/react to 19.2.14 and @types/node to 24.12.0 (patches)
+
+### Testing
+- 626 passing tests across 40 test files (+22 new tests)
+- New useGridKeyboard hook tests (17 tests: arrow navigation, Enter/Escape/Tab, Delete, digit entry, boundary clamping, readonly guard)
+- New sanitizeCurrency tests (5 tests: finite values, NaN, Infinity, negative, zero)
+
 ## [0.18.0] - 2026-03-11
 
 ### Legal
