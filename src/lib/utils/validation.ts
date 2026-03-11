@@ -36,8 +36,11 @@ function isValidAllocation(val: unknown): boolean {
 
 function isValidDateString(val: unknown): boolean {
   if (!isString(val)) return false;
-  // YYYY-MM-DD format
-  return /^\d{4}-\d{2}-\d{2}$/.test(val);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(val)) return false;
+  // Verify the date is semantically valid (rejects e.g. 9999-99-99)
+  const [y, m, d] = val.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  return date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d;
 }
 
 function isValidMonthString(val: unknown): boolean {

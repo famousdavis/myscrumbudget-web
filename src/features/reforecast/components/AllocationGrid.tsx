@@ -98,7 +98,7 @@ export function AllocationGrid({
   const commitEdit = useCallback(() => {
     if (!editingCell) return;
     const raw = parseFloat(inputValue);
-    if (!isNaN(raw)) {
+    if (Number.isFinite(raw)) {
       const clamped = Math.max(0, Math.min(100, raw));
       const memberId = teamMembers[editingCell.row].id;
       const month = months[editingCell.col];

@@ -13,6 +13,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.18.2',
+    date: '2026-03-11',
+    sections: [
+      {
+        title: 'Security',
+        items: [
+          'Added 10 MB file size limit on JSON import to prevent memory exhaustion',
+          'Replaced isNaN() with Number.isFinite() in RateTable, ThresholdSettings, and AllocationGrid to reject Infinity values',
+          'Added min={0} HTML constraint on RateTable number inputs for browser-level enforcement',
+          'Added maxLength={100} on PoolMemberTable edit name input for consistency with add form',
+          'Strengthened date validation to reject syntactically valid but semantically invalid dates (e.g. 9999-99-99)',
+          'Added X-Content-Type-Options, Referrer-Policy, X-Frame-Options, and Permissions-Policy security headers',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.18.1',
     date: '2026-03-11',
     sections: [
