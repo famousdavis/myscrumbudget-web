@@ -1116,6 +1116,14 @@ Delivered:
 - CSP already configured; no eval/innerHTML/document.write usage
 - Firebase auth and Firestore rules verified secure
 
+### Sprint 23: Node 22 LTS Deployment Pinning (v0.18.3)
+
+**Infrastructure:**
+- Added `engines: { "node": ">=22" }` to `package.json` for deployment readiness before Node 20 EOL (April 30, 2026)
+- Created `.nvmrc` with `22` for consistent local/CI Node version resolution
+- Aligned `@types/node` from `^24` to `^22` to match deployment target
+- Vercel Node.js version set to 22.x in project settings
+
 ---
 
 ## Part 8: TypeScript Calculation Functions
@@ -1729,7 +1737,7 @@ This architecture document provides:
 2. **Clean TypeScript domain model** with global team pool + project assignments
 3. **Repository pattern** with shared singleton and migration support
 4. **Feature-based folder structure** optimized for solo maintenance
-5. **Incremental build plan** with testable milestones (Sprints 1–22 complete, v0.18.2)
+5. **Incremental build plan** with testable milestones (Sprints 1–22 complete, v0.18.3)
 6. **Pure calculation functions** with 626 unit tests across 40 test files
 7. **Golden-file parity tests** ensuring spreadsheet accuracy
 
