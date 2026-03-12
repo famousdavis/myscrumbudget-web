@@ -4,6 +4,12 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.18.3] - 2026-03-11
+
+### Infrastructure
+- Pinned Node.js >=22 LTS in package.json engines field and .nvmrc for deployment readiness before Node 20 EOL
+- Aligned @types/node to ^22 to match deployment target
+
 ## [0.18.2] - 2026-03-11
 
 ### Security
