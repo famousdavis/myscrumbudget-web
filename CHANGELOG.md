@@ -4,6 +4,11 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.18.4] - 2026-03-16
+
+### UX
+- Revised first-run notification wording to clarify that using the app implies agreement to Terms of Service and Privacy Policy
+
 ## [0.18.3] - 2026-03-11
 
 ### Infrastructure

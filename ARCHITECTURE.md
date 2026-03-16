@@ -1124,6 +1124,12 @@ Delivered:
 - Aligned `@types/node` from `^24` to `^22` to match deployment target
 - Vercel Node.js version set to 22.x in project settings
 
+### Sprint 24: First-Run Banner Text Revision (v0.18.4)
+
+**UX:**
+- Revised first-run notification wording to clarify that using the app implies agreement to Terms of Service and Privacy Policy
+- Cloud Storage opt-in language now specifies explicit confirmation is required only for cloud features
+
 ---
 
 ## Part 8: TypeScript Calculation Functions
@@ -1737,7 +1743,7 @@ This architecture document provides:
 2. **Clean TypeScript domain model** with global team pool + project assignments
 3. **Repository pattern** with shared singleton and migration support
 4. **Feature-based folder structure** optimized for solo maintenance
-5. **Incremental build plan** with testable milestones (Sprints 1–22 complete, v0.18.3)
+5. **Incremental build plan** with testable milestones (Sprints 1–24 complete, v0.18.4)
 6. **Pure calculation functions** with 626 unit tests across 40 test files
 7. **Golden-file parity tests** ensuring spreadsheet accuracy
 
