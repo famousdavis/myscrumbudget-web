@@ -55,8 +55,8 @@ export function FirstRunBanner() {
   return (
     <div className="mb-6 flex items-start justify-between gap-3 rounded border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-zinc-700 dark:border-blue-800 dark:bg-blue-900/30 dark:text-zinc-300">
       <p>
-        Statistical PERT&reg; apps are free to use. No account is required. If you choose to
-        enable optional Cloud Storage, you will be asked to review and agree to our{' '}
+        Statistical PERT&reg; apps are free. No account is required to use them. By accessing
+        or using this app, you agree to our{' '}
         <a href={TOS_URL} target="_blank" rel="noopener noreferrer" className={linkClass}>
           Terms of Service
         </a>{' '}
@@ -64,7 +64,8 @@ export function FirstRunBanner() {
         <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" className={linkClass}>
           Privacy Policy
         </a>
-        .
+        . If you choose to enable optional Cloud Storage, you&apos;ll be asked to explicitly
+        confirm your agreement.
       </p>
       <button
         onClick={dismiss}

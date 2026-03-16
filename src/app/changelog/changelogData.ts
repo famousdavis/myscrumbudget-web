@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.18.4',
+    date: '2026-03-16',
+    sections: [
+      {
+        title: 'UX',
+        items: [
+          'Revised first-run notification wording to clarify that using the app implies agreement to Terms of Service and Privacy Policy',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.18.3',
     date: '2026-03-11',
     sections: [
