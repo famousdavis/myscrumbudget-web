@@ -1,6 +1,6 @@
 {
   "name": "my-scrum-budget",
-  "version": "0.18.4",
+  "version": "0.18.5",
   "private": true,
   "engines": {
     "node": "22.x"
