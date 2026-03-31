@@ -1130,6 +1130,13 @@ Delivered:
 - Revised first-run notification wording to clarify that using the app implies agreement to Terms of Service and Privacy Policy
 - Cloud Storage opt-in language now specifies explicit confirmation is required only for cloud features
 
+### Sprint 25: Legal Constants & Branding Update (v0.18.5)
+
+**Maintenance:**
+- Updated TOS/Privacy version strings to `03-31-2026`
+- Migrated canonical legal document URLs from `spert-landing.vercel.app` to `spertsuite.com`
+- Updated consent UI brand references from "Statistical PERT® suite of apps" to "SPERT® Suite web apps" in `FirstRunBanner` and `TosConsentModal`
+
 ---
 
 ## Part 8: TypeScript Calculation Functions
@@ -1743,7 +1750,7 @@ This architecture document provides:
 2. **Clean TypeScript domain model** with global team pool + project assignments
 3. **Repository pattern** with shared singleton and migration support
 4. **Feature-based folder structure** optimized for solo maintenance
-5. **Incremental build plan** with testable milestones (Sprints 1–24 complete, v0.18.4)
+5. **Incremental build plan** with testable milestones (Sprints 1–25 complete, v0.18.5)
 6. **Pure calculation functions** with 626 unit tests across 40 test files
 7. **Golden-file parity tests** ensuring spreadsheet accuracy
 

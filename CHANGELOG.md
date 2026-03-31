@@ -4,6 +4,13 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.18.5] - 2026-03-31
+
+### Maintenance
+- Updated Terms of Service and Privacy Policy to v03-31-2026
+- Updated canonical legal document URLs to spertsuite.com
+- Updated consent UI text to SPERT® Suite branding
+
 ## [0.18.4] - 2026-03-16
 
 ### UX

@@ -43,8 +43,7 @@ export function TosConsentModal({ onAccept, onCancel }: TosConsentModalProps) {
       }
     >
       <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-        To use cloud storage, you must agree to the Terms of Service and Privacy
-        Policy for the Statistical PERT&reg; suite of apps.
+        Use is governed by the Terms of Service and Privacy Policy for SPERT&reg; Suite web apps.
       </p>
       <label className="mt-4 flex items-start gap-2 text-sm text-zinc-700 dark:text-zinc-300">
         <input

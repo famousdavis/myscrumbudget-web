@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.18.5',
+    date: '2026-03-31',
+    sections: [
+      {
+        title: 'Maintenance',
+        items: [
+          'Updated Terms of Service and Privacy Policy to v03-31-2026',
+          'Updated canonical legal document URLs to spertsuite.com',
+          'Updated consent UI text to SPERT® Suite branding',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.18.4',
     date: '2026-03-16',
     sections: [
