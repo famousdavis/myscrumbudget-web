@@ -10,6 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Updated Terms of Service and Privacy Policy to v03-31-2026
 - Updated canonical legal document URLs to spertsuite.com
 - Updated consent UI text to SPERT® Suite branding
+- Added License footer link (links to GitHub LICENSE file)
+- Updated LICENSE project name to SPERT® Suite
 
 ## [0.18.4] - 2026-03-16
 
