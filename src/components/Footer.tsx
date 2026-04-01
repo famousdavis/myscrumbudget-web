@@ -4,7 +4,7 @@
 
 import Link from 'next/link';
 import { APP_VERSION } from '@/lib/constants';
-import { TOS_URL, PRIVACY_URL } from '@/lib/tos/tosConstants';
+import { TOS_URL, PRIVACY_URL, LICENSE_URL } from '@/lib/tos/tosConstants';
 
 const legalLinkClass = 'text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300';
 
@@ -28,6 +28,10 @@ export function Footer() {
         {' | '}
         <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" className={legalLinkClass}>
           Privacy Policy
+        </a>
+        {' | '}
+        <a href={LICENSE_URL} target="_blank" rel="noopener noreferrer" className={legalLinkClass}>
+          License
         </a>
       </div>
     </footer>

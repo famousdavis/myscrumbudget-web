@@ -6,5 +6,6 @@ export const TOS_VERSION = '03-31-2026';
 export const PRIVACY_VERSION = '03-31-2026';
 export const TOS_URL = 'https://spertsuite.com/TOS.pdf';
 export const PRIVACY_URL = 'https://spertsuite.com/PRIVACY.pdf';
+export const LICENSE_URL = 'https://github.com/famousdavis/myscrumbudget-web/blob/main/LICENSE';
 export const APP_ID = 'myscrumbudget';
 export const TOS_STORAGE_KEY = 'spert_tos_accepted_version';
