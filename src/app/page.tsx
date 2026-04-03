@@ -15,6 +15,7 @@ import { ConfirmDialog } from '@/components/BaseDialog';
 import { useToast } from '@/components/Toast';
 import { SkeletonProjectCard } from '@/components/Skeleton';
 import { STORAGE_KEYS } from '@/types/storage';
+import { repo } from '@/lib/storage/repo';
 
 export default function DashboardPage() {
   const { projects, loading, deleteProject, reorderProjects } = useProjects();
@@ -28,16 +29,38 @@ export default function DashboardPage() {
   }, []);
   const drag = useDragReorder(projects, 'id', reorderProjects);
 
+  const handleExportAll = async () => {
+    const data = await repo.exportAll();
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `myscrumbudget-export-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    addToast('Export complete', 'success');
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Dashboard</h1>
-        <Link
-          href="/projects/new"
-          className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          New Project
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportAll}
+            disabled={projects.length === 0}
+            className="rounded border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Export All Projects
+          </button>
+          <Link
+            href="/projects/new"
+            className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            New Project
+          </Link>
+        </div>
       </div>
 
       {loading ? (

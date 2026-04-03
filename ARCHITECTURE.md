@@ -1137,6 +1137,14 @@ Delivered:
 - Migrated canonical legal document URLs from `spert-landing.vercel.app` to `spertsuite.com`
 - Updated consent UI brand references from "Statistical PERT® suite of apps" to "SPERT® Suite web apps" in `FirstRunBanner` and `TosConsentModal`
 
+### Sprint 26: Export All Projects Button (v0.18.6)
+
+**Features:**
+- Added "Export All Projects" button to Dashboard header alongside "New Project"
+- Uses same `repo.exportAll()` + Blob download pattern as Settings Data Portability
+- Secondary/outline button style consistent with existing UI patterns
+- Disabled when no projects exist
+
 ---
 
 ## Part 8: TypeScript Calculation Functions
@@ -1750,7 +1758,7 @@ This architecture document provides:
 2. **Clean TypeScript domain model** with global team pool + project assignments
 3. **Repository pattern** with shared singleton and migration support
 4. **Feature-based folder structure** optimized for solo maintenance
-5. **Incremental build plan** with testable milestones (Sprints 1–25 complete, v0.18.5)
+5. **Incremental build plan** with testable milestones (Sprints 1–26 complete, v0.18.6)
 6. **Pure calculation functions** with 626 unit tests across 40 test files
 7. **Golden-file parity tests** ensuring spreadsheet accuracy
 
