@@ -12,4 +12,5 @@ export const STORAGE_KEYS = {
   changeLog: 'msb:changeLog',
   exportAttribution: 'msb:exportAttribution',
   ratesReviewed: 'msb:ratesReviewed',
+  suppressLocalStorageWarning: 'msb:suppressLocalStorageWarning',
 } as const;
