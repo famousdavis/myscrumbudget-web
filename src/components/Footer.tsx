@@ -22,6 +22,10 @@ export function Footer() {
         | Licensed under GNU GPL v3
       </div>
       <div className="mt-1">
+        <a href="https://spertsuite.com" target="_blank" rel="noopener noreferrer" className={legalLinkClass}>
+          SPERT&reg; Suite
+        </a>
+        {' | '}
         <a href={TOS_URL} target="_blank" rel="noopener noreferrer" className={legalLinkClass}>
           Terms of Service
         </a>
