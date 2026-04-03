@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.18.6',
+    date: '2026-04-02',
+    sections: [
+      {
+        title: 'Features',
+        items: [
+          'Added "Export All Projects" button to Dashboard header for quick JSON export without navigating to Settings',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.18.5',
     date: '2026-03-31',
     sections: [
