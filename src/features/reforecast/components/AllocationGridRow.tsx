@@ -213,7 +213,7 @@ export function AllocationGridRow({
         <td className="sticky right-0 z-10 border border-zinc-200 bg-white px-2 py-1 text-center dark:border-zinc-700 dark:bg-zinc-950">
           <button
             onClick={() => onDeleteClick(member.id)}
-            className="text-sm text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+            className="text-sm text-zinc-300 hover:text-red-500 dark:text-zinc-600 dark:hover:text-red-400"
             title="Remove row"
           >
             ✕
