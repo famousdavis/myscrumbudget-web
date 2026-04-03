@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useSettings } from '@/features/settings/hooks/useSettings';
 import { SettingsForm } from '@/features/settings/components/SettingsForm';
 import { RateTable } from '@/features/settings/components/RateTable';
@@ -14,11 +14,19 @@ import { DataPortability } from '@/features/settings/components/DataPortability'
 import { ExportAttribution } from '@/features/settings/components/ExportAttribution';
 import { CloudStorageSection } from '@/features/settings/components/CloudStorageSection';
 import { Skeleton } from '@/components/Skeleton';
+import { STORAGE_KEYS } from '@/types/storage';
 
 export default function SettingsPage() {
   const { settings, loading, updateSettings, flush } = useSettings();
 
   useEffect(() => () => { flush(); }, [flush]);
+
+  const [warnEnabled, setWarnEnabled] = useState(true);
+  useEffect(() => {
+    setWarnEnabled(
+      localStorage.getItem(STORAGE_KEYS.suppressLocalStorageWarning) !== 'true'
+    );
+  }, []);
 
   if (loading || !settings) {
     return (
@@ -53,6 +61,33 @@ export default function SettingsPage() {
           redPercent={settings.trafficLightThresholds.redPercent}
           onUpdate={updateSettings}
         />
+        <hr className="border-zinc-200 dark:border-zinc-800" />
+        <div>
+          <h3 className="mb-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            Notifications
+          </h3>
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={warnEnabled}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setWarnEnabled(checked);
+                localStorage.setItem(
+                  STORAGE_KEYS.suppressLocalStorageWarning,
+                  checked ? 'false' : 'true'
+                );
+              }}
+              className="mt-0.5"
+            />
+            <div>
+              <span className="font-medium">Warn me on startup when using local storage</span>
+              <p className="text-zinc-500 dark:text-zinc-400">
+                Shows a caution banner each time the app opens while your data is stored locally in this browser.
+              </p>
+            </div>
+          </label>
+        </div>
         <hr className="border-zinc-200 dark:border-zinc-800" />
         <CloudStorageSection />
         <hr className="border-zinc-200 dark:border-zinc-800" />

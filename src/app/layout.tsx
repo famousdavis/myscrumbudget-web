@@ -6,6 +6,7 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { Sidebar } from '@/components/Sidebar';
 import { FirstRunBanner } from '@/components/FirstRunBanner';
+import { LocalStorageWarningBanner } from '@/components/LocalStorageWarningBanner';
 import { MigrationGuard } from '@/components/MigrationGuard';
 import { AuthProvider } from '@/components/AuthProvider';
 import { CloudSyncProvider } from '@/components/CloudSyncProvider';
@@ -57,6 +58,7 @@ export default function RootLayout({
           <Sidebar />
           <main id="main-content" className="min-w-0 flex-1 p-8 pt-16 md:pt-8">
             <FirstRunBanner />
+            <LocalStorageWarningBanner />
             <MigrationGuard><AuthProvider><CloudSyncProvider><ToastProvider>{children}</ToastProvider></CloudSyncProvider></AuthProvider></MigrationGuard>
             <Footer />
           </main>

@@ -1137,13 +1137,15 @@ Delivered:
 - Migrated canonical legal document URLs from `spert-landing.vercel.app` to `spertsuite.com`
 - Updated consent UI brand references from "Statistical PERT® suite of apps" to "SPERT® Suite web apps" in `FirstRunBanner` and `TosConsentModal`
 
-### Sprint 26: Export All Projects Button (v0.18.6)
+### Sprint 26: Export All Projects Button & localStorage Warning Banner (v0.18.6)
 
 **Features:**
 - Added "Export All Projects" button to Dashboard header alongside "New Project"
 - Uses same `repo.exportAll()` + Blob download pattern as Settings Data Portability
 - Secondary/outline button style consistent with existing UI patterns
 - Disabled when no projects exist
+- Added `LocalStorageWarningBanner` — amber caution banner shown on every app load when storage mode is local, session-dismissable via "Got it" button
+- Added Notifications section in Settings with checkbox to permanently suppress the localStorage warning banner (`msb:suppressLocalStorageWarning` localStorage key)
 
 ---
 

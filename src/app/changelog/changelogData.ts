@@ -20,6 +20,8 @@ export const CHANGELOG: ChangelogEntry[] = [
         title: 'Features',
         items: [
           'Added "Export All Projects" button to Dashboard header for quick JSON export without navigating to Settings',
+          'Added localStorage warning banner — amber caution banner on every app load when data is stored locally, session-dismissable via "Got it"',
+          'Added Notifications section in Settings with toggle to permanently suppress the localStorage warning banner',
         ],
       },
     ],
