@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.18.7',
+    date: '2026-04-03',
+    sections: [
+      {
+        title: 'UX',
+        items: [
+          'Allocation grid row delete buttons (✕) are now gray by default and turn red on hover, reducing visual clutter',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.18.6',
     date: '2026-04-02',
     sections: [
