@@ -13,6 +13,27 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.18.8',
+    date: '2026-04-04',
+    sections: [
+      {
+        title: 'UX',
+        items: [
+          'Added persistent top bar to all pages — shows storage mode (Local/Cloud) and signed-in user in the upper-right corner, consistent with other SPERT Suite apps',
+          'StorageStatusPill: gray "Local" pill when using local storage; blue pill with user initial and display name when signed into cloud; amber "Sign in" pill when cloud mode is selected but not authenticated — all states link to Settings',
+          'Moved theme toggle (Light/Dark/System) from sidebar bottom to top bar for consistent placement across SPERT Suite apps',
+        ],
+      },
+      {
+        title: 'New Components',
+        items: [
+          'StorageStatusPill (src/components/StorageStatusPill.tsx) — three-state storage/auth indicator with reactive mode detection on navigation',
+          'TopBar (src/components/TopBar.tsx) — right-aligned utility bar housing ThemeToggle and StorageStatusPill',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.18.7',
     date: '2026-04-03',
     sections: [
