@@ -42,7 +42,11 @@ export function StorageStatusPill() {
   }, [pathname]);
 
   const isCloudSignedIn = mode === 'cloud' && !!user;
-  const firstName = user?.displayName?.split(' ')[0] ?? user?.email ?? '';
+  const dn = user?.displayName ?? '';
+  // Handle "Last, First" (Microsoft SSO) and "First Last" formats
+  const firstName = dn.includes(',')
+    ? (dn.split(',')[1]?.trim().split(' ')[0] || user?.email || '')
+    : (dn.split(' ')[0] || user?.email || '');
   const initial = firstName.charAt(0).toUpperCase();
 
   return (
