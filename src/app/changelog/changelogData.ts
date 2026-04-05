@@ -13,6 +13,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.18.9',
+    date: '2026-04-05',
+    sections: [
+      {
+        title: 'UX',
+        items: [
+          'Standardized auth chip to Option C split-pill design — matches SPERT Suite convention across all six apps',
+          'Signed-in state now shows 26px avatar circle with first initial, first name only (not full name), vertical divider, and cloud icon linking to Settings',
+          'Local/signed-out state shows lock icon with "Local only" label, vertical divider, and "Sign in" link to Settings',
+          'Suite-standard blue (#0070f3) used for avatar, cloud icon, and sign-in label regardless of app accent color',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.18.8',
     date: '2026-04-04',
     sections: [

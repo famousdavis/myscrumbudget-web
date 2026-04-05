@@ -4,6 +4,14 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.18.9] - 2026-04-05
+
+### UX
+- Standardized auth chip to Option C split-pill design — matches SPERT Suite convention across all six apps
+- Signed-in state now shows 26px avatar circle with first initial, first name only (not full name), vertical divider, and cloud icon linking to Settings
+- Local/signed-out state shows lock icon with "Local only" label, vertical divider, and "Sign in" link to Settings
+- Suite-standard blue (#0070f3) used for avatar, cloud icon, and sign-in label regardless of app accent color
+
 ## [0.18.5] - 2026-03-31
 
 ### Maintenance
