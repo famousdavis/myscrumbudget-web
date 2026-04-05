@@ -938,7 +938,7 @@ Delivered:
 **Goal**: Add user-facing dark mode toggle and clean up stale files
 
 Delivered:
-- Three-state theme toggle (Light / Dark / System) in sidebar with sun/moon/monitor icons
+- Three-state theme toggle (Light / Dark / System) with sun/moon/monitor icons (moved to top bar in v0.18.8)
 - `useTheme` hook manages theme state, persists to `msb:theme` localStorage key, toggles `.dark` class on `<html>`
 - `ThemeToggle` component with `role="radiogroup"` for accessibility
 - Blocking inline `<script>` in `<head>` prevents flash of wrong theme (FOIUC)
@@ -1146,6 +1146,18 @@ Delivered:
 - Disabled when no projects exist
 - Added `LocalStorageWarningBanner` — amber caution banner shown on every app load when storage mode is local, session-dismissable via "Got it" button
 - Added Notifications section in Settings with checkbox to permanently suppress the localStorage warning banner (`msb:suppressLocalStorageWarning` localStorage key)
+
+### Sprint 27: Top Bar — Storage Status & Theme Toggle (v0.18.8)
+
+**UX:**
+- Added persistent `TopBar` to the global layout — appears on every page, right-aligned in the main content area
+- `StorageStatusPill`: three-state indicator — gray "Local" (local storage), blue with user initial + display name (cloud, signed in), amber "Sign in" (cloud, signed out); all states link to `/settings`
+- Mode is re-read on every client-side navigation via `usePathname()` so Settings changes reflect immediately
+- Moved `ThemeToggle` from sidebar bottom to `TopBar` for consistency with other SPERT Suite apps
+
+**New Files:**
+- `src/components/StorageStatusPill.tsx` — storage/auth status pill using `useAuth()` + `getStorageMode()`
+- `src/components/TopBar.tsx` — right-aligned bar housing `ThemeToggle` and `StorageStatusPill`
 
 ---
 
@@ -1760,7 +1772,7 @@ This architecture document provides:
 2. **Clean TypeScript domain model** with global team pool + project assignments
 3. **Repository pattern** with shared singleton and migration support
 4. **Feature-based folder structure** optimized for solo maintenance
-5. **Incremental build plan** with testable milestones (Sprints 1–26 complete, v0.18.6)
+5. **Incremental build plan** with testable milestones (Sprints 1–27 complete, v0.18.8)
 6. **Pure calculation functions** with 626 unit tests across 40 test files
 7. **Golden-file parity tests** ensuring spreadsheet accuracy
 
