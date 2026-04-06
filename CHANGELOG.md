@@ -4,6 +4,13 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.19.0] - 2026-04-05
+
+### Legal
+- Updated Terms of Service and Privacy Policy to v04-05-2026
+- Added SPERT® AHP to list of covered apps
+- Updated effective date to April 5, 2026
+
 ## [0.18.9] - 2026-04-05
 
 ### UX
