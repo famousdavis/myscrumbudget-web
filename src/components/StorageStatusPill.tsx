@@ -4,11 +4,12 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { useState, useEffect, useRef } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
-import { getStorageMode } from '@/lib/storage/storageMode';
+import { getStorageMode, setStorageMode } from '@/lib/storage/storageMode';
+import { switchRepoImpl } from '@/lib/storage/repo';
+import { createLocalStorageRepository } from '@/lib/storage/localStorage';
 
 function CloudIcon() {
   return (
@@ -31,9 +32,14 @@ function LockIcon() {
 }
 
 export function StorageStatusPill() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
   const [mode, setMode] = useState<'local' | 'cloud'>('local');
+  const [open, setOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const wrapperRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
 
   // Re-read storage mode on every navigation so changes made in Settings
   // are reflected immediately when the user navigates away.
@@ -49,16 +55,64 @@ export function StorageStatusPill() {
     : (dn.split(' ')[0] || user?.email || '');
   const initial = firstName.charAt(0).toUpperCase();
 
-  return (
-    <div
-      className="flex items-center rounded-full"
-      style={{ border: '0.5px solid #D1D5DB' }}
-    >
-      {isCloudSignedIn ? (
-        <>
+  // Escape + outside-click dismissal (signed-in popover only)
+  useEffect(() => {
+    if (!open) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (signingOut) return;
+      if (e.key === 'Escape') setOpen(false);
+    };
+    const handleClick = (e: MouseEvent) => {
+      if (signingOut) return;
+      const t = e.target as Node;
+      if (
+        !wrapperRef.current?.contains(t) &&
+        !popoverRef.current?.contains(t)
+      ) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('keydown', handleKey);
+    document.addEventListener('mousedown', handleClick);
+    return () => {
+      document.removeEventListener('keydown', handleKey);
+      document.removeEventListener('mousedown', handleClick);
+    };
+  }, [open, signingOut]);
+
+  const handleSignOut = async () => {
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      await signOut();
+      // Mirror CloudStorageSection.handleSignOut: if cloud mode, reset repo + persistence.
+      if (getStorageMode() === 'cloud') {
+        switchRepoImpl(createLocalStorageRepository());
+        setStorageMode('local');
+      }
+      setMode('local');
+      setOpen(false);
+    } finally {
+      setSigningOut(false);
+    }
+  };
+
+  if (isCloudSignedIn) {
+    return (
+      <div className="relative">
+        <button
+          ref={wrapperRef}
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-label={`Signed in as ${firstName}. Open account menu.`}
+          className="flex items-center rounded-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          style={{ border: '0.5px solid #D1D5DB' }}
+        >
           {/* Left segment: avatar + first name */}
-          <div className="flex items-center gap-1.5 py-1 pl-1 pr-2.5">
-            <div
+          <span className="flex items-center gap-1.5 py-1 pl-1 pr-2.5">
+            <span
               className="flex items-center justify-center rounded-full text-white shrink-0"
               style={{
                 width: 26,
@@ -69,45 +123,85 @@ export function StorageStatusPill() {
               }}
             >
               {initial}
-            </div>
+            </span>
             <span style={{ fontSize: 13, fontWeight: 500 }} className="text-gray-900 dark:text-gray-100">
               {firstName}
             </span>
-          </div>
+          </span>
           {/* Vertical divider */}
-          <div className="self-stretch" style={{ width: '0.5px', backgroundColor: '#D1D5DB' }} />
-          {/* Right segment: cloud icon → Settings */}
-          <Link
-            href="/settings"
-            className="flex items-center justify-center px-2.5 py-1 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-r-full"
-            aria-label="Open settings"
-          >
+          <span className="self-stretch" style={{ width: '0.5px', backgroundColor: '#D1D5DB' }} />
+          {/* Right segment: cloud icon */}
+          <span className="flex items-center justify-center px-2.5 py-1">
             <CloudIcon />
-          </Link>
-        </>
-      ) : (
-        <>
-          {/* Left segment: lock icon + "Local only" */}
-          <div className="flex items-center gap-1.5 py-1 pl-2.5 pr-2.5">
-            <LockIcon />
-            <span style={{ fontSize: 13 }} className="text-gray-400">
-              Local only
-            </span>
-          </div>
-          {/* Vertical divider */}
-          <div className="self-stretch" style={{ width: '0.5px', backgroundColor: '#D1D5DB' }} />
-          {/* Right segment: "Sign in" → Settings */}
-          <Link
-            href="/settings"
-            className="flex items-center justify-center px-2.5 py-1 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-r-full"
-            aria-label="Sign in"
+          </span>
+        </button>
+
+        {open && (
+          <div
+            ref={popoverRef}
+            role="dialog"
+            aria-label="Account menu"
+            className="absolute right-0 top-full mt-2 z-50 w-64 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
           >
-            <span style={{ fontSize: 12, fontWeight: 500, color: '#0070f3' }}>
-              Sign in
-            </span>
-          </Link>
-        </>
-      )}
-    </div>
+            <div className="px-4 py-3">
+              <div className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
+                {user?.displayName || firstName}
+              </div>
+              {user?.email && (
+                <div className="truncate text-xs text-gray-500 dark:text-gray-400">
+                  {user.email}
+                </div>
+              )}
+            </div>
+            <div className="border-t border-gray-200 dark:border-zinc-700" />
+            <div className="flex justify-end gap-2 px-4 py-3">
+              <button
+                type="button"
+                onClick={() => { if (!signingOut) setOpen(false); }}
+                disabled={signingOut}
+                className="rounded border border-zinc-300 px-3 py-1.5 text-sm font-medium hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSignOut}
+                disabled={signingOut}
+                className="rounded bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {signingOut ? 'Signing out…' : 'Sign Out'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Signed-out branch: single button → /settings
+  return (
+    <button
+      type="button"
+      onClick={() => router.push('/settings')}
+      aria-label="Sign in"
+      className="flex items-center rounded-full cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+      style={{ border: '0.5px solid #D1D5DB' }}
+    >
+      {/* Left segment: lock icon + "Local only" */}
+      <span className="flex items-center gap-1.5 py-1 pl-2.5 pr-2.5">
+        <LockIcon />
+        <span style={{ fontSize: 13 }} className="text-gray-400">
+          Local only
+        </span>
+      </span>
+      {/* Vertical divider */}
+      <span className="self-stretch" style={{ width: '0.5px', backgroundColor: '#D1D5DB' }} />
+      {/* Right segment: "Sign in" */}
+      <span className="flex items-center justify-center px-2.5 py-1">
+        <span style={{ fontSize: 12, fontWeight: 500, color: '#0070f3' }}>
+          Sign in
+        </span>
+      </span>
+    </button>
   );
 }

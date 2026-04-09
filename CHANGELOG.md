@@ -4,6 +4,16 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.19.1] - 2026-04-09
+
+### UX
+- Auth chip is now a single clickable button — avatar, name, divider, and cloud icon form one unified click target
+- Clicking the signed-in chip opens a lightweight popover showing the user's display name, email, and a Sign Out button
+- Sign Out from the chip mirrors the Settings → Cloud Storage sign-out handler exactly (signs out of Firebase and resets storage mode to Local)
+- Popover dismisses via Escape key, outside click, or Cancel button; dismissal is disabled while sign-out is in flight to prevent inconsistent state
+- Signed-out chip remains a single button that navigates to Settings for the sign-in flow
+- Removed nested `<button>`/`<Link>` elements inside the chip to comply with accessibility requirements (one chip, one click target)
+
 ## [0.19.0] - 2026-04-05
 
 ### Legal
