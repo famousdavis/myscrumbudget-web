@@ -4,7 +4,8 @@
 
 'use client';
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import { register as registerPendingSave } from '@/lib/storage/pendingSaveRegistry';
 
 const DEBOUNCE_MS = 500;
 
@@ -23,7 +24,9 @@ export function useDebouncedSave<T>(saveFn: (value: T) => void) {
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
         pendingRef.current = null;
-        saveFn(value);
+        Promise.resolve(saveFn(value)).catch((err) => {
+          console.error('[useDebouncedSave] save failed:', err);
+        });
       }, DEBOUNCE_MS);
     },
     [saveFn],
@@ -48,6 +51,11 @@ export function useDebouncedSave<T>(saveFn: (value: T) => void) {
     }
     pendingRef.current = null;
   }, []);
+
+  // Register this instance's cancel with the module-level registry so
+  // `performSignOutCleanup` can abort every in-flight save before Firebase
+  // credentials are revoked. Unregisters on unmount.
+  useEffect(() => registerPendingSave(cancel), [cancel]);
 
   return { save, flush, cancel };
 }
