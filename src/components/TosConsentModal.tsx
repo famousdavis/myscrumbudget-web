@@ -20,6 +20,10 @@ export function TosConsentModal({ onAccept, onCancel }: TosConsentModalProps) {
   const linkClass = 'text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline';
 
   const handleContinue = () => {
+    // Set optimistically before the OAuth popup resolves so that a tab-close
+    // during sign-in does not re-prompt on the next visit. The Firestore
+    // write in AuthProvider.recordTosAcceptance reconciles the server record
+    // after successful authentication.
     setTosAcceptedVersion(TOS_VERSION);
     onAccept();
   };

@@ -11,7 +11,7 @@ import { ConfirmDialog } from '@/components/BaseDialog';
 import { TosConsentModal } from '@/components/TosConsentModal';
 import { useToast } from '@/components/Toast';
 import { getStorageMode, setStorageMode, type StorageMode } from '@/lib/storage/storageMode';
-import { switchRepoImpl } from '@/lib/storage/repo';
+import { repo, switchRepoImpl } from '@/lib/storage/repo';
 import { createLocalStorageRepository } from '@/lib/storage/localStorage';
 import { createFirestoreRepository } from '@/lib/storage/firestoreRepo';
 import { sanitizeFirebaseError } from '@/lib/firebase/errors';
@@ -33,6 +33,7 @@ export function CloudStorageSection() {
 
   const [mode, setMode] = useState<StorageMode>(getStorageMode);
   const [showUploadConfirm, setShowUploadConfirm] = useState(false);
+  const [showReuploadConfirm, setShowReuploadConfirm] = useState(false);
   const [showCleanupConfirm, setShowCleanupConfirm] = useState(false);
   const [showSwitchToLocalConfirm, setShowSwitchToLocalConfirm] = useState(false);
   const [migrating, setMigrating] = useState(false);
@@ -51,9 +52,11 @@ export function CloudStorageSection() {
     if (newMode === 'cloud') {
       if (!user) return; // Can't switch to cloud without auth
 
-      // Check if there's local data to migrate
-      const localRepo = createLocalStorageRepository();
-      const localProjects = await localRepo.getProjects();
+      // Read from the delegating repo (currently pointing at localStorage,
+      // since mode !== 'cloud' at this branch). Avoids the C3 leak where a
+      // freshly-constructed localStorage repo bypasses any in-flight state
+      // and reads raw keys that may belong to a prior user.
+      const localProjects = await repo.getProjects();
 
       if (localProjects.length > 0) {
         setLocalProjectCount(localProjects.length);
@@ -87,9 +90,11 @@ export function CloudStorageSection() {
     setMigrationResult(null);
 
     try {
-      // Export all local data
-      const localRepo = createLocalStorageRepository();
-      const localData = await localRepo.exportAll();
+      // Main migration path — the active repo is still localStorage here
+      // (user is toggling from local → cloud). Reading via the delegating
+      // wrapper avoids the C3 leak where a freshly-constructed local repo
+      // could surface stale keys from a prior user.
+      const localData = await repo.exportAll();
 
       // Switch to cloud repo
       const cloudRepo = createFirestoreRepository(user.uid);
@@ -116,6 +121,39 @@ export function CloudStorageSection() {
       switchRepoImpl(createLocalStorageRepository());
       setStorageMode('local');
       setMode('local');
+    } finally {
+      setMigrating(false);
+    }
+  };
+
+  const confirmReupload = async () => {
+    if (!user) return;
+    setShowReuploadConfirm(false);
+    setMigrating(true);
+    setMigrationResult(null);
+
+    try {
+      // Reads localStorage directly because the active repo is Firestore in
+      // cloud mode; this button exists specifically to surface localStorage
+      // stragglers left behind after a prior migration. Safe under sign-out
+      // cleanup (performSignOutCleanup wipes msb:projects before any new
+      // user sees this UI).
+      const localRepo = createLocalStorageRepository();
+      const localData = await localRepo.exportAll();
+
+      const cloudRepo = createFirestoreRepository(user.uid);
+      await cloudRepo.importAll(localData);
+      setHasUploaded();
+
+      const count = localData.projects.length;
+      setMigrationResult(`Uploaded ${count} project${count !== 1 ? 's' : ''} to cloud.`);
+      addToast(`${count} project${count !== 1 ? 's' : ''} uploaded to cloud.`, 'success');
+
+      setShowCleanupConfirm(true);
+    } catch (error) {
+      const msg = sanitizeFirebaseError(error);
+      setMigrationResult(`Upload failed: ${msg}`);
+      addToast('Upload failed.', 'error');
     } finally {
       setMigrating(false);
     }
@@ -149,8 +187,19 @@ export function CloudStorageSection() {
         await signInWithMicrosoft();
       }
     } catch (error) {
-      const msg = sanitizeFirebaseError(error);
-      setSignInError(msg);
+      const code = (error && typeof error === 'object' && 'code' in error)
+        ? (error as { code: string }).code
+        : '';
+      // Silent returns: user closed the popup, or double-clicked the button
+      // (cancelled-popup-request fires when a second popup opens while the
+      // first is still in flight). Neither is a real error worth surfacing.
+      if (code === 'auth/popup-closed-by-user' ||
+          code === 'auth/cancelled-popup-request') return;
+      if (code === 'auth/popup-blocked') {
+        setSignInError('Pop-up was blocked. Allow pop-ups for this site and try again.');
+        return;
+      }
+      setSignInError(sanitizeFirebaseError(error));
     }
   };
 
@@ -171,18 +220,17 @@ export function CloudStorageSection() {
   };
 
   const handleSignOut = async () => {
+    // Thin wrapper: performSignOutCleanup (invoked via useAuth().signOut) is
+    // the canonical path. It cancels pending saves, clears per-user keys,
+    // resets storage mode, swaps the repo, revokes Firebase credentials, and
+    // reloads the page. No component-local cleanup is needed after this.
     await signOut();
-    // If currently in cloud mode, switch back to local
-    if (mode === 'cloud') {
-      switchRepoImpl(createLocalStorageRepository());
-      setStorageMode('local');
-      setMode('local');
-    }
   };
 
   const hasUploadedBefore = getHasUploaded();
 
   return (
+    <div id="cloud-storage" className="scroll-mt-4">
     <CollapsibleSection title="Cloud Storage">
       <div className="space-y-4">
         {/* Storage mode toggle */}
@@ -266,14 +314,17 @@ export function CloudStorageSection() {
         )}
 
         {/* Re-upload button (cloud mode, already uploaded, idle) */}
-        {mode === 'cloud' && user && !migrating && !showUploadConfirm && (
+        {mode === 'cloud' && user && !migrating && !showUploadConfirm && !showReuploadConfirm && (
           <button
             onClick={async () => {
+              // Reads localStorage directly because the active repo is
+              // Firestore in cloud mode; this button surfaces localStorage
+              // stragglers left behind after a prior migration.
               const localRepo = createLocalStorageRepository();
               const localProjects = await localRepo.getProjects();
               if (localProjects.length > 0) {
                 setLocalProjectCount(localProjects.length);
-                setShowUploadConfirm(true);
+                setShowReuploadConfirm(true);
               } else {
                 addToast('No local data to upload.', 'info');
               }
@@ -309,7 +360,7 @@ export function CloudStorageSection() {
         )}
       </div>
 
-      {/* Upload confirmation dialog */}
+      {/* Upload confirmation dialog (main local→cloud migration) */}
       {showUploadConfirm && (
         <ConfirmDialog
           title="Upload Local Data to Cloud"
@@ -327,6 +378,26 @@ export function CloudStorageSection() {
           confirmLabel="Upload to Cloud"
           onConfirm={confirmUpload}
           onCancel={() => setShowUploadConfirm(false)}
+        />
+      )}
+
+      {/* Re-upload confirmation dialog (cloud-mode stragglers in localStorage) */}
+      {showReuploadConfirm && (
+        <ConfirmDialog
+          title="Upload Local Data to Cloud"
+          message={
+            <>
+              You have {localProjectCount} local project{localProjectCount !== 1 ? 's' : ''} in
+              this browser that have not been synced to the cloud.
+              Upload them now?
+              <span className="block mt-1 text-zinc-500 dark:text-zinc-400">
+                Projects already in cloud will be skipped.
+              </span>
+            </>
+          }
+          confirmLabel="Upload to Cloud"
+          onConfirm={confirmReupload}
+          onCancel={() => setShowReuploadConfirm(false)}
         />
       )}
 
@@ -367,5 +438,6 @@ export function CloudStorageSection() {
       )}
 
     </CollapsibleSection>
+    </div>
   );
 }

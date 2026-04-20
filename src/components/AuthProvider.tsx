@@ -13,8 +13,8 @@ import {
   subscribeToAuth,
   signInWithMicrosoft as doSignInMicrosoft,
   signInWithGoogle as doSignInGoogle,
-  signOut as doSignOut,
 } from '@/lib/firebase/auth';
+import { performSignOutCleanup } from '@/lib/auth/signOutCleanup';
 import { TOS_VERSION, PRIVACY_VERSION, APP_ID } from '@/lib/tos/tosConstants';
 import { setTosAcceptedVersion } from '@/lib/tos/tosHelpers';
 
@@ -91,8 +91,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
-    await doSignOut();
-    setUser(null);
+    await performSignOutCleanup();
+    // Note: performSignOutCleanup triggers window.location.reload() in its
+    // finally block, so setUser(null) and any post-await code here is moot —
+    // the page is about to unmount. Kept as async/await to preserve the
+    // existing Promise-returning contract on useAuth().signOut().
   }, []);
 
   return (
