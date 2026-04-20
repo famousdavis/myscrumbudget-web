@@ -7,7 +7,12 @@
  * Validates nested structure to prevent silent data corruption
  */
 
-import type { AppState, Settings, Project, Reforecast, Holiday, LaborRate, PoolMember, ProjectAssignment, MonthlyAllocation, ProductivityWindow } from '@/types/domain';
+// Type predicates below (isValidSettings, isValidProjectArray,
+// isValidPoolMemberArray) correspond to the three top-level localStorage
+// keys. Deep-validation functions further up the file intentionally accept
+// `unknown` — they are the "is this imported JSON structurally valid" pass
+// for the import flow and never claim the input IS the target type.
+import type { Settings, Project, PoolMember } from '@/types/domain';
 
 export interface ValidationResult {
   valid: boolean;

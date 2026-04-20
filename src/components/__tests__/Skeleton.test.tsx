@@ -3,7 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { Skeleton, SkeletonProjectCard, SkeletonProjectDetail } from '../Skeleton';
 
 describe('Skeleton', () => {

@@ -4,22 +4,24 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { getStorageMode } from '@/lib/storage/storageMode';
 import { STORAGE_KEYS } from '@/types/storage';
 
 export function LocalStorageWarningBanner() {
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
+  // Lazy initializer reads localStorage once on mount; SSR-safe via the
+  // typeof window guard (returns false on the server, so the banner never
+  // renders during SSR — avoids hydration mismatch).
+  const [visible, setVisible] = useState(() => {
+    if (typeof window === 'undefined') return false;
     try {
-      if (getStorageMode() !== 'local') return;
-      if (localStorage.getItem(STORAGE_KEYS.suppressLocalStorageWarning) === 'true') return;
-      setVisible(true);
+      if (getStorageMode() !== 'local') return false;
+      if (localStorage.getItem(STORAGE_KEYS.suppressLocalStorageWarning) === 'true') return false;
+      return true;
     } catch {
-      // localStorage unavailable
+      return false;
     }
-  }, []);
+  });
 
   if (!visible) return null;
 

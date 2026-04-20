@@ -25,8 +25,8 @@ function fmt(d: Date): string {
 /** Return the nth occurrence of a weekday (0=Sun…6=Sat) in a given month/year. n is 1-based. */
 function nthWeekday(year: number, month: number, weekday: number, n: number): Date {
   const first = new Date(year, month, 1);
-  let dayOfWeek = first.getDay();
-  let diff = (weekday - dayOfWeek + 7) % 7;
+  const dayOfWeek = first.getDay();
+  const diff = (weekday - dayOfWeek + 7) % 7;
   const day = 1 + diff + (n - 1) * 7;
   return new Date(year, month, day);
 }
@@ -34,7 +34,7 @@ function nthWeekday(year: number, month: number, weekday: number, n: number): Da
 /** Return the last occurrence of a weekday in a given month/year. */
 function lastWeekday(year: number, month: number, weekday: number): Date {
   const lastDay = new Date(year, month + 1, 0); // last day of month
-  let diff = (lastDay.getDay() - weekday + 7) % 7;
+  const diff = (lastDay.getDay() - weekday + 7) % 7;
   return new Date(year, month, lastDay.getDate() - diff);
 }
 

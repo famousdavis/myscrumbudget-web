@@ -13,6 +13,29 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.20.1',
+    date: '2026-04-19',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'Fixed a latent Rules-of-Hooks violation in CloudStorageSection where a useCallback was declared after an early return. Constant at runtime today (Firebase config is env-derived), but the hoist to above the early return is correct per React\'s invariants',
+        ],
+      },
+      {
+        title: 'Maintenance',
+        items: [
+          'Lint gate cleanup: npm run lint now exits 0. Prior state on main was 35 problems (17 errors, 18 warnings) stemming from new React 19-era rules and miscellaneous unused-variable warnings',
+          'Converted 4 useEffect(() => setState(localStorage...)) sites to lazy useState(() => ...) initializers with typeof window guards (page.tsx, settings/page.tsx, LocalStorageWarningBanner, FirstRunBanner)',
+          'Pragma-suppressed react-hooks/set-state-in-effect on 5 legitimate external-subscription hooks (useProject, useProjects, useSettings, useTeamPool, useTheme) with inline justification. The rule cannot distinguish cloudSyncBus-driven refetches from cascading renders; useTheme\'s setMounted(true) is the canonical SSR hydration guard. useTheme is flagged as a candidate for a future useSyncExternalStore refactor',
+          'Pruned 7 unused type imports from validation.ts and 4 unused imports across test files and components',
+          'Replaced 5 as any casts in localStorage.test.ts with narrower as unknown as Record<string, unknown> assertions for the legacy-shape migration tests',
+          'Applied prefer-const to 3 let declarations in usaFederalHolidays.ts',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.20.0',
     date: '2026-04-19',
     sections: [

@@ -68,7 +68,8 @@ const MIGRATIONS: Migration[] = [
           }
 
           // Remove old teamMembers, add assignments
-          const { teamMembers: _, ...rest } = project;
+          const { teamMembers: _teamMembers, ...rest } = project;
+          void _teamMembers;
           return { ...rest, assignments };
         },
       );
@@ -90,7 +91,8 @@ const MIGRATIONS: Migration[] = [
       assertArray(data.projects, 'projects', '0.3.0');
 
       // Remove hoursPerMonth from settings — now derived from calendar workdays.
-      const { hoursPerMonth: _, ...restSettings } = data.settings ?? {};
+      const { hoursPerMonth: _hoursPerMonth, ...restSettings } = data.settings ?? {};
+      void _hoursPerMonth;
       return {
         ...data,
         version: '0.3.0',

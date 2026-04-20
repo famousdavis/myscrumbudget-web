@@ -36,8 +36,6 @@ function buildMap(entries: Array<[string, string, number]>): AllocationMap {
   return map;
 }
 
-const emptyMap: AllocationMap = new Map();
-
 const sampleMap = buildMap([
   ['2026-01', 'tm-1', 0.5],
   ['2026-01', 'tm-2', 1.0],

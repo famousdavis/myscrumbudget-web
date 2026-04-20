@@ -96,8 +96,11 @@ export function createFirestoreRepository(uid: string): Repository {
       });
       // Sort by order field for drag-to-reorder persistence
       projects.sort((a, b) => (a._order ?? 0) - (b._order ?? 0));
-      // Strip _order but keep _memberCount for shared badge
-      return projects.map(({ _order, ...p }) => p as Project);
+      // Strip _order but keep _memberCount for shared badge.
+      return projects.map(({ _order: _stripOrder, ...p }) => {
+        void _stripOrder;
+        return p as Project;
+      });
     },
 
     async getProject(id: string): Promise<Project | null> {

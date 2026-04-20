@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createLocalStorageRepository } from '@/lib/storage/localStorage';
-import type { Project, ProjectAssignment, PoolMember } from '@/types/domain';
+import type { Project, PoolMember } from '@/types/domain';
 import { resolveAssignments } from '@/lib/utils/teamResolution';
 
 const repo = createLocalStorageRepository();

@@ -21,12 +21,17 @@ export default function SettingsPage() {
 
   useEffect(() => () => { flush(); }, [flush]);
 
-  const [warnEnabled, setWarnEnabled] = useState(true);
-  useEffect(() => {
-    setWarnEnabled(
-      localStorage.getItem(STORAGE_KEYS.suppressLocalStorageWarning) !== 'true'
-    );
-  }, []);
+  // Lazy initializer reads localStorage once on mount; SSR-safe via the
+  // typeof window guard (returns true on the server — the banner-enabled
+  // default — and the actual stored value on the client).
+  const [warnEnabled, setWarnEnabled] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    try {
+      return localStorage.getItem(STORAGE_KEYS.suppressLocalStorageWarning) !== 'true';
+    } catch {
+      return true;
+    }
+  });
 
   if (loading || !settings) {
     return (
