@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useProjects } from '@/features/projects/hooks/useProjects';
 import { useSettings } from '@/features/settings/hooks/useSettings';
@@ -23,10 +23,16 @@ export default function DashboardPage() {
   const { pool } = useTeamPool();
   const { addToast } = useToast();
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
-  const [ratesReviewed, setRatesReviewed] = useState(false);
-  useEffect(() => {
-    setRatesReviewed(localStorage.getItem(STORAGE_KEYS.ratesReviewed) === '1');
-  }, []);
+  // Lazy initializer reads localStorage once on mount; SSR-safe via the
+  // typeof window guard (returns false on the server, correct value on the client).
+  const [ratesReviewed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return localStorage.getItem(STORAGE_KEYS.ratesReviewed) === '1';
+    } catch {
+      return false;
+    }
+  });
   const drag = useDragReorder(projects, 'id', reorderProjects);
 
   const handleExportAll = async () => {

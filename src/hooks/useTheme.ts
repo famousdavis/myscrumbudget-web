@@ -31,7 +31,9 @@ export function useTheme() {
   const [mode, setMode] = useState<ThemeMode>(getStoredTheme);
   const [mounted, setMounted] = useState(false);
 
-  // Mark as mounted after hydration
+  // SSR hydration guard — mounts once after client paint, not a cascading render.
+  // Candidate for useSyncExternalStore in a future pass.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), []);
 
   // Apply theme on mount and when mode changes

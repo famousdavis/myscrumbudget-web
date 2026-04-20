@@ -8,7 +8,6 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import type { Project, ProjectMetrics, TrafficLightThresholds } from '@/types/domain';
 import { formatCurrency, formatDateMedium } from '@/lib/utils/format';
-import { formatMonthLabel } from '@/lib/utils/dates';
 import { getTrafficLightStatus, getTrafficLightDisplay, DEFAULT_THRESHOLDS } from '@/lib/calc';
 
 const editableClass =

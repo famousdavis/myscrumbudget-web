@@ -249,7 +249,9 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
     (date: string | undefined) => {
       updateActiveRf((rf) => {
         if (date === undefined || date === '') {
-          const { actualsThroughDate: _, ...rest } = rf;
+          // Intentionally strip actualsThroughDate from the Reforecast shape.
+          const { actualsThroughDate: _actualsThroughDate, ...rest } = rf;
+          void _actualsThroughDate;
           return rest as Reforecast;
         }
         return { ...rf, actualsThroughDate: date };

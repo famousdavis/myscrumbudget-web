@@ -204,34 +204,37 @@ describe('LocalStorage Repository', () => {
         }],
       };
 
-      // Simulate import flow: run migrations then import
-      const migrated = runMigrations(v1Data as any, '1.0.0');
+      // Simulate import flow: run migrations then import. The cast is
+      // `unknown` (then narrowed at the call site) because v1Data is a
+      // legacy shape that predates the current AppState type; runMigrations
+      // accepts arbitrary input by contract.
+      const migrated = runMigrations(v1Data as unknown as Parameters<typeof runMigrations>[0], '1.0.0');
       await repo.importAll(migrated);
 
       const projects = await repo.getProjects();
       expect(projects).toHaveLength(1);
       expect(projects[0].assignments).toHaveLength(1);
-      expect((projects[0] as any).teamMembers).toBeUndefined();
+      expect((projects[0] as unknown as Record<string, unknown>).teamMembers).toBeUndefined();
 
       const pool = await repo.getTeamPool();
       expect(pool).toHaveLength(1);
       expect(pool[0].name).toBe('Bob');
 
       // v0.4.0 migration: actualCost moved into Baseline reforecast
-      expect((projects[0] as any).actualCost).toBeUndefined();
+      expect((projects[0] as unknown as Record<string, unknown>).actualCost).toBeUndefined();
       expect(projects[0].reforecasts).toHaveLength(1);
       expect(projects[0].reforecasts[0].name).toBe('Baseline');
       expect(projects[0].reforecasts[0].actualCost).toBe(0);
       expect(projects[0].activeReforecastId).toBe(projects[0].reforecasts[0].id);
 
       // v0.5.0 migration: baselineBudget moved into reforecast, reforecastDate added
-      expect((projects[0] as any).baselineBudget).toBeUndefined();
+      expect((projects[0] as unknown as Record<string, unknown>).baselineBudget).toBeUndefined();
       expect(projects[0].reforecasts[0].baselineBudget).toBe(100000);
       expect(projects[0].reforecasts[0].reforecastDate).toBeTruthy();
 
       // hoursPerMonth should be stripped
       const settings = await repo.getSettings();
-      expect((settings as any).hoursPerMonth).toBeUndefined();
+      expect((settings as unknown as Record<string, unknown>).hoursPerMonth).toBeUndefined();
     });
   });
 

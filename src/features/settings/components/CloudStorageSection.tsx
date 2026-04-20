@@ -43,6 +43,22 @@ export function CloudStorageSection() {
   const [pendingProvider, setPendingProvider] = useState<'google' | 'microsoft' | null>(null);
   const [showTosModal, setShowTosModal] = useState(false);
 
+  // Hoisted above the firebaseAvailable early-return so all hooks run in the
+  // same order on every render. In practice firebaseAvailable is derived from
+  // env vars and is constant at runtime, but placing a useCallback AFTER an
+  // early return is still a Rules-of-Hooks violation.
+  const switchToCloud = useCallback(() => {
+    if (!user) return;
+    const cloudRepo = createFirestoreRepository(user.uid);
+    switchRepoImpl(cloudRepo);
+    setStorageMode('cloud');
+    setHasUploaded();
+    // In cloud mode, origin ref is the Firebase UID
+    setOriginRef(user.uid);
+    // Reload so hooks fetch from Firestore and cloud sync listeners are set up
+    window.location.reload();
+  }, [user]);
+
   // If Firebase is not configured, hide entirely
   if (!firebaseAvailable) return null;
 
@@ -70,18 +86,6 @@ export function CloudStorageSection() {
       setShowSwitchToLocalConfirm(true);
     }
   };
-
-  const switchToCloud = useCallback(() => {
-    if (!user) return;
-    const cloudRepo = createFirestoreRepository(user.uid);
-    switchRepoImpl(cloudRepo);
-    setStorageMode('cloud');
-    setHasUploaded();
-    // In cloud mode, origin ref is the Firebase UID
-    setOriginRef(user.uid);
-    // Reload so hooks fetch from Firestore and cloud sync listeners are set up
-    window.location.reload();
-  }, [user]);
 
   const confirmUpload = async () => {
     if (!user) return;

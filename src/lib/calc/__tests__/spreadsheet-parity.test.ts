@@ -26,7 +26,6 @@ import {
 import {
   calculateETC,
   calculateEAC,
-  calculateVariance,
   calculateWeeklyBurnRate,
   getActiveMonths,
   generateMonthlyCalculations,
@@ -133,7 +132,7 @@ describe('Regression Tests — Workday-Based Calculation Engine', () => {
 
   describe('Project Metrics', () => {
     it('ETC matches expected value', () => {
-      const monthlyCosts = FIX.months.map((m, i) => {
+      const monthlyCosts = FIX.months.map((m) => {
         const availableHours = getMonthlyWorkHours(
           m, FIX.project.startDate, FIX.project.endDate,
         );

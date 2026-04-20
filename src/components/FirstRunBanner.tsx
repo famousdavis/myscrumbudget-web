@@ -11,19 +11,17 @@ import { isTosAccepted } from '@/lib/tos/tosHelpers';
 const FIRST_RUN_KEY = 'spert_firstRun_seen';
 
 export function FirstRunBanner() {
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
+  // Lazy initializer reads localStorage once on mount; SSR-safe via the
+  // typeof window guard (returns false on the server, actual value on the client).
+  const [visible, setVisible] = useState(() => {
+    if (typeof window === 'undefined') return false;
     try {
       const dismissed = localStorage.getItem(FIRST_RUN_KEY) === 'true';
-      if (!dismissed && !isTosAccepted()) {
-        setVisible(true);
-      }
+      return !dismissed && !isTosAccepted();
     } catch {
-      // localStorage unavailable
+      return false;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  });
 
   // Re-check visibility when storage changes (e.g., after ToS acceptance in modal)
   useEffect(() => {
