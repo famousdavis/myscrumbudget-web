@@ -13,6 +13,7 @@
 // `unknown` — they are the "is this imported JSON structurally valid" pass
 // for the import flow and never claim the input IS the target type.
 import type { Settings, Project, PoolMember } from '@/types/domain';
+import { REFORECAST_NOTES_MAX_LENGTH } from '@/lib/constants';
 
 export interface ValidationResult {
   valid: boolean;
@@ -234,6 +235,13 @@ function validateReforecast(reforecast: unknown, path: string): string[] {
   if (reforecast.actualsThroughDate !== undefined && reforecast.actualsThroughDate !== null) {
     if (!isValidDateString(reforecast.actualsThroughDate)) {
       errors.push(`${path}.actualsThroughDate: expected YYYY-MM-DD date string`);
+    }
+  }
+  if (reforecast.notes !== undefined && reforecast.notes !== null) {
+    if (!isString(reforecast.notes)) {
+      errors.push(`${path}.notes: expected string`);
+    } else if (reforecast.notes.length > REFORECAST_NOTES_MAX_LENGTH) {
+      errors.push(`${path}.notes: exceeds max length of ${REFORECAST_NOTES_MAX_LENGTH} characters`);
     }
   }
 
