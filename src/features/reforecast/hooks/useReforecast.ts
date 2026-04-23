@@ -13,6 +13,7 @@ import type {
 } from '@/types/domain';
 import { generateId } from '@/lib/utils/id';
 import { sanitizeCurrency } from '@/lib/utils/format';
+import { REFORECAST_NOTES_MAX_LENGTH } from '@/lib/constants';
 import { buildAllocationMap } from '@/lib/calc/allocationMap';
 import { getActiveReforecast } from '@/lib/utils/teamResolution';
 import { createBaselineReforecast, createNewReforecast } from '@/lib/utils/reforecast';
@@ -245,6 +246,14 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
     [updateActiveRf],
   );
 
+  const updateNotes = useCallback(
+    (value: string) => {
+      const trimmed = value.slice(0, REFORECAST_NOTES_MAX_LENGTH);
+      updateActiveRf((rf) => ({ ...rf, notes: trimmed }));
+    },
+    [updateActiveRf],
+  );
+
   const updateActualsThroughDate = useCallback(
     (date: string | undefined) => {
       updateActiveRf((rf) => {
@@ -276,5 +285,6 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
     updateBaselineBudget,
     updateReforecastDate,
     updateActualsThroughDate,
+    updateNotes,
   };
 }

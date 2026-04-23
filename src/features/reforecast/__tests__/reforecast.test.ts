@@ -4,6 +4,7 @@
 
 import { describe, it, expect } from 'vitest';
 import type { Project, Reforecast } from '@/types/domain';
+import { REFORECAST_NOTES_MAX_LENGTH } from '@/lib/constants';
 
 /**
  * Tests for reforecast data transformations.
@@ -752,6 +753,83 @@ describe('Reforecast Management', () => {
       const updated = updateBaselineBudgetUpdater(999000)(project);
       expect(updated.reforecasts[0].baselineBudget).toBe(999000);
       expect(updated.reforecasts[1].baselineBudget).toBe(750000);
+    });
+  });
+
+  describe('updateNotes', () => {
+    // Simulate the updateNotes updater logic from useReforecast
+    function updateNotesUpdater(value: string) {
+      return (prev: Project): Project => {
+        if (prev.reforecasts.length === 0) return prev;
+        const reforecastId = prev.activeReforecastId ?? prev.reforecasts[0].id;
+        const trimmed = value.slice(0, REFORECAST_NOTES_MAX_LENGTH);
+        return {
+          ...prev,
+          reforecasts: prev.reforecasts.map((rf) =>
+            rf.id === reforecastId ? { ...rf, notes: trimmed } : rf,
+          ),
+        };
+      };
+    }
+
+    it('sets notes on the active reforecast', () => {
+      const rf = makeReforecast();
+      const project = makeProject({
+        reforecasts: [rf],
+        activeReforecastId: rf.id,
+      });
+
+      const updated = updateNotesUpdater('Scope expanded to include API work.')(project);
+      expect(updated.reforecasts[0].notes).toBe('Scope expanded to include API work.');
+    });
+
+    it('truncates input over the max length', () => {
+      const rf = makeReforecast();
+      const project = makeProject({
+        reforecasts: [rf],
+        activeReforecastId: rf.id,
+      });
+
+      const longInput = 'x'.repeat(REFORECAST_NOTES_MAX_LENGTH + 500);
+      const updated = updateNotesUpdater(longInput)(project);
+      expect(updated.reforecasts[0].notes?.length).toBe(REFORECAST_NOTES_MAX_LENGTH);
+    });
+
+    it('allows empty string (clearing)', () => {
+      const rf = makeReforecast({ notes: 'previous content' });
+      const project = makeProject({
+        reforecasts: [rf],
+        activeReforecastId: rf.id,
+      });
+
+      const updated = updateNotesUpdater('')(project);
+      expect(updated.reforecasts[0].notes).toBe('');
+    });
+
+    it('only updates the active reforecast', () => {
+      const rf1 = makeReforecast({ id: 'rf_1', notes: 'first' });
+      const rf2 = makeReforecast({ id: 'rf_2', name: 'Q3', notes: 'second' });
+      const project = makeProject({
+        reforecasts: [rf1, rf2],
+        activeReforecastId: 'rf_1',
+      });
+
+      const updated = updateNotesUpdater('first — updated')(project);
+      expect(updated.reforecasts[0].notes).toBe('first — updated');
+      expect(updated.reforecasts[1].notes).toBe('second');
+    });
+
+    it('switching reforecasts preserves independent notes', () => {
+      const rf1 = makeReforecast({ id: 'rf_1', notes: 'baseline context' });
+      const rf2 = makeReforecast({ id: 'rf_2', name: 'Q3', notes: 'Q3 scope change' });
+      const project = makeProject({
+        reforecasts: [rf1, rf2],
+        activeReforecastId: 'rf_1',
+      });
+
+      const switched = switchReforecastUpdater('rf_2')(project);
+      expect(switched.reforecasts[0].notes).toBe('baseline context');
+      expect(switched.reforecasts[1].notes).toBe('Q3 scope change');
     });
   });
 });

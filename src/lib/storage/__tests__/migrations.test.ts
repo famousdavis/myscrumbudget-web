@@ -8,7 +8,7 @@ import type { AppState } from '@/types/domain';
 
 function makeAppState(overrides: Partial<AppState> = {}): AppState {
   return {
-    version: '0.7.0',
+    version: '0.8.0',
     settings: {
       discountRateAnnual: 0.03,
       laborRates: [],
@@ -29,13 +29,13 @@ describe('Migrations', () => {
   });
 
   it('returns data unchanged when no migrations are pending', () => {
-    const data = makeAppState({ version: '0.7.0' });
-    const result = runMigrations(data, '0.7.0');
+    const data = makeAppState({ version: '0.8.0' });
+    const result = runMigrations(data, '0.8.0');
     expect(result).toEqual(data);
   });
 
   it('exports current version constant', () => {
-    expect(DATA_VERSION).toBe('0.7.0');
+    expect(DATA_VERSION).toBe('0.8.0');
   });
 
   it('migrates v1 data to v2 (extracts team pool from projects)', () => {
@@ -68,7 +68,7 @@ describe('Migrations', () => {
     const result = runMigrations(v1Data, '1.0.0');
 
     // Version should be bumped to latest
-    expect(result.version).toBe('0.7.0');
+    expect(result.version).toBe('0.8.0');
 
     // Pool should contain both members
     expect(result.teamPool).toHaveLength(2);
@@ -136,7 +136,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v2Data, '0.2.0');
 
-    expect(result.version).toBe('0.7.0');
+    expect(result.version).toBe('0.8.0');
     // hoursPerMonth should be removed
     expect((result.settings as Record<string, unknown>).hoursPerMonth).toBeUndefined();
     // Other settings preserved
@@ -174,7 +174,7 @@ describe('Migrations', () => {
 
     const migrated = runMigrations(importedData, '1.0.0');
 
-    expect(migrated.version).toBe('0.7.0');
+    expect(migrated.version).toBe('0.8.0');
     expect(migrated.teamPool).toHaveLength(1);
     expect(migrated.teamPool[0].name).toBe('Alice');
     expect(migrated.projects[0].assignments).toHaveLength(1);
@@ -237,7 +237,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v3Data, '0.3.0');
 
-    expect(result.version).toBe('0.7.0');
+    expect(result.version).toBe('0.8.0');
     const proj = result.projects[0];
 
     // actualCost should be removed from project level
@@ -288,7 +288,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v3Data, '0.3.0');
 
-    expect(result.version).toBe('0.7.0');
+    expect(result.version).toBe('0.8.0');
     const proj = result.projects[0];
 
     // actualCost removed from project
@@ -442,7 +442,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v4Data, '0.4.0');
 
-    expect(result.version).toBe('0.7.0');
+    expect(result.version).toBe('0.8.0');
     const proj = result.projects[0];
 
     // baselineBudget removed from project level
@@ -491,7 +491,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v4Data, '0.4.0');
 
-    expect(result.version).toBe('0.7.0');
+    expect(result.version).toBe('0.8.0');
     const proj = result.projects[0];
 
     // Missing baselineBudget defaults to 0
@@ -533,7 +533,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v4Data, '0.4.0');
 
-    expect(result.version).toBe('0.7.0');
+    expect(result.version).toBe('0.8.0');
     expect(result.projects[0].reforecasts[0].baselineBudget).toBe(0);
   });
 
@@ -591,7 +591,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v4Data, '0.4.0');
 
-    expect(result.version).toBe('0.7.0');
+    expect(result.version).toBe('0.8.0');
     expect(result.projects[0].reforecasts[0].baselineBudget).toBe(0);
     expect(result.projects[1].reforecasts[0].baselineBudget).toBe(0);
   });
@@ -609,7 +609,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v5Data, '0.5.0');
 
-    expect(result.version).toBe('0.7.0');
+    expect(result.version).toBe('0.8.0');
     expect(result.settings.holidays).toEqual([]);
     // Other settings preserved
     expect(result.settings.discountRateAnnual).toBe(0.03);
@@ -632,7 +632,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v5Data, '0.5.0');
 
-    expect(result.version).toBe('0.7.0');
+    expect(result.version).toBe('0.8.0');
     expect(result.settings.holidays).toHaveLength(1);
     expect(result.settings.holidays[0].name).toBe('Test');
   });
@@ -671,7 +671,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v4Data, '0.4.0');
 
-    expect(result.version).toBe('0.7.0');
+    expect(result.version).toBe('0.8.0');
     const proj = result.projects[0];
 
     // reforecastDate falls back to today when createdAt is missing
@@ -693,7 +693,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v6Data, '0.6.0');
 
-    expect(result.version).toBe('0.7.0');
+    expect(result.version).toBe('0.8.0');
     expect(result.settings.trafficLightThresholds).toEqual({
       amberPercent: 5,
       redPercent: 15,
@@ -719,10 +719,145 @@ describe('Migrations', () => {
 
     const result = runMigrations(v6Data, '0.6.0');
 
-    expect(result.version).toBe('0.7.0');
+    expect(result.version).toBe('0.8.0');
     expect(result.settings.trafficLightThresholds).toEqual({
       amberPercent: 10,
       redPercent: 20,
     });
+  });
+
+  it('migrates v0.7.0 to v0.8.0 (backfills notes on all reforecasts)', () => {
+    const v7Data = {
+      version: '0.7.0',
+      settings: {
+        discountRateAnnual: 0.03,
+        laborRates: [],
+        holidays: [],
+        trafficLightThresholds: { amberPercent: 5, redPercent: 15 },
+      },
+      teamPool: [],
+      projects: [
+        {
+          id: 'proj1',
+          name: 'Project',
+          startDate: '2026-06-15',
+          endDate: '2027-07-15',
+          assignments: [],
+          reforecasts: [
+            {
+              id: 'rf_1',
+              name: 'Baseline',
+              createdAt: '2026-06-01T00:00:00Z',
+              reforecastDate: '2026-06-01',
+              startDate: '2026-06',
+              allocations: [],
+              productivityWindows: [],
+              actualCost: 0,
+              baselineBudget: 100000,
+            },
+            {
+              id: 'rf_2',
+              name: 'Q3',
+              createdAt: '2026-09-01T00:00:00Z',
+              reforecastDate: '2026-09-01',
+              startDate: '2026-09',
+              allocations: [],
+              productivityWindows: [],
+              actualCost: 10000,
+              baselineBudget: 100000,
+            },
+          ],
+          activeReforecastId: 'rf_1',
+        },
+      ],
+    } as unknown as AppState;
+
+    const result = runMigrations(v7Data, '0.7.0');
+
+    expect(result.version).toBe('0.8.0');
+    expect(result.projects[0].reforecasts[0].notes).toBe('');
+    expect(result.projects[0].reforecasts[1].notes).toBe('');
+  });
+
+  it('v0.7.0 to v0.8.0 preserves existing notes if already present', () => {
+    const v7Data = {
+      version: '0.7.0',
+      settings: {
+        discountRateAnnual: 0.03,
+        laborRates: [],
+        holidays: [],
+        trafficLightThresholds: { amberPercent: 5, redPercent: 15 },
+      },
+      teamPool: [],
+      projects: [
+        {
+          id: 'proj1',
+          name: 'Project',
+          startDate: '2026-06-15',
+          endDate: '2027-07-15',
+          assignments: [],
+          reforecasts: [
+            {
+              id: 'rf_1',
+              name: 'Baseline',
+              createdAt: '2026-06-01T00:00:00Z',
+              reforecastDate: '2026-06-01',
+              startDate: '2026-06',
+              allocations: [],
+              productivityWindows: [],
+              actualCost: 0,
+              baselineBudget: 100000,
+              notes: 'Scope change — added API work',
+            },
+          ],
+          activeReforecastId: 'rf_1',
+        },
+      ],
+    } as unknown as AppState;
+
+    const result = runMigrations(v7Data, '0.7.0');
+
+    expect(result.projects[0].reforecasts[0].notes).toBe('Scope change — added API work');
+  });
+
+  it('v0.7.0 to v0.8.0 coerces non-string notes to empty string', () => {
+    const v7Data = {
+      version: '0.7.0',
+      settings: {
+        discountRateAnnual: 0.03,
+        laborRates: [],
+        holidays: [],
+        trafficLightThresholds: { amberPercent: 5, redPercent: 15 },
+      },
+      teamPool: [],
+      projects: [
+        {
+          id: 'proj1',
+          name: 'Project',
+          startDate: '2026-06-15',
+          endDate: '2027-07-15',
+          assignments: [],
+          reforecasts: [
+            {
+              id: 'rf_1',
+              name: 'Baseline',
+              createdAt: '2026-06-01T00:00:00Z',
+              reforecastDate: '2026-06-01',
+              startDate: '2026-06',
+              allocations: [],
+              productivityWindows: [],
+              actualCost: 0,
+              baselineBudget: 100000,
+              notes: 12345,
+            },
+          ],
+          activeReforecastId: 'rf_1',
+        },
+      ],
+    } as unknown as AppState;
+
+    const result = runMigrations(v7Data, '0.7.0');
+
+    expect(result.projects[0].reforecasts[0].notes).toBe('');
   });
 });

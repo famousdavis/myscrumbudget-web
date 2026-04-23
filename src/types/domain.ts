@@ -82,6 +82,7 @@ export interface Reforecast {
   actualCost: number;
   baselineBudget: number;
   actualsThroughDate?: string; // YYYY-MM-DD — ETC excludes costs through this date
+  notes?: string; // free-text narrative explaining why this reforecast exists (max 2000 chars)
 }
 
 // Project

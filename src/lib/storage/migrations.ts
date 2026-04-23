@@ -4,7 +4,7 @@
 
 import type { AppState, PoolMember, ProjectAssignment } from '@/types/domain';
 
-export const DATA_VERSION = '0.7.0';
+export const DATA_VERSION = '0.8.0';
 
 type Migration = {
   version: string;
@@ -235,6 +235,33 @@ const MIGRATIONS: Migration[] = [
             redPercent: 15,
           },
         },
+      };
+    },
+  },
+  {
+    version: '0.8.0',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    migrate: (data: any): AppState => {
+      // Type guards
+      assertArray(data.projects, 'projects', '0.8.0');
+
+      // Backfill per-reforecast notes field with empty string.
+      const migratedProjects = (data.projects ?? []).map(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (project: any) => ({
+          ...project,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          reforecasts: (project.reforecasts ?? []).map((rf: any) => ({
+            ...rf,
+            notes: typeof rf.notes === 'string' ? rf.notes : '',
+          })),
+        }),
+      );
+
+      return {
+        ...data,
+        version: '0.8.0',
+        projects: migratedProjects,
       };
     },
   },

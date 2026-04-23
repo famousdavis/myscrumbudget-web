@@ -17,6 +17,7 @@ import { ProjectSummary } from '@/features/projects/components/ProjectSummary';
 import { ConfirmDialog } from '@/components/BaseDialog';
 import { AllocationGrid } from '@/features/reforecast/components/AllocationGrid';
 import { ReforecastToolbar } from '@/features/reforecast/components/ReforecastToolbar';
+import { ReforecastNotes } from '@/features/reforecast/components/ReforecastNotes';
 import { ProductivityWindowPanel } from '@/features/reforecast/components/ProductivityWindowPanel';
 import { ForecastMetricsPanel } from '@/features/projects/components/ForecastMetricsPanel';
 import { useProjectMetrics } from '@/features/projects/hooks/useProjectMetrics';
@@ -60,6 +61,7 @@ export default function ProjectDetailPage({
     updateBaselineBudget,
     updateReforecastDate,
     updateActualsThroughDate,
+    updateNotes,
   } = useReforecast({
     project,
     updateProject,
@@ -146,6 +148,15 @@ export default function ProjectDetailPage({
             onActualsThroughDateChange={updateActualsThroughDate}
           />
         </div>
+        {activeReforecast && (
+          <div className="mt-3">
+            <ReforecastNotes
+              key={activeReforecast.id}
+              value={activeReforecast.notes ?? ''}
+              onChange={updateNotes}
+            />
+          </div>
+        )}
         <div className="mt-3">
           <AllocationGrid
             months={months}

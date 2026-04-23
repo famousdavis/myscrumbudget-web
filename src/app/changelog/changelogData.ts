@@ -13,6 +13,36 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.20.2',
+    date: '2026-04-23',
+    sections: [
+      {
+        title: 'Added',
+        items: [
+          'Per-reforecast Notes field — free-text narrative (max 2000 characters) to record why a reforecast exists (scope change, team shift, delay, executive ask, etc.)',
+          'Collapsible Notes panel renders directly below the reforecast toolbar. Collapsed by default; the note/document icon fills and a dot indicator appears when a reforecast has content, so context is discoverable at a glance',
+          'Live character counter (N / 2000) during editing',
+          'Notes roundtrip through JSON export/import and persist independently per reforecast (switching reforecasts surfaces that reforecast\'s own notes)',
+        ],
+      },
+      {
+        title: 'Data Model',
+        items: [
+          'Reforecast.notes?: string added to the domain type',
+          'Data version bumped 0.7.0 → 0.8.0; additive migration backfills notes: \'\' on every existing reforecast. Coerces non-string values to empty string',
+          'validateAppState extended to reject non-string notes and notes exceeding the 2000-character cap on import',
+          'REFORECAST_NOTES_MAX_LENGTH = 2000 centralized in src/lib/constants.ts',
+        ],
+      },
+      {
+        title: 'Tests',
+        items: [
+          '14 new tests across hook, migration, and validation layers (update/truncate/empty/isolation, migration backfill/preserve/coerce, validation accept/reject at boundary)',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.20.1',
     date: '2026-04-19',
     sections: [
