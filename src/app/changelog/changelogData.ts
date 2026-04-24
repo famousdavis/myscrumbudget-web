@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.21.1',
+    date: '2026-04-24',
+    sections: [
+      {
+        title: 'UX',
+        items: [
+          'Baseline Budget and Actual Cost inline-edit inputs now auto-select their existing value on focus. Clicking to edit and typing immediately replaces the prior number — no more backspacing through the previous value',
+          'Reforecast toolbar date inputs (Date, Actuals Through) constrained to 140px. The native date-picker default width left enough slack at common viewport sizes that the Delete + "+ New Reforecast" button pair wrapped to a second line; tightening the two date fields keeps the whole toolbar on one line. Scenario-name dropdown retains its min-w-48 so long reforecast names stay readable',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.21.0',
     date: '2026-04-23',
     sections: [
