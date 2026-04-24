@@ -1151,13 +1151,33 @@ Delivered:
 
 **UX:**
 - Added persistent `TopBar` to the global layout — appears on every page, right-aligned in the main content area
-- `StorageStatusPill`: three-state indicator — gray "Local" (local storage), blue with user initial + display name (cloud, signed in), amber "Sign in" (cloud, signed out); all states link to `/settings`
+- `StorageStatusPill`: three-state indicator — "Local only" + "Sign in" link (signed-out), avatar + first name + lock icon (signed-in, local mode), avatar + first name + cloud icon (signed-in, cloud mode). As of v0.21.0 every state opens the Cloud Storage modal via a shared `onOpen` prop instead of navigating to `/settings`
 - Mode is re-read on every client-side navigation via `usePathname()` so Settings changes reflect immediately
 - Moved `ThemeToggle` from sidebar bottom to `TopBar` for consistency with other SPERT Suite apps
 
 **New Files:**
 - `src/components/StorageStatusPill.tsx` — storage/auth status pill using `useAuth()` + `getStorageMode()`
 - `src/components/TopBar.tsx` — right-aligned bar housing `ThemeToggle` and `StorageStatusPill`
+
+### Sprint 28: Cloud Storage Modal (v0.21.0)
+
+**UX:**
+- Introduced a lightweight centered-overlay `CloudStorageModal` opened by any click on the auth chip. Replaces the pattern of navigating to `/settings#cloud-storage` for sign-in or storage-mode changes. Settings retains its Cloud Storage section as a secondary access path
+- Modal has three rendered variants driven by `isSignedIn × storageMode`: signed-out (primary-blue Google + Microsoft sign-in buttons with full-color brand logos, Cloud radio disabled), signed-in-local (identity card + enabled Cloud radio + "Keep using local storage" explicit-dismiss button), signed-in-cloud (identity card + Local radio that triggers switch-to-local confirmation). The fourth combination (signed-out + cloud) is structurally impossible — sign-out cascades mode→local via `performSignOutCleanup`
+- Full "Last, First MI" → "First MI Last" display-name normalization applied to the identity card via new `normalizeDisplayName()` utility, sibling to `getFirstName()`
+- Export Attribution and the Notifications toggle are rendered inside the modal AND on the Settings page via a shared `LocalStorageWarningToggle` component, so the two surfaces stay in lock-step
+- `StorageStatusPill` lost its popover menus — every click routes through the shared `onOpen` prop to open the modal. Mode is now derived during render (reactive to `usePathname()` + `useAuth()` re-renders) rather than via `useEffect(setMode)`, eliminating a `react-hooks/set-state-in-effect` pattern
+
+**New Files:**
+- `src/components/CloudStorageModal.tsx` — the modal. Consumes `useAuth`, `useToast`, and the migration state machine (confirm-upload, cleanup, switch-to-local) ported from `CloudStorageSection`
+- `src/components/icons/GoogleLogo.tsx`, `src/components/icons/MicrosoftLogo.tsx` — inline full-color brand SVG marks
+- `src/features/settings/components/LocalStorageWarningToggle.tsx` — shared "Warn me on startup when using local storage" checkbox
+
+**Modified:**
+- `src/lib/utils/getFirstName.ts` — added `normalizeDisplayName()` export (+9 unit tests)
+- `src/components/StorageStatusPill.tsx` — accepts `onOpen: () => void`; popovers and sign-out handler removed
+- `src/components/TopBar.tsx` — owns modal state (`cloudModalOpen` `useState`), conditionally renders `<CloudStorageModal>`
+- `src/app/settings/page.tsx` — Notifications section now delegates to `<LocalStorageWarningToggle />`
 
 ---
 

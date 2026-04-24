@@ -13,6 +13,39 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.21.0',
+    date: '2026-04-23',
+    sections: [
+      {
+        title: 'Added',
+        items: [
+          'Cloud Storage modal — a lightweight centered-overlay dialog triggered by any click on the auth chip (top-right of every page). Replaces navigating to /settings#cloud-storage to sign in or switch storage modes. Settings retains its Cloud Storage section as a secondary access path',
+          'Signed-out modal state shows two side-by-side primary-blue sign-in buttons with full-color Google and Microsoft brand logos. Cloud radio is disabled until the user authenticates',
+          'Signed-in-local modal state offers an identity card (normalized display name + email + red "Sign out" link), an enabled Cloud radio, and a "Keep using local storage" button that explicitly closes the modal without changing modes',
+          'Signed-in-cloud modal state offers the same identity card plus a Local radio that triggers a switch-to-local confirmation; mode cascade on sign-out is centralized in performSignOutCleanup',
+          'Full display-name normalization: Microsoft Azure AD "Last, First MI" format now renders as "First MI Last" in natural reading order. New normalizeDisplayName() utility sibling to the existing getFirstName(), applied at every display surface',
+          'Inline SVG <GoogleLogo> and <MicrosoftLogo> brand-mark components in src/components/icons/',
+          'Export Attribution and the localStorage-warning toggle now render inside the modal in addition to Settings, so users can adjust adjacent preferences without leaving the dialog',
+        ],
+      },
+      {
+        title: 'Changed',
+        items: [
+          'Auth chip (StorageStatusPill) lost its popover menus in favor of single-click modal-open behavior. All three chip variants — signed-out, signed-in-local, signed-in-cloud — route every click through a shared onOpen prop. Lost behaviors (sign-out button in popover, "Switch to Cloud Storage" direct-link) are preserved inside the modal',
+          'Notifications checkbox ("Warn me on startup when using local storage") extracted into a shared LocalStorageWarningToggle component. Settings page and modal both render the same component so toggle state stays in lock-step across surfaces',
+          'StorageStatusPill derives mode during render rather than via useEffect(setMode). usePathname() and useAuth() trigger re-render on navigation or auth change; the render-time getStorageMode() read picks up fresh localStorage values. Eliminates a react-hooks/set-state-in-effect pattern',
+        ],
+      },
+      {
+        title: 'Tests',
+        items: [
+          '9 new tests for normalizeDisplayName: Microsoft comma format with and without middle initial, Google format passthrough, single-name passthrough, null/undefined/empty handling, whitespace trimming, and degenerate comma positions (empty last or first segment returns input unchanged)',
+          'Total: 671 tests across 44 files (up from 662)',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.20.2',
     date: '2026-04-23',
     sections: [

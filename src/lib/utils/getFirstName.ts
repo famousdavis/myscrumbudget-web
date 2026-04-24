@@ -19,3 +19,22 @@ export function getFirstName(
   }
   return dn.split(' ')[0] || email || '';
 }
+
+/**
+ * Normalize a Firebase `displayName` to natural reading order.
+ * Microsoft/Azure AD frequently returns "Last, First MI" — rewrite to
+ * "First MI Last". Any value without a comma is returned unchanged.
+ * Empty or missing input returns ''.
+ */
+export function normalizeDisplayName(
+  displayName: string | null | undefined,
+): string {
+  const dn = (displayName ?? '').trim();
+  if (!dn) return '';
+  const commaIdx = dn.indexOf(',');
+  if (commaIdx === -1) return dn;
+  const last = dn.slice(0, commaIdx).trim();
+  const firstAndMiddle = dn.slice(commaIdx + 1).trim();
+  if (!last || !firstAndMiddle) return dn;
+  return `${firstAndMiddle} ${last}`;
+}

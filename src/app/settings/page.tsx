@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useSettings } from '@/features/settings/hooks/useSettings';
 import { SettingsForm } from '@/features/settings/components/SettingsForm';
 import { RateTable } from '@/features/settings/components/RateTable';
@@ -13,25 +13,13 @@ import { ThresholdSettings } from '@/features/settings/components/ThresholdSetti
 import { DataPortability } from '@/features/settings/components/DataPortability';
 import { ExportAttribution } from '@/features/settings/components/ExportAttribution';
 import { CloudStorageSection } from '@/features/settings/components/CloudStorageSection';
+import { LocalStorageWarningToggle } from '@/features/settings/components/LocalStorageWarningToggle';
 import { Skeleton } from '@/components/Skeleton';
-import { STORAGE_KEYS } from '@/types/storage';
 
 export default function SettingsPage() {
   const { settings, loading, updateSettings, flush } = useSettings();
 
   useEffect(() => () => { flush(); }, [flush]);
-
-  // Lazy initializer reads localStorage once on mount; SSR-safe via the
-  // typeof window guard (returns true on the server — the banner-enabled
-  // default — and the actual stored value on the client).
-  const [warnEnabled, setWarnEnabled] = useState(() => {
-    if (typeof window === 'undefined') return true;
-    try {
-      return localStorage.getItem(STORAGE_KEYS.suppressLocalStorageWarning) !== 'true';
-    } catch {
-      return true;
-    }
-  });
 
   if (loading || !settings) {
     return (
@@ -71,27 +59,7 @@ export default function SettingsPage() {
           <h3 className="mb-3 text-sm font-medium text-zinc-700 dark:text-zinc-300">
             Notifications
           </h3>
-          <label className="flex items-start gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={warnEnabled}
-              onChange={(e) => {
-                const checked = e.target.checked;
-                setWarnEnabled(checked);
-                localStorage.setItem(
-                  STORAGE_KEYS.suppressLocalStorageWarning,
-                  checked ? 'false' : 'true'
-                );
-              }}
-              className="mt-0.5"
-            />
-            <div>
-              <span className="font-medium">Warn me on startup when using local storage</span>
-              <p className="text-zinc-500 dark:text-zinc-400">
-                Shows a caution banner each time the app opens while your data is stored locally in this browser.
-              </p>
-            </div>
-          </label>
+          <LocalStorageWarningToggle />
         </div>
         <hr className="border-zinc-200 dark:border-zinc-800" />
         <CloudStorageSection />

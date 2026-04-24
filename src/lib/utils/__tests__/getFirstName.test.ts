@@ -3,7 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import { describe, it, expect } from 'vitest';
-import { getFirstName } from '../getFirstName';
+import { getFirstName, normalizeDisplayName } from '../getFirstName';
 
 describe('getFirstName', () => {
   it('extracts first name from "Last, First" (Microsoft SSO)', () => {
@@ -44,5 +44,44 @@ describe('getFirstName', () => {
 
   it('trims whitespace around the first-of-comma segment', () => {
     expect(getFirstName('Smith,  Jane', 'jane@x')).toBe('Jane');
+  });
+});
+
+describe('normalizeDisplayName', () => {
+  it('rewrites "Last, First MI" to "First MI Last"', () => {
+    expect(normalizeDisplayName('Davis, William W')).toBe('William W Davis');
+  });
+
+  it('rewrites "Last, First" to "First Last"', () => {
+    expect(normalizeDisplayName('Smith, Jane')).toBe('Jane Smith');
+  });
+
+  it('passes through Google-style "First Last" unchanged', () => {
+    expect(normalizeDisplayName('Jane Smith')).toBe('Jane Smith');
+  });
+
+  it('passes through single-name displayName unchanged', () => {
+    expect(normalizeDisplayName('Jane')).toBe('Jane');
+  });
+
+  it('returns empty string for null input', () => {
+    expect(normalizeDisplayName(null)).toBe('');
+  });
+
+  it('returns empty string for undefined input', () => {
+    expect(normalizeDisplayName(undefined)).toBe('');
+  });
+
+  it('returns empty string for empty string input', () => {
+    expect(normalizeDisplayName('')).toBe('');
+  });
+
+  it('trims whitespace around each segment', () => {
+    expect(normalizeDisplayName('Davis ,  William W')).toBe('William W Davis');
+  });
+
+  it('returns the original value when last or first segment is empty', () => {
+    expect(normalizeDisplayName(', William')).toBe(', William');
+    expect(normalizeDisplayName('Davis,')).toBe('Davis,');
   });
 });
