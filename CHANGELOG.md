@@ -4,6 +4,11 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.21.5] - 2026-04-24
+
+### Fixed
+- v0.21.4 expanded the Reforecast name `<select>` floor from `min-w-48` (192px) to `min-w-64` (256px) — a +64px jump that produced obvious dead space between the selected value and the dropdown chevron on typical short names. Pulled back to `min-w-56` (224px, +32px from the original 192px) so the dropdown is modestly wider for longer names without looking comically empty for short ones
+
 ## [0.21.4] - 2026-04-24
 
 ### UX
