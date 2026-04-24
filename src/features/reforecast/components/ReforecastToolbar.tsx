@@ -82,7 +82,7 @@ export function ReforecastToolbar({
               onChange={(e) => onReforecastDateChange(e.target.value)}
               title="Reforecast date"
               aria-label="Reforecast date"
-              className="rounded border border-zinc-300 bg-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              className="w-[140px] rounded border border-zinc-300 bg-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
             />
           </div>
         )}
@@ -102,7 +102,7 @@ export function ReforecastToolbar({
               onChange={(e) => onActualsThroughDateChange(e.target.value || undefined)}
               title="Actuals through date — ETC starts the day after this date"
               aria-label="Actuals through date"
-              className="rounded border border-zinc-300 bg-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              className="w-[140px] rounded border border-zinc-300 bg-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
             />
             {actualsThroughDate && (
               <button

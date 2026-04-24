@@ -83,6 +83,7 @@ function InlineEditableField({ label, value, onChange }: InlineEditableFieldProp
           onChange={(e) => setEditValue(e.target.value)}
           onBlur={save}
           onKeyDown={handleKeyDown}
+          onFocus={(e) => e.target.select()}
           autoFocus
           className={inputClass}
         />
