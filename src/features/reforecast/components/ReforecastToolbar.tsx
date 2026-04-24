@@ -40,7 +40,7 @@ export function ReforecastToolbar({
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-2 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-2 md:flex-nowrap md:gap-3 dark:border-zinc-800 dark:bg-zinc-900">
         <label
           htmlFor="rf-select"
           className="text-sm font-medium text-zinc-500 dark:text-zinc-400"
@@ -82,7 +82,7 @@ export function ReforecastToolbar({
               onChange={(e) => onReforecastDateChange(e.target.value)}
               title="Reforecast date"
               aria-label="Reforecast date"
-              className="w-[140px] rounded border border-zinc-300 bg-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              className="w-36 min-w-0 shrink rounded border border-zinc-300 bg-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
             />
           </div>
         )}
@@ -102,7 +102,7 @@ export function ReforecastToolbar({
               onChange={(e) => onActualsThroughDateChange(e.target.value || undefined)}
               title="Actuals through date — ETC starts the day after this date"
               aria-label="Actuals through date"
-              className="w-[140px] rounded border border-zinc-300 bg-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+              className="w-36 min-w-0 shrink rounded border border-zinc-300 bg-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
             />
             {actualsThroughDate && (
               <button
