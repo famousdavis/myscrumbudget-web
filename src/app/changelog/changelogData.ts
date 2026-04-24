@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.21.5',
+    date: '2026-04-24',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'v0.21.4 expanded the Reforecast name dropdown floor from min-w-48 (192px) to min-w-64 (256px) — a +64px jump that produced obvious dead space between the selected value and the dropdown chevron on typical short names. Pulled back to min-w-56 (224px, +32px from the original 192px) so the dropdown is modestly wider for longer names without looking comically empty for short ones',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.21.4',
     date: '2026-04-24',
     sections: [
