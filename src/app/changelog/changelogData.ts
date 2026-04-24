@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.21.2',
+    date: '2026-04-24',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'Reforecast toolbar wrap regression follow-up to v0.21.1. The prior w-[140px] arbitrary-value width on the date inputs was insufficient: the native date input has an intrinsic min-width that can override a declared width, and the flex-wrap container was still pushing Delete + "+ New Reforecast" to a second line on desktop widths. Switched to w-36 min-w-0 shrink (standard utilities + explicit min-width override) and added md:flex-nowrap md:gap-3 to the container so the toolbar stays single-line at ≥768px. Below that breakpoint the layout still wraps gracefully for narrow mobile viewports',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.21.1',
     date: '2026-04-24',
     sections: [
