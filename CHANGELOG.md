@@ -4,6 +4,11 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.21.4] - 2026-04-24
+
+### UX
+- Reforecast name `<select>` floor width raised from `min-w-48` (192px) to `min-w-64` (256px). After the v0.21.3 date-input shrinkage left visible slack between the Actuals Through × button and the Delete / "+ New Reforecast" button pair, expanded the scenario dropdown to use some of that slack so longer reforecast names display fully without truncation. Chosen conservatively so the single-line desktop layout from v0.21.3 is preserved
+
 ## [0.21.3] - 2026-04-24
 
 ### Fixed
