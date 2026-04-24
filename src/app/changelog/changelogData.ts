@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.21.3',
+    date: '2026-04-24',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'Reforecast toolbar date fields actually shrunk this time. Prior v0.21.1 (w-[140px]) and v0.21.2 (w-36 min-w-0 shrink) Tailwind class combinations did not measurably shrink the native date input in practice — either the arbitrary-value class did not compile, or the browser-default min-width dominated. Switched to inline style={{ width: 120, minWidth: 120 }} which is bulletproof against both CSS-compilation and browser-default interference. Each date input is now exactly 120px wide, freeing ~160px of horizontal space for the Delete / "+ New Reforecast" button pair',
+          '"+ New Reforecast" and "Delete" buttons received whitespace-nowrap so their labels no longer break into a second line when the toolbar gets tight',
+          'Button group received shrink-0 so it holds its width when space gets constrained',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.21.2',
     date: '2026-04-24',
     sections: [
