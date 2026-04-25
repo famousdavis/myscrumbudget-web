@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.21.6',
+    date: '2026-04-24',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'LocalStorageWarningBanner hydration mismatch. The component used a lazy useState initializer with a typeof-window guard intended to be SSR-safe, but the guard actually produced the mismatch: SSR returned false (no banner), first client render returned true (banner present), and React logged a recoverable hydration error on every page load where the banner was eligible to show. Reworked to always initialize visible: false on both SSR and first client render, then flip via useEffect after hydration. No visual change — just silences the console warning and lets the React tree hydrate cleanly on first render',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.21.5',
     date: '2026-04-24',
     sections: [

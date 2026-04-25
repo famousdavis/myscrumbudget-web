@@ -4,24 +4,29 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getStorageMode } from '@/lib/storage/storageMode';
 import { STORAGE_KEYS } from '@/types/storage';
 
 export function LocalStorageWarningBanner() {
-  // Lazy initializer reads localStorage once on mount; SSR-safe via the
-  // typeof window guard (returns false on the server, so the banner never
-  // renders during SSR — avoids hydration mismatch).
-  const [visible, setVisible] = useState(() => {
-    if (typeof window === 'undefined') return false;
+  // Always render nothing on SSR + first client render so the two stay in
+  // sync. Compute real visibility in useEffect, which only runs client-side
+  // after hydration. A lazy useState initializer with a typeof-window guard
+  // would branch on the server vs client and produce a hydration mismatch.
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
     try {
-      if (getStorageMode() !== 'local') return false;
-      if (localStorage.getItem(STORAGE_KEYS.suppressLocalStorageWarning) === 'true') return false;
-      return true;
+      if (getStorageMode() !== 'local') return;
+      if (localStorage.getItem(STORAGE_KEYS.suppressLocalStorageWarning) === 'true') return;
+      // Deliberate: defer until after hydration. Reading these values at
+      // useState init would re-introduce the hydration mismatch.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setVisible(true);
     } catch {
-      return false;
+      // localStorage unavailable — leave hidden
     }
-  });
+  }, []);
 
   if (!visible) return null;
 
