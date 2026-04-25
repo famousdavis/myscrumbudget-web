@@ -4,6 +4,11 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.21.6] - 2026-04-24
+
+### Fixed
+- `LocalStorageWarningBanner` hydration mismatch. The component used a lazy `useState` initializer with a `typeof window === 'undefined'` guard intended to be SSR-safe, but the guard actually produced the mismatch: SSR returned `false` (no banner), first client render returned `true` (banner present), and React logged a recoverable hydration error on every page load where the banner was eligible to show. Reworked to always initialize `visible: false` on both SSR and first client render, then flip via `useEffect` after hydration. Classic pattern; comment updated to explain why a lazy initializer with a window guard is the wrong tool here. No visual change — just silences the console warning and lets the React tree hydrate cleanly on first render
+
 ## [0.21.5] - 2026-04-24
 
 ### Fixed
