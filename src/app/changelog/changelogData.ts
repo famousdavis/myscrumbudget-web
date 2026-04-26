@@ -13,6 +13,26 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.22.4',
+    date: '2026-04-26',
+    sections: [
+      {
+        title: 'Added',
+        items: [
+          'Inline reforecast rename via pencil button. Previously the only way to correct a reforecast name typo was to delete the reforecast and recreate it (which would discard allocations and historical-cost entries). Added a small pencil icon to the right of the reforecast dropdown that swaps the dropdown for a text input in-place — same toolbar slot, no layout shift. Enter commits, Escape cancels, blur commits (matches the existing inline-edit contract used by InlineEditableField, HistoricalCostsTable, and ReforecastNotes). Validation: trim, reject empty, 50-char clamp (matches NewReforecastDialog\'s maxLength={50} for parity). The dropdown is intentionally hidden while editing — switching reforecasts mid-rename is ambiguous, and the user must Enter or Escape first',
+          'PencilIcon shared component (src/components/icons/PencilIcon.tsx) — Heroicons-style pencil SVG matching the shape of TrashIcon. Idle muted gray, hover blue (non-destructive). Available for any future rename affordance',
+          'updateName operation on useReforecast hook — mutates the active reforecast\'s name field with trim + 50-char clamp + empty/no-op guards inside the hook so all callers (UI today, programmatic in future) get the same guarantees. Appends a reforecast / update changelog entry on commit, mirroring updateHistoricalCosts',
+        ],
+      },
+      {
+        title: 'Tests',
+        items: [
+          'Baseline: 749 → 762 passing across 49 test files (+13, no removals). 8 new toolbar tests (pencil renders/hides, click-to-edit, Enter/Escape/blur commit semantics, empty-input rejection, no-switch-while-editing assertion via select absence). 5 new transformation-style tests for the rename updater logic in reforecast.test.ts',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.22.3',
     date: '2026-04-26',
     sections: [

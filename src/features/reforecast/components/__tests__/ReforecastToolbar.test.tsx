@@ -46,6 +46,7 @@ describe('ReforecastToolbar', () => {
     onSwitch: vi.fn(),
     onCreate: vi.fn(),
     onDelete: vi.fn(),
+    onRename: vi.fn(),
     onReforecastDateChange: vi.fn(),
     onActualsThroughDateChange: vi.fn(),
   };
@@ -124,5 +125,76 @@ describe('ReforecastToolbar', () => {
     // ConfirmDialog renders a "Delete" confirm button — only one "Delete" text in the DOM now
     fireEvent.click(screen.getByText('Delete'));
     expect(onDelete).toHaveBeenCalledWith('rf-1');
+  });
+
+  it('renders Rename pencil button when at least one reforecast exists', () => {
+    render(<ReforecastToolbar {...defaultProps} />);
+    expect(screen.getByLabelText('Rename reforecast')).toBeDefined();
+  });
+
+  it('does not render Rename pencil button when zero reforecasts', () => {
+    render(
+      <ReforecastToolbar
+        {...defaultProps}
+        reforecasts={[]}
+        activeReforecastId={null}
+      />,
+    );
+    expect(screen.queryByLabelText('Rename reforecast')).toBeNull();
+  });
+
+  it('clicking Rename swaps select for input pre-filled with current name; pencil hides while editing', () => {
+    render(<ReforecastToolbar {...defaultProps} />);
+    fireEvent.click(screen.getByLabelText('Rename reforecast'));
+    const input = screen.getByLabelText('Edit reforecast name') as HTMLInputElement;
+    expect(input.value).toBe('Baseline');
+    // Select is gone while editing — confirms users cannot switch reforecasts
+    expect(screen.queryByRole('combobox')).toBeNull();
+    // Pencil button is hidden while in edit mode
+    expect(screen.queryByLabelText('Rename reforecast')).toBeNull();
+  });
+
+  it('Enter commits via onRename with trimmed value', () => {
+    const onRename = vi.fn();
+    render(<ReforecastToolbar {...defaultProps} onRename={onRename} />);
+    fireEvent.click(screen.getByLabelText('Rename reforecast'));
+    const input = screen.getByLabelText('Edit reforecast name') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '  Renamed  ' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onRename).toHaveBeenCalledWith('Renamed');
+    // Edit mode exited — select reappears
+    expect(screen.getByRole('combobox')).toBeDefined();
+  });
+
+  it('Escape cancels edit without calling onRename', () => {
+    const onRename = vi.fn();
+    render(<ReforecastToolbar {...defaultProps} onRename={onRename} />);
+    fireEvent.click(screen.getByLabelText('Rename reforecast'));
+    const input = screen.getByLabelText('Edit reforecast name') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'Should-not-commit' } });
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(onRename).not.toHaveBeenCalled();
+    expect(screen.getByRole('combobox')).toBeDefined();
+  });
+
+  it('blur commits via onRename', () => {
+    const onRename = vi.fn();
+    render(<ReforecastToolbar {...defaultProps} onRename={onRename} />);
+    fireEvent.click(screen.getByLabelText('Rename reforecast'));
+    const input = screen.getByLabelText('Edit reforecast name') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'Q3 final' } });
+    fireEvent.blur(input);
+    expect(onRename).toHaveBeenCalledWith('Q3 final');
+  });
+
+  it('empty (whitespace-only) commit does NOT call onRename and exits edit mode', () => {
+    const onRename = vi.fn();
+    render(<ReforecastToolbar {...defaultProps} onRename={onRename} />);
+    fireEvent.click(screen.getByLabelText('Rename reforecast'));
+    const input = screen.getByLabelText('Edit reforecast name') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '   ' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onRename).not.toHaveBeenCalled();
+    expect(screen.getByRole('combobox')).toBeDefined();
   });
 });
