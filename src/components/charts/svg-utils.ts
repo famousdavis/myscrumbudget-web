@@ -10,7 +10,7 @@
 /* Shared chart layout constants */
 export const CHART_WIDTH = 700;
 export const CHART_HEIGHT = 240;
-export const MARGIN = { top: 16, right: 16, bottom: 40, left: 60 };
+export const MARGIN = { top: 16, right: 60, bottom: 44, left: 60 };
 export const PLOT_W = CHART_WIDTH - MARGIN.left - MARGIN.right;
 export const PLOT_H = CHART_HEIGHT - MARGIN.top - MARGIN.bottom;
 
@@ -86,6 +86,8 @@ export function getChartColors(isDark: boolean) {
   return {
     primary: isDark ? '#60a5fa' : '#3b82f6',
     primaryHover: isDark ? '#93c5fd' : '#2563eb',
+    secondary: isDark ? '#2dd4bf' : '#0d9488',       // muted teal — actuals
+    secondaryHover: isDark ? '#5eead4' : '#0f766e',
     grid: isDark ? '#3f3f46' : '#e4e4e7',
     text: isDark ? '#a1a1aa' : '#71717a',
     baseline: isDark ? '#4ade80' : '#22c55e',

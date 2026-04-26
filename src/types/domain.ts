@@ -70,6 +70,19 @@ export interface ProductivityWindow {
   factor: number; // 0.0 to 1.0
 }
 
+/**
+ * Per-month breakdown entry attached to a Reforecast. When
+ * reforecast.historicalCosts is present and non-empty, the entries
+ * must sum to reforecast.actualCost (invariant). The cutoff-month
+ * entry (matching actualsThroughDate's YYYY-MM) is not stored —
+ * it's derived at display time as actualCost − sum(other entries).
+ */
+export interface HistoricalCostEntry {
+  month: string; // YYYY-MM
+  cost: number;
+  hours: number; // 0 when unknown; reserved for future cumulative-hours display
+}
+
 // Reforecast Snapshot
 export interface Reforecast {
   id: string;
@@ -83,6 +96,7 @@ export interface Reforecast {
   baselineBudget: number;
   actualsThroughDate?: string; // YYYY-MM-DD — ETC excludes costs through this date
   notes?: string; // free-text narrative explaining why this reforecast exists (max 2000 chars)
+  historicalCosts?: HistoricalCostEntry[];
 }
 
 // Project

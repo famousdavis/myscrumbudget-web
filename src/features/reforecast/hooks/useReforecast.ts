@@ -10,6 +10,7 @@ import type {
   Reforecast,
   MonthlyAllocation,
   ProductivityWindow,
+  HistoricalCostEntry,
 } from '@/types/domain';
 import { generateId } from '@/lib/utils/id';
 import { sanitizeCurrency } from '@/lib/utils/format';
@@ -17,6 +18,7 @@ import { REFORECAST_NOTES_MAX_LENGTH } from '@/lib/constants';
 import { buildAllocationMap } from '@/lib/calc/allocationMap';
 import { getActiveReforecast } from '@/lib/utils/teamResolution';
 import { createBaselineReforecast, createNewReforecast } from '@/lib/utils/reforecast';
+import { materializeBucketOnAdvance } from '@/lib/utils/historicalCostsView';
 import { ensureOriginRef, appendToChangeLog } from '@/lib/storage/fingerprint';
 
 interface UseReforecastOptions {
@@ -263,10 +265,44 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
           void _actualsThroughDate;
           return rest as Reforecast;
         }
-        return { ...rf, actualsThroughDate: date };
+        // When advancing the cutoff to a later month, materialize the prior
+        // bucket value so the previously-derived total isn't lost. Pass the
+        // project start date so out-of-range cutoffs (e.g. user typed Feb
+        // then corrected to March) don't materialize phantom entries.
+        const nextHistorical = materializeBucketOnAdvance(
+          rf.historicalCosts,
+          rf.actualCost,
+          rf.actualsThroughDate,
+          date,
+          project?.startDate,
+        );
+        const next: Reforecast = { ...rf, actualsThroughDate: date };
+        if (nextHistorical.length > 0) {
+          next.historicalCosts = nextHistorical;
+        }
+        return next;
       });
     },
-    [updateActiveRf],
+    [updateActiveRf, project?.startDate],
+  );
+
+  const updateHistoricalCosts = useCallback(
+    (entries: HistoricalCostEntry[]) => {
+      if (!activeReforecast) return;
+      const id = activeReforecast.id;
+      updateActiveRf((rf) => {
+        if (entries.length === 0) {
+          // Strip historicalCosts entirely rather than storing an empty array.
+          const { historicalCosts: _historicalCosts, ...rest } = rf;
+          void _historicalCosts;
+          return rest as Reforecast;
+        }
+        return { ...rf, historicalCosts: entries };
+      });
+      ensureOriginRef();
+      appendToChangeLog({ op: 'update', entity: 'reforecast', id });
+    },
+    [activeReforecast, updateActiveRf],
   );
 
   return {
@@ -285,6 +321,7 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
     updateBaselineBudget,
     updateReforecastDate,
     updateActualsThroughDate,
+    updateHistoricalCosts,
     updateNotes,
   };
 }

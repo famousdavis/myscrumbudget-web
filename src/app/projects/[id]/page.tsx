@@ -23,8 +23,11 @@ import { ForecastMetricsPanel } from '@/features/projects/components/ForecastMet
 import { useProjectMetrics } from '@/features/projects/hooks/useProjectMetrics';
 import { MonthlyCostBarChart } from '@/components/charts/MonthlyCostBarChart';
 import { CumulativeCostLineChart } from '@/components/charts/CumulativeCostLineChart';
+import { TrashIcon } from '@/components/icons/TrashIcon';
 import { CostByPeriodTable } from '@/components/CostByPeriodTable';
+import { HistoricalCostsTable } from '@/components/HistoricalCostsTable';
 import { generateMonthRange } from '@/lib/utils/dates';
+import { buildChartData } from '@/lib/utils/buildChartData';
 import { SharingSection } from '@/features/projects/components/SharingSection';
 import { SkeletonProjectDetail } from '@/components/Skeleton';
 
@@ -61,6 +64,7 @@ export default function ProjectDetailPage({
     updateBaselineBudget,
     updateReforecastDate,
     updateActualsThroughDate,
+    updateHistoricalCosts,
     updateNotes,
   } = useReforecast({
     project,
@@ -81,6 +85,23 @@ export default function ProjectDetailPage({
     const endMonth = project.endDate.slice(0, 7);
     return generateMonthRange(startMonth, endMonth);
   }, [project]);
+
+  const chartData = useMemo(
+    () => buildChartData(
+      activeReforecast?.historicalCosts,
+      metrics?.monthlyData ?? [],
+      activeReforecast?.actualsThroughDate,
+      project?.startDate ?? '',
+      activeReforecast?.actualCost ?? 0,
+    ),
+    [
+      activeReforecast?.historicalCosts,
+      metrics?.monthlyData,
+      activeReforecast?.actualsThroughDate,
+      project?.startDate,
+      activeReforecast?.actualCost,
+    ],
+  );
 
   if (loading) {
     return <SkeletonProjectDetail />;
@@ -112,10 +133,13 @@ export default function ProjectDetailPage({
             Edit
           </Link>
           <button
+            type="button"
             onClick={() => setShowDelete(true)}
-            className="rounded border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950"
+            className="flex h-8 w-8 items-center justify-center rounded text-zinc-400 hover:bg-red-50 hover:text-red-600 dark:text-zinc-500 dark:hover:bg-red-950 dark:hover:text-red-400"
+            title="Delete project"
+            aria-label="Delete project"
           >
-            Delete
+            <TrashIcon className="h-5 w-5" />
           </button>
         </div>
       </div>
@@ -141,6 +165,8 @@ export default function ProjectDetailPage({
             activeReforecastId={project.activeReforecastId}
             reforecastDate={reforecastDate}
             actualsThroughDate={actualsThroughDate}
+            projectStartDate={project.startDate}
+            projectEndDate={project.endDate}
             onSwitch={switchReforecast}
             onCreate={createReforecast}
             onDelete={deleteReforecast}
@@ -202,17 +228,27 @@ export default function ProjectDetailPage({
           <div className="mt-3 grid gap-6 lg:grid-cols-2">
             <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
               <h3 className="mb-2 text-sm font-medium text-zinc-600 dark:text-zinc-400">Monthly Cost</h3>
-              <MonthlyCostBarChart monthlyData={metrics.monthlyData} />
+              <MonthlyCostBarChart monthlyData={chartData} />
             </div>
             <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
               <h3 className="mb-2 text-sm font-medium text-zinc-600 dark:text-zinc-400">Cumulative Cost vs Budget</h3>
               <CumulativeCostLineChart
-                monthlyData={metrics.monthlyData}
+                monthlyData={chartData}
                 baselineBudget={baselineBudget}
-                actualCost={actualCost}
               />
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Historical Costs Breakdown */}
+      {activeReforecast && (
+        <div className="mt-8">
+          <HistoricalCostsTable
+            activeReforecast={activeReforecast}
+            project={project}
+            onUpdate={updateHistoricalCosts}
+          />
         </div>
       )}
 
