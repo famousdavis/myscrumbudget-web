@@ -126,9 +126,9 @@ describe('AllocationGrid', () => {
 
   it('renders summary rows when monthlyData provided', () => {
     const monthlyData: MonthlyCalculation[] = [
-      { month: '2026-01', cost: 10000, hours: 160 },
-      { month: '2026-02', cost: 8000, hours: 128 },
-      { month: '2026-03', cost: 0, hours: 0 },
+      { month: '2026-01', cost: 10000, hours: 160, cumulativeCost: 10000, cumulativeHours: 160 },
+      { month: '2026-02', cost: 8000, hours: 128, cumulativeCost: 18000, cumulativeHours: 288 },
+      { month: '2026-03', cost: 0, hours: 0, cumulativeCost: 18000, cumulativeHours: 288 },
     ];
     render(
       <AllocationGrid {...defaultProps} monthlyData={monthlyData} />

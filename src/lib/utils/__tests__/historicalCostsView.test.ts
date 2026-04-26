@@ -5,6 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildHistoricalCostsView,
+  commitHistoricalCostEdit,
   materializeBucketOnAdvance,
   sumEarlierEntries,
 } from '../historicalCostsView';
@@ -190,5 +191,79 @@ describe('sumEarlierEntries', () => {
       { month: '2026-04', cost: 99999, hours: 0 }, // after — excluded
     ];
     expect(sumEarlierEntries(entries, '2026-03')).toBe(30000);
+  });
+});
+
+describe('commitHistoricalCostEdit', () => {
+  const cutoffMonth = '2026-04';
+  const actualCost = 50000;
+
+  it('happy path: typed value within ceiling → upserts and reports no clamping', () => {
+    const stored: HistoricalCostEntry[] = [
+      { month: '2026-02', cost: 10000, hours: 0 },
+    ];
+    const result = commitHistoricalCostEdit(stored, '2026-03', '15000', actualCost, cutoffMonth);
+    expect(result.cappedAt).toBeNull();
+    expect(result.next).toEqual([
+      { month: '2026-02', cost: 10000, hours: 0 },
+      { month: '2026-03', cost: 15000, hours: 0 },
+    ]);
+  });
+
+  it('over-allocation: typed value exceeds ceiling → clamps to ceiling and reports cap', () => {
+    // Ceiling = actualCost (50k) − sum(other earlier entries) = 50k − 20k = 30k
+    const stored: HistoricalCostEntry[] = [
+      { month: '2026-02', cost: 20000, hours: 0 },
+    ];
+    const result = commitHistoricalCostEdit(stored, '2026-03', '40000', actualCost, cutoffMonth);
+    expect(result.cappedAt).toBe(30000);
+    expect(result.next).toEqual([
+      { month: '2026-02', cost: 20000, hours: 0 },
+      { month: '2026-03', cost: 30000, hours: 0 },
+    ]);
+  });
+
+  it('zero entry on existing row → removes the entry', () => {
+    const stored: HistoricalCostEntry[] = [
+      { month: '2026-02', cost: 10000, hours: 0 },
+      { month: '2026-03', cost: 5000, hours: 0 },
+    ];
+    const result = commitHistoricalCostEdit(stored, '2026-03', '0', actualCost, cutoffMonth);
+    expect(result.cappedAt).toBeNull();
+    expect(result.next).toEqual([{ month: '2026-02', cost: 10000, hours: 0 }]);
+  });
+
+  it('zero entry on absent row → no-op (next is null)', () => {
+    const stored: HistoricalCostEntry[] = [
+      { month: '2026-02', cost: 10000, hours: 0 },
+    ];
+    const result = commitHistoricalCostEdit(stored, '2026-03', '0', actualCost, cutoffMonth);
+    expect(result.cappedAt).toBeNull();
+    expect(result.next).toBeNull();
+  });
+
+  it('typed value equals existing → no-op (next is null)', () => {
+    const stored: HistoricalCostEntry[] = [
+      { month: '2026-03', cost: 7500, hours: 0 },
+    ];
+    const result = commitHistoricalCostEdit(stored, '2026-03', '7500', actualCost, cutoffMonth);
+    expect(result.cappedAt).toBeNull();
+    expect(result.next).toBeNull();
+  });
+
+  it('invalid input (NaN) → coerces to 0; if no existing entry, no-op', () => {
+    const stored: HistoricalCostEntry[] = [];
+    const result = commitHistoricalCostEdit(stored, '2026-03', 'not a number', actualCost, cutoffMonth);
+    expect(result.cappedAt).toBeNull();
+    expect(result.next).toBeNull();
+  });
+
+  it('negative input coerces to 0; existing entry is removed', () => {
+    const stored: HistoricalCostEntry[] = [
+      { month: '2026-03', cost: 5000, hours: 0 },
+    ];
+    const result = commitHistoricalCostEdit(stored, '2026-03', '-100', actualCost, cutoffMonth);
+    expect(result.cappedAt).toBeNull();
+    expect(result.next).toEqual([]);
   });
 });

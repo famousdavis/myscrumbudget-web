@@ -59,6 +59,7 @@ describe('LocalStorage Repository', () => {
         discountRateAnnual: 0.05,
         laborRates: [{ role: 'Dev', hourlyRate: 120 }],
         holidays: [],
+        trafficLightThresholds: { amberPercent: 5, redPercent: 15 },
       };
       await repo.saveSettings(custom);
       const result = await repo.getSettings();
@@ -141,6 +142,7 @@ describe('LocalStorage Repository', () => {
           discountRateAnnual: 0.05,
           laborRates: [],
           holidays: [],
+          trafficLightThresholds: { amberPercent: 5, redPercent: 15 },
         },
         teamPool: [],
         projects: [makeProject({ id: 'new' })],
