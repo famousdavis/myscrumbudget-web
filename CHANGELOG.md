@@ -4,6 +4,27 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.22.1] - 2026-04-25
+
+### Fixed
+- **Stale `historicalCosts` could persist after a cutoff advance under specific over-allocation sequences.** When `materializeBucketOnAdvance` legitimately returned an empty array (because the prior-cutoff bucket evaluated to 0 and there was a stale entry to remove), the call site only conditionally set the field, so the existing stale value inherited via spread persisted. Fixed by treating the helper's return as authoritative — set when non-empty, `delete` (not `[]`) when the field was previously present and the helper returned empty. Repro required reducing `actualCost` to 0 with only a previously-materialized bucket entry stored, then advancing the cutoff. Added two regression scenarios in `userFlow.scenario.test.ts` using `'historicalCosts' in next` assertions to prove the key is actually deleted (or never introduced)
+
+### Changed
+- **DRY: extracted `materializeBucketAt` helper.** The bucket-computation formula (`max(0, actualCost − sum(strictly-earlier entries))` with project-start range guard) was duplicated between `materializeBucketOnAdvance` (cutoff-advance path) and the inline block in `createNewReforecast` (copy-from-source path). Both now delegate to a single `materializeBucketAt` helper in `historicalCostsView.ts`. `materializeBucketOnAdvance` becomes a thin wrapper that handles the should-we-materialize-at-all guards (missing prev cutoff, non-advancing change). No behavior change — both call sites preserved their existing project-start range-guard semantics
+- **Extracted `commitHistoricalCostEdit` pure function.** The cap-and-upsert logic for inline edits in the Historical Costs Table (over-allocation clamping, no-op skip, entry build) was embedded in the React component. Moved to `historicalCostsView.ts` as a pure function returning `{ next, cappedAt }` — independently testable without React/toast scaffolding. Component glue shrank to a few lines that route the result to `addToast`/`onUpdate`. Existing component tests preserved (they assert externally-observable behavior). Added 7 unit tests for the pure function covering happy path, over-allocation cap, zero-entry removal, no-op detection, and invalid-input coercion
+- **Validator alignment fix:** dropped dead `!== null` defensive checks for optional `actualsThroughDate` and `notes` fields in `validateReforecast`. The type contract uses the optional-field modifier (`?`) which only allows `undefined`, but the validator was accepting both `undefined` and `null`. No production write path produces `null` for either field (verified by full-history `git log --pickaxe-regex` and write-path audit), so no real-world import is affected. The change aligns the validator with the type contract — if a future code path ever produces `null`, it'll fail loudly with a validation error rather than silently passing
+- **Doc clarity:** added a comment to `Reforecast.startDate` documenting the YYYY-MM format. Sibling fields (`reforecastDate`, `actualsThroughDate`) already had format comments; the missing one was a small footgun for new contributors
+
+### Type-debt cleanup (test files only)
+- Cleared all 41 pre-existing `tsc --noEmit` errors across 6 test files. Drift had accumulated across prior sprints whenever a domain type gained a new field but old test fixtures weren't updated. None of these errors blocked CI (Next.js production build only typechecks production code, and Vitest doesn't enforce strict types). After this cleanup, `npx tsc --noEmit` produces **0 errors** across the repo
+- Files touched: `src/lib/calc/__tests__/fixtures/spreadsheet-1.5.ts`, `src/lib/storage/__tests__/localStorage.test.ts`, `src/features/reforecast/hooks/__tests__/useGridKeyboard.test.ts`, `src/features/reforecast/components/__tests__/AllocationGrid.test.tsx`, `src/features/reforecast/components/__tests__/ReforecastToolbar.test.tsx`, `src/lib/storage/__tests__/migrations.test.ts`. Production code untouched
+
+### Dependencies
+- `jsdom` 28.0.0 → 28.1.0 (test infrastructure, patch bump, 69 days post-release per the 60-day scrutiny rule). All other minor/patch updates currently available are blocked by the 60-day rule and were intentionally deferred (firebase 12.12.1, vitest 4.1.5, tailwindcss 4.2.4, react 19.2.5, @vitejs/plugin-react 5.2.0, eslint 9.39.4 — none older than 50 days as of release)
+
+### Tests
+- Baseline: 724 → **733 passing** across 48 files (+9 new tests, no removals: 2 B1 regression scenarios + 7 R2 unit tests)
+
 ## [0.22.0] - 2026-04-25
 
 ### Added

@@ -11,6 +11,7 @@ import { formatCurrency, formatDateMedium } from '@/lib/utils/format';
 import { formatShortMonth } from '@/lib/utils/dates';
 import {
   buildHistoricalCostsView,
+  commitHistoricalCostEdit,
   sumEarlierEntries,
 } from '@/lib/utils/historicalCostsView';
 
@@ -43,40 +44,20 @@ export function HistoricalCostsTable({
   const stored = activeReforecast.historicalCosts ?? [];
 
   const handleBlur = (month: string, rawValue: string) => {
-    const parsed = parseFloat(rawValue);
-    const sanitized = Math.max(0, Number.isFinite(parsed) ? parsed : 0);
-
-    // Sum of OTHER earlier entries (excluding the one being edited)
-    const otherSum = stored
-      .filter((e) => e.month !== month && e.month < cutoffMonth)
-      .reduce((acc, e) => acc + e.cost, 0);
-
-    let finalCost = sanitized;
-    const ceiling = Math.max(0, activeReforecast.actualCost - otherSum);
-    if (sanitized > ceiling) {
-      finalCost = ceiling;
+    const result = commitHistoricalCostEdit(
+      stored,
+      month,
+      rawValue,
+      activeReforecast.actualCost,
+      cutoffMonth,
+    );
+    if (result.cappedAt !== null) {
       addToast(
-        `Capped at ${formatCurrency(finalCost)} — cannot exceed the project total`,
+        `Capped at ${formatCurrency(result.cappedAt)} — cannot exceed the project total`,
         'error',
       );
     }
-
-    // Build the new entries array: remove existing entry for this month,
-    // then append fresh entry if cost > 0.
-    const without = stored.filter((e) => e.month !== month);
-    const next: HistoricalCostEntry[] =
-      finalCost > 0
-        ? [...without, { month, cost: finalCost, hours: 0 }]
-        : without;
-
-    // Avoid an unnecessary write when nothing actually changed
-    const existing = stored.find((e) => e.month === month);
-    const noChange =
-      (existing?.cost ?? 0) === finalCost &&
-      (finalCost === 0 ? !existing : true);
-    if (noChange) return;
-
-    onUpdate(next);
+    if (result.next !== null) onUpdate(result.next);
   };
 
   const earlierSum = sumEarlierEntries(stored, cutoffMonth);

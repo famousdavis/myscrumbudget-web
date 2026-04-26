@@ -250,12 +250,12 @@ function validateReforecast(reforecast: unknown, path: string): string[] {
   if (!isValidDateString(reforecast.reforecastDate)) {
     errors.push(`${path}.reforecastDate: expected YYYY-MM-DD date string`);
   }
-  if (reforecast.actualsThroughDate !== undefined && reforecast.actualsThroughDate !== null) {
+  if (reforecast.actualsThroughDate !== undefined) {
     if (!isValidDateString(reforecast.actualsThroughDate)) {
       errors.push(`${path}.actualsThroughDate: expected YYYY-MM-DD date string`);
     }
   }
-  if (reforecast.notes !== undefined && reforecast.notes !== null) {
+  if (reforecast.notes !== undefined) {
     if (!isString(reforecast.notes)) {
       errors.push(`${path}.notes: expected string`);
     } else if (reforecast.notes.length > REFORECAST_NOTES_MAX_LENGTH) {

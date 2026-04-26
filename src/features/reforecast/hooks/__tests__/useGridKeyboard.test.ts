@@ -9,9 +9,9 @@ import type { TeamMember } from '@/types/domain';
 import { buildAllocationMap } from '@/lib/calc/allocationMap';
 
 const TEAM: TeamMember[] = [
-  { id: 'm1', name: 'Alice', role: 'BA', hourlyRate: 75, type: 'Core' },
-  { id: 'm2', name: 'Bob', role: 'IT-SoftEng', hourlyRate: 100, type: 'Core' },
-  { id: 'm3', name: 'Carol', role: 'Manager', hourlyRate: 150, type: 'Core' },
+  { id: 'm1', name: 'Alice', role: 'BA' },
+  { id: 'm2', name: 'Bob', role: 'IT-SoftEng' },
+  { id: 'm3', name: 'Carol', role: 'Manager' },
 ];
 
 const MONTHS = ['2026-01', '2026-02', '2026-03'];
@@ -112,7 +112,7 @@ describe('useGridKeyboard', () => {
     fireKey('Tab');
     expect(opts.setFocusedCell).toHaveBeenCalledWith({ row: 1, col: 2 });
 
-    opts.setFocusedCell.mockClear();
+    vi.mocked(opts.setFocusedCell).mockClear();
     fireKey('Tab', { shiftKey: true });
     expect(opts.setFocusedCell).toHaveBeenCalledWith({ row: 1, col: 0 });
   });

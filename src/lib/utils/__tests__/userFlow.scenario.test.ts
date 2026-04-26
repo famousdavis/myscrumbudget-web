@@ -178,3 +178,99 @@ describe('User workflow: March → April reforecast with cutoff advance', () => 
     expect(rows[1]).toMatchObject({ month: '2026-04', cost: 5000, isCutoffBucket: true });
   });
 });
+
+/**
+ * B1 regression coverage — these scenarios pin the contract that
+ * `useReforecast.updateActualsThroughDate` implements when
+ * `materializeBucketOnAdvance` returns an empty array. The hook treats the
+ * return as authoritative: if non-empty, set; if empty AND a stale field
+ * exists, strip it via `delete`.
+ *
+ * The tests inline-simulate the hook's three-line decision branch to cover
+ * the contract end-to-end without React infrastructure.
+ */
+function applyCutoffAdvance(
+  rf: Reforecast,
+  newCutoff: string,
+  projectStartDate: string,
+): Reforecast {
+  const nextHistorical = materializeBucketOnAdvance(
+    rf.historicalCosts,
+    rf.actualCost,
+    rf.actualsThroughDate,
+    newCutoff,
+    projectStartDate,
+  );
+  const next: Reforecast = { ...rf, actualsThroughDate: newCutoff };
+  if (nextHistorical.length > 0) {
+    next.historicalCosts = nextHistorical;
+  } else if (rf.historicalCosts !== undefined) {
+    delete next.historicalCosts;
+  }
+  return next;
+}
+
+describe('B1 regression: stale historicalCosts after cutoff advance', () => {
+  const projectStartDate = '2026-03-01';
+
+  it('strips historicalCosts when prior bucket is 0 and only that stale entry was stored', () => {
+    // Setup: a reforecast with only the cutoff-bucket entry stored (typical
+    // post-materialization state), then the user reduces actualCost to 0 so
+    // the bucket evaluates to 0 on the next advance.
+    const rf: Reforecast = {
+      id: 'rf-edge',
+      name: 'Edge case',
+      createdAt: '2026-03-15T00:00:00Z',
+      startDate: '2026-03',
+      reforecastDate: '2026-03-15',
+      allocations: [],
+      productivityWindows: [],
+      actualCost: 0,
+      baselineBudget: 0,
+      actualsThroughDate: '2026-03-15',
+      historicalCosts: [{ month: '2026-03', cost: 50000, hours: 0 }],
+    };
+
+    // Confirm the trigger condition: materialize returns []
+    const nextHistorical = materializeBucketOnAdvance(
+      rf.historicalCosts,
+      rf.actualCost,
+      rf.actualsThroughDate,
+      '2026-04-15',
+      projectStartDate,
+    );
+    expect(nextHistorical).toEqual([]);
+
+    // Apply the hook's update logic. The stale field MUST be deleted, not
+    // inherited via spread. Use 'in' check (not undefined check) to prove
+    // the key is actually absent.
+    const next = applyCutoffAdvance(rf, '2026-04-15', projectStartDate);
+    expect('historicalCosts' in next).toBe(false);
+    expect(next.actualsThroughDate).toBe('2026-04-15');
+  });
+
+  it('does not introduce a phantom historicalCosts key when none existed before', () => {
+    // Setup: a fresh reforecast with no historicalCosts at all (the common
+    // case before any materialization has ever happened).
+    const rf: Reforecast = {
+      id: 'rf-fresh',
+      name: 'Fresh',
+      createdAt: '2026-03-15T00:00:00Z',
+      startDate: '2026-03',
+      reforecastDate: '2026-03-15',
+      allocations: [],
+      productivityWindows: [],
+      actualCost: 0,
+      baselineBudget: 0,
+      actualsThroughDate: '2026-03-15',
+    };
+    expect('historicalCosts' in rf).toBe(false);
+
+    // Advance the cutoff. materialize returns [] (nothing to preserve), and
+    // the hook's else-if guard MUST short-circuit — `delete` should not run
+    // on a key that was never present.
+    const next = applyCutoffAdvance(rf, '2026-04-15', projectStartDate);
+    expect('historicalCosts' in next).toBe(false);
+    expect(next.actualsThroughDate).toBe('2026-04-15');
+  });
+});

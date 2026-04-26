@@ -4,7 +4,7 @@
 
 import type { HistoricalCostEntry, Reforecast } from '@/types/domain';
 import { generateId } from './id';
-import { sumEarlierEntries } from './historicalCostsView';
+import { materializeBucketAt } from './historicalCostsView';
 
 /**
  * Create a default Baseline reforecast for a new project.
@@ -45,29 +45,20 @@ export function createNewReforecast(
   // cutoff. ALWAYS overwrite any pre-existing entry at the source's cutoff
   // month — that entry can only come from a prior materialization (the
   // cutoff row is never user-editable) and may be a stale snapshot from a
-  // grandparent reforecast. The bucket = actualCost − strictly-earlier
-  // entries is the source's authoritative effective value at copy time.
+  // grandparent reforecast. Delegated to `materializeBucketAt` for parity
+  // with the cutoff-advance path.
   let copiedEntries: HistoricalCostEntry[] =
     source?.historicalCosts && source.historicalCosts.length > 0
       ? source.historicalCosts.map((e) => ({ ...e }))
       : [];
 
   if (source?.actualsThroughDate) {
-    const sourceCutoffMonth = source.actualsThroughDate.slice(0, 7);
-    const projectStartMonth = projectStartDate.slice(0, 7);
-    // Range guard: skip materialization when the source's cutoff is before
-    // the project start (defensive — shouldn't normally occur).
-    if (sourceCutoffMonth >= projectStartMonth) {
-      const earlierOnly = copiedEntries.filter((e) => e.month !== sourceCutoffMonth);
-      const sourceBucket = Math.max(
-        0,
-        source.actualCost - sumEarlierEntries(earlierOnly, sourceCutoffMonth),
-      );
-      copiedEntries =
-        sourceBucket > 0
-          ? [...earlierOnly, { month: sourceCutoffMonth, cost: sourceBucket, hours: 0 }]
-          : earlierOnly;
-    }
+    copiedEntries = materializeBucketAt(
+      copiedEntries,
+      source.actualCost,
+      source.actualsThroughDate.slice(0, 7),
+      projectStartDate.slice(0, 7),
+    );
   }
 
   return {

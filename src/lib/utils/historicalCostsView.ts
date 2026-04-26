@@ -12,22 +12,99 @@ export interface HistoricalCostsDisplayRow {
   isCutoffBucket: boolean;
 }
 
+export interface CommitResult {
+  /** New entries array to persist; `null` means no change (skip onUpdate). */
+  next: HistoricalCostEntry[] | null;
+  /** When non-null, over-allocation was clamped to this ceiling. */
+  cappedAt: number | null;
+}
+
+/**
+ * Pure function for committing an inline edit on a historical-cost row.
+ *
+ * Sanitizes the raw input (NaN/Infinity/negative → 0), then clamps to the
+ * ceiling `actualCost − sum(other earlier entries)`. Returns:
+ *   - `next`: the upserted entries array, or `null` if nothing changed
+ *   - `cappedAt`: the ceiling, when clamping was applied; otherwise `null`
+ *
+ * Zero-value commits remove the entry entirely (rather than storing a
+ * cost-0 row); when the existing value was already 0 and the typed value
+ * is also 0, returns `next: null` as a no-op.
+ */
+export function commitHistoricalCostEdit(
+  stored: HistoricalCostEntry[],
+  month: string,
+  rawValue: string,
+  actualCost: number,
+  cutoffMonth: string,
+): CommitResult {
+  const parsed = parseFloat(rawValue);
+  const sanitized = Math.max(0, Number.isFinite(parsed) ? parsed : 0);
+
+  // Sum of OTHER earlier entries (excluding the one being edited)
+  const otherSum = stored
+    .filter((e) => e.month !== month && e.month < cutoffMonth)
+    .reduce((acc, e) => acc + e.cost, 0);
+
+  const ceiling = Math.max(0, actualCost - otherSum);
+  const cappedAt = sanitized > ceiling ? ceiling : null;
+  const finalCost = cappedAt !== null ? ceiling : sanitized;
+
+  // Build the new entries array: remove existing entry for this month,
+  // then append fresh entry if cost > 0.
+  const without = stored.filter((e) => e.month !== month);
+  const next: HistoricalCostEntry[] =
+    finalCost > 0
+      ? [...without, { month, cost: finalCost, hours: 0 }]
+      : without;
+
+  // No-op detection: when the resulting cost matches existing AND we
+  // aren't transitioning between absent ↔ zero in a meaningful way.
+  const existing = stored.find((e) => e.month === month);
+  const noChange =
+    (existing?.cost ?? 0) === finalCost &&
+    (finalCost === 0 ? !existing : true);
+  if (noChange) return { next: null, cappedAt };
+
+  return { next, cappedAt };
+}
+
+/**
+ * Compute the effective bucket at `cutoffMonth` and upsert it as a stored
+ * entry. The bucket is `max(0, actualCost − sum(entries strictly earlier
+ * than cutoffMonth))`. Any pre-existing entry at `cutoffMonth` is always
+ * overwritten — the cutoff-month row is never user-editable, so a prior
+ * entry there can only be a stale materialization.
+ *
+ * Returns the (possibly trimmed) array. When the bucket is 0, only strips
+ * a stale entry — no upsert. Range-guards against `projectStartMonth` when
+ * provided: refuses to materialize at a month before project start
+ * (prevents phantom entries from briefly mis-typed cutoffs).
+ */
+export function materializeBucketAt(
+  stored: HistoricalCostEntry[],
+  actualCost: number,
+  cutoffMonth: string,
+  projectStartMonth?: string,
+): HistoricalCostEntry[] {
+  // Range guard: refuse to materialize at a month before project start.
+  if (projectStartMonth && cutoffMonth < projectStartMonth) return stored;
+
+  const bucket = Math.max(0, actualCost - sumEarlierEntries(stored, cutoffMonth));
+  const without = stored.filter((e) => e.month !== cutoffMonth);
+
+  // Bucket is 0: only strip a stale entry, don't append a zero-cost entry.
+  if (bucket <= 0) return without.length === stored.length ? stored : without;
+
+  return [...without, { month: cutoffMonth, cost: bucket, hours: 0 }];
+}
+
 /**
  * When advancing the cutoff to a later month, capture the prior bucket
  * value as a stored entry so the previously-derived total isn't lost.
  *
- * Returns the (possibly enriched) historicalCosts array. No-op when:
- *   - prevCutoffDate is missing
- *   - new month is not strictly later than prev month
- *   - prior bucket value is 0 (nothing to preserve)
- *   - prev cutoff month falls BEFORE the project start month (prevents
- *     out-of-range phantom entries from a brief mis-typed cutoff date,
- *     e.g. user typed Feb then corrected to March)
- *
- * If the prev cutoff month already has a stored entry, it MUST be from a
- * prior materialization (the cutoff-month row is never user-editable), so
- * it is overwritten with the current effective bucket value
- * (actualCost − sum of strictly-earlier entries) — the source of truth.
+ * Thin wrapper over `materializeBucketAt`: handles the should-we-materialize-
+ * at-all guards (missing prev cutoff, non-advancing change), then delegates.
  */
 export function materializeBucketOnAdvance(
   storedEntries: HistoricalCostEntry[] | undefined,
@@ -43,25 +120,12 @@ export function materializeBucketOnAdvance(
   const newMonth = newCutoffDate.slice(0, 7);
   if (newMonth <= prevMonth) return stored;
 
-  // Range guard: refuse to materialize at a month before the project starts.
-  // This prevents phantom entries when the user briefly types an out-of-range
-  // cutoff date and then corrects it.
-  if (projectStartDate) {
-    const startMonth = projectStartDate.slice(0, 7);
-    if (prevMonth < startMonth) return stored;
-  }
-
-  // Compute the bucket from entries strictly earlier than the prev cutoff.
-  // sumEarlierEntries already excludes any entry at the prev cutoff month.
-  const priorBucket = Math.max(0, actualCost - sumEarlierEntries(stored, prevMonth));
-
-  // Always upsert: filter out any prior entry at prevMonth, then append the
-  // freshly-computed bucket value. Skip only when the bucket is 0 AND there's
-  // no stale entry to clean up.
-  const without = stored.filter((e) => e.month !== prevMonth);
-  if (priorBucket <= 0) return without.length === stored.length ? stored : without;
-
-  return [...without, { month: prevMonth, cost: priorBucket, hours: 0 }];
+  return materializeBucketAt(
+    stored,
+    actualCost,
+    prevMonth,
+    projectStartDate?.slice(0, 7),
+  );
 }
 
 /**

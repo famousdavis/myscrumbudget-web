@@ -17,6 +17,8 @@ const reforecasts: Reforecast[] = [
   {
     id: 'rf-1',
     name: 'Baseline',
+    createdAt: '2026-01-15T00:00:00Z',
+    startDate: '2026-01',
     reforecastDate: '2026-01-15',
     baselineBudget: 100000,
     actualCost: 0,
@@ -26,6 +28,8 @@ const reforecasts: Reforecast[] = [
   {
     id: 'rf-2',
     name: 'Q2 Reforecast',
+    createdAt: '2026-04-01T00:00:00Z',
+    startDate: '2026-01',
     reforecastDate: '2026-04-01',
     baselineBudget: 120000,
     actualCost: 25000,
@@ -43,6 +47,7 @@ describe('ReforecastToolbar', () => {
     onCreate: vi.fn(),
     onDelete: vi.fn(),
     onReforecastDateChange: vi.fn(),
+    onActualsThroughDateChange: vi.fn(),
   };
 
   it('renders Reforecast label', () => {

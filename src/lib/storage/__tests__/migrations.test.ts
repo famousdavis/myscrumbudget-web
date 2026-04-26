@@ -95,20 +95,20 @@ describe('Migrations', () => {
       poolMemberId: 'tm2',
     });
     // teamMembers should be gone
-    expect((proj as Record<string, unknown>).teamMembers).toBeUndefined();
+    expect((proj as unknown as Record<string, unknown>).teamMembers).toBeUndefined();
 
     // hoursPerMonth should be stripped from settings
-    expect((result.settings as Record<string, unknown>).hoursPerMonth).toBeUndefined();
+    expect((result.settings as unknown as Record<string, unknown>).hoursPerMonth).toBeUndefined();
 
     // v0.4.0 migration: actualCost moved into auto-created Baseline reforecast
-    expect((proj as Record<string, unknown>).actualCost).toBeUndefined();
+    expect((proj as unknown as Record<string, unknown>).actualCost).toBeUndefined();
     expect(proj.reforecasts).toHaveLength(1);
     expect(proj.reforecasts[0].name).toBe('Baseline');
     expect(proj.reforecasts[0].actualCost).toBe(200000);
     expect(proj.activeReforecastId).toBe(proj.reforecasts[0].id);
 
     // v0.5.0 migration: baselineBudget moved to reforecast, reforecastDate added
-    expect((proj as Record<string, unknown>).baselineBudget).toBeUndefined();
+    expect((proj as unknown as Record<string, unknown>).baselineBudget).toBeUndefined();
     expect(proj.reforecasts[0].baselineBudget).toBe(1000000);
     expect(proj.reforecasts[0].reforecastDate).toBeTruthy();
 
@@ -138,7 +138,7 @@ describe('Migrations', () => {
 
     expect(result.version).toBe('0.10.0');
     // hoursPerMonth should be removed
-    expect((result.settings as Record<string, unknown>).hoursPerMonth).toBeUndefined();
+    expect((result.settings as unknown as Record<string, unknown>).hoursPerMonth).toBeUndefined();
     // Other settings preserved
     expect(result.settings.discountRateAnnual).toBe(0.03);
     expect(result.settings.laborRates).toEqual([{ role: 'Dev', hourlyRate: 100 }]);
@@ -179,18 +179,18 @@ describe('Migrations', () => {
     expect(migrated.teamPool[0].name).toBe('Alice');
     expect(migrated.projects[0].assignments).toHaveLength(1);
     expect(migrated.projects[0].assignments[0].poolMemberId).toBe('tm1');
-    expect((migrated.projects[0] as Record<string, unknown>).teamMembers).toBeUndefined();
+    expect((migrated.projects[0] as unknown as Record<string, unknown>).teamMembers).toBeUndefined();
     // hoursPerMonth stripped
-    expect((migrated.settings as Record<string, unknown>).hoursPerMonth).toBeUndefined();
+    expect((migrated.settings as unknown as Record<string, unknown>).hoursPerMonth).toBeUndefined();
     expect(migrated.settings.discountRateAnnual).toBe(0.05);
 
     // v0.4.0 migration: actualCost moved into auto-created Baseline reforecast
-    expect((migrated.projects[0] as Record<string, unknown>).actualCost).toBeUndefined();
+    expect((migrated.projects[0] as unknown as Record<string, unknown>).actualCost).toBeUndefined();
     expect(migrated.projects[0].reforecasts).toHaveLength(1);
     expect(migrated.projects[0].reforecasts[0].actualCost).toBe(5000);
 
     // v0.5.0 migration: baselineBudget moved to reforecast, reforecastDate added
-    expect((migrated.projects[0] as Record<string, unknown>).baselineBudget).toBeUndefined();
+    expect((migrated.projects[0] as unknown as Record<string, unknown>).baselineBudget).toBeUndefined();
     expect(migrated.projects[0].reforecasts[0].baselineBudget).toBe(100000);
     expect(migrated.projects[0].reforecasts[0].reforecastDate).toBeTruthy();
   });
@@ -241,7 +241,7 @@ describe('Migrations', () => {
     const proj = result.projects[0];
 
     // actualCost should be removed from project level
-    expect((proj as Record<string, unknown>).actualCost).toBeUndefined();
+    expect((proj as unknown as Record<string, unknown>).actualCost).toBeUndefined();
 
     // Active reforecast (rf_2) gets the project's actualCost
     expect(proj.reforecasts).toHaveLength(2);
@@ -256,7 +256,7 @@ describe('Migrations', () => {
     expect(proj.activeReforecastId).toBe('rf_2');
 
     // v0.5.0 migration: baselineBudget moved to reforecast, reforecastDate added
-    expect((proj as Record<string, unknown>).baselineBudget).toBeUndefined();
+    expect((proj as unknown as Record<string, unknown>).baselineBudget).toBeUndefined();
     expect(proj.reforecasts[0].baselineBudget).toBe(500000);
     expect(proj.reforecasts[1].baselineBudget).toBe(500000);
     expect(proj.reforecasts[0].reforecastDate).toBe('2026-06-01');
@@ -292,7 +292,7 @@ describe('Migrations', () => {
     const proj = result.projects[0];
 
     // actualCost removed from project
-    expect((proj as Record<string, unknown>).actualCost).toBeUndefined();
+    expect((proj as unknown as Record<string, unknown>).actualCost).toBeUndefined();
 
     // Baseline reforecast created with the project's actualCost
     expect(proj.reforecasts).toHaveLength(1);
@@ -304,7 +304,7 @@ describe('Migrations', () => {
     expect(proj.activeReforecastId).toBe(proj.reforecasts[0].id);
 
     // v0.5.0 migration: baselineBudget moved to reforecast, reforecastDate added
-    expect((proj as Record<string, unknown>).baselineBudget).toBeUndefined();
+    expect((proj as unknown as Record<string, unknown>).baselineBudget).toBeUndefined();
     expect(proj.reforecasts[0].baselineBudget).toBe(500000);
     expect(proj.reforecasts[0].reforecastDate).toBeTruthy();
   });
@@ -349,7 +349,7 @@ describe('Migrations', () => {
     for (const proj of result.projects) {
       expect(proj.reforecasts).toHaveLength(1);
       expect(proj.reforecasts[0].actualCost).toBe(0);
-      expect((proj as Record<string, unknown>).actualCost).toBeUndefined();
+      expect((proj as unknown as Record<string, unknown>).actualCost).toBeUndefined();
     }
   });
 
@@ -446,7 +446,7 @@ describe('Migrations', () => {
     const proj = result.projects[0];
 
     // baselineBudget removed from project level
-    expect((proj as Record<string, unknown>).baselineBudget).toBeUndefined();
+    expect((proj as unknown as Record<string, unknown>).baselineBudget).toBeUndefined();
 
     // All reforecasts inherit the project's baselineBudget
     expect(proj.reforecasts[0].baselineBudget).toBe(750000);
@@ -892,12 +892,12 @@ describe('Migrations', () => {
     const march30 = result.projects[0].reforecasts[1];
 
     // useForHistory stripped
-    expect((baseline as Record<string, unknown>).useForHistory).toBeUndefined();
-    expect((march30 as Record<string, unknown>).useForHistory).toBeUndefined();
+    expect((baseline as unknown as Record<string, unknown>).useForHistory).toBeUndefined();
+    expect((march30 as unknown as Record<string, unknown>).useForHistory).toBeUndefined();
 
     // scenario-source entry dropped — historicalCosts field removed since
     // every entry on March 30 was scrapped-design auto-generated
-    expect((march30 as Record<string, unknown>).historicalCosts).toBeUndefined();
+    expect((march30 as unknown as Record<string, unknown>).historicalCosts).toBeUndefined();
   });
 
   it('v0.9.0 to v0.10.0 preserves user-entered historicalCosts entries (no source field)', () => {

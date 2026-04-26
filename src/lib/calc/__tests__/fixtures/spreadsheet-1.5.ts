@@ -127,6 +127,7 @@ export const SPREADSHEET_FIXTURE: SpreadsheetFixture = {
       { role: 'PMO', hourlyRate: 120 },
     ],
     holidays: [],
+    trafficLightThresholds: { amberPercent: 5, redPercent: 15 },
   },
   project: {
     startDate: '2026-06-15',

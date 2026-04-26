@@ -279,6 +279,11 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
         const next: Reforecast = { ...rf, actualsThroughDate: date };
         if (nextHistorical.length > 0) {
           next.historicalCosts = nextHistorical;
+        } else if (rf.historicalCosts !== undefined) {
+          // materializeBucketOnAdvance returned empty — strip the stale field
+          // that was inherited via spread. delete (rather than assigning [])
+          // preserves the optional-field "absent" semantic.
+          delete next.historicalCosts;
         }
         return next;
       });
