@@ -23,13 +23,19 @@ export interface CommitResult {
  * Pure function for committing an inline edit on a historical-cost row.
  *
  * Sanitizes the raw input (NaN/Infinity/negative → 0), then clamps to the
- * ceiling `actualCost − sum(other earlier entries)`. Returns:
+ * ceiling `actualCost − sum(other in-range earlier entries)`. Returns:
  *   - `next`: the upserted entries array, or `null` if nothing changed
  *   - `cappedAt`: the ceiling, when clamping was applied; otherwise `null`
  *
  * Zero-value commits remove the entry entirely (rather than storing a
  * cost-0 row); when the existing value was already 0 and the typed value
  * is also 0, returns `next: null` as a no-op.
+ *
+ * `projectStartMonth` (optional) restricts the ceiling-sum scope to
+ * in-range entries only — matching `buildHistoricalCostsView`'s display
+ * semantics. Out-of-range stored entries (e.g., months earlier than
+ * project start after a bounds tightening) are excluded from the
+ * ceiling, so the edit ceiling agrees with the displayed cutoff bucket.
  */
 export function commitHistoricalCostEdit(
   stored: HistoricalCostEntry[],
@@ -37,13 +43,22 @@ export function commitHistoricalCostEdit(
   rawValue: string,
   actualCost: number,
   cutoffMonth: string,
+  projectStartMonth?: string,
 ): CommitResult {
   const parsed = parseFloat(rawValue);
   const sanitized = Math.max(0, Number.isFinite(parsed) ? parsed : 0);
 
-  // Sum of OTHER earlier entries (excluding the one being edited)
+  // Sum of OTHER in-range earlier entries (excluding the one being edited).
+  // When `projectStartMonth` is provided, entries earlier than project start
+  // are excluded so the ceiling matches `buildHistoricalCostsView`'s
+  // displayed cutoff bucket.
   const otherSum = stored
-    .filter((e) => e.month !== month && e.month < cutoffMonth)
+    .filter((e) => {
+      if (e.month === month) return false;
+      if (e.month >= cutoffMonth) return false;
+      if (projectStartMonth && e.month < projectStartMonth) return false;
+      return true;
+    })
     .reduce((acc, e) => acc + e.cost, 0);
 
   const ceiling = Math.max(0, actualCost - otherSum);
