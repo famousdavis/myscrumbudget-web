@@ -8,12 +8,15 @@ import { useState } from 'react';
 import type { Reforecast } from '@/types/domain';
 import { NewReforecastDialog } from './NewReforecastDialog';
 import { ConfirmDialog } from '@/components/BaseDialog';
+import { TrashIcon } from '@/components/icons/TrashIcon';
 
 interface ReforecastToolbarProps {
   reforecasts: Reforecast[];
   activeReforecastId: string | null;
   reforecastDate: string;
   actualsThroughDate?: string;
+  projectStartDate?: string;
+  projectEndDate?: string;
   onSwitch: (id: string) => void;
   onCreate: (name: string, copyFromId?: string) => void;
   onDelete: (id: string) => void;
@@ -26,6 +29,8 @@ export function ReforecastToolbar({
   activeReforecastId,
   reforecastDate,
   actualsThroughDate,
+  projectStartDate,
+  projectEndDate,
   onSwitch,
   onCreate,
   onDelete,
@@ -35,8 +40,17 @@ export function ReforecastToolbar({
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
+  // Newest first by reforecastDate (createdAt as tiebreaker). Lexical
+  // comparison works since both are ISO date strings.
+  const sortedReforecasts = [...reforecasts].sort((a, b) => {
+    if (b.reforecastDate !== a.reforecastDate) {
+      return b.reforecastDate.localeCompare(a.reforecastDate);
+    }
+    return b.createdAt.localeCompare(a.createdAt);
+  });
+
   const selectedId =
-    activeReforecastId ?? (reforecasts.length > 0 ? reforecasts[0].id : '');
+    activeReforecastId ?? (sortedReforecasts.length > 0 ? sortedReforecasts[0].id : '');
 
   return (
     <>
@@ -48,14 +62,14 @@ export function ReforecastToolbar({
           Reforecast
         </label>
 
-        {reforecasts.length > 0 ? (
+        {sortedReforecasts.length > 0 ? (
           <select
             id="rf-select"
             value={selectedId}
             onChange={(e) => onSwitch(e.target.value)}
             className="min-w-56 rounded border border-zinc-300 bg-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
           >
-            {reforecasts.map((rf) => (
+            {sortedReforecasts.map((rf) => (
               <option key={rf.id} value={rf.id}>
                 {rf.name}
               </option>
@@ -79,6 +93,8 @@ export function ReforecastToolbar({
               id="rf-date"
               type="date"
               value={reforecastDate}
+              min={projectStartDate}
+              max={projectEndDate}
               onChange={(e) => onReforecastDateChange(e.target.value)}
               title="Reforecast date"
               aria-label="Reforecast date"
@@ -100,6 +116,8 @@ export function ReforecastToolbar({
               id="actuals-through-date"
               type="date"
               value={actualsThroughDate ?? ''}
+              min={projectStartDate}
+              max={projectEndDate}
               onChange={(e) => onActualsThroughDateChange(e.target.value || undefined)}
               title="Actuals through date — ETC starts the day after this date"
               aria-label="Actuals through date"
@@ -121,27 +139,30 @@ export function ReforecastToolbar({
         )}
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
-          {reforecasts.length > 1 && (
-            <button
-              onClick={() => setShowDeleteDialog(true)}
-              className="whitespace-nowrap rounded border border-red-200 px-3 py-1 text-sm font-medium text-red-500 hover:bg-red-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950"
-            >
-              Delete
-            </button>
-          )}
-
           <button
             onClick={() => setShowNewDialog(true)}
             className="whitespace-nowrap rounded border border-blue-300 px-3 py-1 text-sm font-medium text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-950"
           >
             + New Reforecast
           </button>
+
+          {reforecasts.length > 1 && (
+            <button
+              type="button"
+              onClick={() => setShowDeleteDialog(true)}
+              className="flex h-7 w-7 items-center justify-center rounded text-zinc-400 hover:bg-red-50 hover:text-red-600 dark:text-zinc-500 dark:hover:bg-red-950 dark:hover:text-red-400"
+              title="Delete reforecast"
+              aria-label="Delete reforecast"
+            >
+              <TrashIcon />
+            </button>
+          )}
         </div>
       </div>
 
       {showNewDialog && (
         <NewReforecastDialog
-          reforecasts={reforecasts}
+          reforecasts={sortedReforecasts}
           onConfirm={(name, copyFromId) => {
             onCreate(name, copyFromId);
             setShowNewDialog(false);
@@ -153,7 +174,7 @@ export function ReforecastToolbar({
       {showDeleteDialog && (
         <ConfirmDialog
           title="Delete Reforecast"
-          message={<>Are you sure you want to delete <strong>{reforecasts.find((r) => r.id === selectedId)?.name ?? ''}</strong>? All allocations and productivity windows in this reforecast will be lost.</>}
+          message={<>Are you sure you want to delete <strong>{sortedReforecasts.find((r) => r.id === selectedId)?.name ?? ''}</strong>? All allocations and productivity windows in this reforecast will be lost.</>}
           onConfirm={() => {
             onDelete(selectedId);
             setShowDeleteDialog(false);

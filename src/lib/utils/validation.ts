@@ -184,6 +184,24 @@ function validateAllocation(allocation: unknown, path: string): string[] {
   return errors;
 }
 
+function validateHistoricalCostEntry(entry: unknown, path: string): string[] {
+  const errors: string[] = [];
+  if (!isObject(entry)) {
+    errors.push(`${path}: expected object`);
+    return errors;
+  }
+  if (!isValidMonthString(entry.month)) {
+    errors.push(`${path}.month: expected YYYY-MM month string`);
+  }
+  if (!isNonNegativeNumber(entry.cost)) {
+    errors.push(`${path}.cost: expected non-negative number`);
+  }
+  if (!isNonNegativeNumber(entry.hours)) {
+    errors.push(`${path}.hours: expected non-negative number`);
+  }
+  return errors;
+}
+
 function validateProductivityWindow(window: unknown, path: string): string[] {
   const errors: string[] = [];
   if (!isObject(window)) {
@@ -259,6 +277,16 @@ function validateReforecast(reforecast: unknown, path: string): string[] {
     reforecast.productivityWindows.forEach((win, i) => {
       errors.push(...validateProductivityWindow(win, `${path}.productivityWindows[${i}]`));
     });
+  }
+
+  if (reforecast.historicalCosts !== undefined && reforecast.historicalCosts !== null) {
+    if (!Array.isArray(reforecast.historicalCosts)) {
+      errors.push(`${path}.historicalCosts: expected array`);
+    } else {
+      reforecast.historicalCosts.forEach((entry, i) => {
+        errors.push(...validateHistoricalCostEntry(entry, `${path}.historicalCosts[${i}]`));
+      });
+    }
   }
 
   return errors;

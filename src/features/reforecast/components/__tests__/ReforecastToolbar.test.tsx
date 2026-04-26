@@ -83,16 +83,16 @@ describe('ReforecastToolbar', () => {
     expect(screen.getByText('+ New Reforecast')).toBeDefined();
   });
 
-  it('renders Delete button when multiple reforecasts', () => {
+  it('renders Delete icon button when multiple reforecasts', () => {
     render(<ReforecastToolbar {...defaultProps} />);
-    expect(screen.getByText('Delete')).toBeDefined();
+    expect(screen.getByLabelText('Delete reforecast')).toBeDefined();
   });
 
-  it('does not render Delete button with single reforecast', () => {
+  it('does not render Delete icon button with single reforecast', () => {
     render(
       <ReforecastToolbar {...defaultProps} reforecasts={[reforecasts[0]]} />,
     );
-    expect(screen.queryByText('Delete')).toBeNull();
+    expect(screen.queryByLabelText('Delete reforecast')).toBeNull();
   });
 
   it('shows empty state when no reforecasts', () => {
@@ -106,20 +106,18 @@ describe('ReforecastToolbar', () => {
     expect(screen.getByText('No reforecasts yet')).toBeDefined();
   });
 
-  it('shows delete confirmation dialog on Delete click', () => {
+  it('shows delete confirmation dialog on Delete icon click', () => {
     render(<ReforecastToolbar {...defaultProps} />);
-    fireEvent.click(screen.getByText('Delete'));
+    fireEvent.click(screen.getByLabelText('Delete reforecast'));
     expect(screen.getByText('Delete Reforecast')).toBeDefined();
   });
 
   it('calls onDelete after confirming delete', () => {
     const onDelete = vi.fn();
     render(<ReforecastToolbar {...defaultProps} onDelete={onDelete} />);
+    fireEvent.click(screen.getByLabelText('Delete reforecast'));
+    // ConfirmDialog renders a "Delete" confirm button — only one "Delete" text in the DOM now
     fireEvent.click(screen.getByText('Delete'));
-    // The ConfirmDialog has a "Delete" confirm button — there are now two "Delete" texts
-    const deleteButtons = screen.getAllByText('Delete');
-    // Click the confirm button (last one in the dialog)
-    fireEvent.click(deleteButtons[deleteButtons.length - 1]);
     expect(onDelete).toHaveBeenCalledWith('rf-1');
   });
 });

@@ -4,6 +4,29 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.22.0] - 2026-04-25
+
+### Added
+- **Per-month historical cost breakdown** under the cost charts on the project detail page. Collapsible table renders one row per month from project start through the cutoff month (driven by `actualsThroughDate`). Earlier months are user-editable inline numeric inputs; the cutoff-month row is read-only and auto-derives as `actualCost − sum(earlier-month entries)` so the column always sums exactly to the project total. Over-allocation attempts clamp to the available ceiling and surface a "Capped at $X" toast (error variant). Inputs commit on `Enter` (matches the `Baseline Budget` / `Actual` inline-edit contract from `ProjectSummary`); `Escape` cancels and restores the original value
+- **Bucket materialization on copy/advance** — when copying a reforecast or advancing the cutoff to a later month, the prior cutoff month's effective bucket value is captured as a stored entry so it survives downstream edits. Always overwrites any pre-existing entry at that month (the cutoff row is never user-editable, so any prior entry there is stale by construction). Range-guarded so a cutoff before project start never materializes a phantom entry
+- **Date input range validation** — the Reforecast Date and Actuals Through Date inputs now constrain to project start/end via native `min`/`max` attributes, preventing out-of-project-range typos from polluting the historical breakdown
+- New `TrashIcon` shared component (`src/components/icons/TrashIcon.tsx`) so all three delete surfaces (dashboard tile, project detail page, reforecast toolbar) draw from a single source of truth
+
+### Changed
+- **Monthly cost bar chart is now stacked** — actual portion (teal) sits below the forecast portion (blue) per month, and mid-month cutoffs render as two-segment stacks that visualize the actual/forecast split explicitly. Tooltips on blended bars break down `Actual: $X / Forecast: $Y / Total: $Z`. The earlier 3-color blended palette (with a tertiary purple for cutoff months) was scrapped in favor of this clearer stacked treatment
+- **Cumulative cost line chart split into two segments** — solid teal through any month containing actuals (including the blended cutoff month), dashed blue for the pure forecast trajectory beyond the cutoff. Cumulative chart right margin bumped 16→60 so the "Budget" label fits inside the plot area without clipping
+- **Reforecast dropdown sorted newest-first** by `reforecastDate` desc, with `createdAt` desc as tiebreaker — quicker navigation in projects with many weekly reforecasts. New Reforecast dialog defaults `Copy From` to the newest source
+- **`Actual Cost` tile renamed to `Actual`** on the project summary bar
+- **Reforecast Delete button replaced by an icon-only trash glyph** at the far-right edge of the toolbar, past `+ New Reforecast`. Demotes the destructive action visually, keeps `+ New Reforecast` from drifting horizontally as the toolbar widens with the Actuals Through input. Idle muted gray, hover red. Confirmation dialog unchanged
+- **Project Delete button replaced by the same icon-only trash glyph** on the project detail page, beside `Edit`. Same idle/hover semantics, sized one notch larger to balance the taller `Edit` button
+- **Dashboard tile delete glyph** refactored to use the shared `TrashIcon` component (visual unchanged — same Heroicons trash SVG it was already drawing)
+- Chart x-axis label fontSize 13→15 and y-offset 16→18 for legibility
+- Cumulative chart legend `Actuals` → `Actual` for consistency with the bar chart and project summary tile
+
+### Migration
+- `DATA_VERSION` 0.8.0 → 0.9.0 — additive, no-op for existing data; allows the new optional `Reforecast.historicalCosts: HistoricalCostEntry[]` field
+- `DATA_VERSION` 0.9.0 → 0.10.0 — cleanup migration that strips a `useForHistory: true` flag and `historicalCosts` entries with `source: "scenario"` from a scrapped earlier v0.22.0 design that polluted some users' localStorage during pre-fix testing. Most users will see no change
+
 ## [0.21.6] - 2026-04-24
 
 ### Fixed

@@ -5,15 +5,15 @@
 'use client';
 
 import { useState } from 'react';
-import type { MonthlyCalculation } from '@/types/domain';
 import { useDarkMode } from '@/hooks/useDarkMode';
 import { createLinearScale, computeNiceTicks, formatAxisValue, getChartColors, CHART_WIDTH, CHART_HEIGHT, MARGIN, PLOT_W, PLOT_H } from './svg-utils';
 import { ChartTooltip } from './ChartTooltip';
 import { formatCurrency } from '@/lib/utils/format';
 import { formatShortMonth } from '@/lib/utils/dates';
+import type { ChartDataPoint } from '@/lib/utils/buildChartData';
 
 interface MonthlyCostBarChartProps {
-  monthlyData: MonthlyCalculation[];
+  monthlyData: ChartDataPoint[];
 }
 
 export function MonthlyCostBarChart({ monthlyData }: MonthlyCostBarChartProps) {
@@ -34,90 +34,145 @@ export function MonthlyCostBarChart({ monthlyData }: MonthlyCostBarChartProps) {
 
   const palette = getChartColors(isDark);
   const colors = {
-    bar: palette.primary,
-    barHover: palette.primaryHover,
+    forecast: palette.primary,
+    forecastHover: palette.primaryHover,
+    historical: palette.secondary,
+    historicalHover: palette.secondaryHover,
     grid: palette.grid,
     text: palette.text,
   };
 
-  return (
-    <svg
-      viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
-      width="100%"
-      className="select-none"
-      role="img"
-      aria-label="Monthly cost bar chart"
-    >
-      <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
-        {/* Grid lines + Y-axis ticks */}
-        {ticks.map((tick) => (
-          <g key={tick}>
-            <line
-              x1={0}
-              y1={yScale(tick)}
-              x2={PLOT_W}
-              y2={yScale(tick)}
-              stroke={colors.grid}
-              strokeWidth={0.5}
-            />
-            <text
-              x={-8}
-              y={yScale(tick)}
-              textAnchor="end"
-              dominantBaseline="middle"
-              fill={colors.text}
-              fontSize={10}
-            >
-              {formatAxisValue(tick)}
-            </text>
-          </g>
-        ))}
+  const hasHistorical = monthlyData.some((d) => d.historicalCost > 0);
+  const hasForecast = monthlyData.some((d) => d.forecastCost > 0);
+  const showLegend = hasHistorical && hasForecast;
 
-        {/* Bars */}
-        {monthlyData.map((d, i) => {
-          const x = barGap + i * (barWidth + barGap);
-          const barH = PLOT_H - yScale(d.cost);
-          const isHovered = hoverIndex === i;
-          return (
-            <g key={d.month}>
-              <rect
-                x={x}
-                y={yScale(d.cost)}
-                width={barWidth}
-                height={Math.max(0, barH)}
-                fill={isHovered ? colors.barHover : colors.bar}
-                rx={2}
+  return (
+    <div>
+      {showLegend && (
+        <div className="mb-2 flex items-center gap-4 text-sm text-zinc-600 dark:text-zinc-400">
+          <span className="inline-flex items-center gap-1.5">
+            <span
+              className="inline-block h-2.5 w-2.5 rounded-full"
+              style={{ backgroundColor: colors.historical }}
+              aria-hidden="true"
+            />
+            Actual
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span
+              className="inline-block h-2.5 w-2.5 rounded-full"
+              style={{ backgroundColor: colors.forecast }}
+              aria-hidden="true"
+            />
+            Forecast
+          </span>
+        </div>
+      )}
+      <svg
+        viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
+        width="100%"
+        className="select-none"
+        role="img"
+        aria-label="Monthly cost bar chart"
+      >
+        <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
+          {/* Grid lines + Y-axis ticks */}
+          {ticks.map((tick) => (
+            <g key={tick}>
+              <line
+                x1={0}
+                y1={yScale(tick)}
+                x2={PLOT_W}
+                y2={yScale(tick)}
+                stroke={colors.grid}
+                strokeWidth={0.5}
+              />
+              <text
+                x={-8}
+                y={yScale(tick)}
+                textAnchor="end"
+                dominantBaseline="middle"
+                fill={colors.text}
+                fontSize={13}
+              >
+                {formatAxisValue(tick)}
+              </text>
+            </g>
+          ))}
+
+          {/* Stacked bars: historical (teal) at bottom, forecast (blue) on top.
+              For pure-historical or pure-forecast months, only one segment is drawn. */}
+          {monthlyData.map((d, i) => {
+            const x = barGap + i * (barWidth + barGap);
+            const isHovered = hoverIndex === i;
+            const histH = Math.max(0, PLOT_H - yScale(d.historicalCost));
+            const forecastH = Math.max(0, PLOT_H - yScale(d.forecastCost));
+            const histY = PLOT_H - histH;
+            const forecastY = histY - forecastH;
+
+            return (
+              <g
+                key={d.month}
                 onMouseEnter={() => setHoverIndex(i)}
                 onMouseLeave={() => setHoverIndex(null)}
                 style={{ cursor: 'pointer' }}
-              />
-              {/* X-axis label */}
-              <text
-                x={x + barWidth / 2}
-                y={PLOT_H + 16}
-                textAnchor="middle"
-                fill={colors.text}
-                fontSize={9}
               >
-                {formatShortMonth(d.month)}
-              </text>
-            </g>
-          );
-        })}
+                {d.historicalCost > 0 && (
+                  <rect
+                    x={x}
+                    y={histY}
+                    width={barWidth}
+                    height={histH}
+                    fill={isHovered ? colors.historicalHover : colors.historical}
+                    rx={d.forecastCost > 0 ? 0 : 2}
+                  />
+                )}
+                {d.forecastCost > 0 && (
+                  <rect
+                    x={x}
+                    y={forecastY}
+                    width={barWidth}
+                    height={forecastH}
+                    fill={isHovered ? colors.forecastHover : colors.forecast}
+                    rx={d.historicalCost > 0 ? 0 : 2}
+                  />
+                )}
+                {/* X-axis label */}
+                <text
+                  x={x + barWidth / 2}
+                  y={PLOT_H + 18}
+                  textAnchor="middle"
+                  fill={colors.text}
+                  fontSize={15}
+                >
+                  {formatShortMonth(d.month)}
+                </text>
+              </g>
+            );
+          })}
 
-        {/* Tooltip */}
-        {hoverIndex !== null && (
-          <ChartTooltip
-            x={barGap + hoverIndex * (barWidth + barGap) + barWidth / 2}
-            y={yScale(monthlyData[hoverIndex].cost)}
-            visible
-            chartWidth={PLOT_W}
-          >
-            <p className="font-medium">{monthlyData[hoverIndex].month}</p>
-            <p>{formatCurrency(monthlyData[hoverIndex].cost)}</p>
-          </ChartTooltip>
-        )}
-      </g>
-    </svg>
+          {/* Tooltip — shows segment breakdown for blended months */}
+          {hoverIndex !== null && (
+            <ChartTooltip
+              x={barGap + hoverIndex * (barWidth + barGap) + barWidth / 2}
+              y={yScale(monthlyData[hoverIndex].cost)}
+              visible
+              chartWidth={PLOT_W}
+            >
+              <p className="font-medium">{monthlyData[hoverIndex].month}</p>
+              {monthlyData[hoverIndex].segment === 'blended' ? (
+                <>
+                  <p>Actual: {formatCurrency(monthlyData[hoverIndex].historicalCost)}</p>
+                  <p>Forecast: {formatCurrency(monthlyData[hoverIndex].forecastCost)}</p>
+                  <p className="font-medium">Total: {formatCurrency(monthlyData[hoverIndex].cost)}</p>
+                </>
+              ) : (
+                <p>{formatCurrency(monthlyData[hoverIndex].cost)}</p>
+              )}
+            </ChartTooltip>
+          )}
+        </g>
+      </svg>
+    </div>
   );
 }

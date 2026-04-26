@@ -218,4 +218,173 @@ describe('createNewReforecast', () => {
     const rf = createNewReforecast('Fresh', '2026-06');
     expect(rf.actualsThroughDate).toBeUndefined();
   });
+
+  it('copies historicalCosts from source when present, with fresh entry objects', () => {
+    const source: Reforecast = {
+      id: 'src',
+      name: 'Baseline',
+      createdAt: '2026-06-01T00:00:00Z',
+      startDate: '2026-06',
+      reforecastDate: '2026-06-01',
+      allocations: [],
+      productivityWindows: [],
+      actualCost: 50000,
+      baselineBudget: 0,
+      historicalCosts: [
+        { month: '2026-06', cost: 10000, hours: 80 },
+        { month: '2026-07', cost: 20000, hours: 160 },
+      ],
+    };
+
+    const rf = createNewReforecast('Copy', '2026-06', source);
+    expect(rf.historicalCosts).toEqual(source.historicalCosts);
+    // Each entry must be a fresh object (deep clone, not shared reference)
+    expect(rf.historicalCosts).not.toBe(source.historicalCosts);
+    expect(rf.historicalCosts![0]).not.toBe(source.historicalCosts![0]);
+    expect(rf.historicalCosts![1]).not.toBe(source.historicalCosts![1]);
+  });
+
+  it('does not set historicalCosts when source has none', () => {
+    const source: Reforecast = {
+      id: 'src',
+      name: 'Baseline',
+      createdAt: '2026-06-01T00:00:00Z',
+      startDate: '2026-06',
+      reforecastDate: '2026-06-01',
+      allocations: [],
+      productivityWindows: [],
+      actualCost: 0,
+      baselineBudget: 0,
+    };
+
+    const rf = createNewReforecast('Copy', '2026-06', source);
+    expect('historicalCosts' in rf).toBe(false);
+  });
+
+  it('materializes source bucket on copy when source has actualsThroughDate but no historicalCosts', () => {
+    // Reproduces the user-reported workflow: March reforecast (cutoff Mar 28,
+    // actualCost $20k, no stored entries) is copied to create April reforecast.
+    // The new copy must capture March's $20k as a stored entry so it survives
+    // a subsequent cutoff advance.
+    const source: Reforecast = {
+      id: 'src',
+      name: 'March',
+      createdAt: '2026-03-30T00:00:00Z',
+      startDate: '2026-03',
+      reforecastDate: '2026-03-30',
+      allocations: [],
+      productivityWindows: [],
+      actualCost: 20000,
+      baselineBudget: 65000,
+      actualsThroughDate: '2026-03-28',
+    };
+
+    const rf = createNewReforecast('April', '2026-03', source);
+    expect(rf.historicalCosts).toEqual([
+      { month: '2026-03', cost: 20000, hours: 0 },
+    ]);
+  });
+
+  it('materializes source bucket alongside copied stored entries', () => {
+    const source: Reforecast = {
+      id: 'src',
+      name: 'Baseline',
+      createdAt: '2026-04-01T00:00:00Z',
+      startDate: '2026-01',
+      reforecastDate: '2026-04-01',
+      allocations: [],
+      productivityWindows: [],
+      actualCost: 50000,
+      baselineBudget: 100000,
+      actualsThroughDate: '2026-03-28',
+      historicalCosts: [
+        { month: '2026-01', cost: 10000, hours: 0 },
+        { month: '2026-02', cost: 15000, hours: 0 },
+      ],
+    };
+
+    const rf = createNewReforecast('Copy', '2026-01', source);
+    // Bucket = 50000 - (10000 + 15000) = 25000 for March
+    expect(rf.historicalCosts).toHaveLength(3);
+    expect(rf.historicalCosts).toEqual(
+      expect.arrayContaining([
+        { month: '2026-01', cost: 10000, hours: 0 },
+        { month: '2026-02', cost: 15000, hours: 0 },
+        { month: '2026-03', cost: 25000, hours: 0 },
+      ]),
+    );
+  });
+
+  it('does not materialize source bucket when source actualCost is 0', () => {
+    const source: Reforecast = {
+      id: 'src',
+      name: 'Baseline',
+      createdAt: '2026-06-01T00:00:00Z',
+      startDate: '2026-06',
+      reforecastDate: '2026-06-01',
+      allocations: [],
+      productivityWindows: [],
+      actualCost: 0,
+      baselineBudget: 0,
+      actualsThroughDate: '2026-06-30',
+    };
+
+    const rf = createNewReforecast('Copy', '2026-06', source);
+    // Bucket = 0 → no materialization → no historicalCosts field
+    expect('historicalCosts' in rf).toBe(false);
+  });
+
+  it('overwrites a stale source cutoff-month entry with the current effective bucket on copy', () => {
+    // Reproduces the chained-copy stale-snapshot bug: the source's stored
+    // {Mar: $9999} entry is from a prior materialization (cutoff row is
+    // never user-editable). The source's CURRENT effective Mar bucket is
+    // $30k − sumEarlier(none) = $30k. Copy must capture $30k, not preserve
+    // the stale $9999 snapshot.
+    const source: Reforecast = {
+      id: 'src',
+      name: 'Baseline',
+      createdAt: '2026-04-01T00:00:00Z',
+      startDate: '2026-03',
+      reforecastDate: '2026-04-01',
+      allocations: [],
+      productivityWindows: [],
+      actualCost: 30000,
+      baselineBudget: 65000,
+      actualsThroughDate: '2026-03-28',
+      historicalCosts: [{ month: '2026-03', cost: 9999, hours: 0 }],
+    };
+
+    const rf = createNewReforecast('Copy', '2026-03', source);
+    expect(rf.historicalCosts).toEqual([{ month: '2026-03', cost: 30000, hours: 0 }]);
+  });
+
+  it('chained-copy scenario: bucket value flows correctly through Mar 7 → Mar 14 → Mar 21', () => {
+    // Reproduces the user-reported chain. Each weekly copy must capture the
+    // SOURCE's current effective bucket (not the source's stale stored entry).
+    const mar7: Reforecast = {
+      id: 'mar7',
+      name: 'Mar 7',
+      createdAt: '2026-03-07T00:00:00Z',
+      startDate: '2026-03',
+      reforecastDate: '2026-03-07',
+      allocations: [],
+      productivityWindows: [],
+      actualCost: 5000,
+      baselineBudget: 65000,
+      actualsThroughDate: '2026-03-07',
+    };
+
+    // Mar 14 copy from Mar 7 → captures Mar 7's $5k bucket as stored entry
+    const mar14 = createNewReforecast('Mar 14', '2026-03', mar7);
+    expect(mar14.historicalCosts).toEqual([{ month: '2026-03', cost: 5000, hours: 0 }]);
+
+    // User then bumps Mar 14's actualCost to $10k. The effective bucket is
+    // $10k (since the stale {Mar: $5k} entry is shadowed by the cutoff month).
+    const mar14Bumped: Reforecast = { ...mar14, actualCost: 10000 };
+
+    // Mar 21 copy from Mar 14 (after bump) → MUST capture $10k, not the
+    // stale $5k from the stored entry
+    const mar21 = createNewReforecast('Mar 21', '2026-03', mar14Bumped);
+    expect(mar21.historicalCosts).toEqual([{ month: '2026-03', cost: 10000, hours: 0 }]);
+  });
 });

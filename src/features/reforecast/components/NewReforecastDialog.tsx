@@ -20,8 +20,9 @@ export function NewReforecastDialog({
   onCancel,
 }: NewReforecastDialogProps) {
   const [name, setName] = useState('');
+  // reforecasts is passed in newest-first order; [0] is the most recent.
   const [copyFromId, setCopyFromId] = useState(
-    reforecasts.length > 0 ? reforecasts[reforecasts.length - 1].id : ''
+    reforecasts.length > 0 ? reforecasts[0].id : ''
   );
   const [error, setError] = useState('');
 
