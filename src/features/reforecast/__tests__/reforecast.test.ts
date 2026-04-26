@@ -832,4 +832,90 @@ describe('Reforecast Management', () => {
       expect(switched.reforecasts[1].notes).toBe('Q3 scope change');
     });
   });
+
+  describe('updateName', () => {
+    // Simulate the updateName logic from useReforecast: trim, 50-char clamp,
+    // reject empty, no-op on equal, only mutate active reforecast.
+    function updateNameUpdater(value: string) {
+      return (prev: Project): Project => {
+        if (prev.reforecasts.length === 0) return prev;
+        const reforecastId = prev.activeReforecastId ?? prev.reforecasts[0].id;
+        const active = prev.reforecasts.find((r) => r.id === reforecastId);
+        if (!active) return prev;
+        const trimmed = value.trim().slice(0, 50);
+        if (trimmed.length === 0) return prev;
+        if (trimmed === active.name) return prev;
+        return {
+          ...prev,
+          reforecasts: prev.reforecasts.map((rf) =>
+            rf.id === reforecastId ? { ...rf, name: trimmed } : rf,
+          ),
+        };
+      };
+    }
+
+    it('sets the name on the active reforecast (trimmed)', () => {
+      const rf = makeReforecast({ name: 'Baseline' });
+      const project = makeProject({
+        reforecasts: [rf],
+        activeReforecastId: rf.id,
+      });
+      const updated = updateNameUpdater('  Q3 final  ')(project);
+      expect(updated.reforecasts[0].name).toBe('Q3 final');
+    });
+
+    it('clamps input over 50 chars', () => {
+      const rf = makeReforecast({ name: 'Baseline' });
+      const project = makeProject({
+        reforecasts: [rf],
+        activeReforecastId: rf.id,
+      });
+      const longInput = 'x'.repeat(75);
+      const updated = updateNameUpdater(longInput)(project);
+      expect(updated.reforecasts[0].name.length).toBe(50);
+    });
+
+    it('rejects empty string — name unchanged', () => {
+      const rf = makeReforecast({ name: 'Baseline' });
+      const project = makeProject({
+        reforecasts: [rf],
+        activeReforecastId: rf.id,
+      });
+      const updated = updateNameUpdater('')(project);
+      expect(updated.reforecasts[0].name).toBe('Baseline');
+    });
+
+    it('rejects whitespace-only input — name unchanged', () => {
+      const rf = makeReforecast({ name: 'Baseline' });
+      const project = makeProject({
+        reforecasts: [rf],
+        activeReforecastId: rf.id,
+      });
+      const updated = updateNameUpdater('   \t\n  ')(project);
+      expect(updated.reforecasts[0].name).toBe('Baseline');
+    });
+
+    it('no-op when typed value equals current name (after trim)', () => {
+      const rf = makeReforecast({ name: 'Baseline' });
+      const project = makeProject({
+        reforecasts: [rf],
+        activeReforecastId: rf.id,
+      });
+      const updated = updateNameUpdater('  Baseline  ')(project);
+      // Same project reference returned (no mutation triggered)
+      expect(updated).toBe(project);
+    });
+
+    it('only updates the active reforecast', () => {
+      const rf1 = makeReforecast({ id: 'rf_1', name: 'Baseline' });
+      const rf2 = makeReforecast({ id: 'rf_2', name: 'Q2 Reforecast' });
+      const project = makeProject({
+        reforecasts: [rf1, rf2],
+        activeReforecastId: 'rf_2',
+      });
+      const updated = updateNameUpdater('Q3 final')(project);
+      expect(updated.reforecasts[0].name).toBe('Baseline');
+      expect(updated.reforecasts[1].name).toBe('Q3 final');
+    });
+  });
 });

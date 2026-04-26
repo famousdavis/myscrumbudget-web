@@ -9,6 +9,7 @@ import type { Reforecast } from '@/types/domain';
 import { NewReforecastDialog } from './NewReforecastDialog';
 import { ConfirmDialog } from '@/components/BaseDialog';
 import { TrashIcon } from '@/components/icons/TrashIcon';
+import { PencilIcon } from '@/components/icons/PencilIcon';
 
 interface ReforecastToolbarProps {
   reforecasts: Reforecast[];
@@ -20,6 +21,7 @@ interface ReforecastToolbarProps {
   onSwitch: (id: string) => void;
   onCreate: (name: string, copyFromId?: string) => void;
   onDelete: (id: string) => void;
+  onRename: (newName: string) => void;
   onReforecastDateChange: (date: string) => void;
   onActualsThroughDateChange: (date: string | undefined) => void;
 }
@@ -34,11 +36,14 @@ export function ReforecastToolbar({
   onSwitch,
   onCreate,
   onDelete,
+  onRename,
   onReforecastDateChange,
   onActualsThroughDateChange,
 }: ReforecastToolbarProps) {
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [draftName, setDraftName] = useState('');
 
   // Newest first by reforecastDate (createdAt as tiebreaker). Lexical
   // comparison works since both are ISO date strings.
@@ -51,6 +56,25 @@ export function ReforecastToolbar({
 
   const selectedId =
     activeReforecastId ?? (sortedReforecasts.length > 0 ? sortedReforecasts[0].id : '');
+  const selectedReforecast = sortedReforecasts.find((r) => r.id === selectedId);
+
+  const beginEdit = () => {
+    if (!selectedReforecast) return;
+    setDraftName(selectedReforecast.name);
+    setEditingName(true);
+  };
+
+  const commitEdit = () => {
+    const trimmed = draftName.trim();
+    if (trimmed.length > 0) {
+      onRename(trimmed);
+    }
+    setEditingName(false);
+  };
+
+  const cancelEdit = () => {
+    setEditingName(false);
+  };
 
   return (
     <>
@@ -63,22 +87,58 @@ export function ReforecastToolbar({
         </label>
 
         {sortedReforecasts.length > 0 ? (
-          <select
-            id="rf-select"
-            value={selectedId}
-            onChange={(e) => onSwitch(e.target.value)}
-            className="min-w-56 rounded border border-zinc-300 bg-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-          >
-            {sortedReforecasts.map((rf) => (
-              <option key={rf.id} value={rf.id}>
-                {rf.name}
-              </option>
-            ))}
-          </select>
+          editingName ? (
+            <input
+              id="rf-name-edit"
+              type="text"
+              value={draftName}
+              maxLength={50}
+              autoFocus
+              onChange={(e) => setDraftName(e.target.value)}
+              onFocus={(e) => e.currentTarget.select()}
+              onBlur={commitEdit}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  commitEdit();
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  cancelEdit();
+                }
+              }}
+              aria-label="Edit reforecast name"
+              className="min-w-56 rounded border border-blue-400 bg-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-blue-600 dark:bg-zinc-800 dark:text-zinc-100"
+            />
+          ) : (
+            <select
+              id="rf-select"
+              value={selectedId}
+              onChange={(e) => onSwitch(e.target.value)}
+              className="min-w-56 rounded border border-zinc-300 bg-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            >
+              {sortedReforecasts.map((rf) => (
+                <option key={rf.id} value={rf.id}>
+                  {rf.name}
+                </option>
+              ))}
+            </select>
+          )
         ) : (
           <span className="text-sm text-zinc-400 dark:text-zinc-500">
             No reforecasts yet
           </span>
+        )}
+
+        {sortedReforecasts.length > 0 && !editingName && (
+          <button
+            type="button"
+            onClick={beginEdit}
+            className="flex h-7 w-7 items-center justify-center rounded text-zinc-400 hover:bg-blue-50 hover:text-blue-600 dark:text-zinc-500 dark:hover:bg-blue-950 dark:hover:text-blue-400"
+            title="Rename reforecast"
+            aria-label="Rename reforecast"
+          >
+            <PencilIcon />
+          </button>
         )}
 
         {reforecasts.length > 0 && (

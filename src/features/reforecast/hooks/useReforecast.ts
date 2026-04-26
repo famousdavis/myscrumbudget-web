@@ -256,6 +256,20 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
     [updateActiveRf],
   );
 
+  const updateName = useCallback(
+    (value: string) => {
+      if (!activeReforecast) return;
+      const trimmed = value.trim().slice(0, 50);
+      if (trimmed.length === 0) return;
+      if (trimmed === activeReforecast.name) return;
+      const id = activeReforecast.id;
+      updateActiveRf((rf) => ({ ...rf, name: trimmed }));
+      ensureOriginRef();
+      appendToChangeLog({ op: 'update', entity: 'reforecast', id });
+    },
+    [activeReforecast, updateActiveRf],
+  );
+
   const updateActualsThroughDate = useCallback(
     (date: string | undefined) => {
       updateActiveRf((rf) => {
@@ -328,5 +342,6 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
     updateActualsThroughDate,
     updateHistoricalCosts,
     updateNotes,
+    updateName,
   };
 }

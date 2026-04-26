@@ -66,6 +66,7 @@ export default function ProjectDetailPage({
     updateActualsThroughDate,
     updateHistoricalCosts,
     updateNotes,
+    updateName,
   } = useReforecast({
     project,
     updateProject,
@@ -170,6 +171,7 @@ export default function ProjectDetailPage({
             onSwitch={switchReforecast}
             onCreate={createReforecast}
             onDelete={deleteReforecast}
+            onRename={updateName}
             onReforecastDateChange={updateReforecastDate}
             onActualsThroughDateChange={updateActualsThroughDate}
           />
