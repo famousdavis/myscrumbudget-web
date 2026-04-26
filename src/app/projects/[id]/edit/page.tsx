@@ -8,12 +8,17 @@ import { use, useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useProject } from '@/features/projects/hooks/useProject';
 import { ProjectForm } from '@/features/projects/components/ProjectForm';
-import { generateMonthRange } from '@/lib/utils/dates';
+import {
+  applyTimelineChangeToReforecasts,
+  computeTimelineChangeSummary,
+  summaryHasChanges,
+  type TimelineChangeSummary,
+} from '@/features/projects/lib/timelineChange';
 import { getActiveReforecast } from '@/lib/utils/teamResolution';
 import { Skeleton } from '@/components/Skeleton';
 
 interface PendingSave {
-  allocationCount: number;
+  summary: TimelineChangeSummary;
   apply: () => void;
 }
 
@@ -89,23 +94,13 @@ export default function EditProjectPage({
               projectFields.endDate !== project.endDate;
 
             if (timelineChanged && project.reforecasts.length > 0) {
-              const newStartMonth = projectFields.startDate.slice(0, 7);
-              const newEndMonth = projectFields.endDate.slice(0, 7);
-              const newMonths = new Set(
-                generateMonthRange(newStartMonth, newEndMonth),
+              const summary = computeTimelineChangeSummary(
+                project.reforecasts,
+                projectFields.startDate,
+                projectFields.endDate,
               );
 
-              // Count allocations that would be outside the new range
-              let outOfRangeCount = 0;
-              for (const rf of project.reforecasts) {
-                for (const a of rf.allocations) {
-                  if (!newMonths.has(a.month)) {
-                    outOfRangeCount++;
-                  }
-                }
-              }
-
-              if (outOfRangeCount > 0) {
+              if (summaryHasChanges(summary)) {
                 // Show confirmation dialog; await user decision
                 return new Promise<void>((resolve, reject) => {
                   rejectRef.current = () => {
@@ -113,19 +108,23 @@ export default function EditProjectPage({
                     reject(new Error('cancelled'));
                   };
                   setPendingSave({
-                    allocationCount: outOfRangeCount,
+                    summary,
                     apply: () => {
+                      // Order of operations: apply new bounds, then derive
+                      // adjusted reforecasts from those NEW bounds (passed
+                      // explicitly to the helper so there is no ambiguity
+                      // about which `startDate`/`endDate` is current).
                       updateProject((prev) => {
                         const rfWithBudget = applyBudget(prev);
+                        const adjusted = applyTimelineChangeToReforecasts(
+                          rfWithBudget,
+                          projectFields.startDate,
+                          projectFields.endDate,
+                        );
                         return {
                           ...prev,
                           ...projectFields,
-                          reforecasts: rfWithBudget.map((rf) => ({
-                            ...rf,
-                            allocations: rf.allocations.filter((a) =>
-                              newMonths.has(a.month),
-                            ),
-                          })),
+                          reforecasts: adjusted,
                         };
                       });
                       flush();
@@ -137,7 +136,7 @@ export default function EditProjectPage({
               }
             }
 
-            // No allocation conflict — apply directly
+            // No timeline conflict — apply directly
             updateProject((prev) => ({
               ...prev,
               ...projectFields,
@@ -153,11 +152,34 @@ export default function EditProjectPage({
           <div className="mx-4 w-full max-w-sm rounded-lg bg-white p-6 shadow-lg dark:bg-zinc-900">
             <h3 className="text-lg font-semibold">Timeline Change</h3>
             <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-              Changing the timeline will remove{' '}
-              <strong>{pendingSave.allocationCount}</strong>{' '}
-              allocation{pendingSave.allocationCount === 1 ? '' : 's'} that{' '}
-              {pendingSave.allocationCount === 1 ? 'falls' : 'fall'} outside the
-              new date range. This cannot be undone.
+              Changing the timeline will affect existing reforecast data:
+            </p>
+            <ul className="mt-2 list-disc pl-5 text-sm text-zinc-600 dark:text-zinc-400">
+              {pendingSave.summary.allocationsToRemove > 0 && (
+                <li>
+                  Remove <strong>{pendingSave.summary.allocationsToRemove}</strong>{' '}
+                  allocation{pendingSave.summary.allocationsToRemove === 1 ? '' : 's'}{' '}
+                  outside the new date range.
+                </li>
+              )}
+              {pendingSave.summary.datesToAdjust > 0 && (
+                <li>
+                  Adjust <strong>{pendingSave.summary.datesToAdjust}</strong>{' '}
+                  reforecast date{pendingSave.summary.datesToAdjust === 1 ? '' : 's'}{' '}
+                  to fit the new range.
+                </li>
+              )}
+              {pendingSave.summary.historicalCostEntriesToStrip > 0 && (
+                <li>
+                  Strip <strong>{pendingSave.summary.historicalCostEntriesToStrip}</strong>{' '}
+                  historical cost entr
+                  {pendingSave.summary.historicalCostEntriesToStrip === 1 ? 'y' : 'ies'}{' '}
+                  outside the new range.
+                </li>
+              )}
+            </ul>
+            <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+              This cannot be undone.
             </p>
             <div className="mt-4 flex justify-end gap-3">
               <button

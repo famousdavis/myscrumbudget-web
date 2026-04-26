@@ -266,4 +266,45 @@ describe('commitHistoricalCostEdit', () => {
     expect(result.cappedAt).toBeNull();
     expect(result.next).toEqual([]);
   });
+
+  it('out-of-range stored entry (before projectStartMonth) does NOT count toward ceiling — matches display', () => {
+    // Scenario: project bounds were tightened to start at 2026-02, but a
+    // stale {2026-01: $5k} entry from before the change still sits in
+    // storage. `buildHistoricalCostsView` excludes it from the cutoff
+    // bucket; the edit ceiling must match. With actualCost $50k and an
+    // in-range Feb entry of $20k, the ceiling for editing March must be
+    // $50k − $20k = $30k, NOT $50k − $25k = $25k.
+    const stored: HistoricalCostEntry[] = [
+      { month: '2026-01', cost: 5000, hours: 0 },  // out of range
+      { month: '2026-02', cost: 20000, hours: 0 }, // in range
+    ];
+    const result = commitHistoricalCostEdit(
+      stored,
+      '2026-03',
+      '40000',
+      actualCost,
+      cutoffMonth,
+      '2026-02',
+    );
+    // Without F2 fix this would have been $25k; with the fix it's $30k.
+    expect(result.cappedAt).toBe(30000);
+    expect(result.next).toEqual([
+      { month: '2026-01', cost: 5000, hours: 0 },
+      { month: '2026-02', cost: 20000, hours: 0 },
+      { month: '2026-03', cost: 30000, hours: 0 },
+    ]);
+  });
+
+  it('projectStartMonth omitted → preserves legacy behavior (out-of-range entries DO count)', () => {
+    // Backward compatibility: callers that don't pass projectStartMonth
+    // (legacy callers, internal call paths without project context) get
+    // the previous "all earlier entries" semantics.
+    const stored: HistoricalCostEntry[] = [
+      { month: '2026-01', cost: 5000, hours: 0 },
+      { month: '2026-02', cost: 20000, hours: 0 },
+    ];
+    const result = commitHistoricalCostEdit(stored, '2026-03', '40000', actualCost, cutoffMonth);
+    // No projectStartMonth → ceiling = 50k − 25k = 25k (old behavior).
+    expect(result.cappedAt).toBe(25000);
+  });
 });

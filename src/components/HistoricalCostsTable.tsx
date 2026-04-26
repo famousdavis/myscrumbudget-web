@@ -41,6 +41,7 @@ export function HistoricalCostsTable({
   if (rows.length === 0) return null;
 
   const cutoffMonth = cutoff.slice(0, 7);
+  const projectStartMonth = project.startDate.slice(0, 7);
   const stored = activeReforecast.historicalCosts ?? [];
 
   const handleBlur = (month: string, rawValue: string) => {
@@ -50,6 +51,7 @@ export function HistoricalCostsTable({
       rawValue,
       activeReforecast.actualCost,
       cutoffMonth,
+      projectStartMonth,
     );
     if (result.cappedAt !== null) {
       addToast(

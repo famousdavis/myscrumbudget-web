@@ -13,6 +13,50 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.22.2',
+    date: '2026-04-25',
+    sections: [
+      {
+        title: 'Security audit (v0.22.0/v0.22.1 surface area)',
+        items: [
+          'Targeted security audit of the v0.22.0 Historical Costs Breakdown surface area as left by the v0.22.1 refactor. Two confirmed defects fixed; two lower-severity defense-in-depth items deferred and explicitly tracked in CLAUDE.md',
+        ],
+      },
+      {
+        title: 'Fixed',
+        items: [
+          'F1 — Stale actualsThroughDate / reforecastDate could persist out of project bounds after a timeline tightening. The Timeline Change confirmation dialog detected out-of-range allocations but did not examine reforecast-level date fields or the historicalCosts array. After a user shrunk project.startDate or project.endDate past existing reforecast dates, the stored values silently sat outside project bounds (HTML5 min/max on the inputs is advisory only — it prevents direct entry but does not normalize already-stored values). Calc-engine clipping and the materializeBucketAt range guard tolerated the divergence, but the data invariant ("stored reforecast dates lie within the project window") was broken and the displayed cutoff bucket could include or exclude entries inconsistently with the edit ceiling. Fixed by extracting two pure helpers (computeTimelineChangeSummary, applyTimelineChangeToReforecasts) wired into the project edit page. The apply callback passes the NEW bounds explicitly to the helper, eliminating any sequencing ambiguity. The Timeline Change dialog surfaces all three counts (allocations removed, dates adjusted, historical-cost entries stripped). Date fields are clamped (not cleared) to preserve user intent',
+          'F2 — Edit ceiling and display bucket disagreed when out-of-range historical entries were present. commitHistoricalCostEdit filtered "other earlier entries" by month < cutoffMonth only — buildHistoricalCostsView filtered by month >= projectStartMonth && month < cutoffMonth. Result: a stored entry from before the project\'s current start month (e.g., a phantom Jan entry on a project later tightened to start in Feb) did NOT subtract from the displayed cutoff bucket but DID subtract from the edit ceiling. Users saw the displayed sum equal actualCost, then got clamped at a lower-than-expected ceiling when editing an earlier-month row. Fixed by passing projectStartMonth through to commitHistoricalCostEdit and applying the same in-range filter. The negative-bucket clamp itself (Math.max(0, ...)) was already intact in both paths — F2 was a correctness/UX defect, not a security one',
+        ],
+      },
+      {
+        title: 'Deferred (tracked in CLAUDE.md)',
+        items: [
+          'F3 — Migration 0.10.0 does not type-check rebuilt entry fields. Filters scenario entries, then maps surviving entries without asserting e.month is a string or e.cost is a finite non-negative number. No production write path produces malformed entries; deferred as cheap-insurance hardening, not in response to a known exploit',
+          'F4 — Strict import validator (validateHistoricalCostEntry) does not reject extra properties on entries. Hand-crafted JSON at version 0.10.0+ could re-introduce source: "scenario"-shaped entries and bypass the cleanup migration (which only runs at version ≤ 0.9.0). Defense-in-depth gap; deferred until a hardening pass',
+        ],
+      },
+      {
+        title: 'Cleanup',
+        items: [
+          'Deleted 46 stale macOS Finder copy artifacts (filenames like routes.d 3.ts, validator 3.ts) from the gitignored .next/ build cache. These were producing a spurious npx tsc --noEmit duplicate-identifier error that hid the (clean) source-level baseline. After deletion, npx tsc --noEmit is 0 errors',
+        ],
+      },
+      {
+        title: 'Tests',
+        items: [
+          'Baseline: 733 → 749 passing across 49 test files (+16, no removals). New file timelineChange.test.ts covers F1 with 14 cases (summary counting, clamping, stripping, immutability, end-to-end scenario including the cutoff-equals-end-date case). 2 new cases appended to historicalCostsView.test.ts cover F2',
+        ],
+      },
+      {
+        title: 'Audit posture',
+        items: [
+          'Confirmed clean (no fix required): input parsing in commitHistoricalCostEdit (NaN/Infinity/negative all collapse to 0); toast firing on cap; DATA_VERSION gating prevents double-application of migrations; the 0.10.0 cleanup filter strips both useForHistory and source: "scenario" correctly; negative-bucket protection via Math.max(0, ...) in both view and edit paths; no production code path writes source or useForHistory (verified by grep); sanitizeCurrency wraps all actualCost/baselineBudget writes; floating-point drift bounded and not exploitable',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.22.1',
     date: '2026-04-25',
     sections: [
