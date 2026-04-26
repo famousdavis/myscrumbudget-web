@@ -4,6 +4,11 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.22.3] - 2026-04-26
+
+### Reverted
+- **Project summary tile label "Actual" → "Actual Cost".** The v0.22.0 rename was unintentional and broke alignment with EVM (earned value management) convention, which uses "Actual Cost" as the canonical term for cumulative-cost-incurred-to-date. Restored the original label on the project summary bar. The cumulative chart legend (also touched in v0.22.0) is left as-is for now — separate decision
+
 ## [0.22.2] - 2026-04-25
 
 ### Security audit (v0.22.0/v0.22.1 surface area)
