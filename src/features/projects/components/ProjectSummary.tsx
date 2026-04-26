@@ -136,7 +136,7 @@ export function ProjectSummary({
           onChange={onBaselineBudgetChange}
         />
         <InlineEditableField
-          label="Actual"
+          label="Actual Cost"
           value={actualCost}
           onChange={onActualCostChange}
         />

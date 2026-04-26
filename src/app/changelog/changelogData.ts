@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.22.3',
+    date: '2026-04-26',
+    sections: [
+      {
+        title: 'Reverted',
+        items: [
+          'Project summary tile label "Actual" → "Actual Cost". The v0.22.0 rename was unintentional and broke alignment with EVM (earned value management) convention, which uses "Actual Cost" as the canonical term for cumulative-cost-incurred-to-date. Restored the original label on the project summary bar. The cumulative chart legend (also touched in v0.22.0) is left as-is for now — separate decision',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.22.2',
     date: '2026-04-25',
     sections: [
