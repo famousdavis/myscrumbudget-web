@@ -13,6 +13,35 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.22.5',
+    date: '2026-04-28',
+    sections: [
+      {
+        title: 'Added',
+        items: [
+          'EVM hover tooltips on the project summary card. The three EVM-coded tiles in the project summary row — Actual Cost, ETC, EAC — now expose the full earned value management term as a native HTML title tooltip on hover: "Actual Cost (AC)", "Estimate to Complete (ETC)", "Estimate at Completion (EAC)". The visible label text is unchanged so the 5-column tile row stays on a single line at every viewport width — an inline-label expansion was evaluated and rejected because the longer strings (26–28 chars) would have wrapped to two lines on a full-screen display while the shorter sibling labels (e.g. "Baseline Budget" at 15 chars) would not, producing visually uneven tile heights. Native title is a zero-layout-impact alternative that surfaces the full term to sighted users hovering for clarification while leaving screen-reader behavior governed by the existing visible labels and the editable tile\'s aria-label. The Baseline Budget and Start/Finish tiles are not EVM-coded and were intentionally left without tooltips',
+          'Optional tooltip prop on the local InlineEditableField component (src/features/projects/components/ProjectSummary.tsx) — threads through to a title attribute on the outer container div. Coexists with the existing aria-label="Edit ${label}" (no conflict). Used by the Actual Cost tile to surface "Actual Cost (AC)" without changing the visible label or the inline-edit contract (Enter commits, Escape cancels, focus auto-selects)',
+        ],
+      },
+      {
+        title: 'Out of Scope (deliberate, per user direction)',
+        items: [
+          'Dashboard ProjectCard — keeps the abbreviated EAC: label (space-constrained tile)',
+          'CostByPeriodTable — already uses Forecast Subtotal (ETC) / Total (EAC) row labels',
+          'Chart legends in MonthlyCostBarChart and CumulativeCostLineChart — stay short ("Actual" / "Forecast")',
+          'About page features list — descriptive prose, abbreviations already understood in PM context',
+          'ForecastMetricsPanel — already used the expanded Estimate to Complete (ETC) / Estimate at Completion (EAC) labels',
+        ],
+      },
+      {
+        title: 'Tests',
+        items: [
+          'Baseline unchanged: 762 passing across 49 test files. No assertions touched these label strings (verified by grep), and the change is additive (a title attribute) with no visible-text or behavior change',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.22.4',
     date: '2026-04-26',
     sections: [

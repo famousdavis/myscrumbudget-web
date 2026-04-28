@@ -23,9 +23,10 @@ interface InlineEditableFieldProps {
   label: string;
   value: number;
   onChange?: (value: number) => void;
+  tooltip?: string;
 }
 
-function InlineEditableField({ label, value, onChange }: InlineEditableFieldProps) {
+function InlineEditableField({ label, value, onChange, tooltip }: InlineEditableFieldProps) {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(String(value));
 
@@ -73,6 +74,7 @@ function InlineEditableField({ label, value, onChange }: InlineEditableFieldProp
       role="button"
       tabIndex={editing ? -1 : 0}
       aria-label={`Edit ${label}`}
+      title={tooltip}
     >
       <p className="text-sm text-zinc-500 dark:text-zinc-400">{label}</p>
       {editing ? (
@@ -139,14 +141,15 @@ export function ProjectSummary({
           label="Actual Cost"
           value={actualCost}
           onChange={onActualCostChange}
+          tooltip="Actual Cost (AC)"
         />
-        <div className={readonlyClass}>
+        <div className={readonlyClass} title="Estimate to Complete (ETC)">
           <p className="text-sm text-zinc-500 dark:text-zinc-400">ETC</p>
           <p className="mt-1 text-base font-medium">
             {metrics ? formatCurrency(metrics.etc) : '\u2014'}
           </p>
         </div>
-        <div className={readonlyClass}>
+        <div className={readonlyClass} title="Estimate at Completion (EAC)">
           <p className="text-sm text-zinc-500 dark:text-zinc-400">EAC</p>
           <p className={`mt-1 text-base font-medium ${trafficLight?.color ?? ''}`}>
             {metrics ? formatCurrency(metrics.eac) : '\u2014'}
