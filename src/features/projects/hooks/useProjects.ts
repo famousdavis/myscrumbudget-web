@@ -42,7 +42,6 @@ export function useProjects() {
       const project: Project = {
         ...projectData,
         id: generateId(),
-        assignments: [],
         reforecasts: [baseline],
         activeReforecastId: baseline.id,
       };

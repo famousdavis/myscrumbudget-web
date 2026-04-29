@@ -84,18 +84,24 @@ describe('stripUndefined', () => {
 });
 
 describe('docToProject', () => {
-  it('converts Firestore doc data to Project', () => {
+  it('converts a modern (schemaVersion 2) Firestore doc to Project', () => {
     const data = {
       name: 'Test Project',
       startDate: '2026-01-01',
       endDate: '2026-12-31',
-      assignments: [{ id: 'a-1', poolMemberId: 'pm-1' }],
-      reforecasts: [{ id: 'rf-1', name: 'Baseline' }],
+      reforecasts: [
+        {
+          id: 'rf-1',
+          name: 'Baseline',
+          assignments: [{ id: 'a-1', poolMemberId: 'pm-1' }],
+        },
+      ],
       activeReforecastId: 'rf-1',
       // Cloud-only fields should be ignored
       owner: 'uid-123',
       members: { 'uid-123': 'owner' },
       order: 0,
+      schemaVersion: 2,
     };
     const project = docToProject('proj-1', data);
     expect(project).toEqual({
@@ -103,27 +109,102 @@ describe('docToProject', () => {
       name: 'Test Project',
       startDate: '2026-01-01',
       endDate: '2026-12-31',
-      assignments: [{ id: 'a-1', poolMemberId: 'pm-1' }],
-      reforecasts: [{ id: 'rf-1', name: 'Baseline' }],
+      reforecasts: [
+        {
+          id: 'rf-1',
+          name: 'Baseline',
+          assignments: [{ id: 'a-1', poolMemberId: 'pm-1' }],
+        },
+      ],
       activeReforecastId: 'rf-1',
     });
+    expect((project as unknown as Record<string, unknown>).assignments).toBeUndefined();
   });
 
-  it('provides defaults for missing fields', () => {
+  it('provides defaults for missing fields and no project-level assignments', () => {
     const project = docToProject('proj-1', {});
     expect(project).toEqual({
       id: 'proj-1',
       name: '',
       startDate: '',
       endDate: '',
-      assignments: [],
       reforecasts: [],
       activeReforecastId: null,
     });
+    expect((project as unknown as Record<string, unknown>).assignments).toBeUndefined();
   });
 
   it('uses provided id, not data.id', () => {
     const project = docToProject('my-id', { id: 'wrong-id', name: 'Test' });
     expect(project.id).toBe('my-id');
+  });
+
+  describe('backward compat (legacy schemaVersion 1 docs)', () => {
+    it('hydrates legacy top-level assignments into reforecasts that lack their own', () => {
+      const legacy = {
+        name: 'Legacy',
+        startDate: '2026-01-01',
+        endDate: '2026-12-31',
+        // Top-level assignments — schemaVersion 1 location
+        assignments: [
+          { id: 'a-1', poolMemberId: 'pm-1' },
+          { id: 'a-2', poolMemberId: 'pm-2' },
+        ],
+        reforecasts: [
+          { id: 'rf-1', name: 'Baseline' },
+          { id: 'rf-2', name: 'Q3' },
+        ],
+        activeReforecastId: 'rf-2',
+        schemaVersion: 1,
+      };
+      const project = docToProject('legacy-1', legacy);
+      // Top-level assignments stripped from the returned project
+      expect((project as unknown as Record<string, unknown>).assignments).toBeUndefined();
+      // Each reforecast hydrated with cloned assignments (deep clone — distinct refs)
+      expect(project.reforecasts[0].assignments).toEqual([
+        { id: 'a-1', poolMemberId: 'pm-1' },
+        { id: 'a-2', poolMemberId: 'pm-2' },
+      ]);
+      expect(project.reforecasts[1].assignments).toEqual([
+        { id: 'a-1', poolMemberId: 'pm-1' },
+        { id: 'a-2', poolMemberId: 'pm-2' },
+      ]);
+      expect(project.reforecasts[0].assignments).not.toBe(project.reforecasts[1].assignments);
+    });
+
+    it('per-reforecast assignments win when both legacy and modern fields are present', () => {
+      const mixed = {
+        name: 'Mixed',
+        startDate: '2026-01-01',
+        endDate: '2026-12-31',
+        assignments: [{ id: 'a-legacy', poolMemberId: 'pm-legacy' }],
+        reforecasts: [
+          {
+            id: 'rf-1',
+            name: 'Baseline',
+            assignments: [{ id: 'a-modern', poolMemberId: 'pm-modern' }],
+          },
+        ],
+        activeReforecastId: 'rf-1',
+      };
+      const project = docToProject('mixed-1', mixed);
+      expect(project.reforecasts[0].assignments).toEqual([
+        { id: 'a-modern', poolMemberId: 'pm-modern' },
+      ]);
+    });
+
+    it('handles legacy doc with empty top-level assignments', () => {
+      const legacy = {
+        name: 'Legacy Empty',
+        startDate: '2026-01-01',
+        endDate: '2026-12-31',
+        assignments: [],
+        reforecasts: [{ id: 'rf-1', name: 'Baseline' }],
+        activeReforecastId: 'rf-1',
+        schemaVersion: 1,
+      };
+      const project = docToProject('legacy-empty', legacy);
+      expect(project.reforecasts[0].assignments).toEqual([]);
+    });
   });
 });

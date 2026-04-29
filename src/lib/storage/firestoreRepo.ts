@@ -18,13 +18,13 @@ import {
   setOriginRef, setChangeLog,
 } from './fingerprint';
 import { buildTeamSnapshot, stripUndefined, docToProject } from './firestoreUtils';
+import { getActiveReforecast } from '@/lib/utils/teamResolution';
 
 /** Firestore document shape for projects (extends Project with cloud metadata). */
 interface FirestoreProjectDoc {
   name: string;
   startDate: string;
   endDate: string;
-  assignments: Project['assignments'];
   reforecasts: Project['reforecasts'];
   activeReforecastId: string | null;
   owner: string;
@@ -122,10 +122,9 @@ export function createFirestoreRepository(uid: string): Repository {
         name: project.name,
         startDate: project.startDate,
         endDate: project.endDate,
-        assignments: project.assignments,
         reforecasts: project.reforecasts,
         activeReforecastId: project.activeReforecastId,
-        _teamSnapshot: buildTeamSnapshot(project.assignments, pool),
+        _teamSnapshot: buildTeamSnapshot(getActiveReforecast(project)?.assignments ?? [], pool),
         updatedAt: now,
       }), { merge: true });
     },
@@ -143,18 +142,17 @@ export function createFirestoreRepository(uid: string): Repository {
         name: project.name,
         startDate: project.startDate,
         endDate: project.endDate,
-        assignments: project.assignments,
         reforecasts: project.reforecasts,
         activeReforecastId: project.activeReforecastId,
         owner: uid,
         members: { [uid]: 'owner' },
         order: projects.length,
-        _teamSnapshot: buildTeamSnapshot(project.assignments, pool),
+        _teamSnapshot: buildTeamSnapshot(getActiveReforecast(project)?.assignments ?? [], pool),
         _originRef: uid,
         _changeLog: [],
         createdAt: now,
         updatedAt: now,
-        schemaVersion: 1,
+        schemaVersion: 2,
       };
 
       await setDoc(doc(db!, PROJECTS_COL, project.id), stripUndefined(docData as unknown as Record<string, unknown>));
@@ -228,18 +226,17 @@ export function createFirestoreRepository(uid: string): Repository {
           name: project.name,
           startDate: project.startDate,
           endDate: project.endDate,
-          assignments: project.assignments,
           reforecasts: project.reforecasts,
           activeReforecastId: project.activeReforecastId,
           owner: uid,
           members: { [uid]: 'owner' },
           order: i,
-          _teamSnapshot: buildTeamSnapshot(project.assignments, pool),
+          _teamSnapshot: buildTeamSnapshot(getActiveReforecast(project)?.assignments ?? [], pool),
           _originRef: state._originRef ?? uid,
           _changeLog: state._changeLog ?? [],
           createdAt: now,
           updatedAt: now,
-          schemaVersion: 1,
+          schemaVersion: 2,
         };
 
         // Full setDoc (no merge) for imports — old fields are replaced entirely

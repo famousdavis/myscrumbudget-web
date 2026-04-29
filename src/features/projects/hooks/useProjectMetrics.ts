@@ -26,7 +26,7 @@ export function useProjectMetrics(
 
     if (!reforecast || reforecast.allocations.length === 0) return null;
 
-    const teamMembers = resolveAssignments(project.assignments ?? [], pool);
+    const teamMembers = resolveAssignments(reforecast.assignments ?? [], pool);
     return calculateProjectMetrics(project, settings, teamMembers);
   }, [project, settings, pool]);
 }

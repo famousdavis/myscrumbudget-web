@@ -91,6 +91,7 @@ export interface Reforecast {
   startDate: string; // YYYY-MM — month the reforecast begins (project start month)
   reforecastDate: string; // ISO date (YYYY-MM-DD) — when this reforecast was prepared
   allocations: MonthlyAllocation[];
+  assignments: ProjectAssignment[];
   productivityWindows: ProductivityWindow[];
   actualCost: number;
   baselineBudget: number;
@@ -105,7 +106,6 @@ export interface Project {
   name: string;
   startDate: string;
   endDate: string;
-  assignments: ProjectAssignment[];
   reforecasts: Reforecast[];
   activeReforecastId: string | null;
 }

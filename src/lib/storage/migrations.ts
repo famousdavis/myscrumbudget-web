@@ -4,7 +4,7 @@
 
 import type { AppState, PoolMember, ProjectAssignment } from '@/types/domain';
 
-export const DATA_VERSION = '0.10.0';
+export const DATA_VERSION = '0.11.0';
 
 type Migration = {
   version: string;
@@ -325,6 +325,48 @@ const MIGRATIONS: Migration[] = [
       );
 
       return { ...data, version: '0.10.0', projects: migratedProjects };
+    },
+  },
+  {
+    version: '0.11.0',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    migrate: (data: any): AppState => {
+      // Move project-level assignments into each reforecast so each
+      // reforecast becomes a self-contained point-in-time snapshot.
+      // Strategy: copy verbatim (same IDs) into every reforecast that
+      // doesn't already have its own assignments array. Allocation
+      // linkage is preserved because assignment IDs are unchanged.
+      assertArray(data.projects, 'projects', '0.11.0');
+
+      const migratedProjects = (data.projects ?? []).map(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (project: any) => {
+          const projectAssignments: ProjectAssignment[] = Array.isArray(project.assignments)
+            ? project.assignments
+            : [];
+
+          const migratedReforecasts = (project.reforecasts ?? []).map(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (rf: any) => {
+              if (Array.isArray(rf.assignments)) {
+                // Idempotency: a reforecast that already has its own
+                // assignments wins (re-running migration is safe).
+                return rf;
+              }
+              return {
+                ...rf,
+                assignments: projectAssignments.map((a) => ({ ...a })),
+              };
+            },
+          );
+
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { assignments: _drop, ...rest } = project;
+          return { ...rest, reforecasts: migratedReforecasts };
+        },
+      );
+
+      return { ...data, version: '0.11.0', projects: migratedProjects };
     },
   },
 ];

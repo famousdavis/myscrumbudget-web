@@ -279,6 +279,14 @@ function validateReforecast(reforecast: unknown, path: string): string[] {
     });
   }
 
+  if (!Array.isArray(reforecast.assignments)) {
+    errors.push(`${path}.assignments: expected array`);
+  } else {
+    reforecast.assignments.forEach((a, i) => {
+      errors.push(...validateAssignment(a, `${path}.assignments[${i}]`));
+    });
+  }
+
   if (reforecast.historicalCosts !== undefined && reforecast.historicalCosts !== null) {
     if (!Array.isArray(reforecast.historicalCosts)) {
       errors.push(`${path}.historicalCosts: expected array`);
@@ -312,14 +320,6 @@ function validateProject(project: unknown, path: string): string[] {
   }
   if (!isString(project.activeReforecastId)) {
     errors.push(`${path}.activeReforecastId: expected string`);
-  }
-
-  if (!Array.isArray(project.assignments)) {
-    errors.push(`${path}.assignments: expected array`);
-  } else {
-    project.assignments.forEach((assignment, i) => {
-      errors.push(...validateAssignment(assignment, `${path}.assignments[${i}]`));
-    });
   }
 
   if (!Array.isArray(project.reforecasts)) {

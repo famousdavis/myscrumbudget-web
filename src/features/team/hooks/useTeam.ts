@@ -5,8 +5,8 @@
 'use client';
 
 import { useCallback, useMemo } from 'react';
-import type { Project, PoolMember, TeamMember } from '@/types/domain';
-import { resolveAssignments } from '@/lib/utils/teamResolution';
+import type { Project, PoolMember, TeamMember, Reforecast } from '@/types/domain';
+import { resolveAssignments, getActiveReforecast } from '@/lib/utils/teamResolution';
 import { generateId } from '@/lib/utils/id';
 
 interface UseTeamOptions {
@@ -15,20 +15,39 @@ interface UseTeamOptions {
   pool: PoolMember[];
 }
 
+/**
+ * Apply `fn` to the active reforecast, leaving sibling reforecasts unchanged.
+ * Each reforecast owns its own roster — mutations never leak across snapshots.
+ */
+function withActiveReforecast(
+  prev: Project,
+  fn: (rf: Reforecast) => Reforecast,
+): Project {
+  return {
+    ...prev,
+    reforecasts: prev.reforecasts.map((rf) =>
+      rf.id === prev.activeReforecastId ? fn(rf) : rf,
+    ),
+  };
+}
+
 export function useTeam({ project, updateProject, pool }: UseTeamOptions) {
-  // Resolve assignments against the pool to produce TeamMember[]
+  // Resolve the ACTIVE reforecast's assignments against the pool to produce TeamMember[]
   const members: TeamMember[] = useMemo(() => {
     if (!project) return [];
-    return resolveAssignments(project.assignments ?? [], pool);
+    const activeRf = getActiveReforecast(project);
+    return resolveAssignments(activeRf?.assignments ?? [], pool);
   }, [project, pool]);
 
   const addAssignment = useCallback(
     (poolMemberId: string) => {
       const id = generateId();
-      updateProject((prev) => ({
-        ...prev,
-        assignments: [...(prev.assignments ?? []), { id, poolMemberId }],
-      }));
+      updateProject((prev) =>
+        withActiveReforecast(prev, (rf) => ({
+          ...rf,
+          assignments: [...rf.assignments, { id, poolMemberId }],
+        })),
+      );
       return id;
     },
     [updateProject],
@@ -36,17 +55,14 @@ export function useTeam({ project, updateProject, pool }: UseTeamOptions) {
 
   const removeAssignment = useCallback(
     (assignmentId: string) => {
-      updateProject((prev) => ({
-        ...prev,
-        assignments: (prev.assignments ?? []).filter((a) => a.id !== assignmentId),
-        // Cascade: remove allocations referencing this assignment
-        reforecasts: prev.reforecasts.map((rf) => ({
+      updateProject((prev) =>
+        withActiveReforecast(prev, (rf) => ({
           ...rf,
-          allocations: rf.allocations.filter(
-            (a) => a.memberId !== assignmentId,
-          ),
+          assignments: rf.assignments.filter((a) => a.id !== assignmentId),
+          // Cascade scoped to the active reforecast only.
+          allocations: rf.allocations.filter((a) => a.memberId !== assignmentId),
         })),
-      }));
+      );
     },
     [updateProject],
   );
@@ -54,12 +70,14 @@ export function useTeam({ project, updateProject, pool }: UseTeamOptions) {
   /** Reorder assignments to match the given ordered list of assignment IDs */
   const reorderAssignments = useCallback(
     (orderedIds: string[]) => {
-      updateProject((prev) => ({
-        ...prev,
-        assignments: orderedIds
-          .map((id) => prev.assignments.find((a) => a.id === id))
-          .filter((a): a is NonNullable<typeof a> => a != null),
-      }));
+      updateProject((prev) =>
+        withActiveReforecast(prev, (rf) => ({
+          ...rf,
+          assignments: orderedIds
+            .map((id) => rf.assignments.find((a) => a.id === id))
+            .filter((a): a is NonNullable<typeof a> => a != null),
+        })),
+      );
     },
     [updateProject],
   );
@@ -67,10 +85,8 @@ export function useTeam({ project, updateProject, pool }: UseTeamOptions) {
   /** Sort assignments by name or role→name and persist the new order */
   const sortAssignments = useCallback(
     (mode: 'name' | 'role-name') => {
-      const resolved = resolveAssignments(
-        project?.assignments ?? [],
-        pool,
-      );
+      const activeRf = project ? getActiveReforecast(project) : undefined;
+      const resolved = resolveAssignments(activeRf?.assignments ?? [], pool);
       const sorted = [...resolved].sort((a, b) => {
         if (mode === 'role-name') {
           const roleCmp = a.role.localeCompare(b.role);
@@ -85,7 +101,7 @@ export function useTeam({ project, updateProject, pool }: UseTeamOptions) {
 
   return {
     members,
-    assignments: project?.assignments ?? [],
+    assignments: (project ? getActiveReforecast(project)?.assignments : undefined) ?? [],
     addAssignment,
     removeAssignment,
     reorderAssignments,

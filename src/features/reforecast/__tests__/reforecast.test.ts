@@ -18,10 +18,6 @@ function makeProject(overrides: Partial<Project> = {}): Project {
     name: 'Test Project',
     startDate: '2026-06-15',
     endDate: '2027-07-15',
-    assignments: [
-      { id: 'a_1', poolMemberId: 'pm_1' },
-      { id: 'a_2', poolMemberId: 'pm_2' },
-    ],
     reforecasts: [],
     activeReforecastId: null,
     ...overrides,
@@ -35,6 +31,10 @@ function makeReforecast(overrides: Partial<Reforecast> = {}): Reforecast {
     createdAt: '2026-06-01T00:00:00Z',
     startDate: '2026-06',
     reforecastDate: '2026-06-01',
+    assignments: [
+      { id: 'a_1', poolMemberId: 'pm_1' },
+      { id: 'a_2', poolMemberId: 'pm_2' },
+    ],
     allocations: [
       { memberId: 'a_1', month: '2026-06', allocation: 0.25 },
       { memberId: 'a_1', month: '2026-07', allocation: 0.5 },
@@ -65,6 +65,9 @@ function createReforecastUpdater(
       createdAt: new Date().toISOString(),
       startDate: prev.startDate,
       reforecastDate: new Date().toISOString().slice(0, 10),
+      assignments: sourceReforecast
+        ? sourceReforecast.assignments.map((a) => ({ ...a }))
+        : [],
       allocations: sourceReforecast
         ? sourceReforecast.allocations.map((a) => ({ ...a }))
         : [],
@@ -173,6 +176,32 @@ describe('Reforecast Management', () => {
 
       expect(newRf.allocations).toEqual([]);
       expect(newRf.productivityWindows).toEqual([]);
+    });
+
+    it('clones assignments from source preserving IDs', () => {
+      const rf = makeReforecast();
+      const project = makeProject({
+        reforecasts: [rf],
+        activeReforecastId: rf.id,
+      });
+      const updated = createReforecastUpdater('Copy', rf.id)(project);
+      const newRf = updated.reforecasts[1];
+      expect(newRf.assignments).toHaveLength(2);
+      expect(newRf.assignments.map((a) => a.id)).toEqual(['a_1', 'a_2']);
+      // Allocations key on assignment.id and must continue to resolve
+      expect(newRf.allocations.every((a) => newRf.assignments.some((as) => as.id === a.memberId))).toBe(true);
+    });
+
+    it('mutating cloned assignments does not affect source', () => {
+      const rf = makeReforecast();
+      const project = makeProject({
+        reforecasts: [rf],
+        activeReforecastId: rf.id,
+      });
+      const updated = createReforecastUpdater('Copy', rf.id)(project);
+      const newRf = updated.reforecasts[1];
+      newRf.assignments.push({ id: 'a_3', poolMemberId: 'pm_3' });
+      expect(updated.reforecasts[0].assignments).toHaveLength(2);
     });
 
     it('sets the new reforecast as active', () => {
