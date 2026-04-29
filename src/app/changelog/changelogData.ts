@@ -13,6 +13,38 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.23.0',
+    date: '2026-04-28',
+    sections: [
+      {
+        title: 'Added',
+        items: [
+          'Per-chart Copy Image icon in the panel header. Each cost chart on the project detail page (Monthly Cost bar chart and Cumulative Cost line chart) gains an independent Heroicons document-duplicate icon button in the upper-right of its panel header, alongside the chart title. Clicking the button rasterizes the entire panel (rounded border + title + legend + SVG) to a 2x-scale PNG via html2canvas and writes it to the system clipboard via navigator.clipboard.write + ClipboardItem, then fires a success toast. The two buttons are entirely independent — separate useRef on each panel, separate handler, no shared state. The button itself is excluded from the capture by the html2canvas ignoreElements: el.classList.contains(\'copy-image-button\') predicate. Disabled in Firefox (which silently fails on image/png clipboard writes without an about:config opt-in) with an explanatory aria-label',
+          'Print button on project detail pages. Page header gains a printer-icon + "Print" muted utility button (Heroicons printer outline, h-4 w-4) between Edit and Delete that calls window.print(). The browser\'s native print dialog opens with a "Save as PDF" destination available on macOS, Windows, and Chrome OS. No new route, no jsPDF dependency, no new test infrastructure — strictly browser-native printing',
+          'PrintableReport component (src/components/PrintableReport.tsx) — hidden on screen via Tailwind hidden print:block, visible only in print. Compact 2-page layout: page 1 holds the executive summary (header + status banner + project summary + active reforecast + forecast metrics, all as dense 4-column label/value tables — no bordered tiles); page 2 begins via break-before-page and contains the Monthly Cost chart, Cumulative Cost vs Budget chart (both with forceLightMode={true}), Cost by Period table, and the footer. Header follows SPERT Scheduler\'s pattern: light-grayscale all-caps brand line "MYSCRUMBUDGET™ V0.23.0", project name, window dates, "Reforecast: {name}" scenario line, "Generated {timestamp}" line, and a horizontal rule divider',
+          'Colored RAG (Red-Amber-Green) status indicator on the printed report. Renders as "● Status: On Track / At Risk / Over Budget" in green-700 / amber-600 / red-700 respectively (light-only color classes). Prints in actual color thanks to the print-color-adjust: exact rule on .print-report descendants. The EAC value in the Project Summary is also rendered in the matching RAG color so the headline number pops at a glance',
+          'forceLightMode prop on MonthlyCostBarChart and CumulativeCostLineChart. Optional boolean (defaults to false) that overrides the useDarkMode() result so SVG inline fill/stroke attributes always render in light-mode colors regardless of the .dark class on <html>. The hook is always called (hooks-rules compliant); only the consumed value is overridden. PrintableReport passes forceLightMode={true} so charts print with their light palette even when the user is browsing the app in dark mode',
+          '@media print block in globals.css. Uses display: none on chrome elements (nav, footer, button, [aria-live="polite"], a[href="#main-content"]), the :has(> .print-report) selector to hide siblings of the report inside its parent (class-agnostic — works regardless of the page wrapper className), main > *:not(:has(.print-report)) to hide non-ancestor direct children of <main>, layout reset on body/body>div/main to strip flex constraints so reports flow across pages, -webkit-print-color-adjust: exact + print-color-adjust: exact to prevent ink-saving wash-out, .print-section-keep page-break rule, and @page size: letter; margin: 0.5in. The :has() selectors deliberately do NOT use the (buggy) main:has(.print-report) *:not(.print-report):not(:has(.print-report)) pattern that would have hidden the report\'s own descendants',
+          'Dynamic document.title on the project detail page. A useEffect builds the title as `${APP_NAME} for ${project.name} - ${formatDateLong(today)}` using local-time date construction (not toISOString) so the date doesn\'t drift to UTC\'s "tomorrow" on evenings west of GMT. The browser\'s native print page header (when "Headers and footers" is enabled) reflects this title — matches SPERT Scheduler\'s "SPERT Scheduler for Procurement Project - April 28, 2026" pattern. Restores the previous title on unmount or project change',
+        ],
+      },
+      {
+        title: 'Changed',
+        items: [
+          'Tooltip readability on both cost charts (ChartTooltip.tsx). Font text-xs → text-base (12 → 16 px), padding px-2 py-1 → px-3 py-2, width 140 → 220 px. The tooltip now auto-sizes its height based on a new optional lineCount prop (default 2) so the line chart\'s 2-line tooltip ends up ~72 px tall and the bar chart\'s blended-month 4-line variant ends up ~120 px tall — the line chart tooltip no longer floats far above the cursor because of unused vertical space. Vertical positioning is computed as Math.max(0, y - height - 8) so the tooltip\'s bottom edge always sits ~8 px above the hovered point regardless of content size. Tooltips are not printed and not captured by Copy Image — only visible during hover',
+          'New dependency: html2canvas@1.4.1 (exact pin, no caret, for build reproducibility). Adds ~50 KB gzipped. Used only for the per-chart Copy Image feature; bundled statically because the cost is acceptable for the chart-bearing project detail route. The export helper (src/components/charts/export-chart.ts) wraps html2canvas with two important workarounds: (1) a neutralizeOklch onclone callback that walks the cloned DOM and rewrites Tailwind v4 modern color functions (oklch, oklab, lab, lch, color-mix, color()) into rgb()/rgba() because html2canvas@1.4.1 cannot parse them; (2) the lazy Promise<Blob> ClipboardItem form, which preserves the original user-gesture context across the html2canvas rasterization step (otherwise Chrome rejects the clipboard write as "not in a user gesture")',
+          'CopyImageButton component (src/components/CopyImageButton.tsx) — reusable icon-only button with toast wiring. SSR-safe Firefox detection via typeof navigator !== \'undefined\' guard at module level. Required class hook copy-image-button on the rendered <button> so html2canvas\'s ignoreElements predicate can filter it from the capture',
+        ],
+      },
+      {
+        title: 'Tests',
+        items: [
+          'Baseline unchanged: 762 passing across 49 test files. Implementation is purely additive to the rendering tree — no existing assertions touch the affected props, DOM structure, or computed values. The Copy Image clipboard pipeline and PrintableReport rendering are validated manually in dev (matches SPERT Scheduler precedent for the same feature set)',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.22.5',
     date: '2026-04-28',
     sections: [

@@ -15,6 +15,7 @@ import type { ChartDataPoint } from '@/lib/utils/buildChartData';
 interface CumulativeCostLineChartProps {
   monthlyData: ChartDataPoint[];
   baselineBudget: number;
+  forceLightMode?: boolean;
 }
 
 const DOT_RADIUS = 4;
@@ -22,8 +23,10 @@ const DOT_RADIUS = 4;
 export function CumulativeCostLineChart({
   monthlyData,
   baselineBudget,
+  forceLightMode = false,
 }: CumulativeCostLineChartProps) {
-  const isDark = useDarkMode();
+  const isDarkFromHook = useDarkMode();
+  const isDark = forceLightMode ? false : isDarkFromHook;
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
   if (monthlyData.length === 0) {

@@ -38,3 +38,81 @@ body {
 .animate-toast-slide-in {
   animation: toast-slide-in 0.2s ease-out;
 }
+
+@media print {
+  /* 1. Chrome suppression.
+     `button` is intentionally blanket — PrintableReport contains zero
+     <button> elements. Future contributors adding a button inside
+     .print-report must opt back in via an explicit override. */
+  nav,
+  footer,
+  button,
+  [aria-live="polite"],
+  a[href="#main-content"] {
+    display: none !important;
+  }
+
+  /* 2. Layout reset — strip flex/scroll constraints from the page chrome
+     so the report flows naturally across multiple pages. Also force
+     browsers to honor the chart's intended fill/stroke colors instead
+     of washing them out for ink savings. */
+  body,
+  body > div,
+  main {
+    display: block !important;
+    min-height: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  body,
+  .print-report,
+  .print-report * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* 3. Hide direct children of <main> that are NOT ancestors of .print-report.
+     Drops FirstRunBanner, LocalStorageWarningBanner, TopBar, the toast div,
+     and Footer. Keeps the providers wrapper that contains the page subtree. */
+  main > *:not(:has(.print-report)) {
+    display: none !important;
+  }
+
+  /* 4. Hide siblings of .print-report inside its direct parent.
+     Class-agnostic — works regardless of the page wrapper's className. */
+  :has(> .print-report) > *:not(.print-report) {
+    display: none !important;
+  }
+
+  /* 5. Make the print report visible and full-width. */
+  .print-report {
+    display: block !important;
+    width: 100% !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  /* 6. Force light-mode CSS custom properties regardless of .dark on <html>.
+     Chart SVG colors are governed by the forceLightMode prop on chart
+     components — CSS does not override SVG presentation attributes set
+     inline from JS. */
+  :root,
+  :root.dark {
+    --background: #ffffff !important;
+    --foreground: #000000 !important;
+  }
+
+  /* 7. Page-break control. */
+  .print-section-keep { break-inside: avoid; }
+  table { break-inside: auto; }
+  tr    { break-inside: avoid; }
+
+  /* 8. Page setup. */
+  @page {
+    size: letter;
+    margin: 0.5in;
+  }
+}
