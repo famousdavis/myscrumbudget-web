@@ -5,6 +5,7 @@
 import type { TeamMember } from '@/types/domain';
 import type { AllocationMap } from '@/lib/calc/allocationMap';
 import { getAllocation } from '@/lib/calc/allocationMap';
+import { UNKNOWN_ROLE } from '@/lib/constants';
 import type { CellCoord, SelectionRange, FillDragState } from '../lib/gridHelpers';
 import {
   isCellInRange,
@@ -101,7 +102,12 @@ export function AllocationGridRow({
           )}
           <span>
             {member.name}
-            <span className="ml-1 text-zinc-400">({member.role})</span>
+            <span
+              className={`ml-1 ${member.role === UNKNOWN_ROLE ? 'text-red-600 dark:text-red-400' : 'text-zinc-400'}`}
+              title={member.role === UNKNOWN_ROLE ? 'Role not in labor rates' : undefined}
+            >
+              ({member.role})
+            </span>
           </span>
         </div>
       </td>

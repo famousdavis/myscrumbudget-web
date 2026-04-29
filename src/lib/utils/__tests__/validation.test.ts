@@ -23,7 +23,6 @@ function makeState(notes: unknown) {
         startDate: '2026-06-15',
         endDate: '2027-07-15',
         activeReforecastId: 'rf_1',
-        assignments: [],
         reforecasts: [
           {
             id: 'rf_1',
@@ -31,6 +30,7 @@ function makeState(notes: unknown) {
             createdAt: '2026-06-01T00:00:00Z',
             reforecastDate: '2026-06-01',
             startDate: '2026-06',
+            assignments: [],
             allocations: [],
             productivityWindows: [],
             actualCost: 0,

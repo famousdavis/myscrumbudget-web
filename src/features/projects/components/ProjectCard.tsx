@@ -61,7 +61,7 @@ export function ProjectCard({
       ...project,
       activeReforecastId: mostRecentRf.id,
     };
-    const teamMembers = resolveAssignments(project.assignments ?? [], pool);
+    const teamMembers = resolveAssignments(mostRecentRf.assignments ?? [], pool);
     return calculateProjectMetrics(dashProject, settings, teamMembers);
   }, [project, settings, pool, mostRecentRf]);
 

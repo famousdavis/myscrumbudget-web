@@ -17,6 +17,7 @@ function makeRf(overrides: Partial<Reforecast> = {}): Reforecast {
     createdAt: '2026-01-01T00:00:00Z',
     startDate: '2026-01',
     reforecastDate: '2026-01-15',
+    assignments: [],
     allocations: [],
     productivityWindows: [],
     actualCost: 0,

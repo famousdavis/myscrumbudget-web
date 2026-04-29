@@ -4,6 +4,32 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.24.0] - 2026-04-29
+
+### Refactored
+- **`assignments: ProjectAssignment[]` moved from `Project` to `Reforecast`.** Each reforecast becomes a true point-in-time snapshot of the team — removing a member from the active reforecast no longer rewrites historical reforecasts; the same pool member can be on the team in one reforecast and absent in another. Allocation linkage is preserved because assignment IDs remain stable when reforecasts are cloned (`createNewReforecast` deep-clones source assignments preserving IDs — required so cloned `allocations`, which key on `assignment.id`, continue to resolve)
+- **Migration v0.10.0 → v0.11.0** copies the existing project-level assignments verbatim (same IDs) into every existing reforecast that doesn't already have its own assignments array. Idempotent on re-run, allocation linkage preserved, no manual fix-up required
+- **Firestore `docToProject()` gains a backward-compat read path:** legacy docs (`schemaVersion: 1`, top-level `assignments`) hydrate into reforecast-scoped assignments on load (deep-cloned per reforecast). New writes use `schemaVersion: 2` and never write the top-level field. Per-reforecast assignments win when both legacy and modern fields are present (idempotency)
+- **`useTeam` hook fully rewritten to mutate only the active reforecast** via a private `withActiveReforecast(prev, fn)` helper. `addAssignment`, `removeAssignment` (including its allocation cascade), `reorderAssignments`, and `sortAssignments` are all scoped to the active reforecast; sibling reforecasts retain their own rosters
+- **`useTeamPool.deletePoolMember` in-use guard** now scans across all reforecasts of all projects to detect referenced pool members
+- **`validateAssignment` moved from `validateProject` to `validateReforecast`** — error paths shift from `projects[i].assignments[k]` to `projects[i].reforecasts[j].assignments[k]`
+
+### Added
+- **Resource Plan Excel export/import.** New collapsible section on the project detail page (below the allocation grid) lets resource managers round-trip the active reforecast's allocation grid as `.xlsx` for offline editing. Powered by `exceljs@^4.4.0`. Export writes a `Resource Plan` worksheet with row 1 title (merged), row 2 metadata (project, reforecast, reforecast date, ISO timestamp), row 4 header (`Name`, `Role`, then one column per project month as `YYYY-MM` strings), and data rows with allocation cells in Excel's built-in `0%` percentage format. Empty allocations export as `0` (rendered "0%"), never blank — resource managers need to see the cell. Freeze panes lock row 4 and the Name/Role columns
+- **Hidden `_msb_meta` worksheet** (`state: 'veryHidden'`) carries a JSON identity tuple in cell A1: `{schema, appVersion, projectId, projectName, reforecastId, reforecastName, generatedAt}`. The defined-names API was rejected because it can only carry cell range references, not free-form text
+- **Hard import errors (block import, shown in `AlertDialog`, aggregated):** E1 (not `.xlsx`), E2 (missing Resource Plan sheet), E3 (missing/malformed `_msb_meta` — confirms the file originated from a MyScrumBudget export), E4 (`projectId` mismatch — prevents importing a different project's plan), E5 (header row 4 doesn't match expected months), E6 (row missing Name or Role), E7 (non-numeric allocation cell), E8 (allocation outside 0–100), E9 (duplicate Name, case-insensitive)
+- **Soft import warnings** surface as `'info'` toasts after a successful import, except W4 which surfaces in the import-confirm dialog with both reforecast names highlighted in amber: W1 (new pool member added — with role match if `Role` matches a `settings.laborRates[].role` exactly, otherwise role `Unknown` and the row renders red in `AllocationGridRow`), W2 (existing pool member's role differs in Excel — pool role kept, Excel role ignored), W3 (member in active reforecast but absent from Excel — removed from active reforecast only; sibling reforecasts retain them), W4 (Excel exported from a different reforecast than currently-active)
+- **Allocation interpretation is dual:** 0 ≤ v ≤ 1 is treated as a decimal (Excel percentage-formatted cell returns 0.75 for 75%); 1 < v ≤ 100 is percentage and divided by 100 (so a hand-typed 75 becomes 0.75); anything outside is hard E8
+- **Pale yellow (`#FFFF99`) input-cell shading** on every allocation cell in the exported Resource Plan sheet — financial-modeling convention signaling the edit zone to resource managers. Name and Role columns intentionally unshaded
+- **`AllocationGridRow` renders the role text in red** (`text-red-600` / `dark:text-red-400`) when `member.role === UNKNOWN_ROLE` — visual cue that the member came from an Excel import and needs a real labor-rate role assigned before cost calculations make sense
+- New constants in `src/lib/constants.ts`: `RESOURCE_PLAN_SHEET_NAME`, `RESOURCE_PLAN_META_SHEET_NAME`, `UNKNOWN_ROLE`
+
+### Fixed
+- **`AllocationGrid` Remove Team Member confirmation dialog copy.** Was "All allocations for this member across every reforecast will be lost" — incorrect after the v0.24.0 refactor since cascade is now scoped to the active reforecast only. Updated to "Their allocations in this reforecast will be lost. Other reforecasts are not affected"
+
+### Tests
+- 775 → 811 passing across 51 test files (+36 net additions). v0.11.0 migration cases including idempotency and missing-key tolerance; `firestoreUtils` legacy `schemaVersion: 1` round-trip and modern doc; per-reforecast roster independence in `team.test.ts`; `excelExport` rows/headers/formats/freeze panes/hidden meta sheet/merged title/FFFF99 input-cell fill; `excelImport` happy path round-trip plus E1–E9, W1–W4, allocation interpretation matrix, trailing-blank tolerance, error aggregation
+
 ## [0.23.0] - 2026-04-28
 
 ### Added

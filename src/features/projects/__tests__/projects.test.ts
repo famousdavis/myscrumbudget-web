@@ -14,7 +14,6 @@ function makeProject(overrides: Partial<Project> = {}): Project {
     name: 'Test Project',
     startDate: '2025-01-01',
     endDate: '2025-12-31',
-    assignments: [],
     reforecasts: [
       {
         id: 'rf-baseline',
@@ -22,6 +21,7 @@ function makeProject(overrides: Partial<Project> = {}): Project {
         createdAt: '2025-01-01T00:00:00Z',
         startDate: '2025-01',
         reforecastDate: '2025-01-01',
+        assignments: [],
         allocations: [],
         productivityWindows: [],
         actualCost: 100000,
@@ -97,9 +97,6 @@ describe('Project CRUD', () => {
 
   it('preserves project fields through save/load cycle', async () => {
     const project = makeProject({
-      assignments: [
-        { id: 'a1', poolMemberId: 'pm1' },
-      ],
       reforecasts: [
         {
           id: 'rf1',
@@ -107,6 +104,7 @@ describe('Project CRUD', () => {
           createdAt: '2025-06-01',
           startDate: '2025-07-01',
           reforecastDate: '2025-06-01',
+          assignments: [{ id: 'a1', poolMemberId: 'pm1' }],
           allocations: [],
           productivityWindows: [],
           actualCost: 50000,
@@ -118,10 +116,16 @@ describe('Project CRUD', () => {
     await repo.saveProject(project);
 
     const retrieved = await repo.getProject(project.id);
-    expect(retrieved?.assignments).toHaveLength(1);
-    expect(retrieved?.assignments[0].poolMemberId).toBe('pm1');
+    expect(retrieved?.reforecasts[0].assignments).toHaveLength(1);
+    expect(retrieved?.reforecasts[0].assignments[0].poolMemberId).toBe('pm1');
     expect(retrieved?.reforecasts).toHaveLength(1);
     expect(retrieved?.activeReforecastId).toBe('rf1');
     expect(retrieved?.reforecasts[0].actualCost).toBe(50000);
+  });
+
+  it('newly created project starts with empty assignments on baseline reforecast and no project-level assignments key', () => {
+    const project = makeProject();
+    expect(project.reforecasts[0].assignments).toEqual([]);
+    expect((project as unknown as Record<string, unknown>).assignments).toBeUndefined();
   });
 });

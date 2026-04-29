@@ -19,6 +19,7 @@ import { ConfirmDialog } from '@/components/BaseDialog';
 import { AllocationGrid } from '@/features/reforecast/components/AllocationGrid';
 import { ReforecastToolbar } from '@/features/reforecast/components/ReforecastToolbar';
 import { ReforecastNotes } from '@/features/reforecast/components/ReforecastNotes';
+import { ResourcePlanExcelPanel } from '@/features/reforecast/components/ResourcePlanExcelPanel';
 import { ProductivityWindowPanel } from '@/features/reforecast/components/ProductivityWindowPanel';
 import { ForecastMetricsPanel } from '@/features/projects/components/ForecastMetricsPanel';
 import { useProjectMetrics } from '@/features/projects/hooks/useProjectMetrics';
@@ -62,7 +63,7 @@ export default function ProjectDetailPage({
   }, [project]);
   const { deleteProject } = useProjects();
   const { settings } = useSettings();
-  const { pool } = useTeamPool();
+  const { pool, addPoolMember } = useTeamPool();
   const { members, addAssignment, removeAssignment, reorderAssignments, sortAssignments } = useTeam({
     project,
     updateProject,
@@ -247,6 +248,19 @@ export default function ProjectDetailPage({
             actualsThroughDate={actualsThroughDate}
           />
         </div>
+        {activeReforecast && settings && (
+          <ResourcePlanExcelPanel
+            project={project}
+            activeReforecast={activeReforecast}
+            members={members}
+            allocationMap={allocationMap}
+            months={months}
+            pool={pool}
+            settings={settings}
+            updateProject={updateProject}
+            addPoolMember={addPoolMember}
+          />
+        )}
       </div>
 
       {/* Productivity Windows */}

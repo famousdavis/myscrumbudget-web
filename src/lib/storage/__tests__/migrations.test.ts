@@ -8,7 +8,7 @@ import type { AppState } from '@/types/domain';
 
 function makeAppState(overrides: Partial<AppState> = {}): AppState {
   return {
-    version: '0.10.0',
+    version: '0.11.0',
     settings: {
       discountRateAnnual: 0.03,
       laborRates: [],
@@ -29,13 +29,13 @@ describe('Migrations', () => {
   });
 
   it('returns data unchanged when no migrations are pending', () => {
-    const data = makeAppState({ version: '0.10.0' });
-    const result = runMigrations(data, '0.10.0');
+    const data = makeAppState({ version: '0.11.0' });
+    const result = runMigrations(data, '0.11.0');
     expect(result).toEqual(data);
   });
 
   it('exports current version constant', () => {
-    expect(DATA_VERSION).toBe('0.10.0');
+    expect(DATA_VERSION).toBe('0.11.0');
   });
 
   it('migrates v1 data to v2 (extracts team pool from projects)', () => {
@@ -68,7 +68,7 @@ describe('Migrations', () => {
     const result = runMigrations(v1Data, '1.0.0');
 
     // Version should be bumped to latest
-    expect(result.version).toBe('0.10.0');
+    expect(result.version).toBe('0.11.0');
 
     // Pool should contain both members
     expect(result.teamPool).toHaveLength(2);
@@ -83,14 +83,17 @@ describe('Migrations', () => {
       role: 'QA',
     });
 
-    // Project should have assignments instead of teamMembers
+    // Project-level assignments are gone (moved into reforecasts in v0.11.0)
     const proj = result.projects[0];
-    expect(proj.assignments).toHaveLength(2);
-    expect(proj.assignments[0]).toEqual({
+    expect((proj as unknown as Record<string, unknown>).assignments).toBeUndefined();
+    // Baseline reforecast carries the assignments
+    const baseline = proj.reforecasts[0];
+    expect(baseline.assignments).toHaveLength(2);
+    expect(baseline.assignments[0]).toEqual({
       id: 'tm1',
       poolMemberId: 'tm1',
     });
-    expect(proj.assignments[1]).toEqual({
+    expect(baseline.assignments[1]).toEqual({
       id: 'tm2',
       poolMemberId: 'tm2',
     });
@@ -136,7 +139,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v2Data, '0.2.0');
 
-    expect(result.version).toBe('0.10.0');
+    expect(result.version).toBe('0.11.0');
     // hoursPerMonth should be removed
     expect((result.settings as unknown as Record<string, unknown>).hoursPerMonth).toBeUndefined();
     // Other settings preserved
@@ -174,11 +177,12 @@ describe('Migrations', () => {
 
     const migrated = runMigrations(importedData, '1.0.0');
 
-    expect(migrated.version).toBe('0.10.0');
+    expect(migrated.version).toBe('0.11.0');
     expect(migrated.teamPool).toHaveLength(1);
     expect(migrated.teamPool[0].name).toBe('Alice');
-    expect(migrated.projects[0].assignments).toHaveLength(1);
-    expect(migrated.projects[0].assignments[0].poolMemberId).toBe('tm1');
+    expect((migrated.projects[0] as unknown as Record<string, unknown>).assignments).toBeUndefined();
+    expect(migrated.projects[0].reforecasts[0].assignments).toHaveLength(1);
+    expect(migrated.projects[0].reforecasts[0].assignments[0].poolMemberId).toBe('tm1');
     expect((migrated.projects[0] as unknown as Record<string, unknown>).teamMembers).toBeUndefined();
     // hoursPerMonth stripped
     expect((migrated.settings as unknown as Record<string, unknown>).hoursPerMonth).toBeUndefined();
@@ -237,7 +241,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v3Data, '0.3.0');
 
-    expect(result.version).toBe('0.10.0');
+    expect(result.version).toBe('0.11.0');
     const proj = result.projects[0];
 
     // actualCost should be removed from project level
@@ -288,7 +292,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v3Data, '0.3.0');
 
-    expect(result.version).toBe('0.10.0');
+    expect(result.version).toBe('0.11.0');
     const proj = result.projects[0];
 
     // actualCost removed from project
@@ -442,7 +446,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v4Data, '0.4.0');
 
-    expect(result.version).toBe('0.10.0');
+    expect(result.version).toBe('0.11.0');
     const proj = result.projects[0];
 
     // baselineBudget removed from project level
@@ -491,7 +495,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v4Data, '0.4.0');
 
-    expect(result.version).toBe('0.10.0');
+    expect(result.version).toBe('0.11.0');
     const proj = result.projects[0];
 
     // Missing baselineBudget defaults to 0
@@ -533,7 +537,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v4Data, '0.4.0');
 
-    expect(result.version).toBe('0.10.0');
+    expect(result.version).toBe('0.11.0');
     expect(result.projects[0].reforecasts[0].baselineBudget).toBe(0);
   });
 
@@ -591,7 +595,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v4Data, '0.4.0');
 
-    expect(result.version).toBe('0.10.0');
+    expect(result.version).toBe('0.11.0');
     expect(result.projects[0].reforecasts[0].baselineBudget).toBe(0);
     expect(result.projects[1].reforecasts[0].baselineBudget).toBe(0);
   });
@@ -609,7 +613,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v5Data, '0.5.0');
 
-    expect(result.version).toBe('0.10.0');
+    expect(result.version).toBe('0.11.0');
     expect(result.settings.holidays).toEqual([]);
     // Other settings preserved
     expect(result.settings.discountRateAnnual).toBe(0.03);
@@ -632,7 +636,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v5Data, '0.5.0');
 
-    expect(result.version).toBe('0.10.0');
+    expect(result.version).toBe('0.11.0');
     expect(result.settings.holidays).toHaveLength(1);
     expect(result.settings.holidays[0].name).toBe('Test');
   });
@@ -671,7 +675,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v4Data, '0.4.0');
 
-    expect(result.version).toBe('0.10.0');
+    expect(result.version).toBe('0.11.0');
     const proj = result.projects[0];
 
     // reforecastDate falls back to today when createdAt is missing
@@ -693,7 +697,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v6Data, '0.6.0');
 
-    expect(result.version).toBe('0.10.0');
+    expect(result.version).toBe('0.11.0');
     expect(result.settings.trafficLightThresholds).toEqual({
       amberPercent: 5,
       redPercent: 15,
@@ -719,7 +723,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v6Data, '0.6.0');
 
-    expect(result.version).toBe('0.10.0');
+    expect(result.version).toBe('0.11.0');
     expect(result.settings.trafficLightThresholds).toEqual({
       amberPercent: 10,
       redPercent: 20,
@@ -774,7 +778,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v7Data, '0.7.0');
 
-    expect(result.version).toBe('0.10.0');
+    expect(result.version).toBe('0.11.0');
     expect(result.projects[0].reforecasts[0].notes).toBe('');
     expect(result.projects[0].reforecasts[1].notes).toBe('');
   });
@@ -886,7 +890,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v9Data, '0.9.0');
 
-    expect(result.version).toBe('0.10.0');
+    expect(result.version).toBe('0.11.0');
 
     const baseline = result.projects[0].reforecasts[0];
     const march30 = result.projects[0].reforecasts[1];
@@ -951,7 +955,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v9Data, '0.9.0');
 
-    expect(result.version).toBe('0.10.0');
+    expect(result.version).toBe('0.11.0');
     const rf = result.projects[0].reforecasts[0];
 
     // User-entered Jan entry survives, normalized to {month, cost, hours}
@@ -997,8 +1001,12 @@ describe('Migrations', () => {
     } as unknown as AppState;
 
     const result = runMigrations(v9Data, '0.9.0');
-    expect(result.version).toBe('0.10.0');
-    expect(result.projects[0].reforecasts[0]).toEqual(v9Data.projects[0].reforecasts[0]);
+    expect(result.version).toBe('0.11.0');
+    // v0.11.0 migration adds an empty `assignments` array to each reforecast.
+    expect(result.projects[0].reforecasts[0]).toEqual({
+      ...v9Data.projects[0].reforecasts[0],
+      assignments: [],
+    });
   });
 
   it('v0.7.0 to v0.8.0 coerces non-string notes to empty string', () => {
@@ -1040,5 +1048,203 @@ describe('Migrations', () => {
     const result = runMigrations(v7Data, '0.7.0');
 
     expect(result.projects[0].reforecasts[0].notes).toBe('');
+  });
+
+  describe('v0.10.0 to v0.11.0 (assignments → Reforecast)', () => {
+    it('copies project-level assignments to every reforecast (same IDs)', () => {
+      const v10Data = {
+        version: '0.10.0',
+        settings: {
+          discountRateAnnual: 0.03,
+          laborRates: [],
+          holidays: [],
+          trafficLightThresholds: { amberPercent: 5, redPercent: 15 },
+        },
+        teamPool: [],
+        projects: [
+          {
+            id: 'p1',
+            name: 'Project',
+            startDate: '2026-06-15',
+            endDate: '2027-07-15',
+            assignments: [
+              { id: 'a1', poolMemberId: 'pm1' },
+              { id: 'a2', poolMemberId: 'pm2' },
+            ],
+            reforecasts: [
+              {
+                id: 'rf_old',
+                name: 'Baseline',
+                createdAt: '2026-06-01T00:00:00Z',
+                reforecastDate: '2026-06-01',
+                startDate: '2026-06',
+                allocations: [{ memberId: 'a1', month: '2026-06', allocation: 0.5 }],
+                productivityWindows: [],
+                actualCost: 1000,
+                baselineBudget: 500000,
+              },
+              {
+                id: 'rf_new',
+                name: 'Q3',
+                createdAt: '2026-09-01T00:00:00Z',
+                reforecastDate: '2026-09-01',
+                startDate: '2026-06',
+                allocations: [{ memberId: 'a2', month: '2026-09', allocation: 0.75 }],
+                productivityWindows: [],
+                actualCost: 5000,
+                baselineBudget: 500000,
+              },
+            ],
+            activeReforecastId: 'rf_new',
+          },
+        ],
+      } as unknown as AppState;
+
+      const result = runMigrations(v10Data, '0.10.0');
+
+      expect(result.version).toBe('0.11.0');
+      const proj = result.projects[0];
+      expect((proj as unknown as Record<string, unknown>).assignments).toBeUndefined();
+      expect(proj.reforecasts[0].assignments).toEqual([
+        { id: 'a1', poolMemberId: 'pm1' },
+        { id: 'a2', poolMemberId: 'pm2' },
+      ]);
+      expect(proj.reforecasts[1].assignments).toEqual([
+        { id: 'a1', poolMemberId: 'pm1' },
+        { id: 'a2', poolMemberId: 'pm2' },
+      ]);
+      // Distinct array references — mutating one does not affect the other
+      expect(proj.reforecasts[0].assignments).not.toBe(proj.reforecasts[1].assignments);
+      // Allocations still resolve against assignment IDs
+      const oldRf = proj.reforecasts[0];
+      const oldAssignmentIds = new Set(oldRf.assignments.map((a) => a.id));
+      expect(oldRf.allocations.every((a) => oldAssignmentIds.has(a.memberId))).toBe(true);
+    });
+
+    it('handles project with empty assignments array', () => {
+      const v10Data = {
+        version: '0.10.0',
+        settings: {
+          discountRateAnnual: 0.03,
+          laborRates: [],
+          holidays: [],
+          trafficLightThresholds: { amberPercent: 5, redPercent: 15 },
+        },
+        teamPool: [],
+        projects: [
+          {
+            id: 'p1',
+            name: 'P',
+            startDate: '2026-01-01',
+            endDate: '2026-12-31',
+            assignments: [],
+            reforecasts: [
+              {
+                id: 'rf1',
+                name: 'Baseline',
+                createdAt: '2026-01-01T00:00:00Z',
+                reforecastDate: '2026-01-01',
+                startDate: '2026-01',
+                allocations: [],
+                productivityWindows: [],
+                actualCost: 0,
+                baselineBudget: 0,
+              },
+            ],
+            activeReforecastId: 'rf1',
+          },
+        ],
+      } as unknown as AppState;
+
+      const result = runMigrations(v10Data, '0.10.0');
+
+      expect(result.version).toBe('0.11.0');
+      expect(result.projects[0].reforecasts[0].assignments).toEqual([]);
+    });
+
+    it('handles project missing assignments key entirely', () => {
+      const v10Data = {
+        version: '0.10.0',
+        settings: {
+          discountRateAnnual: 0.03,
+          laborRates: [],
+          holidays: [],
+          trafficLightThresholds: { amberPercent: 5, redPercent: 15 },
+        },
+        teamPool: [],
+        projects: [
+          {
+            id: 'p1',
+            name: 'P',
+            startDate: '2026-01-01',
+            endDate: '2026-12-31',
+            reforecasts: [
+              {
+                id: 'rf1',
+                name: 'Baseline',
+                createdAt: '2026-01-01T00:00:00Z',
+                reforecastDate: '2026-01-01',
+                startDate: '2026-01',
+                allocations: [],
+                productivityWindows: [],
+                actualCost: 0,
+                baselineBudget: 0,
+              },
+            ],
+            activeReforecastId: 'rf1',
+          },
+        ],
+      } as unknown as AppState;
+
+      const result = runMigrations(v10Data, '0.10.0');
+
+      expect(result.version).toBe('0.11.0');
+      expect(result.projects[0].reforecasts[0].assignments).toEqual([]);
+    });
+
+    it('idempotent: reforecast that already has its own assignments is preserved', () => {
+      const v10Data = {
+        version: '0.10.0',
+        settings: {
+          discountRateAnnual: 0.03,
+          laborRates: [],
+          holidays: [],
+          trafficLightThresholds: { amberPercent: 5, redPercent: 15 },
+        },
+        teamPool: [],
+        projects: [
+          {
+            id: 'p1',
+            name: 'P',
+            startDate: '2026-01-01',
+            endDate: '2026-12-31',
+            assignments: [{ id: 'a1', poolMemberId: 'pm1' }],
+            reforecasts: [
+              {
+                id: 'rf1',
+                name: 'Baseline',
+                createdAt: '2026-01-01T00:00:00Z',
+                reforecastDate: '2026-01-01',
+                startDate: '2026-01',
+                assignments: [{ id: 'a99', poolMemberId: 'pm99' }],
+                allocations: [],
+                productivityWindows: [],
+                actualCost: 0,
+                baselineBudget: 0,
+              },
+            ],
+            activeReforecastId: 'rf1',
+          },
+        ],
+      } as unknown as AppState;
+
+      const result = runMigrations(v10Data, '0.10.0');
+
+      expect(result.version).toBe('0.11.0');
+      // Existing per-reforecast assignments win
+      expect(result.projects[0].reforecasts[0].assignments).toEqual([
+        { id: 'a99', poolMemberId: 'pm99' },
+      ]);
+    });
   });
 });

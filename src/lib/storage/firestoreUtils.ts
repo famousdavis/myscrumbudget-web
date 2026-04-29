@@ -37,15 +37,29 @@ export function stripUndefined<T extends Record<string, unknown>>(obj: T): T {
 
 /**
  * Convert a Firestore document to a Project domain object.
+ *
+ * Backward compatibility: legacy docs (schemaVersion 1) stored
+ * `assignments` at the document root. Newer docs (schemaVersion 2)
+ * store `assignments` per-reforecast. On read, hydrate any reforecast
+ * that lacks its own `assignments` array using the legacy top-level
+ * value (deep-cloned). When reforecasts already carry their own
+ * assignments, those win — the legacy field is ignored.
  */
 export function docToProject(id: string, data: Record<string, unknown>): Project {
+  const rawReforecasts = (data.reforecasts as Record<string, unknown>[]) ?? [];
+  const legacyAssignments = (data.assignments as ProjectAssignment[]) ?? null;
+  const reforecasts = rawReforecasts.map((rf) => ({
+    ...rf,
+    assignments: Array.isArray(rf.assignments)
+      ? (rf.assignments as ProjectAssignment[])
+      : (legacyAssignments ?? []).map((a) => ({ ...a })),
+  })) as unknown as Project['reforecasts'];
   return {
     id,
     name: (data.name as string) ?? '',
     startDate: (data.startDate as string) ?? '',
     endDate: (data.endDate as string) ?? '',
-    assignments: (data.assignments as ProjectAssignment[]) ?? [],
-    reforecasts: (data.reforecasts as Project['reforecasts']) ?? [],
+    reforecasts,
     activeReforecastId: (data.activeReforecastId as string | null) ?? null,
   };
 }

@@ -20,6 +20,7 @@ export function createBaselineReforecast(
     createdAt: new Date().toISOString(),
     startDate: projectStartDate.slice(0, 7),
     reforecastDate: new Date().toISOString().slice(0, 10),
+    assignments: [],
     allocations: [],
     productivityWindows: [],
     actualCost: 0,
@@ -67,6 +68,10 @@ export function createNewReforecast(
     createdAt: new Date().toISOString(),
     startDate: projectStartDate.slice(0, 7),
     reforecastDate: new Date().toISOString().slice(0, 10),
+    // Preserve assignment IDs verbatim — cloned `allocations` (which key on
+    // assignment.id) must continue to resolve. Reforecast independence is
+    // preserved because each reforecast holds its own array.
+    assignments: source ? source.assignments.map((a) => ({ ...a })) : [],
     allocations: source
       ? source.allocations.map((a) => ({ ...a }))
       : [],

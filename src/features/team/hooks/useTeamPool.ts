@@ -69,7 +69,9 @@ export function useTeamPool() {
     async (id: string): Promise<{ ok: boolean; reason?: string }> => {
       const projects = await repo.getProjects();
       const inUse = projects.some((p) =>
-        (p.assignments ?? []).some((a) => a.poolMemberId === id),
+        (p.reforecasts ?? []).some((rf) =>
+          (rf.assignments ?? []).some((a) => a.poolMemberId === id),
+        ),
       );
       if (inUse) {
         return {

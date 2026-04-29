@@ -375,7 +375,7 @@ export function AllocationGrid({
         <ConfirmDialog
           title="Remove Team Member"
           confirmLabel="Remove"
-          message={<>Are you sure you want to remove <strong>{teamMembers.find((m) => m.id === pendingDeleteId)?.name ?? ''}</strong>? All allocations for this member across every reforecast will be lost.</>}
+          message={<>Are you sure you want to remove <strong>{teamMembers.find((m) => m.id === pendingDeleteId)?.name ?? ''}</strong> from this reforecast? Their allocations in this reforecast will be lost. Other reforecasts are not affected.</>}
           onConfirm={() => {
             onMemberDelete(pendingDeleteId);
             setPendingDeleteId(null);

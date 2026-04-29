@@ -13,6 +13,47 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.24.0',
+    date: '2026-04-29',
+    sections: [
+      {
+        title: 'Refactored',
+        items: [
+          'Reforecasts now own their team roster. assignments: ProjectAssignment[] moved from Project to Reforecast — each reforecast becomes a true point-in-time snapshot. Removing a member from the active reforecast no longer rewrites historical reforecasts; the same pool member can be on the team in one reforecast and absent in another. Allocation linkage is preserved because assignment IDs remain stable when reforecasts are cloned (createNewReforecast deep-clones source assignments preserving IDs).',
+          'Migration v0.10.0 → v0.11.0 copies the existing project-level assignments verbatim (same IDs) into every existing reforecast that doesn\'t already have its own assignments array. Idempotent on re-run, allocation linkage preserved, no manual fix-up required.',
+          'Firestore docToProject() gains a backward-compat read path: legacy docs (schemaVersion: 1, top-level assignments) hydrate into reforecast-scoped assignments on load. New writes use schemaVersion: 2 and never write the top-level field. Per-reforecast assignments win when both legacy and modern fields are present (idempotency).',
+          'useTeam hook fully rewritten to mutate only the active reforecast (private withActiveReforecast helper). useTeamPool delete-guard now scans across all reforecasts of all projects to detect in-use pool members.',
+          'validateAssignment moved from validateProject to validateReforecast — error paths shift from projects[i].assignments[k] to projects[i].reforecasts[j].assignments[k].',
+        ],
+      },
+      {
+        title: 'Added',
+        items: [
+          'Resource Plan Excel export/import. New collapsible section on the project detail page (below the allocation grid) lets resource managers round-trip the active reforecast\'s allocation grid as an .xlsx file. Powered by exceljs@^4.4.0.',
+          'Export writes a "Resource Plan" worksheet with row 1 title (merged), row 2 metadata (project, reforecast, reforecast date, ISO timestamp), row 4 header (Name, Role, then one column per project month as YYYY-MM strings), and data rows with allocation cells in Excel\'s built-in 0% percentage format. Empty allocations export as 0 (rendered "0%"), never blank — resource managers need to see the cell. Freeze panes lock row 4 and the Name/Role columns. A hidden worksheet "_msb_meta" (state: veryHidden) carries a JSON identity tuple ({schema, appVersion, projectId, projectName, reforecastId, reforecastName, generatedAt}) consumed by import.',
+          'Import validates the file structure, project identity, header row, and allocation cells. Hard errors block import: E1 (not .xlsx), E2 (missing Resource Plan sheet), E3 (missing/malformed _msb_meta — confirms the file originated from a MyScrumBudget export), E4 (project ID mismatch — prevents importing a different project\'s plan), E5 (header row 4 doesn\'t match expected months), E6 (row missing Name or Role), E7 (non-numeric allocation cell), E8 (allocation outside 0–100), E9 (duplicate Name, case-insensitive). Errors aggregate (not short-circuit) so users see every issue in one alert dialog.',
+          'Soft warnings surface as toasts after a successful import, except W4 which is shown in the import-confirm dialog. W1: a new pool member was added (with role match) or with role "Unknown" (when role is not in labor rates — name renders red in AllocationGridRow). W2: an existing pool member\'s role differed in Excel — pool role kept, Excel role ignored. W3: a member was removed from the active reforecast (sibling reforecasts retain them — the snapshot semantics preserved by the Phase 1 refactor). W4: the Excel was exported from a different reforecast than the currently-active one — confirmation dialog includes the source vs. active names.',
+          'Allocation interpretation is dual: 0 ≤ v ≤ 1 is treated as a decimal (Excel\'s percentage-formatted cell returns 0.75 for 75%), 1 < v ≤ 100 is treated as a whole-number percentage and divided by 100 (so a hand-typed 75 becomes 0.75). Anything outside 0–100 is a hard E8.',
+          'AllocationGridRow renders the role text in red (text-red-600 / dark:text-red-400) when member.role === UNKNOWN_ROLE — a visual cue that the member came from an Excel import and needs a real labor-rate role assigned before cost calculations make sense.',
+          'Pale yellow (#FFFF99) input-cell shading on every allocation cell in the exported Resource Plan sheet — financial-modeling convention signaling the edit zone to resource managers. Name and Role columns intentionally unshaded.',
+          'New constants in src/lib/constants.ts: RESOURCE_PLAN_SHEET_NAME, RESOURCE_PLAN_META_SHEET_NAME, UNKNOWN_ROLE.',
+        ],
+      },
+      {
+        title: 'Fixed',
+        items: [
+          'AllocationGrid Remove Team Member confirmation dialog copy. Was "All allocations for this member across every reforecast will be lost" — incorrect after the v0.24.0 refactor since cascade is now scoped to the active reforecast only. Updated to "Their allocations in this reforecast will be lost. Other reforecasts are not affected."',
+        ],
+      },
+      {
+        title: 'Tests',
+        items: [
+          '775 passing → 811 passing across 51 test files (+36 net additions). v0.11.0 migration tests added covering all four edge cases (project with assignments, project with empty assignments, project missing assignments key, reforecast that already has its own assignments). firestoreUtils tests added for legacy schemaVersion:1 backward compat. Per-reforecast roster independence tests added to team.test.ts. excelExport tests cover header rows, percentage format, freeze panes, hidden meta sheet, merged title rows, and the FFFF99 input-cell fill. excelImport tests cover the happy path round-trip plus E1–E9, W1–W4, allocation interpretation matrix, trailing-blank tolerance, and error aggregation.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.23.0',
     date: '2026-04-28',
     sections: [

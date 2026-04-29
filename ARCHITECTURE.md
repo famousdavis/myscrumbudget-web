@@ -197,10 +197,13 @@ interface Reforecast {
   startDate: string;        // forecast start month
   reforecastDate: string;   // ISO date (YYYY-MM-DD) — when this reforecast was prepared (v0.7.0)
   allocations: MonthlyAllocation[];
+  assignments: ProjectAssignment[]; // per-reforecast team roster (v0.24.0; was project-level pre-0.11.0)
   productivityWindows: ProductivityWindow[];
   actualCost: number;       // per-reforecast actual cost (v0.6.0)
   baselineBudget: number;   // per-reforecast baseline budget (v0.7.0)
   actualsThroughDate?: string; // YYYY-MM-DD — ETC excludes costs through this date (v0.17.0)
+  notes?: string;           // free-text narrative (v0.20.2)
+  historicalCosts?: HistoricalCostEntry[]; // per-month breakdown (v0.22.0)
 }
 
 // Project
@@ -210,11 +213,22 @@ interface Project {
   startDate: string;
   endDate: string;
   // baselineBudget removed in v0.7.0 — now lives in Reforecast
-  assignments: ProjectAssignment[];
+  // assignments removed in v0.24.0 (data version 0.11.0) — now lives in Reforecast
   reforecasts: Reforecast[];
   activeReforecastId: string | null;
 }
 ```
+
+> **Snapshot semantics (v0.24.0):** Each `Reforecast` owns its own `assignments` array.
+> Removing a member from the active reforecast does not affect sibling reforecasts.
+> Assignment IDs are preserved when reforecasts are cloned (`createNewReforecast` deep-clones
+> source assignments verbatim) so that `MonthlyAllocation.memberId` references continue to resolve.
+>
+> **Firestore backward compatibility:** Legacy docs written under `schemaVersion: 1` stored
+> `assignments` at the document root. `docToProject()` hydrates these into reforecast-scoped
+> assignments on read (deep-cloned per reforecast). New writes use `schemaVersion: 2` and
+> never write the top-level field. Per-reforecast assignments win when both legacy and modern
+> fields are present (idempotency).
 
 ### Calculated Values
 
@@ -325,16 +339,17 @@ const exampleState: AppState = {
     startDate: "2026-06-15",
     endDate: "2027-07-15",
     // baselineBudget removed — now lives in Reforecast
-    assignments: [
-      { id: "tm_001", poolMemberId: "tm_001" },
-      { id: "tm_002", poolMemberId: "tm_002" }
-    ],
+    // assignments removed in v0.24.0 — now lives in Reforecast (each is a snapshot)
     reforecasts: [{
       id: "rf_001",
       name: "Q3 2026 Reforecast",
       createdAt: "2026-07-01T10:00:00Z",
       startDate: "2026-06",
       reforecastDate: "2026-07-01",
+      assignments: [
+        { id: "tm_001", poolMemberId: "tm_001" },
+        { id: "tm_002", poolMemberId: "tm_002" }
+      ],
       allocations: [
         { memberId: "tm_001", month: "2026-06", allocation: 0.25 },
         { memberId: "tm_001", month: "2026-07", allocation: 0.50 },
