@@ -14,10 +14,12 @@ import type { ChartDataPoint } from '@/lib/utils/buildChartData';
 
 interface MonthlyCostBarChartProps {
   monthlyData: ChartDataPoint[];
+  forceLightMode?: boolean;
 }
 
-export function MonthlyCostBarChart({ monthlyData }: MonthlyCostBarChartProps) {
-  const isDark = useDarkMode();
+export function MonthlyCostBarChart({ monthlyData, forceLightMode = false }: MonthlyCostBarChartProps) {
+  const isDarkFromHook = useDarkMode();
+  const isDark = forceLightMode ? false : isDarkFromHook;
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
   if (monthlyData.length === 0) {
@@ -158,6 +160,7 @@ export function MonthlyCostBarChart({ monthlyData }: MonthlyCostBarChartProps) {
               y={yScale(monthlyData[hoverIndex].cost)}
               visible
               chartWidth={PLOT_W}
+              lineCount={monthlyData[hoverIndex].segment === 'blended' ? 4 : 2}
             >
               <p className="font-medium">{monthlyData[hoverIndex].month}</p>
               {monthlyData[hoverIndex].segment === 'blended' ? (
