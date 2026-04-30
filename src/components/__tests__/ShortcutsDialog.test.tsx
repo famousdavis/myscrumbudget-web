@@ -28,6 +28,12 @@ describe('ShortcutsDialog', () => {
     expect(screen.getByText('Cancel editing')).toBeDefined();
   });
 
+  it('renders Undo and Redo entries in the Global group', () => {
+    render(<ShortcutsDialog onClose={() => {}} />);
+    expect(screen.getByText('Undo')).toBeDefined();
+    expect(screen.getByText('Redo')).toBeDefined();
+  });
+
   it('renders Close button', () => {
     render(<ShortcutsDialog onClose={() => {}} />);
     expect(screen.getByText('Close')).toBeDefined();
