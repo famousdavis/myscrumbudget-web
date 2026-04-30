@@ -40,7 +40,8 @@ export type ImportWarning =
       code: 'W4';
       sourceReforecastName: string;
       activeReforecastName: string;
-    };
+    }
+  | { code: 'W5'; memberName: string; poolMemberId: string };
 
 export interface SourceMeta {
   schema: number;
@@ -283,6 +284,16 @@ export async function parseResourcePlanWorkbook(
     const match = poolByLower.get(r.name.toLowerCase());
     if (match) {
       representedPoolMemberIds.add(match.id);
+      // W5 — matched member is archived; signal the panel to auto-unarchive.
+      // Emitted alongside (not in place of) W2 when the role also differs —
+      // both warnings carry independent information for the user.
+      if (match.archived === true) {
+        warnings.push({
+          code: 'W5',
+          memberName: match.name,
+          poolMemberId: match.id,
+        });
+      }
       if (match.role !== r.role) {
         warnings.push({
           code: 'W2',

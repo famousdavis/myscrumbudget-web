@@ -255,6 +255,45 @@ describe('Per-reforecast roster independence', () => {
   });
 });
 
+describe('Archived pool members in saved reforecasts', () => {
+  it('still resolves with full name and role across multiple reforecasts', () => {
+    const archivedPool: PoolMember[] = [
+      { id: 'pm-archived', name: 'Alice', role: 'BA', archived: true },
+    ];
+    const projectWithArchivedRefs: Project = {
+      id: 'proj-1',
+      name: 'Project',
+      startDate: '2025-01-01',
+      endDate: '2025-12-31',
+      activeReforecastId: 'rf-1',
+      reforecasts: [
+        makeBaselineReforecast({
+          id: 'rf-1',
+          name: 'Baseline',
+          assignments: [{ id: 'a-1', poolMemberId: 'pm-archived' }],
+        }),
+        makeBaselineReforecast({
+          id: 'rf-2',
+          name: 'July',
+          assignments: [{ id: 'a-2', poolMemberId: 'pm-archived' }],
+        }),
+      ],
+    };
+
+    const rf1 = projectWithArchivedRefs.reforecasts[0];
+    const rf2 = projectWithArchivedRefs.reforecasts[1];
+
+    const view1 = resolveAssignments(rf1.assignments, archivedPool);
+    const view2 = resolveAssignments(rf2.assignments, archivedPool);
+
+    expect(view1).toEqual([{ id: 'a-1', name: 'Alice', role: 'BA' }]);
+    expect(view2).toEqual([{ id: 'a-2', name: 'Alice', role: 'BA' }]);
+    // archived must NOT be present on the resolved TeamMember
+    expect('archived' in view1[0]).toBe(false);
+    expect('archived' in view2[0]).toBe(false);
+  });
+});
+
 describe('resolveAssignments edge cases', () => {
   it('returns (Unknown) with empty role for missing pool member', () => {
     const assignments = [{ id: 'a1', poolMemberId: 'nonexistent' }];

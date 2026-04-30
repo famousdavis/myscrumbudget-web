@@ -13,21 +13,29 @@ interface AddPoolMemberFormProps {
   laborRates: LaborRate[];
   pool: PoolMember[];
   onAdd: (name: string, role: string) => void;
+  onUnarchive: (id: string) => void;
 }
 
-export function AddPoolMemberForm({ laborRates, pool, onAdd }: AddPoolMemberFormProps) {
+export function AddPoolMemberForm({ laborRates, pool, onAdd, onUnarchive }: AddPoolMemberFormProps) {
   const [name, setName] = useState('');
   const [role, setRole] = useState('');
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+  const [archivedMatch, setArchivedMatch] = useState<{ name: string; matchedId: string } | null>(
+    null,
+  );
 
   const handleAdd = () => {
     const trimmed = name.trim();
     if (!trimmed || !role) return;
 
-    const isDuplicate = pool.some(
+    const matched = pool.find(
       (m) => m.name.toLowerCase() === trimmed.toLowerCase(),
     );
-    if (isDuplicate) {
+    if (matched && matched.archived === true) {
+      setArchivedMatch({ name: trimmed, matchedId: matched.id });
+      return;
+    }
+    if (matched) {
       setDuplicateWarning(trimmed);
       return;
     }
@@ -41,6 +49,22 @@ export function AddPoolMemberForm({ laborRates, pool, onAdd }: AddPoolMemberForm
     if (!duplicateWarning || !role) return;
     onAdd(duplicateWarning, role);
     setDuplicateWarning(null);
+    setName('');
+    setRole('');
+  };
+
+  const handleUnarchiveFromMatch = () => {
+    if (!archivedMatch) return;
+    onUnarchive(archivedMatch.matchedId);
+    setArchivedMatch(null);
+    setName('');
+    setRole('');
+  };
+
+  const handleAddAsNewFromMatch = () => {
+    if (!archivedMatch || !role) return;
+    onAdd(archivedMatch.name, role);
+    setArchivedMatch(null);
     setName('');
     setRole('');
   };
@@ -102,6 +126,39 @@ export function AddPoolMemberForm({ laborRates, pool, onAdd }: AddPoolMemberForm
           <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
             A team member named &ldquo;{duplicateWarning}&rdquo; already exists
             in the pool. Add another member with this name?
+          </p>
+        </BaseDialog>
+      )}
+      {archivedMatch && (
+        <BaseDialog
+          title="Archived Member Found"
+          actions={
+            <>
+              <button
+                onClick={() => setArchivedMatch(null)}
+                className={dialogButtonStyles.cancel}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddAsNewFromMatch}
+                className="rounded border border-zinc-300 px-3 py-1.5 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              >
+                Add as new
+              </button>
+              <button
+                onClick={handleUnarchiveFromMatch}
+                className={dialogButtonStyles.primary}
+              >
+                Unarchive
+              </button>
+            </>
+          }
+        >
+          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+            An archived member named &ldquo;{archivedMatch.name}&rdquo; already
+            exists. You can unarchive them to make them active again, or add a
+            new member with the same name.
           </p>
         </BaseDialog>
       )}

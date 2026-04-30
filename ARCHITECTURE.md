@@ -158,6 +158,7 @@ interface PoolMember {
   id: string;
   name: string;
   role: string;           // must match a LaborRate.role
+  archived?: boolean;     // v0.25.0 — undefined or false = active; true = hidden from picker but still resolves in saved reforecasts
 }
 
 // Links a pool member into a project (one per allocation row)
@@ -229,6 +230,16 @@ interface Project {
 > assignments on read (deep-cloned per reforecast). New writes use `schemaVersion: 2` and
 > never write the top-level field. Per-reforecast assignments win when both legacy and modern
 > fields are present (idempotency).
+>
+> **Archive semantics (v0.25.0):** `PoolMember.archived?: boolean` is a soft-delete flag for
+> retired team members. Archived members are hidden from the `+ Add member` picker dropdown
+> (in `AllocationGridAddRow` only — never upstream) but continue to resolve normally in any
+> saved reforecast that already references them. The archived flag is dropped at the
+> `resolveAssignments` boundary (the resolver returns `TeamMember` without an archived field),
+> so calc engine, charts, and AllocationGridRow are agnostic to archive state. The picker
+> filter MUST stay in `AllocationGridAddRow`; lifting it upstream would silently break
+> historical reforecasts (saved assignments referencing archived poolMemberIds would render
+> as `(Unknown)` because the resolver couldn't find the member in the filtered pool).
 
 ### Calculated Values
 

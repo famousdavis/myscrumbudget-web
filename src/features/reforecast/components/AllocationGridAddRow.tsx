@@ -43,6 +43,8 @@ export function AllocationGridAddRow({
             >
               <option value="">Select member...</option>
               {[...pool]
+                // Archive filter MUST stay here — filtering upstream breaks resolveAssignments for historical reforecasts.
+                .filter((pm) => !pm.archived)
                 .sort((a, b) => a.name.localeCompare(b.name))
                 .map((pm) => (
                   <option key={pm.id} value={pm.id}>
