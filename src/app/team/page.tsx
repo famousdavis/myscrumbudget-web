@@ -12,8 +12,16 @@ import { AddPoolMemberForm } from '@/features/team/components/AddPoolMemberForm'
 import { Skeleton } from '@/components/Skeleton';
 
 export default function TeamPoolPage() {
-  const { pool, loading, addPoolMember, updatePoolMember, deletePoolMember, flush } =
-    useTeamPool();
+  const {
+    pool,
+    loading,
+    addPoolMember,
+    updatePoolMember,
+    archivePoolMember,
+    unarchivePoolMember,
+    deletePoolMember,
+    flush,
+  } = useTeamPool();
   const { settings } = useSettings();
 
   useEffect(() => () => { flush(); }, [flush]);
@@ -41,6 +49,7 @@ export default function TeamPoolPage() {
           laborRates={settings?.laborRates ?? []}
           pool={pool}
           onAdd={addPoolMember}
+          onUnarchive={unarchivePoolMember}
         />
       </div>
 
@@ -49,6 +58,8 @@ export default function TeamPoolPage() {
           pool={pool}
           laborRates={settings?.laborRates ?? []}
           onUpdate={updatePoolMember}
+          onArchive={archivePoolMember}
+          onUnarchive={unarchivePoolMember}
           onDelete={deletePoolMember}
         />
       </div>

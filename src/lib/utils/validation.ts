@@ -148,6 +148,9 @@ function validatePoolMember(member: unknown, path: string): string[] {
   if (!isString(member.role)) {
     errors.push(`${path}.role: expected string`);
   }
+  if (member.archived !== undefined && typeof member.archived !== 'boolean') {
+    errors.push(`${path}.archived: expected boolean`);
+  }
   return errors;
 }
 

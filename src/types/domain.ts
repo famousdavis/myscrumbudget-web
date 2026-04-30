@@ -37,6 +37,7 @@ export interface PoolMember {
   id: string;
   name: string;
   role: string; // references LaborRate.role
+  archived?: boolean; // undefined or false = active; true = hidden from picker but still resolves in saved reforecasts
 }
 
 // Project Assignment — links a pool member into a project

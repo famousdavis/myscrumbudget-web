@@ -78,3 +78,54 @@ describe('validateAppState — reforecast notes', () => {
     ).toBe(true);
   });
 });
+
+function makeStateWithPoolMember(member: unknown) {
+  return {
+    version: '0.12.0',
+    settings: {
+      discountRateAnnual: 0.03,
+      laborRates: [],
+      holidays: [],
+      trafficLightThresholds: { amberPercent: 5, redPercent: 15 },
+    },
+    teamPool: [member],
+    projects: [],
+  };
+}
+
+describe('validateAppState — pool member archived flag', () => {
+  it('accepts pool member with archived: true', () => {
+    const result = validateAppState(
+      makeStateWithPoolMember({ id: 'pm-1', name: 'Alice', role: 'BA', archived: true }),
+    );
+    expect(result.valid).toBe(true);
+    expect(result.errors).toEqual([]);
+  });
+
+  it('accepts pool member with archived: false', () => {
+    const result = validateAppState(
+      makeStateWithPoolMember({ id: 'pm-1', name: 'Alice', role: 'BA', archived: false }),
+    );
+    expect(result.valid).toBe(true);
+  });
+
+  it('accepts pool member with no archived field (back-compat)', () => {
+    const result = validateAppState(
+      makeStateWithPoolMember({ id: 'pm-1', name: 'Alice', role: 'BA' }),
+    );
+    expect(result.valid).toBe(true);
+    expect(result.errors).toEqual([]);
+  });
+
+  it('rejects pool member with non-boolean archived', () => {
+    const result = validateAppState(
+      makeStateWithPoolMember({ id: 'pm-1', name: 'Alice', role: 'BA', archived: 'yes' }),
+    );
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some(
+        (e) => e.includes('archived') && e.includes('boolean'),
+      ),
+    ).toBe(true);
+  });
+});

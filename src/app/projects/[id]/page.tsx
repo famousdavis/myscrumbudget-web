@@ -63,7 +63,7 @@ export default function ProjectDetailPage({
   }, [project]);
   const { deleteProject } = useProjects();
   const { settings } = useSettings();
-  const { pool, addPoolMember } = useTeamPool();
+  const { pool, addPoolMember, unarchivePoolMember } = useTeamPool();
   const { members, addAssignment, removeAssignment, reorderAssignments, sortAssignments } = useTeam({
     project,
     updateProject,
@@ -259,6 +259,7 @@ export default function ProjectDetailPage({
             settings={settings}
             updateProject={updateProject}
             addPoolMember={addPoolMember}
+            unarchivePoolMember={unarchivePoolMember}
           />
         )}
       </div>

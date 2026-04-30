@@ -36,6 +36,7 @@ interface Props {
   settings: Settings;
   updateProject: (updater: (prev: Project) => Project) => void;
   addPoolMember: (name: string, role: string) => PoolMember;
+  unarchivePoolMember: (id: string) => void;
 }
 
 interface ImportDiff {
@@ -64,6 +65,7 @@ export function ResourcePlanExcelPanel({
   settings,
   updateProject,
   addPoolMember,
+  unarchivePoolMember,
 }: Props) {
   const { addToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -169,7 +171,15 @@ export function ResourcePlanExcelPanel({
       ),
     }));
 
-    // 4. Surface warnings (in W1 → W2 → W3 order; W4 was already shown in confirm).
+    // 4. Auto-unarchive any matched archived pool members (W5). Targets a
+    // different state slice than updateProject (teamPool vs project) — no
+    // race. MUST run before the toast loop so the unarchive state-update is
+    // queued before the user sees the toast.
+    for (const w of parseResult.warnings) {
+      if (w.code === 'W5') unarchivePoolMember(w.poolMemberId);
+    }
+
+    // 5. Surface warnings (in W1 → W2 → W3 → W5 order; W4 was already shown in confirm).
     for (const w of parseResult.warnings) {
       const msg = warningToToastMessage(w);
       if (msg) addToast(msg, 'info');
@@ -460,6 +470,8 @@ function warningToToastMessage(w: ImportWarning): string | null {
     case 'W4':
       // Already surfaced in the confirm dialog — no toast.
       return null;
+    case 'W5':
+      return `Archived member "${w.memberName}" was reactivated because they appeared in the imported resource plan.`;
   }
 }
 

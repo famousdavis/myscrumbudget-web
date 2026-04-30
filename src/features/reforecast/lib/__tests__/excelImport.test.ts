@@ -751,6 +751,60 @@ describe('parseResourcePlanWorkbook — soft warnings', () => {
     expect(w4.sourceReforecastName).toBe('Q3 Reforecast');
     expect(w4.activeReforecastName).toBe('Baseline');
   });
+
+  it('W5: matched archived pool member emits W5 with poolMemberId', async () => {
+    const pool: PoolMember[] = [
+      { id: 'pm-1', name: 'Alice', role: 'Developer', archived: true },
+    ];
+    const file = await buildWithRowsAndMeta((sheet) => {
+      sheet.getCell(5, 1).value = 'Alice';
+      sheet.getCell(5, 2).value = 'Developer';
+      sheet.getCell(5, 3).value = 0.5;
+    });
+    const result = await parseResourcePlanWorkbook(
+      file,
+      makeProject(),
+      makeReforecast(),
+      pool,
+      SETTINGS,
+      MONTHS,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const w5 = result.warnings.find((w) => w.code === 'W5');
+    expect(w5).toBeDefined();
+    if (w5?.code !== 'W5') return;
+    expect(w5.memberName).toBe('Alice');
+    expect(w5.poolMemberId).toBe('pm-1');
+  });
+
+  it('W5: matched archived member does not emit W1 (no duplicate add)', async () => {
+    // The load-bearing assertion that proves the matched archived member
+    // took the existing-match path, not the new-member path. Without this
+    // the importer would create a duplicate pool entry instead of unarchiving.
+    const pool: PoolMember[] = [
+      { id: 'pm-1', name: 'Alice', role: 'Developer', archived: true },
+    ];
+    const file = await buildWithRowsAndMeta((sheet) => {
+      sheet.getCell(5, 1).value = 'Alice';
+      sheet.getCell(5, 2).value = 'Developer';
+      sheet.getCell(5, 3).value = 0.5;
+    });
+    const result = await parseResourcePlanWorkbook(
+      file,
+      makeProject(),
+      makeReforecast(),
+      pool,
+      SETTINGS,
+      MONTHS,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const w5Count = result.warnings.filter((w) => w.code === 'W5').length;
+    const w1Count = result.warnings.filter((w) => w.code === 'W1').length;
+    expect(w5Count).toBe(1);
+    expect(w1Count).toBe(0);
+  });
 });
 
 /* ── Errors aggregated, not short-circuit ─────────────────────────── */

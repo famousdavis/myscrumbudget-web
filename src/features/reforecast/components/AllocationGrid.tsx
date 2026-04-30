@@ -264,7 +264,7 @@ export function AllocationGrid({
 
   const hasRowControls = !readonly && !!onMemberDelete && !!onMemberAdd;
 
-  if (teamMembers.length === 0 && pool.length === 0) {
+  if (teamMembers.length === 0 && pool.filter((m) => !m.archived).length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-zinc-300 p-8 text-center dark:border-zinc-700">
         <p className="text-sm text-zinc-500 dark:text-zinc-400">

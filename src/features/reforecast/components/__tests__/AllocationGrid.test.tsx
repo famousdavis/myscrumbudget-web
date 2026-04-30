@@ -170,4 +170,64 @@ describe('AllocationGrid', () => {
     const teamHeader = screen.getByText('Team Member');
     expect(teamHeader.closest('th')?.textContent).not.toContain('⇅');
   });
+
+  describe('archived pool members', () => {
+    it('excludes archived members from the + Add member picker', () => {
+      const poolWithArchived: PoolMember[] = [
+        { id: 'pm-1', name: 'Alice', role: 'Developer' },
+        { id: 'pm-2', name: 'Bob', role: 'Designer' },
+        { id: 'pm-3', name: 'Charlie', role: 'QA', archived: true },
+      ];
+      render(<AllocationGrid {...defaultProps} pool={poolWithArchived} />);
+      fireEvent.click(screen.getByText('+ Add member'));
+      const select = screen.getByRole('combobox') as HTMLSelectElement;
+      // 1 placeholder + 2 active members = 3 options total
+      expect(select.options.length).toBe(3);
+      const optionTexts = Array.from(select.options).map((o) => o.textContent ?? '');
+      expect(optionTexts.some((t) => t.includes('Charlie'))).toBe(false);
+    });
+
+    it('renders empty-state when pool has only archived members and no team members', () => {
+      const archivedOnlyPool: PoolMember[] = [
+        { id: 'pm-1', name: 'Alice', role: 'Developer', archived: true },
+      ];
+      render(
+        <AllocationGrid
+          {...defaultProps}
+          teamMembers={[]}
+          pool={archivedOnlyPool}
+        />,
+      );
+      expect(screen.getByText('No team members assigned to this project.')).toBeDefined();
+      expect(screen.getByText('Go to Team Pool')).toBeDefined();
+      expect(screen.queryByText('+ Add member')).toBeNull();
+    });
+
+    it('renders an archived members row normally when they came from a saved assignment', () => {
+      // Alice resolved into teamMembers from a saved assignment, but her pool
+      // entry is archived. The row should still render with name + role; the
+      // picker dropdown should still exclude her from new-row options.
+      const poolWithArchivedAlice: PoolMember[] = [
+        { id: 'pm-1', name: 'Alice', role: 'Developer', archived: true },
+        { id: 'pm-2', name: 'Bob', role: 'Designer' },
+      ];
+      render(
+        <AllocationGrid
+          {...defaultProps}
+          teamMembers={[{ id: 'tm-1', name: 'Alice', role: 'Developer' }]}
+          pool={poolWithArchivedAlice}
+        />,
+      );
+      // Alice's row is visible (resolved as a TeamMember from saved assignment)
+      expect(screen.getByText('Alice')).toBeDefined();
+
+      // Picker dropdown does not list Alice
+      fireEvent.click(screen.getByText('+ Add member'));
+      const select = screen.getByRole('combobox') as HTMLSelectElement;
+      const optionTexts = Array.from(select.options).map((o) => o.textContent ?? '');
+      // Alice may appear elsewhere on the page in the row; check only dropdown options
+      const aliceOptions = optionTexts.filter((t) => t.includes('Alice'));
+      expect(aliceOptions.length).toBe(0);
+    });
+  });
 });

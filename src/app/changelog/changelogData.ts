@@ -13,6 +13,49 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.25.0',
+    date: '2026-04-29',
+    sections: [
+      {
+        title: 'Added',
+        items: [
+          'Archive / Unarchive pool members. PoolMember gains an optional archived?: boolean flag. Archived members disappear from the "+ Add member" picker dropdown everywhere — both new project rows and existing reforecasts — but continue to render normally in any saved reforecast that already references them. Historical integrity is preserved at the resolveAssignments boundary (the resolver drops the archived flag when producing TeamMember[]), so charts, EVM metrics, and AllocationGrid rows treat archived members identically to active members. The archive flag lives only on PoolMember; it never enters ProjectAssignment, TeamMember, or Firestore _teamSnapshot.',
+          'Show archived (N) toggle on the Team Pool page. When the pool contains any archived members, a small toggle appears above the table; clicking it reveals a second band of archived rows below the active rows, separated by a dashed divider. Archived rows are visually muted (opacity-60) but not strikethrough — strikethrough reads as "deleted" and would mis-signal. Each archived row gets an "Unarchive" action where active rows show "Archive."',
+          'Inline Archive button on delete-blocked errors. When the user attempts to delete a pool member who is referenced in any reforecast, the per-row error message now offers an "Archive instead" button right next to the offending row (instead of the previous global red banner above the table). One click archives the member and clears the error. Archived-but-still-in-use members get a different error message and no Archive button (they are already archived).',
+          'AddPoolMemberForm archived-name collision dialog. Typing the name of an archived member surfaces a new "Archived Member Found" dialog with three actions: Unarchive (reactivates the existing pool entry), Add as new (creates a new active member with the same name), or Cancel (preserves the typed input for editing). The pre-existing duplicate-name dialog for active members is unchanged.',
+          'Excel resource plan import auto-unarchive (W5). When an imported row\'s name matches an archived pool member (case-insensitive), the importer now reactivates that member rather than creating a duplicate. Surfaces as a new soft warning W5 ("Archived member \\"X\\" was reactivated because they appeared in the imported resource plan.") via toast. The W5 warning rides the existing ImportWarning discriminated union and is dispatched through the same warningToToastMessage pipeline as W1–W3. W2 (role mismatch) still fires independently if the Excel role differs from the pool role.',
+        ],
+      },
+      {
+        title: 'Changed',
+        items: [
+          'useTeamPool.deletePoolMember return type extended from { ok: boolean; reason?: string } to { ok: boolean; reason?: string; canArchive?: boolean }. The new canArchive signal lets the UI render the inline Archive button without re-deriving membership state. canArchive is true only when the in-use guard fires AND the member is not already archived. Reason copy now explicitly mentions archiving as the alternative path.',
+          'PoolMemberTable refactored to a two-band layout (active rows above, archived rows below the dashed divider) with per-row delete-error display. The previous global error banner is replaced with a Fragment-wrapped error <tr> rendered immediately after the offending member\'s main <tr>. The same Fragment pattern is applied to BOTH the active band and the archived band so a delete attempt on an archived member surfaces its error inline next to the right row.',
+        ],
+      },
+      {
+        title: 'Storage',
+        items: [
+          'DATA_VERSION bumped 0.11.0 → 0.12.0. New no-op migration entry follows the v0.9.0 shape exactly (assertArray on teamPool, version stamp). The archived field is optional and defaults to "active" when absent — no backfill is required or desirable. Existing v0.11.0 data round-trips through the migration unchanged except for the version field.',
+          'Strict import validator (validatePoolMember) now type-checks the optional archived field: must be boolean if present. Lenient localStorage guard (isValidPoolMemberArray) is intentionally unchanged — basic-shape lenient checks permit unknown fields for back-compat.',
+          'No Firestore rules change required. PoolMembers are nested inside the owner-scoped myscrumbudget_settings/{userId} doc with no field-level allowlist; archived rides along with the existing teamPool array.',
+        ],
+      },
+      {
+        title: 'Architecture',
+        items: [
+          'The picker filter (.filter(pm => !pm.archived)) lives ONLY in AllocationGridAddRow — never upstream. Lifting the filter to useTeam, the project page, or resolveAssignments would silently break historical reforecasts: any saved assignment referencing an archived poolMemberId would render as "(Unknown)" because the resolver could no longer find the member in the filtered pool. An inline comment at the filter site warns future refactors not to lift it. Tests in AllocationGrid.test.tsx lock this invariant: an archived member who is also in teamMembers (resolved from a saved assignment) renders normally even while being excluded from the picker.',
+        ],
+      },
+      {
+        title: 'Tests',
+        items: [
+          '811 → 830 passing across 51 test files (+19 net additions). useTeamPool tests cover archive/unarchive state mutation and all four deletePoolMember outcomes (unassigned active, unassigned archived, assigned active with canArchive: true, assigned archived with canArchive: false). team.test.ts adds the historical-integrity proof: an archived member referenced in two reforecasts resolves with full name/role in both. teamResolution.test.ts asserts the archived flag is dropped at the resolver boundary (deep equality, no extraneous keys). AllocationGrid.test.tsx covers picker exclusion, all-archived empty-state, and the archived-row-renders-normally case. validation.test.ts covers archived: true, archived: false, missing field, and non-boolean rejection. migrations.test.ts covers the v0.11.0 → v0.12.0 no-op migration and v0.12.0 idempotency. excelImport.test.ts adds W5 emission and the W1-vs-W5 mutual-exclusion proof (matched archived member must NOT also emit W1, otherwise the importer would create a duplicate).',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.24.0',
     date: '2026-04-29',
     sections: [

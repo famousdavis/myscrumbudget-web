@@ -93,6 +93,19 @@ describe('resolveAssignments', () => {
       { id: 'a-1', name: '(Unknown)', role: '' },
     ]);
   });
+
+  it('drops the archived flag when resolving an archived pool member', () => {
+    const archivedPool: PoolMember[] = [
+      { id: 'pm-1', name: 'Alice', role: 'BA', archived: true },
+    ];
+    const assignments: ProjectAssignment[] = [
+      { id: 'a-1', poolMemberId: 'pm-1' },
+    ];
+    const result = resolveAssignments(assignments, archivedPool);
+    // Deep equality — asserts no extraneous keys (e.g., archived)
+    expect(result).toEqual([{ id: 'a-1', name: 'Alice', role: 'BA' }]);
+    expect('archived' in result[0]).toBe(false);
+  });
 });
 
 function makeReforecast(overrides: Partial<Reforecast> = {}): Reforecast {
