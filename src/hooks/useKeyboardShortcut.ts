@@ -6,7 +6,12 @@ import { useEffect } from 'react';
 
 /**
  * Registers a global keyboard shortcut.
- * The callback is invoked when the specified key + modifier combination is pressed.
+ *
+ * `options.shift` is tristate:
+ *   true      — Shift must be PRESENT
+ *   false     — Shift must be ABSENT
+ *   undefined — either (the default; preserved so callers like `Ctrl+?`
+ *               match regardless of whether Shift is pressed)
  */
 export function useKeyboardShortcut(
   key: string,
@@ -16,7 +21,8 @@ export function useKeyboardShortcut(
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (options.ctrl && !(e.ctrlKey || e.metaKey)) return;
-      if (options.shift && !e.shiftKey) return;
+      if (options.shift === true && !e.shiftKey) return;
+      if (options.shift === false && e.shiftKey) return;
       if (e.key !== key) return;
 
       e.preventDefault();

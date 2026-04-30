@@ -4,6 +4,30 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.26.0] - 2026-04-30
+
+### Added
+- **Undo / Redo on the project detail page.** Every mutation that flows through `updateProject` (allocation edits, assignment add/remove, productivity windows, actuals, baseline, reforecast metadata, notes, etc.) now pushes a snapshot onto a session-scoped undo stack. `Ctrl+Z` undoes, `Ctrl+Shift+Z` redoes — also `Cmd+Z` / `Cmd+Shift+Z` on Mac. Stack depth is capped at 50 (`UNDO_STACK_LIMIT`); history clears on navigation away from the page (in-memory only, never persisted)
+- **Undo and Redo toolbar buttons** in the project page header, positioned between Print and the trash icon. Buttons are disabled (not hidden) when their respective stacks are empty so the toolbar layout stays stable; both are excluded from the print report
+- **Commit-based grouping for the notes textarea.** Focusing the notes field calls `beginUndoGroup()` which pushes one pre-edit snapshot and sets a guard ref; while the guard is active, subsequent `updateProject` calls during typing skip pushing. Blur calls `endUndoGroup()` which clears the guard. Net effect: an entire notes editing session — however many keystrokes — costs exactly one undo entry
+- **Mid-edit undo/redo correctness.** Both `undo()` and `redo()` clear the group flag at the very top, so a `Ctrl+Z` while the textarea is still focused leaves the user able to keep editing with a fresh undo entry seeded on the very next keystroke. The seeding is driven defensively from `onChange` (not just `onFocus`), since `onFocus` doesn't refire when the same focus session resumes typing after a mid-edit undo. Without these two coupled pieces, post-undo typing would be unrecoverable
+- **Ctrl+Z and Ctrl+Shift+Z entries** added to the Global group in the keyboard shortcuts dialog (Ctrl+?)
+
+### Changed
+- **`useProject` hook surface extended** with `undo`, `redo`, `canUndo`, `canRedo`, `beginUndoGroup`, `endUndoGroup`. Existing callers (`updateProject`, `flush`) unchanged — purely additive. Snapshots store `Project` references directly rather than deep clones; the existing spread-based mutators guarantee the live tree never mutates a snapshot in place. `cloudSyncBus` reloads bypass `updateProject` entirely, so inbound cloud-sync updates correctly do NOT enter the local undo history
+- **`useKeyboardShortcut` shift option is now tristate.** `shift: true` requires Shift to be pressed, `shift: false` requires Shift to be ABSENT, and `shift: undefined` matches either (the previous default, preserved for backward compatibility with the `Ctrl+?` registration in the sidebar). Without the `false` case, registering `Ctrl+Z` for undo would also fire on `Ctrl+Shift+Z` and cancel the redo handler
+- **`undo()` and `redo()` bypass the 500ms debounce.** They call `persistProject(snapshot)` followed immediately by `flush()`, so the restored snapshot is durable on the wire (localStorage or Firestore) before the function returns — no stale debounce can clobber it later
+
+### Architecture
+- **Single intercept point.** All undo/redo bookkeeping lives in `updateProject` and the four group/operation callbacks on `useProject`. No mutation site outside the hook is undo-aware. Snapshots are pushed pre-update (so `undo` restores to "the state before this mutation"), and the redo stack is invalidated on every fresh user mutation
+- **Stack containers chosen for re-render semantics.** `undoStack` and `redoStack` are `useState<Project[]>` so the derived `canUndo` / `canRedo` flags trigger toolbar button enable/disable on push and pop. `undoGroupActiveRef` is a `useRef<boolean>` so toggling it on every keystroke's surrounding focus/blur cycle does NOT cause re-renders
+- **New shared icons.** `UndoIcon` and `RedoIcon` added under `src/components/icons/` matching the existing Heroicons-style pattern used by `TrashIcon`, `PencilIcon`, etc.
+
+### Tests
+- 830 → 850 passing across 53 test files (+20 net additions, no removals). `useProject.test.ts` (new file, 13 tests) covers: initial load, undo/redo round-trip, redo clearing on new mutation, no-op undo/redo on empty stacks, single-entry grouping for `beginUndoGroup`/`endUndoGroup`, idempotency of `beginUndoGroup`, mid-group undo correctly clears the flag for continued editing, `UNDO_STACK_LIMIT` cap (60 mutations → 50 retained), synchronous persistence of restored snapshots via `flush()`, and the cloudSyncBus reload-does-not-push invariant. `ReforecastNotes.test.tsx` (new file, 6 tests) covers expand/collapse, value forwarding, `onBeginEdit`/`onEndEdit` on focus/blur, defensive `onBeginEdit` on every keystroke, and graceful operation without optional callbacks. `ShortcutsDialog.test.tsx` extended with one assertion covering the new Undo/Redo entries
+
+---
+
 ## [0.25.0] - 2026-04-29
 
 ### Added

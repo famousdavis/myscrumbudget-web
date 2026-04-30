@@ -26,6 +26,9 @@ import { useProjectMetrics } from '@/features/projects/hooks/useProjectMetrics';
 import { MonthlyCostBarChart } from '@/components/charts/MonthlyCostBarChart';
 import { CumulativeCostLineChart } from '@/components/charts/CumulativeCostLineChart';
 import { TrashIcon } from '@/components/icons/TrashIcon';
+import { UndoIcon } from '@/components/icons/UndoIcon';
+import { RedoIcon } from '@/components/icons/RedoIcon';
+import { useKeyboardShortcut } from '@/hooks/useKeyboardShortcut';
 import { CopyImageButton } from '@/components/CopyImageButton';
 import { CostByPeriodTable } from '@/components/CostByPeriodTable';
 import { HistoricalCostsTable } from '@/components/HistoricalCostsTable';
@@ -41,9 +44,27 @@ export default function ProjectDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const { project, loading, updateProject, flush } = useProject(id);
+  const {
+    project,
+    loading,
+    updateProject,
+    flush,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    beginUndoGroup,
+    endUndoGroup,
+  } = useProject(id);
 
   useEffect(() => () => { flush(); }, [flush]);
+
+  // Ctrl/Cmd+Z = undo, Ctrl/Cmd+Shift+Z = redo. Tristate `shift` keeps the
+  // two handlers from cross-firing on Ctrl+Shift+Z. Listeners unregister
+  // when the page unmounts, so undo/redo is correctly scoped to the project
+  // detail route.
+  useKeyboardShortcut('z', undo, { ctrl: true, shift: false });
+  useKeyboardShortcut('Z', redo, { ctrl: true, shift: true });
 
   // Customize document.title so the browser's print-page header (configured
   // in print options) reads "MyScrumBudget for {project} - {date}" — matches
@@ -182,6 +203,28 @@ export default function ProjectDetailPage({
           </button>
           <button
             type="button"
+            onClick={undo}
+            disabled={!canUndo}
+            className="inline-flex items-center gap-1.5 rounded px-2 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 dark:disabled:hover:bg-transparent print:hidden"
+            title="Undo (Ctrl+Z)"
+            aria-label="Undo"
+          >
+            <UndoIcon className="h-4 w-4" />
+            Undo
+          </button>
+          <button
+            type="button"
+            onClick={redo}
+            disabled={!canRedo}
+            className="inline-flex items-center gap-1.5 rounded px-2 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 dark:disabled:hover:bg-transparent print:hidden"
+            title="Redo (Ctrl+Shift+Z)"
+            aria-label="Redo"
+          >
+            <RedoIcon className="h-4 w-4" />
+            Redo
+          </button>
+          <button
+            type="button"
             onClick={() => setShowDelete(true)}
             className="flex h-8 w-8 items-center justify-center rounded text-zinc-400 hover:bg-red-50 hover:text-red-600 dark:text-zinc-500 dark:hover:bg-red-950 dark:hover:text-red-400"
             title="Delete project"
@@ -229,6 +272,8 @@ export default function ProjectDetailPage({
               key={activeReforecast.id}
               value={activeReforecast.notes ?? ''}
               onChange={updateNotes}
+              onBeginEdit={beginUndoGroup}
+              onEndEdit={endUndoGroup}
             />
           </div>
         )}
