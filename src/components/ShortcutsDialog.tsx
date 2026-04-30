@@ -37,6 +37,8 @@ const SHORTCUT_GROUPS: ShortcutGroup[] = [
     title: 'Global',
     shortcuts: [
       { keys: ['Ctrl', '?'], description: 'Show keyboard shortcuts' },
+      { keys: ['Ctrl', 'Z'], description: 'Undo' },
+      { keys: ['Ctrl', 'Shift', 'Z'], description: 'Redo' },
     ],
   },
 ];

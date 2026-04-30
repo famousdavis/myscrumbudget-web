@@ -10,6 +10,8 @@ import { REFORECAST_NOTES_MAX_LENGTH } from '@/lib/constants';
 interface ReforecastNotesProps {
   value: string;
   onChange: (value: string) => void;
+  onBeginEdit?: () => void;
+  onEndEdit?: () => void;
 }
 
 function NoteIcon({ filled }: { filled: boolean }) {
@@ -46,7 +48,7 @@ function NoteIcon({ filled }: { filled: boolean }) {
   );
 }
 
-export function ReforecastNotes({ value, onChange }: ReforecastNotesProps) {
+export function ReforecastNotes({ value, onChange, onBeginEdit, onEndEdit }: ReforecastNotesProps) {
   const [expanded, setExpanded] = useState(false);
   const panelId = useId();
   const hasContent = value.trim().length > 0;
@@ -88,7 +90,18 @@ export function ReforecastNotes({ value, onChange }: ReforecastNotesProps) {
         <div id={panelId} className="border-t border-zinc-200 px-4 py-3 dark:border-zinc-800">
           <textarea
             value={value}
-            onChange={(e) => onChange(e.target.value)}
+            onChange={(e) => {
+              // Defensive: also call onBeginEdit on every keystroke. Idempotent
+              // — beginUndoGroup early-returns when the flag is already true
+              // (the normal case for keystrokes 2..N of a focused session).
+              // Required because undo()/redo() clear the flag mid-edit; the
+              // next keystroke must seed a fresh group, and onFocus has
+              // already fired so we can't rely on it.
+              onBeginEdit?.();
+              onChange(e.target.value);
+            }}
+            onFocus={onBeginEdit}
+            onBlur={onEndEdit}
             maxLength={REFORECAST_NOTES_MAX_LENGTH}
             rows={5}
             placeholder="Why this reforecast? Scope change, team shift, delay…"
