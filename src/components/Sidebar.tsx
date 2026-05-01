@@ -80,9 +80,7 @@ export function Sidebar() {
                     : '/spert-favicon-myscrumbudget.png'
                 }
                 alt=""
-                width={28}
-                height={28}
-                className="rounded-[11%] shrink-0"
+                className="mr-2 h-7 w-7 rounded-lg ring-1 ring-white/20"
               />
               <span>
                 MyScrumBudget
