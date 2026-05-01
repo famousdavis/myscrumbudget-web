@@ -4,6 +4,13 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.26.1] - 2026-04-30
+
+### Added
+- **Branded favicon and header icon.** New `spert-favicon-myscrumbudget.png` (192×192 PNG, green `#16a34a` panels with rounded corners) replaces the default Next.js favicon as the browser tab icon and now appears to the left of the app name in the sidebar header. A charcoal dark-mode variant (`spert-favicon-myscrumbudget-dark.png`) auto-swaps when the active theme is dark, driven by the existing `useDarkMode()` hook
+
+---
+
 ## [0.26.0] - 2026-04-30
 
 ### Added
