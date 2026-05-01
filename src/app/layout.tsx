@@ -28,6 +28,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'MyScrumBudget',
   description: 'Scrum project budget forecasting tool',
+  icons: {
+    icon: '/spert-favicon-myscrumbudget.png',
+    apple: '/spert-favicon-myscrumbudget.png',
+  },
 };
 
 export default function RootLayout({

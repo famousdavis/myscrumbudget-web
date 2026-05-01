@@ -8,12 +8,14 @@ import { useState, useCallback } from 'react';
 import Link from 'next/link';
 import { ShortcutsDialog } from './ShortcutsDialog';
 import { useKeyboardShortcut } from '@/hooks/useKeyboardShortcut';
+import { useDarkMode } from '@/hooks/useDarkMode';
 
 export function Sidebar() {
   const [open, setOpen] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const toggleShortcuts = useCallback(() => setShowShortcuts((v) => !v), []);
   useKeyboardShortcut('?', toggleShortcuts, { ctrl: true });
+  const isDark = useDarkMode();
 
   return (
     <>
@@ -67,13 +69,27 @@ export function Sidebar() {
           <div className="p-4">
             <Link
               href="/"
-              className="text-lg font-bold tracking-tight"
+              className="flex items-center gap-2 text-lg font-bold tracking-tight"
               onClick={() => setOpen(false)}
             >
-              MyScrumBudget
-              <sup className="text-[7px] font-normal text-zinc-400 dark:text-zinc-500">
-                TM
-              </sup>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={
+                  isDark
+                    ? '/spert-favicon-myscrumbudget-dark.png'
+                    : '/spert-favicon-myscrumbudget.png'
+                }
+                alt=""
+                width={28}
+                height={28}
+                className="rounded-[11%] shrink-0"
+              />
+              <span>
+                MyScrumBudget
+                <sup className="text-[7px] font-normal text-zinc-400 dark:text-zinc-500">
+                  TM
+                </sup>
+              </span>
             </Link>
           </div>
           <ul className="flex flex-col gap-1 px-2">
