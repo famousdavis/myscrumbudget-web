@@ -154,6 +154,8 @@ export function DataPortability({ onImportComplete }: DataPortabilityProps) {
           Import JSON
           <input
             ref={fileInputRef}
+            name="importJsonFile"
+            aria-label="Import JSON file"
             type="file"
             accept=".json"
             onChange={handleImport}

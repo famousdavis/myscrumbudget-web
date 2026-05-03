@@ -185,6 +185,8 @@ export function AllocationGridRow({
           >
             {isEditing ? (
               <input
+                name="allocationCell"
+                aria-label={`Allocation for ${member.name} in ${month}`}
                 type="text"
                 autoFocus
                 data-grid-input="true"

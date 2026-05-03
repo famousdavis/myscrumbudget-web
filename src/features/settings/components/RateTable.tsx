@@ -91,6 +91,7 @@ export function RateTable({ rates, onUpdate }: RateTableProps) {
                 <>
                   <td className="py-2 pr-2">
                     <input
+                      name="editLaborRoleName"
                       type="text"
                       value={editRole}
                       onChange={(e) => setEditRole(e.target.value)}
@@ -100,6 +101,7 @@ export function RateTable({ rates, onUpdate }: RateTableProps) {
                   </td>
                   <td className="py-2 pr-2">
                     <input
+                      name="editLaborRoleRate"
                       type="number"
                       value={editRate}
                       min={0}
@@ -148,6 +150,7 @@ export function RateTable({ rates, onUpdate }: RateTableProps) {
       </table>
       <div className="mt-4 flex items-center gap-2">
         <input
+          name="newLaborRoleName"
           type="text"
           placeholder="Role name"
           value={newRole}
@@ -156,6 +159,7 @@ export function RateTable({ rates, onUpdate }: RateTableProps) {
           className="rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
         />
         <input
+          name="newLaborRoleRate"
           type="number"
           placeholder="Rate"
           value={newRate}

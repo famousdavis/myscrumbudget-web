@@ -13,6 +13,40 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.26.4',
+    date: '2026-05-03',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'Form-field hygiene residual sweep. The v0.26.3 pass added autoComplete to four inputs but left a substantial backlog of Chrome DevTools form/accessibility warnings: 13 unassociated <label> elements (label sibling, no htmlFor, no implicit wrap), and ~32 <input>/<textarea>/<select> elements missing both id and name. This release closes those gaps. Goal: opening Chrome DevTools Issues panel on any page produces zero form-field-related entries.',
+          'Forms with unassociated labels (ProjectForm, SharingSection, AddPoolMemberForm, ThresholdSettings, ProductivityWindowPanel add-form) now use the established useId() + htmlFor pattern (matching BaseDialog, CloudStorageModal, ReforecastNotes, ExportAttribution, SettingsForm, NewReforecastDialog, ReforecastToolbar). One useId() per component, suffixed per field. Fields also got semantic name= attributes (projectName, projectStartDate, baselineBudget, shareInviteEmail, memberName, amberThresholdPercent, addProductivityWindowStart, etc.).',
+          'Tabular edit/add inputs (HolidayTable 6 inputs + 1 bulk-year checkbox, RateTable 4 inputs, PoolMemberTable edit name, ProductivityWindowPanel 6 edit-row inputs) got name= attributes. No <label> was added because the column headers serve as the visual labels per standard tabular UX.',
+          'Standalone inputs with existing aria-labels (HistoricalCostsTable cost cell, ReforecastNotes textarea, ResourcePlanExcelPanel file input) and bare-context inputs (ProjectSummary inline edit, AllocationGridAddRow member-picker select, AllocationGridRow grid cell, DataPortability import-JSON file, LocalStorageWarningToggle checkbox, TosConsentModal checkbox) all got semantic name= attributes.',
+          'ReforecastToolbar orphan htmlFor fixed. When editingName is true, the <select id="rf-select"> unmounts and <input id="rf-name-edit"> mounts in its place, but the surrounding <label htmlFor="rf-select"> was left pointing at the now-unmounted control. The label\'s htmlFor is now driven dynamically based on editingName, so the label always associates with whichever control is rendered.',
+        ],
+      },
+      {
+        title: 'Architecture',
+        items: [
+          'RoleSelect shared wrapper extended. Added optional id?: string prop (default undefined). The wrapper now always sets name="role" internally, so both call sites (AddPoolMemberForm, PoolMemberTable edit row) satisfy Chrome\'s id-or-name rule via the wrapper rather than per-call-site. Backward-compatible: existing callers without id continue to render unchanged.',
+        ],
+      },
+      {
+        title: 'Adjacent accessibility fixes (in passing)',
+        items: [
+          'Added aria-label to four form controls while editing them for name=/id=: ProjectSummary inline-edit input (label-as-aria for the input itself, since the wrapping role="button" container\'s aria-label only covers the static state), AllocationGridAddRow member-picker select ("Add team member to reforecast"), AllocationGridRow grid cell ("Allocation for {name} in {month}"), ResourcePlanExcelPanel and DataPortability file inputs.',
+        ],
+      },
+      {
+        title: 'Tests',
+        items: [
+          '850 passing across 53 test files (no test additions or removals; same suite, all green).',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.26.3',
     date: '2026-05-03',
     sections: [

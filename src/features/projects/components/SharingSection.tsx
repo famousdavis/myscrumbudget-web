@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useId, useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { getStorageMode } from '@/lib/storage/storageMode';
 import {
@@ -24,6 +24,9 @@ interface SharingSectionProps {
 export function SharingSection({ projectId }: SharingSectionProps) {
   const { user } = useAuth();
   const { addToast } = useToast();
+  const baseId = useId();
+  const emailId = `${baseId}-email`;
+  const roleId = `${baseId}-role`;
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<'editor' | 'viewer'>('editor');
@@ -127,8 +130,10 @@ export function SharingSection({ projectId }: SharingSectionProps) {
         {/* Add member form */}
         <form onSubmit={handleAdd} className="flex items-end gap-2">
           <div className="flex-1">
-            <label className="block text-xs text-zinc-500 dark:text-zinc-400">Email</label>
+            <label htmlFor={emailId} className="block text-xs text-zinc-500 dark:text-zinc-400">Email</label>
             <input
+              id={emailId}
+              name="shareInviteEmail"
               type="email"
               autoComplete="off"
               value={email}
@@ -139,8 +144,10 @@ export function SharingSection({ projectId }: SharingSectionProps) {
             />
           </div>
           <div>
-            <label className="block text-xs text-zinc-500 dark:text-zinc-400">Role</label>
+            <label htmlFor={roleId} className="block text-xs text-zinc-500 dark:text-zinc-400">Role</label>
             <select
+              id={roleId}
+              name="shareInviteRole"
               value={role}
               onChange={(e) => setRole(e.target.value as 'editor' | 'viewer')}
               className="mt-1 rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
