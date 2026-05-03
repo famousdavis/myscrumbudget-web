@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import type { ProductivityWindow } from '@/types/domain';
 import { nextBusinessDay } from '@/lib/utils/dates';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
@@ -49,6 +49,10 @@ export function ProductivityWindowPanel({
   onUpdate,
   onRemove,
 }: ProductivityWindowPanelProps) {
+  const baseId = useId();
+  const addStartId = `${baseId}-add-start`;
+  const addEndId = `${baseId}-add-end`;
+  const addFactorId = `${baseId}-add-factor`;
   const [showAddForm, setShowAddForm] = useState(false);
   const [addForm, setAddForm] = useState<FormState>(emptyForm);
   const [addError, setAddError] = useState('');
@@ -127,6 +131,7 @@ export function ProductivityWindowPanel({
                         <>
                           <td className="py-2 pr-4">
                             <input
+                              name="editProductivityWindowStart"
                               type="date"
                               value={editForm.startDate}
                               min={minDate}
@@ -142,6 +147,7 @@ export function ProductivityWindowPanel({
                           </td>
                           <td className="py-2 pr-4">
                             <input
+                              name="editProductivityWindowEnd"
                               type="date"
                               value={editForm.endDate}
                               min={minDate}
@@ -157,6 +163,7 @@ export function ProductivityWindowPanel({
                           </td>
                           <td className="py-2 pr-4">
                             <input
+                              name="editProductivityWindowFactor"
                               type="number"
                               value={editForm.factor}
                               min={0}
@@ -231,10 +238,12 @@ export function ProductivityWindowPanel({
             <div className="mt-3 rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900">
               <div className="flex flex-wrap items-end gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400">
+                  <label htmlFor={addStartId} className="block text-sm font-medium text-zinc-600 dark:text-zinc-400">
                     Start Date
                   </label>
                   <input
+                    id={addStartId}
+                    name="addProductivityWindowStart"
                     type="date"
                     value={addForm.startDate}
                     min={minDate}
@@ -252,10 +261,12 @@ export function ProductivityWindowPanel({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400">
+                  <label htmlFor={addEndId} className="block text-sm font-medium text-zinc-600 dark:text-zinc-400">
                     End Date
                   </label>
                   <input
+                    id={addEndId}
+                    name="addProductivityWindowEnd"
                     type="date"
                     value={addForm.endDate}
                     min={addForm.startDate || minDate}
@@ -267,10 +278,12 @@ export function ProductivityWindowPanel({
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-zinc-600 dark:text-zinc-400">
+                  <label htmlFor={addFactorId} className="block text-sm font-medium text-zinc-600 dark:text-zinc-400">
                     Factor (%)
                   </label>
                   <input
+                    id={addFactorId}
+                    name="addProductivityWindowFactor"
                     type="number"
                     value={addForm.factor}
                     min={0}

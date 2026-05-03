@@ -4,6 +4,7 @@
 
 'use client';
 
+import { useId } from 'react';
 import type { Settings } from '@/types/domain';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 
@@ -14,6 +15,9 @@ interface ThresholdSettingsProps {
 }
 
 export function ThresholdSettings({ amberPercent, redPercent, onUpdate }: ThresholdSettingsProps) {
+  const baseId = useId();
+  const amberId = `${baseId}-amber`;
+  const redId = `${baseId}-red`;
   const handleChange = (field: 'amberPercent' | 'redPercent', value: string) => {
     const parsed = parseFloat(value);
     if (!Number.isFinite(parsed) || parsed < 0) return;
@@ -33,10 +37,12 @@ export function ThresholdSettings({ amberPercent, redPercent, onUpdate }: Thresh
           Set variance percentage thresholds for project status indicators on the dashboard.
         </p>
         <div className="flex items-center gap-4">
-          <label className="w-32 text-sm text-zinc-600 dark:text-zinc-400">
+          <label htmlFor={amberId} className="w-32 text-sm text-zinc-600 dark:text-zinc-400">
             Amber above (%)
           </label>
           <input
+            id={amberId}
+            name="amberThresholdPercent"
             type="number"
             min={0}
             max={100}
@@ -47,10 +53,12 @@ export function ThresholdSettings({ amberPercent, redPercent, onUpdate }: Thresh
           />
         </div>
         <div className="flex items-center gap-4">
-          <label className="w-32 text-sm text-zinc-600 dark:text-zinc-400">
+          <label htmlFor={redId} className="w-32 text-sm text-zinc-600 dark:text-zinc-400">
             Red above (%)
           </label>
           <input
+            id={redId}
+            name="redThresholdPercent"
             type="number"
             min={0}
             max={100}

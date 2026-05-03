@@ -134,6 +134,7 @@ export function HistoricalCostsTable({
                     <td className="px-4 py-2 text-right">
                       <input
                         key={`${row.month}:${row.cost}`}
+                        name={`historicalCost-${row.month}`}
                         type="number"
                         min="0"
                         step="any"

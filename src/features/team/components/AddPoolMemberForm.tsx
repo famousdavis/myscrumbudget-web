@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import type { LaborRate, PoolMember } from '@/types/domain';
 import { RoleSelect } from './RoleSelect';
 import { BaseDialog, dialogButtonStyles } from '@/components/BaseDialog';
@@ -17,6 +17,9 @@ interface AddPoolMemberFormProps {
 }
 
 export function AddPoolMemberForm({ laborRates, pool, onAdd, onUnarchive }: AddPoolMemberFormProps) {
+  const baseId = useId();
+  const nameId = `${baseId}-name`;
+  const roleId = `${baseId}-role`;
   const [name, setName] = useState('');
   const [role, setRole] = useState('');
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
@@ -78,10 +81,15 @@ export function AddPoolMemberForm({ laborRates, pool, onAdd, onUnarchive }: AddP
     <>
       <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
         <div>
-          <label className="mb-1 block text-sm font-medium text-zinc-500 dark:text-zinc-400">
+          <label
+            htmlFor={nameId}
+            className="mb-1 block text-sm font-medium text-zinc-500 dark:text-zinc-400"
+          >
             Name
           </label>
           <input
+            id={nameId}
+            name="memberName"
             type="text"
             autoComplete="off"
             placeholder="Member name"
@@ -92,10 +100,13 @@ export function AddPoolMemberForm({ laborRates, pool, onAdd, onUnarchive }: AddP
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium text-zinc-500 dark:text-zinc-400">
+          <label
+            htmlFor={roleId}
+            className="mb-1 block text-sm font-medium text-zinc-500 dark:text-zinc-400"
+          >
             Role
           </label>
-          <RoleSelect value={role} laborRates={laborRates} onChange={setRole} />
+          <RoleSelect id={roleId} value={role} laborRates={laborRates} onChange={setRole} />
         </div>
         <button
           type="submit"

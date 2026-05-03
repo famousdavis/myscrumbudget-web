@@ -25,6 +25,7 @@ export function LocalStorageWarningToggle() {
   return (
     <label className="flex items-start gap-2 text-sm">
       <input
+        name="warnLocalStorageEnabled"
         type="checkbox"
         checked={warnEnabled}
         onChange={(e) => {

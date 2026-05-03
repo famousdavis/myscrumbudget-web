@@ -79,6 +79,7 @@ function InlineEditableField({ label, value, onChange, tooltip }: InlineEditable
       <p className="text-sm text-zinc-500 dark:text-zinc-400">{label}</p>
       {editing ? (
         <input
+          name="inlineEditValue"
           type="number"
           min="0"
           value={editValue}
@@ -87,6 +88,7 @@ function InlineEditableField({ label, value, onChange, tooltip }: InlineEditable
           onKeyDown={handleKeyDown}
           onFocus={(e) => e.target.select()}
           autoFocus
+          aria-label={label}
           className={inputClass}
         />
       ) : (

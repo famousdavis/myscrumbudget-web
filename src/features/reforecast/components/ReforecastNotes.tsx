@@ -89,6 +89,7 @@ export function ReforecastNotes({ value, onChange, onBeginEdit, onEndEdit }: Ref
       {expanded && (
         <div id={panelId} className="border-t border-zinc-200 px-4 py-3 dark:border-zinc-800">
           <textarea
+            name="reforecastNotes"
             value={value}
             onChange={(e) => {
               // Defensive: also call onBeginEdit on every keystroke. Idempotent

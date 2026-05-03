@@ -31,6 +31,8 @@ export function AllocationGridAddRow({
             className="sticky left-0 z-10 border border-zinc-200 bg-white px-1 py-1 dark:border-zinc-700 dark:bg-zinc-950"
           >
             <select
+              name="addAllocationMember"
+              aria-label="Add team member to reforecast"
               autoFocus
               value=""
               onChange={(e) => {

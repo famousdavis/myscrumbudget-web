@@ -11,9 +11,10 @@ interface RoleSelectProps {
   value: string;
   laborRates: LaborRate[];
   onChange: (role: string) => void;
+  id?: string;
 }
 
-export function RoleSelect({ value, laborRates, onChange }: RoleSelectProps) {
+export function RoleSelect({ value, laborRates, onChange, id }: RoleSelectProps) {
   const selectRef = useRef<HTMLSelectElement>(null);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLSelectElement>) => {
@@ -30,6 +31,8 @@ export function RoleSelect({ value, laborRates, onChange }: RoleSelectProps) {
   return (
     <select
       ref={selectRef}
+      id={id}
+      name="role"
       value={value}
       onChange={(e) => onChange(e.target.value)}
       onKeyDown={handleKeyDown}

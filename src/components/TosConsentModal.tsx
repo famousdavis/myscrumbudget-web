@@ -51,6 +51,7 @@ export function TosConsentModal({ onAccept, onCancel }: TosConsentModalProps) {
       </p>
       <label className="mt-4 flex items-start gap-2 text-sm text-zinc-700 dark:text-zinc-300">
         <input
+          name="tosConsent"
           type="checkbox"
           checked={agreed}
           onChange={(e) => setAgreed(e.target.checked)}

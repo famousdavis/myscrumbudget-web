@@ -215,6 +215,8 @@ export function ResourcePlanExcelPanel({
           </button>
           <input
             ref={fileInputRef}
+            name="resourcePlanExcelImport"
+            aria-label="Resource plan Excel file"
             type="file"
             accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             className="hidden"

@@ -164,6 +164,7 @@ export function HolidayTable({ holidays, onUpdate }: HolidayTableProps) {
                 <>
                   <td className="py-2 pr-2">
                     <input
+                      name="editHolidayName"
                       type="text"
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
@@ -173,6 +174,7 @@ export function HolidayTable({ holidays, onUpdate }: HolidayTableProps) {
                   </td>
                   <td className="py-2 pr-2">
                     <input
+                      name="editHolidayStartDate"
                       type="date"
                       value={editStartDate}
                       onChange={(e) => setEditStartDate(e.target.value)}
@@ -181,6 +183,7 @@ export function HolidayTable({ holidays, onUpdate }: HolidayTableProps) {
                   </td>
                   <td className="py-2 pr-2">
                     <input
+                      name="editHolidayEndDate"
                       type="date"
                       value={editEndDate}
                       onChange={(e) => setEditEndDate(e.target.value)}
@@ -234,6 +237,7 @@ export function HolidayTable({ holidays, onUpdate }: HolidayTableProps) {
       )}
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <input
+          name="newHolidayName"
           type="text"
           placeholder="Holiday name"
           value={newName}
@@ -242,6 +246,7 @@ export function HolidayTable({ holidays, onUpdate }: HolidayTableProps) {
           className="rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
         />
         <input
+          name="newHolidayStartDate"
           type="date"
           value={newStartDate}
           onChange={(e) => {
@@ -252,6 +257,7 @@ export function HolidayTable({ holidays, onUpdate }: HolidayTableProps) {
           className={`rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900 ${!newStartDate ? 'text-zinc-400 dark:text-zinc-500' : ''}`}
         />
         <input
+          name="newHolidayEndDate"
           type="date"
           value={newEndDate}
           onChange={(e) => setNewEndDate(e.target.value)}
@@ -273,6 +279,7 @@ export function HolidayTable({ holidays, onUpdate }: HolidayTableProps) {
           {BULK_YEARS.map((year) => (
             <label key={year} className="flex items-center gap-1.5 text-sm">
               <input
+                name={`bulkHolidayYear-${year}`}
                 type="checkbox"
                 checked={bulkYears.has(year)}
                 onChange={() => toggleBulkYear(year)}

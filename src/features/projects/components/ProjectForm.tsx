@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatCurrency } from '@/lib/utils/format';
 import { nextBusinessDay } from '@/lib/utils/dates';
@@ -37,6 +37,11 @@ export function ProjectForm({
   autoFocusName,
 }: ProjectFormProps) {
   const router = useRouter();
+  const baseId = useId();
+  const nameId = `${baseId}-name`;
+  const startId = `${baseId}-start`;
+  const endId = `${baseId}-end`;
+  const budgetId = `${baseId}-budget`;
   const [data, setData] = useState<ProjectFormData>(initialData ?? defaultData);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -107,8 +112,10 @@ export function ProjectForm({
       )}
 
       <div>
-        <label className="mb-1 block text-sm font-medium">Project Name</label>
+        <label htmlFor={nameId} className="mb-1 block text-sm font-medium">Project Name</label>
         <input
+          id={nameId}
+          name="projectName"
           type="text"
           value={data.name}
           onChange={(e) => handleChange('name', e.target.value)}
@@ -120,8 +127,10 @@ export function ProjectForm({
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="mb-1 block text-sm font-medium">Start Date</label>
+          <label htmlFor={startId} className="mb-1 block text-sm font-medium">Start Date</label>
           <input
+            id={startId}
+            name="projectStartDate"
             type="date"
             value={data.startDate}
             onChange={(e) => handleChange('startDate', e.target.value)}
@@ -129,8 +138,10 @@ export function ProjectForm({
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium">End Date</label>
+          <label htmlFor={endId} className="mb-1 block text-sm font-medium">End Date</label>
           <input
+            id={endId}
+            name="projectEndDate"
             type="date"
             value={data.endDate}
             min={data.startDate || undefined}
@@ -141,11 +152,13 @@ export function ProjectForm({
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium">
+        <label htmlFor={budgetId} className="mb-1 block text-sm font-medium">
           Baseline Budget
         </label>
         {budgetFocused ? (
           <input
+            id={budgetId}
+            name="baselineBudget"
             type="number"
             min="0"
             value={budgetInput}
@@ -161,6 +174,8 @@ export function ProjectForm({
           />
         ) : (
           <input
+            id={budgetId}
+            name="baselineBudget"
             type="text"
             readOnly
             value={formatCurrency(data.baselineBudget)}
