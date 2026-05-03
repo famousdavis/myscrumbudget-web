@@ -130,6 +130,7 @@ export function SharingSection({ projectId }: SharingSectionProps) {
             <label className="block text-xs text-zinc-500 dark:text-zinc-400">Email</label>
             <input
               type="email"
+              autoComplete="off"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="user@example.com"

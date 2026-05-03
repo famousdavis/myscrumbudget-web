@@ -11,6 +11,7 @@ import { useDebouncedSave } from '@/hooks/useDebouncedSave';
 import { generateId } from '@/lib/utils/id';
 import { ensureOriginRef, appendToChangeLog } from '@/lib/storage/fingerprint';
 import { cloudSyncBus } from '@/lib/firebase/cloudSyncBus';
+import { addToastGlobal } from '@/components/Toast';
 
 export function useTeamPool() {
   const [pool, setPool] = useState<PoolMember[]>([]);
@@ -35,7 +36,15 @@ export function useTeamPool() {
     });
   }, [reload]);
 
-  const { save: persist, flush } = useDebouncedSave<PoolMember[]>((p) => repo.saveTeamPool(p));
+  const persistFn = useCallback(async (p: PoolMember[]) => {
+    try {
+      await repo.saveTeamPool(p);
+    } catch (err) {
+      addToastGlobal('Failed to save team pool. Please check your connection.', 'error');
+      throw err;
+    }
+  }, []);
+  const { save: persist, flush } = useDebouncedSave<PoolMember[]>(persistFn);
 
   const addPoolMember = useCallback(
     (name: string, role: string) => {

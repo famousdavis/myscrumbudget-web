@@ -4,10 +4,26 @@
 
 'use client';
 
-import { createContext, useCallback, useContext, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { generateId } from '@/lib/utils/id';
 
 type ToastVariant = 'success' | 'error' | 'info';
+
+// Module-level escape hatch so non-React-context code (bare hooks rendered in
+// tests, repository modules, listener callbacks outside ToastProvider scope)
+// can still surface errors. The active ToastProvider registers its addToast
+// on mount and clears it on unmount; if no provider is mounted (e.g. test
+// harness that renders a hook directly), calls are no-ops with a console
+// breadcrumb. The existing useToast() context API is unchanged.
+let _globalAddToast: ((message: string, variant?: ToastVariant) => void) | null = null;
+
+export function addToastGlobal(message: string, variant: ToastVariant = 'info'): void {
+  if (_globalAddToast) {
+    _globalAddToast(message, variant);
+  } else {
+    console.warn('[Toast] addToastGlobal called before provider mounted:', message);
+  }
+}
 
 interface ToastItem {
   id: string;
@@ -76,6 +92,15 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 4000);
   }, []);
+
+  // Register/unregister the module-level escape hatch so addToastGlobal()
+  // routes here while this provider is mounted.
+  useEffect(() => {
+    _globalAddToast = addToast;
+    return () => {
+      if (_globalAddToast === addToast) _globalAddToast = null;
+    };
+  }, [addToast]);
 
   const removeToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));

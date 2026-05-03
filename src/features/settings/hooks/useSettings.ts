@@ -9,6 +9,7 @@ import type { Settings } from '@/types/domain';
 import { repo } from '@/lib/storage/repo';
 import { useDebouncedSave } from '@/hooks/useDebouncedSave';
 import { cloudSyncBus } from '@/lib/firebase/cloudSyncBus';
+import { addToastGlobal } from '@/components/Toast';
 
 export function useSettings() {
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -33,7 +34,15 @@ export function useSettings() {
     });
   }, [reload]);
 
-  const { save: persistSettings, flush } = useDebouncedSave<Settings>((s) => repo.saveSettings(s));
+  const persistSettingsFn = useCallback(async (s: Settings) => {
+    try {
+      await repo.saveSettings(s);
+    } catch (err) {
+      addToastGlobal('Failed to save settings. Please check your connection.', 'error');
+      throw err;
+    }
+  }, []);
+  const { save: persistSettings, flush } = useDebouncedSave<Settings>(persistSettingsFn);
 
   const updateSettings = useCallback(
     (updater: (prev: Settings) => Settings) => {
