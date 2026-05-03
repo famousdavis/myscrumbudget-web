@@ -14,6 +14,7 @@ import { useAuth } from '@/components/AuthProvider';
 import { getStorageMode } from '@/lib/storage/storageMode';
 import { cloudSyncBus } from '@/lib/firebase/cloudSyncBus';
 import { PROJECTS_COL, SETTINGS_COL } from '@/lib/firebase/collections';
+import { addToastGlobal } from '@/components/Toast';
 
 /**
  * Sets up Firestore onSnapshot listeners when in cloud mode.
@@ -35,23 +36,54 @@ export function useCloudSync(): void {
 
     const uid = user.uid;
 
+    // Suppress duplicate toasts when both listeners fail in the same tick
+    // (e.g., a permission rule change or full network drop). Cleared on
+    // effect teardown so a re-mount can toast again.
+    let toastedThisCycle = false;
+    const toastOnce = () => {
+      if (toastedThisCycle) return;
+      toastedThisCycle = true;
+      addToastGlobal(
+        'Cloud sync connection issue. Recent changes may not appear until reconnect.',
+        'error',
+      );
+    };
+
     // ── Projects listener ──
     const projectsQuery = query(
       collection(db, PROJECTS_COL),
       where(`members.${uid}`, 'in', ['owner', 'editor', 'viewer']),
     );
-    const unsubProjects = onSnapshot(projectsQuery, (snapshot) => {
-      if (snapshot.metadata.hasPendingWrites) return;
-      cloudSyncBus.emit('projects');
-    });
+    const unsubProjects = onSnapshot(
+      projectsQuery,
+      (snapshot) => {
+        if (snapshot.metadata.hasPendingWrites) return;
+        cloudSyncBus.emit('projects');
+      },
+      (err) => {
+        // Listener has terminated. No automatic resubscribe — full reconnect
+        // mechanism is deferred; user must reload or re-sign-in.
+        console.error('[useCloudSync] projects listener error:', err);
+        toastOnce();
+      },
+    );
 
     // ── Settings listener ──
     const settingsRef = doc(db, SETTINGS_COL, uid);
-    const unsubSettings = onSnapshot(settingsRef, (snapshot) => {
-      if (snapshot.metadata.hasPendingWrites) return;
-      cloudSyncBus.emit('settings');
-      cloudSyncBus.emit('teamPool');
-    });
+    const unsubSettings = onSnapshot(
+      settingsRef,
+      (snapshot) => {
+        if (snapshot.metadata.hasPendingWrites) return;
+        cloudSyncBus.emit('settings');
+        cloudSyncBus.emit('teamPool');
+      },
+      (err) => {
+        // Listener has terminated. No automatic resubscribe — full reconnect
+        // mechanism is deferred; user must reload or re-sign-in.
+        console.error('[useCloudSync] settings listener error:', err);
+        toastOnce();
+      },
+    );
 
     unsubscribersRef.current = [unsubProjects, unsubSettings];
 

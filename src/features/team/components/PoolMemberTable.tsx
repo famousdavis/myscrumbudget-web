@@ -118,6 +118,7 @@ export function PoolMemberTable({
               <td className="py-1 pr-2">
                 <input
                   type="text"
+                  autoComplete="off"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
                   maxLength={100}

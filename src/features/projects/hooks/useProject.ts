@@ -10,6 +10,7 @@ import { repo } from '@/lib/storage/repo';
 import { useDebouncedSave } from '@/hooks/useDebouncedSave';
 import { cloudSyncBus } from '@/lib/firebase/cloudSyncBus';
 import { UNDO_STACK_LIMIT } from '@/lib/constants';
+import { addToastGlobal } from '@/components/Toast';
 
 function pushBounded(stack: Project[], snapshot: Project): Project[] {
   const next = [...stack, snapshot];
@@ -52,7 +53,15 @@ export function useProject(id: string) {
     });
   }, [reload]);
 
-  const { save: persistProject, flush } = useDebouncedSave<Project>((p) => repo.saveProject(p));
+  const persistProjectFn = useCallback(async (p: Project) => {
+    try {
+      await repo.saveProject(p);
+    } catch (err) {
+      addToastGlobal('Failed to save project. Please check your connection.', 'error');
+      throw err;
+    }
+  }, []);
+  const { save: persistProject, flush } = useDebouncedSave<Project>(persistProjectFn);
 
   const updateProject = useCallback(
     (updater: (prev: Project) => Project) => {

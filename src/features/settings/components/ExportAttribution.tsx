@@ -40,6 +40,7 @@ export function ExportAttribution() {
           <input
             id="exportAttrName"
             type="text"
+            autoComplete="name"
             maxLength={100}
             value={name}
             onChange={(e) => handleNameChange(e.target.value)}

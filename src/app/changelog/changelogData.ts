@@ -13,6 +13,32 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.26.3',
+    date: '2026-05-03',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'Surface Firestore write errors to the user. Routine settings, project, and team-pool saves go through useDebouncedSave, which previously caught every save failure with a silent console.error — a user editing a project offline (or with revoked Firestore permissions) saw no signal that their work was not persisted. Each consumer hook (useSettings, useTeamPool, useProject) now wraps its repo.save* call with a try/catch that emits a red error toast before rethrowing so useDebouncedSave\'s existing console log still fires.',
+          'Surface Firestore real-time listener errors to the user. Both onSnapshot listeners in useCloudSync (projects query, per-user settings doc) now register error callbacks. On listener termination — permission rule change, network drop, invalid query — the handler logs to console and shows a red toast ("Cloud sync connection issue. Recent changes may not appear until reconnect."). A per-effect-cycle flag suppresses duplicate toasts when both listeners fail in the same tick. An inline comment notes that no automatic resubscribe runs — full reconnect is deferred and the user must reload or re-sign-in.',
+          'Add autoComplete to four form inputs. <input type="email"> in the project Sharing section (collaborator invite) now has autoComplete="off", eliminating the unconditional browser DOM warning. Export Attribution Name field gets autoComplete="name" (user\'s own name; browser autofill is correct UX). Team Pool add-member name field and the inline edit-name field both get autoComplete="off" (third-party name; browser autofill of the user\'s saved name would be wrong).',
+        ],
+      },
+      {
+        title: 'Architecture',
+        items: [
+          'addToastGlobal escape hatch added to Toast.tsx. A module-level pointer that the active ToastProvider registers on mount and clears on unmount; while no provider is mounted (e.g. test harness rendering a hook directly), calls are no-ops with a console breadcrumb. Lets non-context consumers — bare-rendered hooks in tests, listener callbacks outside provider scope — surface toasts without altering hook signatures or test setup. The existing useToast() context API is unchanged.',
+        ],
+      },
+      {
+        title: 'Tests',
+        items: [
+          '850 passing across 53 test files (no test additions or removals; same suite, all green).',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.26.1',
     date: '2026-04-30',
     sections: [

@@ -83,6 +83,7 @@ export function AddPoolMemberForm({ laborRates, pool, onAdd, onUnarchive }: AddP
           </label>
           <input
             type="text"
+            autoComplete="off"
             placeholder="Member name"
             value={name}
             onChange={(e) => setName(e.target.value)}
