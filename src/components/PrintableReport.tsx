@@ -37,6 +37,7 @@ const RAG_PRINT_COLORS: Record<TrafficLightStatus, string> = {
   green: 'text-green-700',
   amber: 'text-amber-600',
   red: 'text-red-700',
+  violet: 'text-violet-700',
 };
 
 const sectionHeading =

@@ -7,25 +7,28 @@ import type { ProjectMetrics, TrafficLightThresholds, TrafficLightStatus } from 
 export const DEFAULT_THRESHOLDS: TrafficLightThresholds = {
   amberPercent: 5,
   redPercent: 15,
+  violetPercent: 20,
 };
 
 /**
  * Determine traffic-light status from project metrics.
  *
  * Uses variancePercent (positive = over budget):
- *   - Green: variancePercent <= amberPercent
- *   - Amber: variancePercent > amberPercent AND <= redPercent
- *   - Red:   variancePercent > redPercent
- *
- * Projects under budget (negative variancePercent) are always Green.
+ *   - Red:    variancePercent > redPercent
+ *   - Amber:  amberPercent < variancePercent ≤ redPercent
+ *   - Green:  -violetPercent ≤ variancePercent ≤ amberPercent (on or near budget)
+ *   - Violet: variancePercent < -violetPercent (significantly under budget)
  */
 export function getTrafficLightStatus(
   metrics: ProjectMetrics,
   thresholds: TrafficLightThresholds,
 ): TrafficLightStatus {
   const vp = metrics.variancePercent;
+  // Order is safe: positive vp satisfies only red/amber checks; negative vp
+  // can only satisfy the violet check. The two halves are mutually exclusive.
   if (vp > thresholds.redPercent) return 'red';
   if (vp > thresholds.amberPercent) return 'amber';
+  if (vp < -thresholds.violetPercent) return 'violet';
   return 'green';
 }
 
@@ -57,6 +60,12 @@ export function getTrafficLightDisplay(status: TrafficLightStatus): {
         color: 'text-red-600 dark:text-red-400',
         indicator: '\u25CF',
         label: 'Over Budget',
+      };
+    case 'violet':
+      return {
+        color: 'text-violet-600 dark:text-violet-400',
+        indicator: '\u25CF',
+        label: 'Under Budget',
       };
   }
 }

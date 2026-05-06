@@ -128,6 +128,9 @@ function validateSettings(settings: unknown, path: string): string[] {
     if (!isNonNegativeNumber(thresholds.redPercent)) {
       errors.push(`${path}.trafficLightThresholds.redPercent: expected non-negative number`);
     }
+    if (!isNonNegativeNumber(thresholds.violetPercent)) {
+      errors.push(`${path}.trafficLightThresholds.violetPercent: expected non-negative number`);
+    }
   }
 
   return errors;

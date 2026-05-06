@@ -12,7 +12,7 @@ vi.mock('@/lib/storage/repo', () => ({
       discountRateAnnual: 0.08,
       laborRates: [{ role: 'Developer', hourlyRate: 100 }],
       holidays: [],
-      trafficLightThresholds: { amberPercent: 5, redPercent: 10 },
+      trafficLightThresholds: { amberPercent: 5, redPercent: 10, violetPercent: 20 },
     }),
     saveSettings: vi.fn().mockResolvedValue(undefined),
   },
@@ -24,7 +24,7 @@ const expectedSettings: Settings = {
   discountRateAnnual: 0.08,
   laborRates: [{ role: 'Developer', hourlyRate: 100 }],
   holidays: [],
-  trafficLightThresholds: { amberPercent: 5, redPercent: 10 },
+  trafficLightThresholds: { amberPercent: 5, redPercent: 10, violetPercent: 20 },
 };
 
 describe('useSettings', () => {

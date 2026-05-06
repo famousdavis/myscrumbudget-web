@@ -53,7 +53,10 @@ export function createFirestoreRepository(uid: string): Repository {
         discountRateAnnual: data.discountRateAnnual ?? DEFAULT_SETTINGS.discountRateAnnual,
         laborRates: data.laborRates ?? DEFAULT_SETTINGS.laborRates,
         holidays: data.holidays ?? DEFAULT_SETTINGS.holidays,
-        trafficLightThresholds: data.trafficLightThresholds ?? DEFAULT_SETTINGS.trafficLightThresholds,
+        trafficLightThresholds: {
+          ...DEFAULT_SETTINGS.trafficLightThresholds,
+          ...(data.trafficLightThresholds ?? {}),
+        },
       };
     },
 

@@ -13,7 +13,7 @@ function makeState(notes: unknown) {
       discountRateAnnual: 0.03,
       laborRates: [],
       holidays: [],
-      trafficLightThresholds: { amberPercent: 5, redPercent: 15 },
+      trafficLightThresholds: { amberPercent: 5, redPercent: 15, violetPercent: 20 },
     },
     teamPool: [],
     projects: [
@@ -86,7 +86,7 @@ function makeStateWithPoolMember(member: unknown) {
       discountRateAnnual: 0.03,
       laborRates: [],
       holidays: [],
-      trafficLightThresholds: { amberPercent: 5, redPercent: 15 },
+      trafficLightThresholds: { amberPercent: 5, redPercent: 15, violetPercent: 20 },
     },
     teamPool: [member],
     projects: [],
@@ -125,6 +125,54 @@ describe('validateAppState — pool member archived flag', () => {
     expect(
       result.errors.some(
         (e) => e.includes('archived') && e.includes('boolean'),
+      ),
+    ).toBe(true);
+  });
+});
+
+describe('validateAppState — trafficLightThresholds.violetPercent', () => {
+  function makeStateWithThresholds(thresholds: unknown) {
+    return {
+      version: '0.13.0',
+      settings: {
+        discountRateAnnual: 0.03,
+        laborRates: [],
+        holidays: [],
+        trafficLightThresholds: thresholds,
+      },
+      teamPool: [],
+      projects: [],
+    };
+  }
+
+  it('accepts valid violetPercent', () => {
+    const result = validateAppState(
+      makeStateWithThresholds({ amberPercent: 5, redPercent: 15, violetPercent: 20 }),
+    );
+    expect(result.valid).toBe(true);
+    expect(result.errors).toEqual([]);
+  });
+
+  it('rejects missing violetPercent', () => {
+    const result = validateAppState(
+      makeStateWithThresholds({ amberPercent: 5, redPercent: 15 }),
+    );
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some(
+        (e) => e.includes('violetPercent') && e.includes('non-negative'),
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects negative violetPercent', () => {
+    const result = validateAppState(
+      makeStateWithThresholds({ amberPercent: 5, redPercent: 15, violetPercent: -1 }),
+    );
+    expect(result.valid).toBe(false);
+    expect(
+      result.errors.some(
+        (e) => e.includes('violetPercent') && e.includes('non-negative'),
       ),
     ).toBe(true);
   });
