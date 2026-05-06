@@ -929,16 +929,17 @@ Delivered:
 - Selected/focused allocation cells elevated to `z-20` to render outline above sticky columns (`z-10`)
 - No data model changes — `project.assignments` is already an ordered array
 
-### Sprint 14: Traffic-Light Dashboard + Refactoring — COMPLETE (v0.9.0)
-**Goal**: Three-state traffic-light status on dashboard project tiles, configurable thresholds, codebase refactoring
+### Sprint 14: Traffic-Light Dashboard + Refactoring — COMPLETE (v0.9.0; extended in v0.27.0 to four-state)
+**Goal**: Three-state traffic-light status on dashboard project tiles, configurable thresholds, codebase refactoring. v0.27.0 extends to four-state (added Violet "Under Budget").
 
 Delivered:
 - `TrafficLightThresholds` and `TrafficLightStatus` types added to `domain.ts`
-- `trafficLightThresholds` added to `Settings` interface with defaults `{ amberPercent: 5, redPercent: 15 }`
+- `trafficLightThresholds` added to `Settings` interface. Defaults: `{ amberPercent: 5, redPercent: 15, violetPercent: 20 }` (v0.27.0 — was `{ amberPercent: 5, redPercent: 15 }` through v0.26.x)
+- `TrafficLightStatus` is `'green' | 'amber' | 'red' | 'violet'` as of v0.27.0 — `'violet'` was added to mark projects more than `violetPercent` under budget. Boundary is exclusive: `vp === -violetPercent` is green; `vp < -violetPercent` is violet
 - Pure `getTrafficLightStatus()` and `getTrafficLightDisplay()` functions in `lib/calc/trafficLight.ts`
-- Data migration v0.7.0 adds `trafficLightThresholds` to settings with defaults
-- `ThresholdSettings.tsx` — collapsible settings section for amber/red thresholds
-- `ProjectCard.tsx` — colored EAC value with status indicator dot and text label ("On Track" / "At Risk" / "Over Budget")
+- Data migration v0.7.0 adds `trafficLightThresholds` to settings with defaults; v0.13.0 (v0.27.0 release) backfills `violetPercent: 20` for any settings missing it (preserves user customizations to amber/red)
+- `ThresholdSettings.tsx` — collapsible settings section for amber, red, and violet thresholds (violet added v0.27.0)
+- `ProjectCard.tsx` — colored EAC value with status indicator dot and text label ("On Track" / "At Risk" / "Over Budget" / "Under Budget")
 - `ProjectSummary.tsx` — traffic-light coloring on EAC in project detail page
 - Consolidated 3 delete dialogs (`DeleteProjectDialog`, `DeleteReforecastDialog`, `DeleteAssignmentDialog`) into a single reusable `ConfirmDialog` component
 - Extracted drag-to-reorder logic into generic `useDragReorder` hook (used by dashboard and allocation grid)
@@ -1571,6 +1572,7 @@ export const DATA_VERSION = '0.7.0';
 // v0.5.0: Moves baselineBudget from Project into each Reforecast; adds reforecastDate (derived from createdAt)
 // v0.6.0: Adds holidays array to settings (empty default)
 // v0.7.0: Adds trafficLightThresholds to settings (default: amber 5%, red 15%)
+// v0.13.0: Adds violetPercent to trafficLightThresholds (default: 20%) for "Under Budget" status
 ```
 
 ---

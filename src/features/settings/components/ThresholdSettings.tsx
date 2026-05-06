@@ -11,14 +11,16 @@ import { CollapsibleSection } from '@/components/CollapsibleSection';
 interface ThresholdSettingsProps {
   amberPercent: number;
   redPercent: number;
+  violetPercent: number;
   onUpdate: (updater: (prev: Settings) => Settings) => void;
 }
 
-export function ThresholdSettings({ amberPercent, redPercent, onUpdate }: ThresholdSettingsProps) {
+export function ThresholdSettings({ amberPercent, redPercent, violetPercent, onUpdate }: ThresholdSettingsProps) {
   const baseId = useId();
   const amberId = `${baseId}-amber`;
   const redId = `${baseId}-red`;
-  const handleChange = (field: 'amberPercent' | 'redPercent', value: string) => {
+  const violetId = `${baseId}-violet`;
+  const handleChange = (field: 'amberPercent' | 'redPercent' | 'violetPercent', value: string) => {
     const parsed = parseFloat(value);
     if (!Number.isFinite(parsed) || parsed < 0) return;
     onUpdate((prev) => ({
@@ -44,6 +46,7 @@ export function ThresholdSettings({ amberPercent, redPercent, onUpdate }: Thresh
             id={amberId}
             name="amberThresholdPercent"
             type="number"
+            autoComplete="off"
             min={0}
             max={100}
             step={1}
@@ -60,6 +63,7 @@ export function ThresholdSettings({ amberPercent, redPercent, onUpdate }: Thresh
             id={redId}
             name="redThresholdPercent"
             type="number"
+            autoComplete="off"
             min={0}
             max={100}
             step={1}
@@ -68,13 +72,35 @@ export function ThresholdSettings({ amberPercent, redPercent, onUpdate }: Thresh
             className="w-20 rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
           />
         </div>
+        <div className="flex items-center gap-4">
+          <label htmlFor={violetId} className="w-32 text-sm text-zinc-600 dark:text-zinc-400">
+            Violet under (%)
+          </label>
+          <input
+            id={violetId}
+            name="violetThresholdPercent"
+            type="number"
+            autoComplete="off"
+            min={0}
+            max={100}
+            step={1}
+            value={violetPercent}
+            onChange={(e) => handleChange('violetPercent', e.target.value)}
+            className="w-20 rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          />
+        </div>
         {redPercent < amberPercent && (
           <p className="text-xs text-amber-600 dark:text-amber-400">
             Red threshold is below amber — the amber band will be empty.
           </p>
         )}
+        {violetPercent === 0 && (
+          <p className="text-xs text-amber-600 dark:text-amber-400">
+            Violet threshold is 0 — any under-budget project will trigger Violet.
+          </p>
+        )}
         <p className="text-xs text-zinc-400 dark:text-zinc-500">
-          Green: at or below amber threshold. Amber: above amber, at or below red. Red: above red threshold.
+          Green: between violet and amber thresholds. Amber: above amber, at or below red. Red: above red threshold. Violet: under budget by more than the violet threshold.
         </p>
       </div>
     </CollapsibleSection>

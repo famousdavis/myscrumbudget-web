@@ -4,6 +4,28 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.27.0] - 2026-05-06
+
+### Added
+- **Violet "Under Budget" health status.** A fourth dashboard status indicator activates when a project's EAC tracks more than a user-configurable percentage below its baseline budget (default: 20%). The business trigger: teams running materially under budget often need to issue a formal change request to sponsors and stakeholders. Configure in Settings → Dashboard Thresholds → "Violet under (%)"
+- **Boundary semantics for violet are exclusive** (`variancePercent === -20` stays green; `variancePercent < -20` is violet), symmetric with the existing amber/red boundaries. The amber/red over-budget logic is unchanged — only the previously-always-green under-budget half is split into green (within violet threshold) and violet (beyond it)
+- **Violet display surface area:** dashboard project cards, project detail summary, and the printable PDF report all render the violet dot indicator (●) and "Under Budget" label using `text-violet-600` / `dark:text-violet-400` (`text-violet-700` in print, light-only)
+- **Settings → Dashboard Thresholds gained a "Violet under (%)" input row** beneath the existing red row, plus an inline warning when `violetPercent === 0` ("any under-budget project will trigger Violet"). The legend paragraph beneath the inputs documents all four bands
+
+### Fixed
+- **Cloud-mode Firestore read fallback.** Pre-v0.27.0 Firestore settings docs lack `violetPercent`. The previous read pattern `data.trafficLightThresholds ?? DEFAULT_SETTINGS.trafficLightThresholds` would short-circuit on the truthy LHS and never inject the new field. `firestoreRepo.ts:56` now uses a merge-with-defaults pattern: `{ ...DEFAULT_SETTINGS.trafficLightThresholds, ...(data.trafficLightThresholds ?? {}) }`. User-customized `amberPercent`/`redPercent` values still survive the merge; missing `violetPercent` gets the 20 default. localStorage-mode users get the same outcome via the v0.13.0 migration
+- **Form-control hygiene sweep on `ThresholdSettings.tsx`:** the existing amber and red inputs gained `autoComplete="off"` (matching the standing form-hygiene rule). The new violet input also gets it
+
+### Migration
+- **Data migration v0.13.0** backfills `violetPercent: 20` into all existing `trafficLightThresholds` objects. The migration is conservative: it spreads existing thresholds first so user-customized `amberPercent`/`redPercent` values are preserved, and only injects `violetPercent` when absent (a user who somehow already has a customized value keeps it)
+- The historical v0.7.0 migration (which originally introduced `trafficLightThresholds`) is unchanged — the v0.13.0 migration runs after it in all upgrade paths
+
+### Tests
+- 863 passing across 53 test files (+13 net additions). New coverage: `getTrafficLightStatus` boundary tests (`vp = -20` green, `vp = -20.1` violet), zero-threshold edge case (any under-budget triggers violet), high-threshold edge case (`-99` stays green when threshold is `100`), NaN regression test (degenerate metrics return green not violet), `getTrafficLightDisplay('violet')` shape, `validateAppState` rejection of missing/negative `violetPercent`, three new v0.13.0 migration tests (backfill, idempotency on user-customized value, preservation of amber/red)
+- Bulk-bumped 28 `migrations.test.ts` assertions from `0.12.0` → `0.13.0` (final-state assertions only; intermediate-state assertions like "v0.11.0 → v0.12.0 as a no-op" were updated explicitly to acknowledge that v0.13.0 now adds `violetPercent` to settings)
+
+---
+
 ## [0.26.4] - 2026-05-03
 
 ### Fixed

@@ -27,7 +27,7 @@ describe('delegating repo', () => {
         discountRateAnnual: 0.99,
         laborRates: [],
         holidays: [],
-        trafficLightThresholds: { amberPercent: 5, redPercent: 15 },
+        trafficLightThresholds: { amberPercent: 5, redPercent: 15, violetPercent: 20 },
       }),
       saveSettings: async () => {},
       getTeamPool: async () => [],
@@ -40,7 +40,7 @@ describe('delegating repo', () => {
       reorderProjects: async () => {},
       exportAll: async () => ({
         version: '0.7.0',
-        settings: { discountRateAnnual: 0.99, laborRates: [], holidays: [], trafficLightThresholds: { amberPercent: 5, redPercent: 15 } },
+        settings: { discountRateAnnual: 0.99, laborRates: [], holidays: [], trafficLightThresholds: { amberPercent: 5, redPercent: 15, violetPercent: 20 } },
         teamPool: [],
         projects: [],
       }),

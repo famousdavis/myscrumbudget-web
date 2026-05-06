@@ -4,7 +4,7 @@
 
 import type { AppState, PoolMember, ProjectAssignment } from '@/types/domain';
 
-export const DATA_VERSION = '0.12.0';
+export const DATA_VERSION = '0.13.0';
 
 type Migration = {
   version: string;
@@ -377,6 +377,27 @@ const MIGRATIONS: Migration[] = [
       // Existing pool members legitimately lack it; "absent" means "active".
       assertArray(data.teamPool, 'teamPool', '0.12.0');
       return { ...data, version: '0.12.0' };
+    },
+  },
+  {
+    version: '0.13.0',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    migrate: (data: any): AppState => {
+      // Adds violetPercent to trafficLightThresholds for the new "Under Budget"
+      // health status. Spread preserves any user-customized amber/red values.
+      assertObject(data.settings, 'settings', '0.13.0');
+      return {
+        ...data,
+        version: '0.13.0',
+        settings: {
+          ...data.settings,
+          trafficLightThresholds: {
+            ...data.settings?.trafficLightThresholds,
+            violetPercent:
+              data.settings?.trafficLightThresholds?.violetPercent ?? 20,
+          },
+        },
+      };
     },
   },
 ];

@@ -21,11 +21,7 @@ function makeMetrics(variancePercent: number): ProjectMetrics {
 }
 
 describe('getTrafficLightStatus', () => {
-  const thresholds = DEFAULT_THRESHOLDS; // { amberPercent: 5, redPercent: 15 }
-
-  it('returns green when under budget (negative variance%)', () => {
-    expect(getTrafficLightStatus(makeMetrics(-10), thresholds)).toBe('green');
-  });
+  const thresholds = DEFAULT_THRESHOLDS; // { amberPercent: 5, redPercent: 15, violetPercent: 20 }
 
   it('returns green when on budget (0%)', () => {
     expect(getTrafficLightStatus(makeMetrics(0), thresholds)).toBe('green');
@@ -51,24 +47,63 @@ describe('getTrafficLightStatus', () => {
     expect(getTrafficLightStatus(makeMetrics(50), thresholds)).toBe('red');
   });
 
+  it('returns green when moderately under budget (within violet threshold)', () => {
+    expect(getTrafficLightStatus(makeMetrics(-10), thresholds)).toBe('green');
+  });
+
+  it('returns green at exactly the violet threshold (boundary belongs to green)', () => {
+    expect(getTrafficLightStatus(makeMetrics(-20), thresholds)).toBe('green');
+  });
+
+  it('returns violet at vp = -20.1 (just past the violet threshold)', () => {
+    expect(getTrafficLightStatus(makeMetrics(-20.1), thresholds)).toBe('violet');
+  });
+
+  it('returns violet for large under-budget projects', () => {
+    expect(getTrafficLightStatus(makeMetrics(-50), thresholds)).toBe('violet');
+  });
+
+  it('returns green when variancePercent is NaN (degenerate metrics)', () => {
+    expect(getTrafficLightStatus(makeMetrics(NaN), thresholds)).toBe('green');
+  });
+
   it('respects custom thresholds', () => {
-    const custom: TrafficLightThresholds = { amberPercent: 10, redPercent: 25 };
+    const custom: TrafficLightThresholds = { amberPercent: 10, redPercent: 25, violetPercent: 30 };
     expect(getTrafficLightStatus(makeMetrics(8), custom)).toBe('green');
     expect(getTrafficLightStatus(makeMetrics(12), custom)).toBe('amber');
     expect(getTrafficLightStatus(makeMetrics(30), custom)).toBe('red');
+    expect(getTrafficLightStatus(makeMetrics(-30), custom)).toBe('green');
+    expect(getTrafficLightStatus(makeMetrics(-35), custom)).toBe('violet');
   });
 
   it('handles zero amber threshold (any positive variance is amber or red)', () => {
-    const zeroAmber: TrafficLightThresholds = { amberPercent: 0, redPercent: 10 };
+    const zeroAmber: TrafficLightThresholds = { amberPercent: 0, redPercent: 10, violetPercent: 20 };
     expect(getTrafficLightStatus(makeMetrics(0), zeroAmber)).toBe('green');
     expect(getTrafficLightStatus(makeMetrics(0.1), zeroAmber)).toBe('amber');
     expect(getTrafficLightStatus(makeMetrics(10.1), zeroAmber)).toBe('red');
   });
 
   it('handles equal amber and red thresholds (no amber band)', () => {
-    const equal: TrafficLightThresholds = { amberPercent: 10, redPercent: 10 };
+    const equal: TrafficLightThresholds = { amberPercent: 10, redPercent: 10, violetPercent: 20 };
     expect(getTrafficLightStatus(makeMetrics(10), equal)).toBe('green');
     expect(getTrafficLightStatus(makeMetrics(10.1), equal)).toBe('red');
+  });
+
+  it('handles zero violet threshold (any under-budget project triggers violet)', () => {
+    const zeroViolet: TrafficLightThresholds = {
+      amberPercent: 5, redPercent: 15, violetPercent: 0,
+    };
+    expect(getTrafficLightStatus(makeMetrics(0), zeroViolet)).toBe('green');
+    expect(getTrafficLightStatus(makeMetrics(-0.1), zeroViolet)).toBe('violet');
+  });
+
+  it('handles very high violet threshold (only extreme under-budget triggers violet)', () => {
+    const highViolet: TrafficLightThresholds = {
+      amberPercent: 5, redPercent: 15, violetPercent: 100,
+    };
+    expect(getTrafficLightStatus(makeMetrics(-99), highViolet)).toBe('green');
+    expect(getTrafficLightStatus(makeMetrics(-100), highViolet)).toBe('green');
+    expect(getTrafficLightStatus(makeMetrics(-100.1), highViolet)).toBe('violet');
   });
 });
 
@@ -77,21 +112,28 @@ describe('getTrafficLightDisplay', () => {
     const d = getTrafficLightDisplay('green');
     expect(d.label).toBe('On Track');
     expect(d.color).toContain('green');
-    expect(d.indicator).toBe('\u25CF');
+    expect(d.indicator).toBe('●');
   });
 
   it('returns amber display properties', () => {
     const d = getTrafficLightDisplay('amber');
     expect(d.label).toBe('At Risk');
     expect(d.color).toContain('amber');
-    expect(d.indicator).toBe('\u25CF');
+    expect(d.indicator).toBe('●');
   });
 
   it('returns red display properties', () => {
     const d = getTrafficLightDisplay('red');
     expect(d.label).toBe('Over Budget');
     expect(d.color).toContain('red');
-    expect(d.indicator).toBe('\u25CF');
+    expect(d.indicator).toBe('●');
+  });
+
+  it('returns violet display properties', () => {
+    const d = getTrafficLightDisplay('violet');
+    expect(d.label).toBe('Under Budget');
+    expect(d.color).toContain('violet');
+    expect(d.indicator).toBe('●');
   });
 });
 
@@ -100,6 +142,7 @@ describe('DEFAULT_THRESHOLDS', () => {
     expect(DEFAULT_THRESHOLDS).toEqual({
       amberPercent: 5,
       redPercent: 15,
+      violetPercent: 20,
     });
   });
 });

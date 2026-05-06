@@ -56,7 +56,7 @@ const SETTINGS: Settings = {
     { role: 'QA', hourlyRate: 80 },
   ],
   holidays: [],
-  trafficLightThresholds: { amberPercent: 5, redPercent: 15 },
+  trafficLightThresholds: { amberPercent: 5, redPercent: 15, violetPercent: 20 },
 };
 
 const MONTHS = ['2026-01', '2026-02', '2026-03'];

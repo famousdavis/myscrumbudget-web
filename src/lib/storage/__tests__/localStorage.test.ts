@@ -59,7 +59,7 @@ describe('LocalStorage Repository', () => {
         discountRateAnnual: 0.05,
         laborRates: [{ role: 'Dev', hourlyRate: 120 }],
         holidays: [],
-        trafficLightThresholds: { amberPercent: 5, redPercent: 15 },
+        trafficLightThresholds: { amberPercent: 5, redPercent: 15, violetPercent: 20 },
       };
       await repo.saveSettings(custom);
       const result = await repo.getSettings();
@@ -128,7 +128,7 @@ describe('LocalStorage Repository', () => {
       const project = makeProject();
       await repo.saveProject(project);
       const exported = await repo.exportAll();
-      expect(exported.version).toBe('0.12.0');
+      expect(exported.version).toBe('0.13.0');
       expect(exported.settings).toEqual(DEFAULT_SETTINGS);
       expect(exported.teamPool).toEqual([]);
       expect(exported.projects).toEqual([project]);
@@ -142,7 +142,7 @@ describe('LocalStorage Repository', () => {
           discountRateAnnual: 0.05,
           laborRates: [],
           holidays: [],
-          trafficLightThresholds: { amberPercent: 5, redPercent: 15 },
+          trafficLightThresholds: { amberPercent: 5, redPercent: 15, violetPercent: 20 },
         },
         teamPool: [],
         projects: [makeProject({ id: 'new' })],
@@ -257,7 +257,7 @@ describe('LocalStorage Repository', () => {
   describe('Version', () => {
     it('returns current version when none stored', async () => {
       const version = await repo.getVersion();
-      expect(version).toBe('0.12.0');
+      expect(version).toBe('0.13.0');
     });
   });
 

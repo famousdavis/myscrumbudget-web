@@ -13,7 +13,7 @@ function makeAppState(overrides: Partial<AppState> = {}): AppState {
       discountRateAnnual: 0.03,
       laborRates: [],
       holidays: [],
-      trafficLightThresholds: { amberPercent: 5, redPercent: 15 },
+      trafficLightThresholds: { amberPercent: 5, redPercent: 15, violetPercent: 20 },
     },
     teamPool: [],
     projects: [],
@@ -29,13 +29,13 @@ describe('Migrations', () => {
   });
 
   it('returns data unchanged when no migrations are pending', () => {
-    const data = makeAppState({ version: '0.12.0' });
-    const result = runMigrations(data, '0.12.0');
+    const data = makeAppState({ version: '0.13.0' });
+    const result = runMigrations(data, '0.13.0');
     expect(result).toEqual(data);
   });
 
   it('exports current version constant', () => {
-    expect(DATA_VERSION).toBe('0.12.0');
+    expect(DATA_VERSION).toBe('0.13.0');
   });
 
   it('migrates v1 data to v2 (extracts team pool from projects)', () => {
@@ -68,7 +68,7 @@ describe('Migrations', () => {
     const result = runMigrations(v1Data, '1.0.0');
 
     // Version should be bumped to latest
-    expect(result.version).toBe('0.12.0');
+    expect(result.version).toBe('0.13.0');
 
     // Pool should contain both members
     expect(result.teamPool).toHaveLength(2);
@@ -118,10 +118,12 @@ describe('Migrations', () => {
     // v0.6.0 migration: holidays added to settings
     expect(result.settings.holidays).toEqual([]);
 
-    // v0.7.0 migration: trafficLightThresholds added to settings
+    // v0.7.0 migration: trafficLightThresholds added to settings.
+    // v0.13.0 migration: violetPercent backfilled.
     expect(result.settings.trafficLightThresholds).toEqual({
       amberPercent: 5,
       redPercent: 15,
+      violetPercent: 20,
     });
   });
 
@@ -139,7 +141,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v2Data, '0.2.0');
 
-    expect(result.version).toBe('0.12.0');
+    expect(result.version).toBe('0.13.0');
     // hoursPerMonth should be removed
     expect((result.settings as unknown as Record<string, unknown>).hoursPerMonth).toBeUndefined();
     // Other settings preserved
@@ -177,7 +179,7 @@ describe('Migrations', () => {
 
     const migrated = runMigrations(importedData, '1.0.0');
 
-    expect(migrated.version).toBe('0.12.0');
+    expect(migrated.version).toBe('0.13.0');
     expect(migrated.teamPool).toHaveLength(1);
     expect(migrated.teamPool[0].name).toBe('Alice');
     expect((migrated.projects[0] as unknown as Record<string, unknown>).assignments).toBeUndefined();
@@ -241,7 +243,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v3Data, '0.3.0');
 
-    expect(result.version).toBe('0.12.0');
+    expect(result.version).toBe('0.13.0');
     const proj = result.projects[0];
 
     // actualCost should be removed from project level
@@ -292,7 +294,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v3Data, '0.3.0');
 
-    expect(result.version).toBe('0.12.0');
+    expect(result.version).toBe('0.13.0');
     const proj = result.projects[0];
 
     // actualCost removed from project
@@ -446,7 +448,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v4Data, '0.4.0');
 
-    expect(result.version).toBe('0.12.0');
+    expect(result.version).toBe('0.13.0');
     const proj = result.projects[0];
 
     // baselineBudget removed from project level
@@ -495,7 +497,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v4Data, '0.4.0');
 
-    expect(result.version).toBe('0.12.0');
+    expect(result.version).toBe('0.13.0');
     const proj = result.projects[0];
 
     // Missing baselineBudget defaults to 0
@@ -537,7 +539,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v4Data, '0.4.0');
 
-    expect(result.version).toBe('0.12.0');
+    expect(result.version).toBe('0.13.0');
     expect(result.projects[0].reforecasts[0].baselineBudget).toBe(0);
   });
 
@@ -595,7 +597,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v4Data, '0.4.0');
 
-    expect(result.version).toBe('0.12.0');
+    expect(result.version).toBe('0.13.0');
     expect(result.projects[0].reforecasts[0].baselineBudget).toBe(0);
     expect(result.projects[1].reforecasts[0].baselineBudget).toBe(0);
   });
@@ -613,7 +615,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v5Data, '0.5.0');
 
-    expect(result.version).toBe('0.12.0');
+    expect(result.version).toBe('0.13.0');
     expect(result.settings.holidays).toEqual([]);
     // Other settings preserved
     expect(result.settings.discountRateAnnual).toBe(0.03);
@@ -636,7 +638,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v5Data, '0.5.0');
 
-    expect(result.version).toBe('0.12.0');
+    expect(result.version).toBe('0.13.0');
     expect(result.settings.holidays).toHaveLength(1);
     expect(result.settings.holidays[0].name).toBe('Test');
   });
@@ -675,7 +677,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v4Data, '0.4.0');
 
-    expect(result.version).toBe('0.12.0');
+    expect(result.version).toBe('0.13.0');
     const proj = result.projects[0];
 
     // reforecastDate falls back to today when createdAt is missing
@@ -697,10 +699,12 @@ describe('Migrations', () => {
 
     const result = runMigrations(v6Data, '0.6.0');
 
-    expect(result.version).toBe('0.12.0');
+    expect(result.version).toBe('0.13.0');
+    // v0.7.0 seeds defaults, v0.13.0 backfills violetPercent.
     expect(result.settings.trafficLightThresholds).toEqual({
       amberPercent: 5,
       redPercent: 15,
+      violetPercent: 20,
     });
     // Other settings preserved
     expect(result.settings.discountRateAnnual).toBe(0.03);
@@ -723,10 +727,12 @@ describe('Migrations', () => {
 
     const result = runMigrations(v6Data, '0.6.0');
 
-    expect(result.version).toBe('0.12.0');
+    expect(result.version).toBe('0.13.0');
+    // User customizations preserved through 0.7.0; 0.13.0 backfills violetPercent.
     expect(result.settings.trafficLightThresholds).toEqual({
       amberPercent: 10,
       redPercent: 20,
+      violetPercent: 20,
     });
   });
 
@@ -778,7 +784,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v7Data, '0.7.0');
 
-    expect(result.version).toBe('0.12.0');
+    expect(result.version).toBe('0.13.0');
     expect(result.projects[0].reforecasts[0].notes).toBe('');
     expect(result.projects[0].reforecasts[1].notes).toBe('');
   });
@@ -890,7 +896,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v9Data, '0.9.0');
 
-    expect(result.version).toBe('0.12.0');
+    expect(result.version).toBe('0.13.0');
 
     const baseline = result.projects[0].reforecasts[0];
     const march30 = result.projects[0].reforecasts[1];
@@ -955,7 +961,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v9Data, '0.9.0');
 
-    expect(result.version).toBe('0.12.0');
+    expect(result.version).toBe('0.13.0');
     const rf = result.projects[0].reforecasts[0];
 
     // User-entered Jan entry survives, normalized to {month, cost, hours}
@@ -1001,7 +1007,7 @@ describe('Migrations', () => {
     } as unknown as AppState;
 
     const result = runMigrations(v9Data, '0.9.0');
-    expect(result.version).toBe('0.12.0');
+    expect(result.version).toBe('0.13.0');
     // v0.11.0 migration adds an empty `assignments` array to each reforecast.
     expect(result.projects[0].reforecasts[0]).toEqual({
       ...v9Data.projects[0].reforecasts[0],
@@ -1102,7 +1108,7 @@ describe('Migrations', () => {
 
       const result = runMigrations(v10Data, '0.10.0');
 
-      expect(result.version).toBe('0.12.0');
+      expect(result.version).toBe('0.13.0');
       const proj = result.projects[0];
       expect((proj as unknown as Record<string, unknown>).assignments).toBeUndefined();
       expect(proj.reforecasts[0].assignments).toEqual([
@@ -1158,7 +1164,7 @@ describe('Migrations', () => {
 
       const result = runMigrations(v10Data, '0.10.0');
 
-      expect(result.version).toBe('0.12.0');
+      expect(result.version).toBe('0.13.0');
       expect(result.projects[0].reforecasts[0].assignments).toEqual([]);
     });
 
@@ -1198,7 +1204,7 @@ describe('Migrations', () => {
 
       const result = runMigrations(v10Data, '0.10.0');
 
-      expect(result.version).toBe('0.12.0');
+      expect(result.version).toBe('0.13.0');
       expect(result.projects[0].reforecasts[0].assignments).toEqual([]);
     });
 
@@ -1240,7 +1246,7 @@ describe('Migrations', () => {
 
       const result = runMigrations(v10Data, '0.10.0');
 
-      expect(result.version).toBe('0.12.0');
+      expect(result.version).toBe('0.13.0');
       // Existing per-reforecast assignments win
       expect(result.projects[0].reforecasts[0].assignments).toEqual([
         { id: 'a99', poolMemberId: 'pm99' },
@@ -1288,26 +1294,82 @@ describe('Migrations', () => {
       };
     }
 
-    it('migrates v0.11.0 → v0.12.0 as a no-op except for the version field', () => {
+    it('migrates v0.11.0 → v0.12.0 as a no-op for teamPool/projects (post-0.13.0 settings gain violetPercent)', () => {
       const v11Data = makeV11();
       const result = runMigrations(v11Data as never, '0.11.0');
 
-      expect(result.version).toBe('0.12.0');
-      // Everything else identical
+      expect(result.version).toBe('0.13.0');
       expect(result.teamPool).toEqual([
         { id: 'pm-1', name: 'Alice', role: 'BA' },
         { id: 'pm-2', name: 'Bob', role: 'IT-SoftEng' },
       ]);
       expect(result.projects).toEqual((v11Data as { projects: unknown }).projects);
-      expect(result.settings).toEqual((v11Data as { settings: unknown }).settings);
+      // Settings preserved EXCEPT trafficLightThresholds gains violetPercent: 20 from the 0.13.0 migration.
+      const v11Settings = (v11Data as { settings: { trafficLightThresholds: object } }).settings;
+      expect(result.settings).toEqual({
+        ...v11Settings,
+        trafficLightThresholds: { ...v11Settings.trafficLightThresholds, violetPercent: 20 },
+      });
     });
 
-    it('is idempotent on v0.12.0 data', () => {
-      const v12Data = { ...(makeV11() as object), version: '0.12.0' };
+    it('migrates v0.12.0 forward to 0.13.0 (adds violetPercent to settings)', () => {
+      const v12Data = { ...(makeV11() as object), version: '0.12.0' } as {
+        version: string;
+        settings: { trafficLightThresholds: object };
+      };
       const result = runMigrations(v12Data as never, '0.12.0');
 
-      expect(result.version).toBe('0.12.0');
-      expect(result).toEqual(v12Data);
+      expect(result.version).toBe('0.13.0');
+      expect(result.settings.trafficLightThresholds).toEqual({
+        amberPercent: 5,
+        redPercent: 15,
+        violetPercent: 20,
+      });
+    });
+  });
+
+  describe('v0.12.0 to v0.13.0 (adds violetPercent to trafficLightThresholds)', () => {
+    function makeV12(): unknown {
+      return {
+        version: '0.12.0',
+        settings: {
+          discountRateAnnual: 0.03,
+          laborRates: [],
+          holidays: [],
+          trafficLightThresholds: { amberPercent: 5, redPercent: 15 },
+        },
+        teamPool: [],
+        projects: [],
+      };
+    }
+
+    it('backfills violetPercent: 20 when missing', () => {
+      const data = makeV12();
+      const result = runMigrations(data as never, '0.12.0');
+      expect(result.version).toBe('0.13.0');
+      expect(result.settings.trafficLightThresholds).toEqual({
+        amberPercent: 5,
+        redPercent: 15,
+        violetPercent: 20,
+      });
+    });
+
+    it('preserves a user-customized violetPercent if already present', () => {
+      const data = makeV12() as { settings: { trafficLightThresholds: Record<string, number> } };
+      data.settings.trafficLightThresholds.violetPercent = 35;
+      const result = runMigrations(data as never, '0.12.0');
+      expect(result.settings.trafficLightThresholds.violetPercent).toBe(35);
+    });
+
+    it('does not clobber existing amberPercent or redPercent', () => {
+      const data = makeV12() as { settings: { trafficLightThresholds: Record<string, number> } };
+      data.settings.trafficLightThresholds = { amberPercent: 8, redPercent: 22 };
+      const result = runMigrations(data as never, '0.12.0');
+      expect(result.settings.trafficLightThresholds).toEqual({
+        amberPercent: 8,
+        redPercent: 22,
+        violetPercent: 20,
+      });
     });
   });
 });

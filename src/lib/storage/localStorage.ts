@@ -23,7 +23,7 @@ export const DEFAULT_SETTINGS: Settings = {
     { role: 'PMO', hourlyRate: 120 },
   ],
   holidays: [],
-  trafficLightThresholds: { amberPercent: 5, redPercent: 15 },
+  trafficLightThresholds: { amberPercent: 5, redPercent: 15, violetPercent: 20 },
 };
 
 /**

@@ -52,6 +52,7 @@ export default function SettingsPage() {
         <ThresholdSettings
           amberPercent={settings.trafficLightThresholds.amberPercent}
           redPercent={settings.trafficLightThresholds.redPercent}
+          violetPercent={settings.trafficLightThresholds.violetPercent}
           onUpdate={updateSettings}
         />
         <hr className="border-zinc-200 dark:border-zinc-800" />

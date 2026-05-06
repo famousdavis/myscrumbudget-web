@@ -19,11 +19,12 @@ export interface Holiday {
 // Traffic-light thresholds for dashboard status indicators.
 // Based on variancePercent: positive = over budget.
 export interface TrafficLightThresholds {
-  amberPercent: number; // variance% above this → Amber (default: 5)
-  redPercent: number;   // variance% above this → Red (default: 15)
+  amberPercent: number;  // variance% above this → Amber (default: 5)
+  redPercent: number;    // variance% above this → Red (default: 15)
+  violetPercent: number; // variance% below -violetPercent → Violet (default: 20 means below -20%)
 }
 
-export type TrafficLightStatus = 'green' | 'amber' | 'red';
+export type TrafficLightStatus = 'green' | 'amber' | 'red' | 'violet';
 
 export interface Settings {
   discountRateAnnual: number;

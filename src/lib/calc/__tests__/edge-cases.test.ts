@@ -15,7 +15,7 @@ const SETTINGS: Settings = {
   discountRateAnnual: 0.03,
   laborRates: [{ role: 'Dev', hourlyRate: 100 }],
   holidays: [],
-  trafficLightThresholds: { amberPercent: 5, redPercent: 15 },
+  trafficLightThresholds: { amberPercent: 5, redPercent: 15, violetPercent: 20 },
 };
 
 function makeProject(overrides: Partial<Project> = {}): Project {
