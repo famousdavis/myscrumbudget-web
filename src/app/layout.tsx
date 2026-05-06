@@ -59,14 +59,16 @@ export default function RootLayout({
         >
           Skip to main content
         </a>
-        <div className="flex min-h-screen">
-          <Sidebar />
-          <main id="main-content" className="min-w-0 flex-1 p-8 pt-16 md:pt-4">
-            <FirstRunBanner />
-            <LocalStorageWarningBanner />
-            <MigrationGuard><AuthProvider><CloudSyncProvider><ToastProvider><TopBar />{children}</ToastProvider></CloudSyncProvider></AuthProvider></MigrationGuard>
-            <Footer />
-          </main>
+        <div className="flex min-h-screen flex-col">
+          <div className="flex flex-1">
+            <Sidebar />
+            <main id="main-content" className="min-w-0 flex-1 p-8 pt-16 md:pt-4">
+              <FirstRunBanner />
+              <LocalStorageWarningBanner />
+              <MigrationGuard><AuthProvider><CloudSyncProvider><ToastProvider><TopBar />{children}</ToastProvider></CloudSyncProvider></AuthProvider></MigrationGuard>
+            </main>
+          </div>
+          <Footer />
         </div>
       </body>
     </html>

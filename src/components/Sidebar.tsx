@@ -4,17 +4,12 @@
 
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
-import { ShortcutsDialog } from './ShortcutsDialog';
-import { useKeyboardShortcut } from '@/hooks/useKeyboardShortcut';
 import { useDarkMode } from '@/hooks/useDarkMode';
 
 export function Sidebar() {
   const [open, setOpen] = useState(false);
-  const [showShortcuts, setShowShortcuts] = useState(false);
-  const toggleShortcuts = useCallback(() => setShowShortcuts((v) => !v), []);
-  useKeyboardShortcut('?', toggleShortcuts, { ctrl: true });
   const isDark = useDarkMode();
 
   return (
@@ -128,21 +123,8 @@ export function Sidebar() {
               </Link>
             </li>
           </ul>
-          <div className="mt-auto border-t border-zinc-200 px-3 py-3 dark:border-zinc-800">
-            <button
-              onClick={() => setShowShortcuts(true)}
-              className="w-full rounded-md px-3 py-1.5 text-left text-sm text-zinc-500 hover:bg-zinc-200 dark:text-zinc-400 dark:hover:bg-zinc-800"
-              title="Keyboard shortcuts (Ctrl+?)"
-              aria-label="Show keyboard shortcuts"
-            >
-              Keyboard Shortcuts
-            </button>
-          </div>
         </div>
       </nav>
-      {showShortcuts && (
-        <ShortcutsDialog onClose={() => setShowShortcuts(false)} />
-      )}
     </>
   );
 }
