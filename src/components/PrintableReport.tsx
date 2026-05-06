@@ -43,21 +43,25 @@ const RAG_PRINT_COLORS: Record<TrafficLightStatus, string> = {
 const sectionHeading =
   'text-xs font-semibold uppercase tracking-wider text-zinc-500';
 const labelCell = 'py-0.5 pr-3 align-top text-zinc-600';
-const valueCell = 'py-0.5 pr-6 text-right align-top font-medium text-zinc-900';
+const valueCell = 'py-0.5 text-right align-top font-medium text-zinc-900';
 
-// Shared column widths for all three executive-summary tables. With
-// `table-fixed` on the parent table these widths are authoritative, so
-// label/value edges line up at identical X positions across sections —
-// killing the cross-section zig-zag where each table's columns used to
-// auto-size from its own content.
+// Shared column widths for all three executive-summary tables. Five tracks
+// — label-L, value-L, GAP, label-R, value-R — so each value sits directly
+// next to its own label and the two label/value pairs are separated by a
+// visible whitespace channel in the middle (rather than huge gaps between
+// each label and its value). Each row therefore renders five <td>s with an
+// empty spacer cell at index 2. With `table-fixed` on the parent table
+// these widths are authoritative.
 const SummaryColGroup = (
   <colgroup>
-    <col style={{ width: '30%' }} />
-    <col style={{ width: '20%' }} />
-    <col style={{ width: '30%' }} />
-    <col style={{ width: '20%' }} />
+    <col style={{ width: '27%' }} />
+    <col style={{ width: '14%' }} />
+    <col style={{ width: '18%' }} />
+    <col style={{ width: '27%' }} />
+    <col style={{ width: '14%' }} />
   </colgroup>
 );
+const gapCell = '';
 
 interface PrintableReportProps {
   project: Project;
@@ -118,7 +122,7 @@ export function PrintableReport({
         </p>
       )}
 
-      {/* ── Project Summary (compact 4-col) ─────────────────── */}
+      {/* ── Project Summary (compact 2-pair) ─────────────────── */}
       <section className="print-section-keep mt-3">
         <h2 className={sectionHeading}>Project Summary</h2>
         <table className="mt-1 w-full table-fixed text-sm">
@@ -127,22 +131,25 @@ export function PrintableReport({
             <tr>
               <td className={labelCell}>Start Date</td>
               <td className={valueCell}>{formatDateMedium(project.startDate)}</td>
+              <td className={gapCell} aria-hidden="true" />
               <td className={labelCell}>End Date</td>
               <td className={valueCell}>{formatDateMedium(project.endDate)}</td>
             </tr>
             <tr>
               <td className={labelCell}>Baseline Budget</td>
               <td className={valueCell}>{formatCurrency(baselineBudget)}</td>
+              <td className={gapCell} aria-hidden="true" />
               <td className={labelCell}>Actual Cost (AC)</td>
               <td className={valueCell}>{formatCurrency(actualCost)}</td>
             </tr>
             <tr>
-              <td className={labelCell}>Estimate to Complete (ETC)</td>
+              <td className={labelCell}>Est. to Complete (ETC)</td>
               <td className={valueCell}>
                 {metrics ? formatCurrency(metrics.etc) : '—'}
               </td>
-              <td className={labelCell}>Estimate at Completion (EAC)</td>
-              <td className={`py-0.5 pr-6 text-right align-top font-bold ${ragColorClass || 'text-zinc-900'}`}>
+              <td className={gapCell} aria-hidden="true" />
+              <td className={labelCell}>Est. at Completion (EAC)</td>
+              <td className={`py-0.5 text-right align-top font-bold ${ragColorClass || 'text-zinc-900'}`}>
                 {metrics ? formatCurrency(metrics.eac) : '—'}
               </td>
             </tr>
@@ -150,7 +157,7 @@ export function PrintableReport({
         </table>
       </section>
 
-      {/* ── Active Reforecast (compact 4-col) ───────────────── */}
+      {/* ── Active Reforecast (compact 2-pair) ───────────────── */}
       {activeReforecast && (
         <section className="print-section-keep mt-3">
           <h2 className={sectionHeading}>Active Reforecast</h2>
@@ -160,6 +167,7 @@ export function PrintableReport({
               <tr>
                 <td className={labelCell}>Name</td>
                 <td className={valueCell}>{activeReforecast.name}</td>
+                <td className={gapCell} aria-hidden="true" />
                 <td className={labelCell}>Reforecast Date</td>
                 <td className={valueCell}>
                   {activeReforecast.reforecastDate
@@ -174,6 +182,7 @@ export function PrintableReport({
                     ? formatDateMedium(activeReforecast.actualsThroughDate)
                     : 'Not set'}
                 </td>
+                <td className={gapCell} aria-hidden="true" />
                 <td className={labelCell}>Reforecast Baseline</td>
                 <td className={valueCell}>
                   {formatCurrency(activeReforecast.baselineBudget)}
@@ -192,7 +201,7 @@ export function PrintableReport({
         </section>
       )}
 
-      {/* ── Forecast Metrics (compact 4-col, 4 rows) ────────── */}
+      {/* ── Forecast Metrics (compact 2-pair, 4 rows) ────────── */}
       <section className="print-section-keep mt-3">
         <h2 className={sectionHeading}>Forecast Metrics</h2>
         {metrics ? (
@@ -202,12 +211,14 @@ export function PrintableReport({
               <tr>
                 <td className={labelCell}>ETC</td>
                 <td className={valueCell}>{formatCurrency(metrics.etc)}</td>
+                <td className={gapCell} aria-hidden="true" />
                 <td className={labelCell}>EAC</td>
                 <td className={valueCell}>{formatCurrency(metrics.eac)}</td>
               </tr>
               <tr>
                 <td className={labelCell}>Variance</td>
                 <td className={valueCell}>{formatCurrency(metrics.variance)}</td>
+                <td className={gapCell} aria-hidden="true" />
                 <td className={labelCell}>Variance %</td>
                 <td className={valueCell}>
                   {formatPercentValue(metrics.variancePercent)}
@@ -216,6 +227,7 @@ export function PrintableReport({
               <tr>
                 <td className={labelCell}>Budget Ratio</td>
                 <td className={valueCell}>{formatNumber(metrics.budgetRatio, 2)}</td>
+                <td className={gapCell} aria-hidden="true" />
                 <td className={labelCell}>Weekly Burn Rate</td>
                 <td className={valueCell}>{formatCurrency(metrics.weeklyBurnRate)}</td>
               </tr>
@@ -224,6 +236,7 @@ export function PrintableReport({
                 <td className={valueCell}>
                   {formatCurrency(Math.round(metrics.npv))}
                 </td>
+                <td className={gapCell} aria-hidden="true" />
                 <td className={labelCell}>Total Hours</td>
                 <td className={valueCell}>
                   {formatNumber(Math.round(metrics.totalHours))}
