@@ -43,7 +43,21 @@ const RAG_PRINT_COLORS: Record<TrafficLightStatus, string> = {
 const sectionHeading =
   'text-xs font-semibold uppercase tracking-wider text-zinc-500';
 const labelCell = 'py-0.5 pr-3 align-top text-zinc-600';
-const valueCell = 'py-0.5 pr-6 align-top font-medium text-zinc-900';
+const valueCell = 'py-0.5 pr-6 text-right align-top font-medium text-zinc-900';
+
+// Shared column widths for all three executive-summary tables. With
+// `table-fixed` on the parent table these widths are authoritative, so
+// label/value edges line up at identical X positions across sections —
+// killing the cross-section zig-zag where each table's columns used to
+// auto-size from its own content.
+const SummaryColGroup = (
+  <colgroup>
+    <col style={{ width: '30%' }} />
+    <col style={{ width: '20%' }} />
+    <col style={{ width: '30%' }} />
+    <col style={{ width: '20%' }} />
+  </colgroup>
+);
 
 interface PrintableReportProps {
   project: Project;
@@ -107,7 +121,8 @@ export function PrintableReport({
       {/* ── Project Summary (compact 4-col) ─────────────────── */}
       <section className="print-section-keep mt-3">
         <h2 className={sectionHeading}>Project Summary</h2>
-        <table className="mt-1 w-full text-sm">
+        <table className="mt-1 w-full table-fixed text-sm">
+          {SummaryColGroup}
           <tbody>
             <tr>
               <td className={labelCell}>Start Date</td>
@@ -127,7 +142,7 @@ export function PrintableReport({
                 {metrics ? formatCurrency(metrics.etc) : '—'}
               </td>
               <td className={labelCell}>Estimate at Completion (EAC)</td>
-              <td className={`py-0.5 pr-6 align-top font-bold ${ragColorClass || 'text-zinc-900'}`}>
+              <td className={`py-0.5 pr-6 text-right align-top font-bold ${ragColorClass || 'text-zinc-900'}`}>
                 {metrics ? formatCurrency(metrics.eac) : '—'}
               </td>
             </tr>
@@ -139,7 +154,8 @@ export function PrintableReport({
       {activeReforecast && (
         <section className="print-section-keep mt-3">
           <h2 className={sectionHeading}>Active Reforecast</h2>
-          <table className="mt-1 w-full text-sm">
+          <table className="mt-1 w-full table-fixed text-sm">
+            {SummaryColGroup}
             <tbody>
               <tr>
                 <td className={labelCell}>Name</td>
@@ -180,7 +196,8 @@ export function PrintableReport({
       <section className="print-section-keep mt-3">
         <h2 className={sectionHeading}>Forecast Metrics</h2>
         {metrics ? (
-          <table className="mt-1 w-full text-sm">
+          <table className="mt-1 w-full table-fixed text-sm">
+            {SummaryColGroup}
             <tbody>
               <tr>
                 <td className={labelCell}>ETC</td>
