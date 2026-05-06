@@ -232,7 +232,7 @@ export function PrintableReport({
                 <td className={valueCell}>{formatCurrency(metrics.weeklyBurnRate)}</td>
               </tr>
               <tr>
-                <td className={labelCell}>NPV</td>
+                <td className={labelCell}>Net Present Value</td>
                 <td className={valueCell}>
                   {formatCurrency(Math.round(metrics.npv))}
                 </td>
