@@ -4,6 +4,18 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.27.1] - 2026-05-06
+
+### Fixed
+- **Tightened print/PDF report column alignment.** The three executive-summary tables on page 1 (Project Summary, Active Reforecast, Forecast Metrics) previously rendered as independent `<table>` elements with no fixed column widths, so each table auto-sized its 4 columns from its own content. Result: column 2 (and column 4) values landed at three different X positions across the three sections, producing a visible cross-section zig-zag — Project Summary stretched its label column to fit "Estimate to Complete (ETC)" while Forecast Metrics only needed enough room for "Budget Ratio"
+- **All three tables now share a single `<colgroup>`** (30% / 20% / 30% / 20%) and use `table-layout: fixed` via the `table-fixed` Tailwind class, so column edges line up at identical X positions across sections regardless of label length
+- **Value cells (column 2 and column 4) are now right-aligned.** Currency stacks cleanly — `$250,000` over `$20,000` align by their last digit, which is the standard convention for financial reports. The colored EAC value cell on the Project Summary row keeps its RAG color and bold weight, just right-aligned now
+
+### Tests
+- 863 passing across 53 test files (no test changes — purely a print-only CSS/layout adjustment with no behavioral surface)
+
+---
+
 ## [0.27.0] - 2026-05-06
 
 ### Added
