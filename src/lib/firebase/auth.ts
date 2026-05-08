@@ -10,9 +10,7 @@ import {
   GoogleAuthProvider,
   type User,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { auth, db } from './config';
-import { PROFILES_COL } from './collections';
+import { auth } from './config';
 
 /**
  * Subscribe to auth state changes.
@@ -28,23 +26,28 @@ export function subscribeToAuth(callback: (user: User | null) => void): () => vo
 
 /**
  * Sign in with Microsoft (Azure AD).
+ *
+ * Profile-write side effect (myscrumbudget_profiles + spertsuite_profiles)
+ * is now handled by AuthProvider's onAuthStateChanged callback, which fires
+ * after the popup resolves. Returning users on page reload also get their
+ * profiles refreshed there — previously only the explicit signInWithPopup
+ * path wrote profiles.
  */
 export async function signInWithMicrosoft(): Promise<void> {
   if (!auth) return;
   const provider = new OAuthProvider('microsoft.com');
   provider.setCustomParameters({ prompt: 'select_account' });
-  const result = await signInWithPopup(auth, provider);
-  await ensureProfile(result.user);
+  await signInWithPopup(auth, provider);
 }
 
 /**
  * Sign in with Google.
+ * See signInWithMicrosoft for profile-write semantics.
  */
 export async function signInWithGoogle(): Promise<void> {
   if (!auth) return;
   const provider = new GoogleAuthProvider();
-  const result = await signInWithPopup(auth, provider);
-  await ensureProfile(result.user);
+  await signInWithPopup(auth, provider);
 }
 
 /**
@@ -53,21 +56,4 @@ export async function signInWithGoogle(): Promise<void> {
 export async function signOut(): Promise<void> {
   if (!auth) return;
   await firebaseSignOut(auth);
-}
-
-/**
- * Create or update user profile document in Firestore.
- * Uses merge:true so existing fields are preserved.
- * createdAt is only written when the profile doc doesn't exist yet.
- */
-async function ensureProfile(user: User): Promise<void> {
-  if (!db) return;
-  const ref = doc(db, PROFILES_COL, user.uid);
-  const existing = await getDoc(ref);
-  await setDoc(ref, {
-    displayName: user.displayName ?? '',
-    email: user.email ?? '',
-    lastLogin: new Date().toISOString(),
-    ...(!existing.exists() ? { createdAt: new Date().toISOString() } : {}),
-  }, { merge: true });
 }
