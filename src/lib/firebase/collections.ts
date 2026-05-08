@@ -9,3 +9,10 @@
 export const PROJECTS_COL = 'myscrumbudget_projects';
 export const SETTINGS_COL = 'myscrumbudget_settings';
 export const PROFILES_COL = 'myscrumbudget_profiles';
+
+/**
+ * Suite-wide collections (shared across all SPERT apps).
+ * Used by the bulk invitation system.
+ */
+export const SUITE_PROFILES_COL    = 'spertsuite_profiles';
+export const SUITE_INVITATIONS_COL = 'spertsuite_invitations';
