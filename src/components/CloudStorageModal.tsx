@@ -19,14 +19,9 @@ import { createLocalStorageRepository } from '@/lib/storage/localStorage';
 import { createFirestoreRepository } from '@/lib/storage/firestoreRepo';
 import { sanitizeFirebaseError } from '@/lib/firebase/errors';
 import { setOriginRef } from '@/lib/storage/fingerprint';
+import { setHasUploaded } from '@/lib/storage/cloudFlipHelpers';
 import { isTosAccepted } from '@/lib/tos/tosHelpers';
 import { normalizeDisplayName } from '@/lib/utils/getFirstName';
-
-const HAS_UPLOADED_KEY = 'msb:hasUploadedToCloud';
-
-function setHasUploaded(): void {
-  try { localStorage.setItem(HAS_UPLOADED_KEY, 'true'); } catch { /* ignore */ }
-}
 
 interface CloudStorageModalProps {
   onClose: () => void;

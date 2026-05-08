@@ -16,16 +16,8 @@ import { createLocalStorageRepository } from '@/lib/storage/localStorage';
 import { createFirestoreRepository } from '@/lib/storage/firestoreRepo';
 import { sanitizeFirebaseError } from '@/lib/firebase/errors';
 import { setOriginRef } from '@/lib/storage/fingerprint';
+import { setHasUploaded, getHasUploaded } from '@/lib/storage/cloudFlipHelpers';
 import { isTosAccepted } from '@/lib/tos/tosHelpers';
-
-const HAS_UPLOADED_KEY = 'msb:hasUploadedToCloud';
-
-function getHasUploaded(): boolean {
-  try { return localStorage.getItem(HAS_UPLOADED_KEY) === 'true'; } catch { return false; }
-}
-function setHasUploaded(): void {
-  try { localStorage.setItem(HAS_UPLOADED_KEY, 'true'); } catch { /* ignore */ }
-}
 
 export function CloudStorageSection() {
   const { user, loading: authLoading, firebaseAvailable, signInWithMicrosoft, signInWithGoogle, signOut } = useAuth();
