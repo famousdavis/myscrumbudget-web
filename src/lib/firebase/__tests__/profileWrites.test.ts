@@ -12,12 +12,21 @@ const serverTimestampSpy = vi.fn(() => '__SERVER_TIMESTAMP__');
 
 vi.mock('firebase/firestore', async () => {
   const actual = await vi.importActual<typeof import('firebase/firestore')>('firebase/firestore');
+  // Wrappers around the spies were previously of the form
+  //   setDoc: (...args: unknown[]) => setDocSpy(...args)
+  // which trips the new TS2556 check ("spread argument must have a tuple
+  // type or be passed to a rest parameter") under bare `tsc --noEmit`.
+  // The wrappers were unnecessary indirection — vi.mock factories accept
+  // the spies directly, the call sites still invoke the spies with the
+  // original arg lists, and assertions like
+  //   expect(setDocSpy).toHaveBeenCalledWith(...)
+  // continue to work unchanged.
   return {
     ...actual,
-    setDoc: (...args: unknown[]) => setDocSpy(...args),
-    getDoc: (...args: unknown[]) => getDocSpy(...args),
-    doc: (...args: unknown[]) => docSpy(...args),
-    serverTimestamp: () => serverTimestampSpy(),
+    setDoc: setDocSpy,
+    getDoc: getDocSpy,
+    doc: docSpy,
+    serverTimestamp: serverTimestampSpy,
   };
 });
 
