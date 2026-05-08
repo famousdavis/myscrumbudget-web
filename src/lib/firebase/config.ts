@@ -5,6 +5,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { initializeFirestore, getFirestore, memoryLocalCache, type Firestore } from 'firebase/firestore';
 import { getAuth, type Auth } from 'firebase/auth';
+import { getFunctions, type Functions } from 'firebase/functions';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -42,7 +43,12 @@ if (app) {
 
 const auth: Auth | null = app ? getAuth(app) : null;
 
+// Firebase Functions instance — explicit region (us-central1) per Step 0g audit.
+// All four invitation callables (sendInvitationEmail, claimPendingInvitations,
+// revokeInvite, resendInvite) are deployed there. Do not omit the region.
+const functions: Functions | null = app ? getFunctions(app, 'us-central1') : null;
+
 /** True when Firebase SDK is initialized and available. */
 const isFirebaseAvailable = isFirebaseConfigured && app !== null;
 
-export { db, auth, isFirebaseAvailable };
+export { app, db, auth, functions, isFirebaseAvailable };
