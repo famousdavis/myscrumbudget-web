@@ -95,24 +95,30 @@ function requireFunctions() {
   return functions;
 }
 
-export function callSendInvitationEmail(
+// async wrappers — synchronous requireFunctions() throw becomes a rejected
+// Promise, matching the documented contract that callers see rejections
+// (not synchronous throws) when Firebase Functions is unavailable.
+export async function callSendInvitationEmail(
   input: SendInvitationEmailInput,
 ): Promise<SendInvitationEmailResult> {
-  return httpsCallable<SendInvitationEmailInput, SendInvitationEmailResult>(
+  const r = await httpsCallable<SendInvitationEmailInput, SendInvitationEmailResult>(
     requireFunctions(), 'sendInvitationEmail',
-  )(input).then(r => r.data);
+  )(input);
+  return r.data;
 }
 
-export function callRevokeInvite(tokenId: string): Promise<RevokeInviteResult> {
-  return httpsCallable<{ tokenId: string }, RevokeInviteResult>(
+export async function callRevokeInvite(tokenId: string): Promise<RevokeInviteResult> {
+  const r = await httpsCallable<{ tokenId: string }, RevokeInviteResult>(
     requireFunctions(), 'revokeInvite',
-  )({ tokenId }).then(r => r.data);
+  )({ tokenId });
+  return r.data;
 }
 
-export function callResendInvite(tokenId: string): Promise<ResendInviteResult> {
-  return httpsCallable<{ tokenId: string }, ResendInviteResult>(
+export async function callResendInvite(tokenId: string): Promise<ResendInviteResult> {
+  const r = await httpsCallable<{ tokenId: string }, ResendInviteResult>(
     requireFunctions(), 'resendInvite',
-  )({ tokenId }).then(r => r.data);
+  )({ tokenId });
+  return r.data;
 }
 
 /**
