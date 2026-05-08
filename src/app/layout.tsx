@@ -13,6 +13,8 @@ import { CloudSyncProvider } from '@/components/CloudSyncProvider';
 import { Footer } from '@/components/Footer';
 import { ToastProvider } from '@/components/Toast';
 import { TopBar } from '@/components/TopBar';
+import { InvitationBanner } from '@/components/InvitationBanner';
+import { INVITATIONS_ENABLED } from '@/lib/featureFlags';
 import './globals.css';
 
 const geistSans = Geist({
@@ -65,7 +67,7 @@ export default function RootLayout({
             <main id="main-content" className="min-w-0 flex-1 p-8 pt-16 md:pt-4">
               <FirstRunBanner />
               <LocalStorageWarningBanner />
-              <MigrationGuard><AuthProvider><CloudSyncProvider><ToastProvider><TopBar />{children}</ToastProvider></CloudSyncProvider></AuthProvider></MigrationGuard>
+              <MigrationGuard><AuthProvider><CloudSyncProvider><ToastProvider>{INVITATIONS_ENABLED && <InvitationBanner />}<TopBar />{children}</ToastProvider></CloudSyncProvider></AuthProvider></MigrationGuard>
             </main>
           </div>
           <Footer />
