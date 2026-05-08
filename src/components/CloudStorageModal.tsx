@@ -19,14 +19,9 @@ import { createLocalStorageRepository } from '@/lib/storage/localStorage';
 import { createFirestoreRepository } from '@/lib/storage/firestoreRepo';
 import { sanitizeFirebaseError } from '@/lib/firebase/errors';
 import { setOriginRef } from '@/lib/storage/fingerprint';
-import { isTosAccepted } from '@/lib/tos/tosHelpers';
+import { setHasUploaded } from '@/lib/storage/cloudFlipHelpers';
+import { useSignInWithTosGate } from '@/hooks/useSignInWithTosGate';
 import { normalizeDisplayName } from '@/lib/utils/getFirstName';
-
-const HAS_UPLOADED_KEY = 'msb:hasUploadedToCloud';
-
-function setHasUploaded(): void {
-  try { localStorage.setItem(HAS_UPLOADED_KEY, 'true'); } catch { /* ignore */ }
-}
 
 interface CloudStorageModalProps {
   onClose: () => void;
@@ -36,19 +31,21 @@ export function CloudStorageModal({ onClose }: CloudStorageModalProps) {
   const {
     user,
     firebaseAvailable,
-    signInWithGoogle,
-    signInWithMicrosoft,
     signOut,
   } = useAuth();
   const { addToast } = useToast();
+  const {
+    handleSignIn,
+    showTosModal,
+    handleTosAccepted,
+    handleTosCancel,
+    signInError,
+  } = useSignInWithTosGate();
 
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
 
   const [mode, setMode] = useState<StorageMode>(() => getStorageMode());
-  const [signInError, setSignInError] = useState<string | null>(null);
-  const [pendingProvider, setPendingProvider] = useState<'google' | 'microsoft' | null>(null);
-  const [showTosModal, setShowTosModal] = useState(false);
 
   const [showUploadConfirm, setShowUploadConfirm] = useState(false);
   const [showSwitchToLocalConfirm, setShowSwitchToLocalConfirm] = useState(false);
@@ -75,44 +72,6 @@ export function CloudStorageModal({ onClose }: CloudStorageModalProps) {
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (migrating) return;
     if (e.target === e.currentTarget) onClose();
-  };
-
-  const doSignIn = useCallback(async (provider: 'google' | 'microsoft') => {
-    setSignInError(null);
-    try {
-      if (provider === 'google') {
-        await signInWithGoogle();
-      } else {
-        await signInWithMicrosoft();
-      }
-    } catch (error) {
-      const code = (error && typeof error === 'object' && 'code' in error)
-        ? (error as { code: string }).code
-        : '';
-      // Silent returns: user closed the popup, or double-clicked the button.
-      if (code === 'auth/popup-closed-by-user' ||
-          code === 'auth/cancelled-popup-request') return;
-      if (code === 'auth/popup-blocked') {
-        setSignInError('Pop-up was blocked. Allow pop-ups for this site and try again.');
-        return;
-      }
-      setSignInError(sanitizeFirebaseError(error));
-    }
-  }, [signInWithGoogle, signInWithMicrosoft]);
-
-  const handleSignIn = (provider: 'google' | 'microsoft') => {
-    if (!isTosAccepted()) {
-      setPendingProvider(provider);
-      setShowTosModal(true);
-      return;
-    }
-    doSignIn(provider);
-  };
-
-  const handleTosAccepted = () => {
-    setShowTosModal(false);
-    if (pendingProvider) doSignIn(pendingProvider);
-    setPendingProvider(null);
   };
 
   const switchToCloudDirect = useCallback(() => {
@@ -428,10 +387,7 @@ export function CloudStorageModal({ onClose }: CloudStorageModalProps) {
       {showTosModal && (
         <TosConsentModal
           onAccept={handleTosAccepted}
-          onCancel={() => {
-            setShowTosModal(false);
-            setPendingProvider(null);
-          }}
+          onCancel={handleTosCancel}
         />
       )}
     </>

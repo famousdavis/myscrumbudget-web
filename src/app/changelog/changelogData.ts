@@ -13,6 +13,53 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.28.0',
+    date: '2026-05-08',
+    sections: [
+      {
+        title: 'Added (behind feature flag, off by default)',
+        items: [
+          'Bulk project invitations. Project owners can invite collaborators by email from the project Sharing section: paste a list of emails (separated by commas, spaces, or newlines), pick a role (Editor or Viewer), and send. Existing SPERT Suite users are auto-added as members; new users receive a one-click join link via email.',
+          'Pending invitations list: each pending row shows the invitee email, role, and resend counter (N/5). Owners can Resend (capped at 5 per invitation) or Revoke (with a ConfirmDialog). Resend success shows an inline "Invitation re-sent." confirmation that auto-clears after ~3 seconds.',
+          'Result chips render after each send: green Added (auto-added existing user), blue Invited (new user, email sent), red Failed (CF rejected — rate limit, malformed, etc.), amber Invalid (client-side EMAIL_RE rejection — these never hit the CF, so the textarea retains its content for correction).',
+          'New /?invite=<token> URL handler: when a user lands on MyScrumBudget via an invite email link, an InvitationBanner appears as a centered card above the page content. Pre-auth state shows Sign in with Google / Microsoft buttons (powered by the new shared useSignInWithTosGate hook). After sign-in, the banner transitions through Verifying → "You now have access to: <project name>" or a 30-second-grace timeout to a "didn\'t match your account" failure message.',
+          'Backed by four Firebase Functions in the shared spert-suite project (us-central1): sendInvitationEmail, claimPendingInvitations, revokeInvite, resendInvite. The daily expireInvitations scheduled function (03:00 UTC) sweeps stale pending invitations to expired across all SPERT apps automatically.',
+        ],
+      },
+      {
+        title: 'Changed (flag-independent — ships in all v0.28.0 builds)',
+        items: [
+          'User profiles dual-written to spertsuite_profiles on every auth resolution. The new cross-app collection enables email→uid lookup for the invitation system. Writes are fire-and-forget; failures are warned to the console but do not block sign-in. Privacy-relevant: every signed-in MSB user now has a doc in this shared collection (displayName normalized via getFirstName, email lowercased, photoURL).',
+          'myscrumbudget_profiles write moved from auth.ts ensureProfile() into AuthProvider.onAuthStateChanged. Previously the profile write only happened at explicit signInWithPopup resolve; it now runs on every auth resolution including page reloads. Returning users\' lastLogin timestamp updates on every page load. Body preserved verbatim from ensureProfile (no normalizeDisplayName, "" email fallback, conditional createdAt) — this is a move, not a refactor.',
+          'AuthProvider callback ordering fixed: setLoading(false) now fires BEFORE setUser(user) inside subscribeToAuth\'s callback. React 18 batches the two synchronous state updates, but the order matters for downstream effects with deps [user] or [loading] — they now see a clean (loading=false, user=X) transition in a single render instead of an intermediate (loading=true, user=X) state.',
+          'TOS-gated sign-in logic deduplicated. The pendingProvider/showTosModal/handleSignIn/handleTosAccepted pattern previously inlined separately in CloudStorageModal.tsx and CloudStorageSection.tsx is now in a shared useSignInWithTosGate hook. Behavior identical: auth/popup-closed-by-user and auth/cancelled-popup-request silent-return; auth/popup-blocked surfaces an inline "Pop-up was blocked..." message; all other errors flow through sanitizeFirebaseError. Both consumers refactored to use the hook.',
+          'Cloud-flip helpers extracted to src/lib/storage/cloudFlipHelpers.ts. setHasUploaded and getHasUploaded were duplicated as private functions in both cloud storage components; they are now shared exports so the new useInvitationLanding hook can flip storage mode on invite arrival without re-implementing the same localStorage protocol.',
+          'New shared invitation modules: src/lib/firebase/profileWrites.ts (writeSpertsuiteProfile and writeMyscrumbudgetProfile, each with intentional asymmetry comments), src/lib/firebase/claimPendingInvitations.ts (claimPendingInvitationsAndNotify with emailVerified/db/functions guards and Lesson 27 payload gate before dispatching spert:models-changed), src/lib/firebase/invitations.ts (listPendingInvites filtering on (inviterUid, modelId) per Lesson 52, removeCollaborator with three-guard runTransaction per Lesson 50, async callable wrappers with requireFunctions() null-check, mapInvitationError with context discriminator per Lesson 13).',
+          'src/hooks/useInvitationLanding.ts: state machine driving the InvitationBanner (idle → pre_auth → claiming → claimed | failed). Module-level captureInviteTokenFromUrl() captures ?invite= synchronously at import time before MigrationGuard\'s null-render can block the banner from mounting. SESSION_KEY consumed on claimed transition, on auto-fail timer, and on dismiss — page reload after any of these does NOT re-show the banner. Effect 5 filters claimed[] to MSB-only (cross-app claims still happen server-side; only the MSB banner display is per-app).',
+        ],
+      },
+      {
+        title: 'Performance',
+        items: [
+          'Parallelized getProjectMembers profile lookups. The legacy serial for-of loop with await getDoc inside scaled wall-time as O(N) round-trips. Now uses Promise.allSettled across all member uids — wall-time drops to O(1) round-trips. A rejected per-uid lookup is logged to console.warn and the member is still surfaced with empty displayName/email (matches prior per-uid try/catch fallback). The existing SharingSection benefits from this immediately; BulkSharingSection inherits it.',
+        ],
+      },
+      {
+        title: 'Security',
+        items: [
+          'CSP connect-src expanded to include https://*.run.app. Firebase Functions v2 callables may resolve to either *.cloudfunctions.net or *.run.app at runtime; without *.run.app, Cloud Run-backed callables would be blocked in production only (localhost cannot detect this). Slated for narrowing to a more specific pattern (likely *.uc.a.run.app for us-central1 v2) in a follow-up commit before the feature flag flips.',
+          'New runTransaction-based removeCollaborator in src/lib/firebase/invitations.ts replaces the legacy updateDoc-based removeProjectMember (which only had Guard 3, owner-target). The new function adds Guard 1 (self-removal pre-check, before transaction) and Guard 2 (caller-must-be-owner, defense-in-depth inside the transaction read). UI is owner-gated, so Guard 2 should never fire in normal use; it logs a console.warn if it does ("non-owner attempted remove — UI gating bypass?"). First use of runTransaction in the MSB codebase.',
+        ],
+      },
+      {
+        title: 'Tests',
+        items: [
+          '899 passing across 58 test files (was 863 across 53). New: parseBulkEmails (10 cases — delimiter variants, dedup, empty input, mixed valid/invalid), invitations.ts (10 cases — three guards × two failure paths × happy path × null-functions guard × Lesson 13 mapInvitationError context discriminator), claimPendingInvitations (4 cases — emailVerified guard, payload gate, success dispatch, console.error on CF failure), profileWrites (7 cases — null email skip, lowercased email, normalized displayName, no uid field, serverTimestamp after spread, conditional createdAt, "" fallback for legacy compatibility), captureInviteTokenFromUrl (5 cases — happy path, enabled=false no-op, no-?invite= no-op, idempotency, fragment preservation). vi.hoisted profileWrites mock template documented but skipped — Step 0c audit found zero AuthProvider tests render <AuthProvider>.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.27.1',
     date: '2026-05-06',
     sections: [

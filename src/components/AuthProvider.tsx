@@ -15,6 +15,8 @@ import {
   signInWithGoogle as doSignInGoogle,
 } from '@/lib/firebase/auth';
 import { performSignOutCleanup } from '@/lib/auth/signOutCleanup';
+import { writeSpertsuiteProfile, writeMyscrumbudgetProfile } from '@/lib/firebase/profileWrites';
+import { claimPendingInvitationsAndNotify } from '@/lib/firebase/claimPendingInvitations';
 import { TOS_VERSION, PRIVACY_VERSION, APP_ID } from '@/lib/tos/tosConstants';
 import { setTosAcceptedVersion } from '@/lib/tos/tosHelpers';
 
@@ -72,12 +74,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isFirebaseAvailable) return;
-    const unsubscribe = subscribeToAuth((u) => {
-      setUser(u);
+    const unsubscribe = subscribeToAuth((firebaseUser) => {
+      // Canonical callback shape — invariants:
+      //   1. setLoading(false) is the FIRST synchronous statement.
+      //   2. Callback is NOT async. All async work is void-prefixed fire-and-forget.
+      //   3. setUser(firebaseUser) is the LAST synchronous statement.
+      //   4. setLoading + setUser land in a single React batch — effects with
+      //      deps [user] or [loading] see a clean resolved state, never an
+      //      intermediate where loading is true and user is non-null.
       setLoading(false);
-      if (u) {
-        recordTosAcceptance(u).catch(() => {});
+      if (firebaseUser && db) {
+        // Serialized: spertsuite_profiles write completes BEFORE the claim CF
+        // fires. Eliminates any first-sign-in race where the CF might read the
+        // profile collection (Step 0h confirmed claimPendingInvitations does not
+        // read profiles for the caller, but the serialized shape is strictly
+        // safer and the extra microtask is imperceptible).
+        void (async () => {
+          await writeSpertsuiteProfile(firebaseUser);
+          claimPendingInvitationsAndNotify(firebaseUser);
+        })();
+        // Parallel: writeMyscrumbudgetProfile has no happens-before requirement
+        // vs. the claim CF. The legacy collection is consulted only by
+        // findUidByEmail in addProjectMember, gated behind the flag-off
+        // SharingSection (and removed entirely once the flag flips in PR 3).
+        void writeMyscrumbudgetProfile(firebaseUser);
+        recordTosAcceptance(firebaseUser).catch(() => {});
       }
+      setUser(firebaseUser);
     });
     return unsubscribe;
   }, []);

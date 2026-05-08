@@ -20,7 +20,7 @@ const nextConfig: NextConfig = {
               "font-src 'self'",
               "worker-src 'self' blob:",
               "frame-src https://*.firebaseapp.com https://accounts.google.com https://login.microsoftonline.com",
-              "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net wss://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com https://login.microsoftonline.com",
+              "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://*.run.app wss://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://accounts.google.com https://login.microsoftonline.com",
               "object-src 'none'",
               "base-uri 'self'",
               "form-action 'self'",

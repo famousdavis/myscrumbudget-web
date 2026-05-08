@@ -36,6 +36,8 @@ import { PrintableReport } from '@/components/PrintableReport';
 import { generateMonthRange } from '@/lib/utils/dates';
 import { buildChartData } from '@/lib/utils/buildChartData';
 import { SharingSection } from '@/features/projects/components/SharingSection';
+import { BulkSharingSection } from '@/features/projects/components/BulkSharingSection';
+import { INVITATIONS_ENABLED } from '@/lib/featureFlags';
 import { SkeletonProjectDetail } from '@/components/Skeleton';
 
 export default function ProjectDetailPage({
@@ -381,7 +383,9 @@ export default function ProjectDetailPage({
 
       {/* Sharing (cloud mode, owner only) */}
       <div className="mt-8">
-        <SharingSection projectId={project.id} />
+        {INVITATIONS_ENABLED
+          ? <BulkSharingSection projectId={project.id} />
+          : <SharingSection projectId={project.id} />}
       </div>
 
       {showDelete && (

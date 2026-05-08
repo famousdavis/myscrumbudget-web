@@ -16,20 +16,19 @@ import { createLocalStorageRepository } from '@/lib/storage/localStorage';
 import { createFirestoreRepository } from '@/lib/storage/firestoreRepo';
 import { sanitizeFirebaseError } from '@/lib/firebase/errors';
 import { setOriginRef } from '@/lib/storage/fingerprint';
-import { isTosAccepted } from '@/lib/tos/tosHelpers';
-
-const HAS_UPLOADED_KEY = 'msb:hasUploadedToCloud';
-
-function getHasUploaded(): boolean {
-  try { return localStorage.getItem(HAS_UPLOADED_KEY) === 'true'; } catch { return false; }
-}
-function setHasUploaded(): void {
-  try { localStorage.setItem(HAS_UPLOADED_KEY, 'true'); } catch { /* ignore */ }
-}
+import { setHasUploaded, getHasUploaded } from '@/lib/storage/cloudFlipHelpers';
+import { useSignInWithTosGate } from '@/hooks/useSignInWithTosGate';
 
 export function CloudStorageSection() {
-  const { user, loading: authLoading, firebaseAvailable, signInWithMicrosoft, signInWithGoogle, signOut } = useAuth();
+  const { user, loading: authLoading, firebaseAvailable, signOut } = useAuth();
   const { addToast } = useToast();
+  const {
+    handleSignIn,
+    showTosModal,
+    handleTosAccepted,
+    handleTosCancel,
+    signInError,
+  } = useSignInWithTosGate();
 
   const [mode, setMode] = useState<StorageMode>(getStorageMode);
   const [showUploadConfirm, setShowUploadConfirm] = useState(false);
@@ -39,9 +38,6 @@ export function CloudStorageSection() {
   const [migrating, setMigrating] = useState(false);
   const [migrationResult, setMigrationResult] = useState<string | null>(null);
   const [localProjectCount, setLocalProjectCount] = useState(0);
-  const [signInError, setSignInError] = useState<string | null>(null);
-  const [pendingProvider, setPendingProvider] = useState<'google' | 'microsoft' | null>(null);
-  const [showTosModal, setShowTosModal] = useState(false);
 
   // Hoisted above the firebaseAvailable early-return so all hooks run in the
   // same order on every render. In practice firebaseAvailable is derived from
@@ -180,47 +176,6 @@ export function CloudStorageSection() {
     }
     // Reload so hooks fetch from Firestore and cloud sync listeners are set up
     window.location.reload();
-  };
-
-  const doSignIn = async (provider: 'google' | 'microsoft') => {
-    setSignInError(null);
-    try {
-      if (provider === 'google') {
-        await signInWithGoogle();
-      } else {
-        await signInWithMicrosoft();
-      }
-    } catch (error) {
-      const code = (error && typeof error === 'object' && 'code' in error)
-        ? (error as { code: string }).code
-        : '';
-      // Silent returns: user closed the popup, or double-clicked the button
-      // (cancelled-popup-request fires when a second popup opens while the
-      // first is still in flight). Neither is a real error worth surfacing.
-      if (code === 'auth/popup-closed-by-user' ||
-          code === 'auth/cancelled-popup-request') return;
-      if (code === 'auth/popup-blocked') {
-        setSignInError('Pop-up was blocked. Allow pop-ups for this site and try again.');
-        return;
-      }
-      setSignInError(sanitizeFirebaseError(error));
-    }
-  };
-
-  const handleSignIn = (provider: 'google' | 'microsoft') => {
-    if (!isTosAccepted()) {
-      setPendingProvider(provider);
-      setShowTosModal(true);
-      return;
-    }
-    doSignIn(provider);
-  };
-
-  const handleTosAccepted = () => {
-    setShowTosModal(false);
-    // setTosAcceptedVersion already called optimistically by TosConsentModal
-    if (pendingProvider) doSignIn(pendingProvider);
-    setPendingProvider(null);
   };
 
   const handleSignOut = async () => {
@@ -434,10 +389,7 @@ export function CloudStorageSection() {
       {showTosModal && (
         <TosConsentModal
           onAccept={handleTosAccepted}
-          onCancel={() => {
-            setShowTosModal(false);
-            setPendingProvider(null);
-          }}
+          onCancel={handleTosCancel}
         />
       )}
 

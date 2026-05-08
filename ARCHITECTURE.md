@@ -1186,6 +1186,69 @@ Delivered:
 - `src/components/StorageStatusPill.tsx` — storage/auth status pill using `useAuth()` + `getStorageMode()`
 - `src/components/TopBar.tsx` — right-aligned bar housing `ThemeToggle` and `StorageStatusPill`
 
+### Sprint 29: Bulk Project Invitations (v0.28.0) — COMPLETE (behind feature flag)
+
+**Goal:** Add the cross-app invitation system used by the rest of the SPERT Suite — owners can invite collaborators by email; new users land on a `?invite=` URL, sign in, and are auto-claimed into the project. Behind `INVITATIONS_ENABLED` flag (default `false`); flips to `true` in PR 3 of the three-PR ship-gate pattern (Lesson 23).
+
+**Data model — new collections in the shared `spert-suite` Firebase project:**
+- **`spertsuite_profiles/{uid}`** — cross-app profile mirror. One doc per signed-in user across all SPERT apps. Fields: `displayName` (normalized via `normalizeDisplayName`), `email` (lowercased), `photoURL` (or `null`), `updatedAt` (`serverTimestamp()`). Doc ID is the uid — no `uid` field in the body. Read by `sendInvitationEmail` to map an invitee email to a uid for the auto-add path. Rules: `get` requires auth; `list` requires auth and `limit ≤ 1` (prevents bulk enumeration, permits per-email lookup); `write` restricted to the doc's owner.
+- **`spertsuite_invitations/{tokenId}`** — pending invitations. Fields include `inviterUid`, `appId`, `modelId`, `inviteeEmail`, `role`, `status` (`pending` / `accepted` / `revoked` / `expired`), `createdAt`, `expiresAt`, `emailSendCount`. `listPendingInvites` queries on `(inviterUid, modelId)` — NOT `(appId, modelId)`; no such index exists.
+- **`spertsuite_rate_limits`, `spertsuite_notification_throttle`** — server-only counters for the 25/day send cap and the 24h "you were added" notification throttle keyed by `{recipientUid}_{modelId}`.
+
+**Auth flow changes (flag-independent — ship in all v0.28.0 builds):**
+- `AuthProvider.onAuthStateChanged` now fires four operations on every auth resolution: `setLoading(false)` first, then a serialized IIFE (`await writeSpertsuiteProfile(user); claimPendingInvitationsAndNotify(user);`), then parallel `void writeMyscrumbudgetProfile(user)` and `recordTosAcceptance(user).catch(()=>{})`, finally `setUser(user)`. The serialized branch ensures the cross-app profile is populated before the claim CF runs (defense in depth — Step 0h confirmed the CF doesn't currently read `spertsuite_profiles` for the caller, but we keep the order).
+- `setLoading(false)` first / `setUser(user)` last invariant ensures effects with deps `[user]` or `[loading]` see a clean resolved state in a single React batch (was inverted in 0.27.x).
+- `ensureProfile` removed from `auth.ts`; replaced by `writeMyscrumbudgetProfile` in the new `profileWrites.ts` module. Body preserved verbatim per Step 0l audit (no normalization, `""` email fallback, conditional `createdAt`).
+- `useSignInWithTosGate` hook deduplicates the `pendingProvider` / `showTosModal` / `handleSignIn` / `handleTosAccepted` pattern previously inlined in `CloudStorageSection.tsx` and `CloudStorageModal.tsx`. Both consumers now consume the hook. Behavior identical: `auth/popup-closed-by-user` and `auth/cancelled-popup-request` silent-return; `auth/popup-blocked` surfaces an inline message; everything else flows through `sanitizeFirebaseError`.
+
+**Bulk invitations (gated by `INVITATIONS_ENABLED`):**
+- `?invite=<token>` URL flow: a module-level `captureInviteTokenFromUrl()` runs synchronously at `useInvitationLanding` import time — required because `MigrationGuard` returns `null` while migrating, blocking `InvitationBanner` from mounting before `useSearchParams` could fire. The token is moved to `sessionStorage['msb:invite-session']` and the URL is stripped via `replaceState` (preserving other query params and the fragment). The function is exported with an optional `enabled` parameter for testability without ES module mocking.
+- `useInvitationLanding` state machine: `idle → pre_auth → claiming → claimed | failed`. Initial state is computed in the `useState` initializer (avoids `react-hooks/set-state-in-effect`). Effect 2 (one-shot `flipAttemptedRef`) auto-flips local→cloud storage when SESSION_KEY is present, the user is signed in, and `localProjectCount === 0`. Effect 3 transitions `pre_auth → claiming` when the user becomes non-null. Effect 4 starts a 30s grace timer that, on expiry, removes SESSION_KEY and transitions to `'failed'` (no reload-banner-loop). Effect 5 listens for `spert:models-changed` window events; SESSION_KEY + payload gates (Lesson 27) precede the MSB-only `appId` filter; on success, SESSION_KEY is consumed and the banner shows the claimed model name(s).
+- `claimPendingInvitationsAndNotify` (called fire-and-forget by AuthProvider): silent-returns if `INVITATIONS_ENABLED` is false, `emailVerified` is false (Microsoft personal accounts), or `db`/`functions` are null; otherwise calls the `claimPendingInvitations` callable and dispatches `spert:models-changed` with the full cross-app `claimed[]` array. Each app's banner filters to its own `appId` for display, so a Forecaster claim does not surface in the MSB banner — but the claim still occurs server-side.
+- `InvitationBanner` (`src/components/InvitationBanner.tsx`): centered card (`max-w-lg mx-auto`), `role="status"` on the container, `aria-live="polite"` scoped to a hidden `.sr-only` span so state transitions announce without re-reading the entire card. `<Suspense fallback={null}>` boundary kept defensively — IIFE-based capture replaced `useSearchParams` so the boundary is not strictly required, but a future re-introduction would break the App Router build without it (Lesson 14).
+- `BulkSharingSection` replaces `SharingSection` when the flag is on. `SharingSection` is preserved unchanged as the rollback path (Lesson 23). Owner gate uses an `OwnerStatus` state machine (`loading | owner | not-owner | error`); the `error` branch renders a visible "Couldn't load… refresh to try again" message inside the `CollapsibleSection` wrapper instead of silently disappearing the section. Bulk textarea (`name="bulkInviteEmails"` — distinct from the legacy `shareInviteEmail` for code-review distinguishability) accepts emails separated by whitespace, commas, or semicolons; `parseBulkEmails` partitions valid/invalid (Lesson 42); the textarea is cleared only when at least one email succeeded (Lesson 43). Pending invitations list shows email, role, `(N/5)` resend counter, Resend (disabled at cap), and Revoke (with `ConfirmDialog`).
+- `removeCollaborator` (`src/lib/firebase/invitations.ts`): three-guard `runTransaction` (Lesson 50). Guard 1 (self-removal pre-check) fires before the transaction; Guard 2 (caller-must-be-owner) and Guard 3 (target-must-not-be-owner) fire inside the transaction read. First use of `runTransaction` in MSB.
+- `mapInvitationError(err, context)`: same error code (e.g., `functions/failed-precondition`) produces different user-facing messages for `'send'` vs `'resend'` vs `'revoke'` contexts (Lesson 13). Tests assert this regression.
+
+**Performance:**
+- `getProjectMembers` parallelized via `Promise.allSettled` — wall-time scales O(1) round-trips instead of O(N). A rejected per-uid lookup is logged and the member is still surfaced with empty `displayName`/`email` (matches prior per-uid try/catch fallback). Existing `SharingSection` benefits immediately; `BulkSharingSection` inherits.
+
+**Security:**
+- CSP `connect-src` expanded to include `https://*.run.app`. Firebase Functions v2 callables resolve to either `*.cloudfunctions.net` or `*.run.app`. Slated for narrowing to a more specific pattern (likely `*.uc.a.run.app`) before the flag flips.
+- `spertsuite_profiles` rules already in place from prior SPERT app ports — `list` constrained to `limit ≤ 1` per Lesson 38 (prevents bulk enumeration).
+
+**Three-PR ship-gate pattern (Lesson 23):**
+- PR 1 (this PR): all client code lands behind the flag; auth-system changes (profile dual-write, callback order, `useSignInWithTosGate`) ship for all users regardless of flag state.
+- PR 2: `myscrumbudget` registered in the four maps in the Landing Page repo's `invitationMailer.tsx` (`SUPPORTED_APP_IDS`, `APP_NAMES_BY_APP_ID`, `ALLOWED_ORIGINS_BY_APP_ID`, `FALLBACK_BASE_BY_APP_ID`). CF deploy gated on PR merge SHA.
+- PR 3: single-line `INVITATIONS_ENABLED = true` flip + one-line CHANGELOG amendment. No version bump; no auto-merge.
+
+**New files:**
+- `src/lib/featureFlags.ts` — `INVITATIONS_ENABLED` flag.
+- `src/lib/firebase/invitation-types.ts` — `PendingInvite`, `SendInvitationEmailResult` (added/invited are plain string arrays), `ClaimPendingInvitationsResult`, `RevokeInviteResult`, `ResendInviteResult`, `InviteResultChip` discriminated union.
+- `src/lib/firebase/profileWrites.ts` — `writeSpertsuiteProfile`, `writeMyscrumbudgetProfile`.
+- `src/lib/firebase/claimPendingInvitations.ts` — fire-and-forget claim caller.
+- `src/lib/firebase/invitations.ts` — `listPendingInvites`, `removeCollaborator`, `callSendInvitationEmail`, `callRevokeInvite`, `callResendInvite`, `mapInvitationError`.
+- `src/lib/storage/cloudFlipHelpers.ts` — `setHasUploaded`, `getHasUploaded` (extracted from CloudStorage* components).
+- `src/lib/utils/parseBulkEmails.ts` — splits/validates bulk email input.
+- `src/hooks/useSignInWithTosGate.ts`, `src/hooks/useInvitationLanding.ts`.
+- `src/components/InvitationBanner.tsx`.
+- `src/features/projects/components/BulkSharingSection.tsx`.
+
+**Modified:**
+- `src/lib/firebase/config.ts` — exports `app` and `functions` (us-central1) alongside `db` and `auth`.
+- `src/lib/firebase/auth.ts` — `ensureProfile` removed; profile writes moved to `profileWrites.ts` invoked by `AuthProvider`.
+- `src/components/AuthProvider.tsx` — canonical callback shape with serialized claim and parallel `myscrumbudget_profiles` write; `setLoading(false)` first / `setUser` last.
+- `src/components/CloudStorageModal.tsx`, `src/features/settings/components/CloudStorageSection.tsx` — consume `useSignInWithTosGate` and `setHasUploaded` from `cloudFlipHelpers.ts`.
+- `src/lib/firebase/sharing.ts` — `getProjectMembers` parallelized via `Promise.allSettled`.
+- `next.config.ts` — `connect-src` adds `https://*.run.app`.
+- `src/app/layout.tsx` — `InvitationBanner` mounted inside `ToastProvider`, gated by `INVITATIONS_ENABLED`.
+- `src/app/projects/[id]/page.tsx` — flag-conditional render of `BulkSharingSection` vs legacy `SharingSection`.
+- `src/lib/constants.ts`, `package.json`, `package-lock.json` — version bumped to 0.28.0.
+
+**Tests:** 899 passing across 58 test files (was 863 across 53). New test files: `parseBulkEmails.test.ts`, `invitations.test.ts`, `profileWrites.test.ts`, `claimPendingInvitations.test.ts`, `useInvitationLanding.test.ts`.
+
+---
+
 ### Sprint 28: Cloud Storage Modal (v0.21.0)
 
 **UX:**
