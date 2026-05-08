@@ -46,25 +46,32 @@ export async function getProjectMembers(projectId: string): Promise<ProjectMembe
 
   const data = projectSnap.data();
   const members: Record<string, string> = data.members ?? {};
-  const result: ProjectMember[] = [];
+  const entries = Object.entries(members);
 
-  for (const [uid, role] of Object.entries(members)) {
-    try {
-      const profileSnap = await getDoc(doc(db, PROFILES_COL, uid));
-      const profile = profileSnap.exists() ? profileSnap.data() : {};
-      result.push({
+  // Parallelize profile fetches with Promise.allSettled. A single rejected
+  // lookup (transient permission, network blip) is logged and the member
+  // is still surfaced with minimal info — matches prior per-uid try/catch
+  // behavior, but wall-time scales O(1) instead of O(N).
+  const settled = await Promise.allSettled(
+    entries.map(([uid]) => getDoc(doc(db!, PROFILES_COL, uid))),
+  );
+
+  return entries.map(([uid, role], i) => {
+    const result = settled[i];
+    if (result.status === 'fulfilled') {
+      const snap = result.value;
+      const profile = snap.exists() ? snap.data() : {};
+      return {
         uid,
         email: (profile.email as string) ?? '',
         displayName: (profile.displayName as string) ?? '',
         role: role as MemberRole,
-      });
-    } catch {
-      // Profile not found or permission denied — include with minimal info
-      result.push({ uid, email: '', displayName: '', role: role as MemberRole });
+      };
     }
-  }
-
-  return result;
+    // Rejected — log so a silent drop doesn't go unnoticed
+    console.warn(`[sharing] getProjectMembers: profile fetch failed for uid ${uid}:`, result.reason);
+    return { uid, email: '', displayName: '', role: role as MemberRole };
+  });
 }
 
 /**
