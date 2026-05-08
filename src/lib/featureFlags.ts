@@ -2,4 +2,4 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-export const INVITATIONS_ENABLED = false;
+export const INVITATIONS_ENABLED = true;
