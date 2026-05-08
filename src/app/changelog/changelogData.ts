@@ -17,8 +17,9 @@ export const CHANGELOG: ChangelogEntry[] = [
     date: '2026-05-08',
     sections: [
       {
-        title: 'Added (behind feature flag, off by default)',
+        title: 'Added',
         items: [
+          'Feature flag enabled — bulk invitations live in production as of 2026-05-08.',
           'Bulk project invitations. Project owners can invite collaborators by email from the project Sharing section: paste a list of emails (separated by commas, spaces, or newlines), pick a role (Editor or Viewer), and send. Existing SPERT Suite users are auto-added as members; new users receive a one-click join link via email.',
           'Pending invitations list: each pending row shows the invitee email, role, and resend counter (N/5). Owners can Resend (capped at 5 per invitation) or Revoke (with a ConfirmDialog). Resend success shows an inline "Invitation re-sent." confirmation that auto-clears after ~3 seconds.',
           'Result chips render after each send: green Added (auto-added existing user), blue Invited (new user, email sent), red Failed (CF rejected — rate limit, malformed, etc.), amber Invalid (client-side EMAIL_RE rejection — these never hit the CF, so the textarea retains its content for correction).',
