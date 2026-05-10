@@ -35,9 +35,7 @@ import { HistoricalCostsTable } from '@/components/HistoricalCostsTable';
 import { PrintableReport } from '@/components/PrintableReport';
 import { generateMonthRange } from '@/lib/utils/dates';
 import { buildChartData } from '@/lib/utils/buildChartData';
-import { SharingSection } from '@/features/projects/components/SharingSection';
 import { BulkSharingSection } from '@/features/projects/components/BulkSharingSection';
-import { INVITATIONS_ENABLED } from '@/lib/featureFlags';
 import { SkeletonProjectDetail } from '@/components/Skeleton';
 
 export default function ProjectDetailPage({
@@ -381,11 +379,14 @@ export default function ProjectDetailPage({
         </div>
       )}
 
-      {/* Sharing (cloud mode, owner only) */}
+      {/* Sharing (cloud mode, owner only).
+          v0.28.2 (L1): legacy SharingSection branch removed; bulk
+          invitations have been the only path since v0.28.0 PR 3 flipped
+          INVITATIONS_ENABLED permanently. The flag is preserved in
+          featureFlags.ts as a forward-compat doc-style toggle but no
+          longer gates rendering here. */}
       <div className="mt-8">
-        {INVITATIONS_ENABLED
-          ? <BulkSharingSection projectId={project.id} />
-          : <SharingSection projectId={project.id} />}
+        <BulkSharingSection projectId={project.id} />
       </div>
 
       {showDelete && (

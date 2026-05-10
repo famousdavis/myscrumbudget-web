@@ -8,6 +8,8 @@ import { useRef, useState } from 'react';
 import { repo } from '@/lib/storage/repo';
 import { runMigrations } from '@/lib/storage/migrations';
 import { validateAppState } from '@/lib/utils/validation';
+import { parseImportJson } from '@/lib/utils/safeJsonParse';
+import { sanitizeAppState } from '@/lib/utils/sanitizeImport';
 import { AlertDialog, ConfirmDialog } from '@/components/BaseDialog';
 import { useToast } from '@/components/Toast';
 import type { AppState } from '@/types/domain';
@@ -58,7 +60,12 @@ export function DataPortability({ onImportComplete }: DataPortabilityProps) {
 
     try {
       const text = await file.text();
-      const data = JSON.parse(text);
+      // SECURITY (v0.28.2 / M1): parseImportJson uses a JSON.parse reviver
+      // to drop `__proto__` / `constructor` / `prototype` keys at the parse
+      // boundary, blocking prototype-pollution via `{ "__proto__": {...} }`
+      // payloads that downstream spread/Object.assign sites would otherwise
+      // promote into Object.prototype.
+      const data = parseImportJson(text) as { version?: unknown; settings?: unknown; projects?: unknown };
 
       if (!data.version || typeof data.version !== 'string') {
         setAlertState({
@@ -104,8 +111,18 @@ export function DataPortability({ onImportComplete }: DataPortabilityProps) {
         return;
       }
 
+      // SECURITY (v0.28.2 / H3): final defense-in-depth strip pass.
+      // validateAppState confirms shape; sanitizeAppState reconstructs the
+      // tree using per-entity allowlists so attacker-injected fields
+      // (members, owner, _admin, etc. on a project; arbitrary keys on a
+      // reforecast/allocation) cannot ride into localStorage or — on
+      // cloud-flip — into Firestore. Defense-in-depth on top of the v0.28.2
+      // Firestore field allowlist; this layer also covers fields nested
+      // inside arrays (reforecasts, allocations) where no rule guard exists.
+      const sanitized = sanitizeAppState(migrated);
+
       // Store data and show confirmation dialog
-      setPendingImportData(migrated);
+      setPendingImportData(sanitized);
       setAlertState({ kind: 'confirm-import' });
     } catch {
       setAlertState({

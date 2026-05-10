@@ -22,6 +22,22 @@ export interface ResourcePlanMeta {
   generatedAt: string;
 }
 
+/**
+ * Neutralize formula-injection prefixes when writing user-controlled
+ * strings into Excel cells. Excel/LibreOffice/Sheets evaluate cells whose
+ * text begins with `=`, `+`, `-`, `@`, `\t`, or `\r` as formulas on file
+ * open. Prefixing with `'` (Excel's "this is text" marker) blocks that
+ * evaluation; the recipient sees the original string.
+ *
+ * Applied at every site that writes user-supplied text — even when the
+ * string sits inside a static prefix today (e.g. "Resource Plan — ...") —
+ * so a future refactor that drops the prefix doesn't reopen the surface.
+ */
+export function xlsxSanitize(v: unknown): string {
+  const s = String(v ?? '');
+  return /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+}
+
 interface BuildArgs {
   project: Project;
   reforecast: Reforecast;
@@ -54,20 +70,23 @@ export async function buildResourcePlanWorkbookBlob(args: BuildArgs): Promise<Bl
   const totalCols = 2 + months.length;
   const lastColLetter = columnLetter(totalCols);
 
-  // Row 1 — title (merged across all columns).
+  // Row 1 — title (merged across all columns). Sanitized for formula
+  // injection: a static "Resource Plan — " prefix shields evaluation today,
+  // but applying xlsxSanitize hardens the join against a future refactor
+  // that drops or reorders the prefix.
   const titleCell = sheet.getCell('A1');
-  titleCell.value = `Resource Plan — ${project.name} — ${reforecast.name}`;
+  titleCell.value = xlsxSanitize(`Resource Plan — ${project.name} — ${reforecast.name}`);
   titleCell.font = { bold: true, size: 14 };
   sheet.mergeCells(`A1:${lastColLetter}1`);
 
-  // Row 2 — metadata (merged).
+  // Row 2 — metadata (merged). Same defense-in-depth as row 1.
   const metaCell = sheet.getCell('A2');
-  metaCell.value = [
+  metaCell.value = xlsxSanitize([
     `Project: ${project.name}`,
     `Reforecast: ${reforecast.name}`,
     `Reforecast Date: ${reforecast.reforecastDate}`,
     `Generated: ${new Date().toISOString()}`,
-  ].join(' | ');
+  ].join(' | '));
   metaCell.font = { italic: true, size: 10, color: { argb: 'FF666666' } };
   sheet.mergeCells(`A2:${lastColLetter}2`);
 
@@ -89,10 +108,15 @@ export async function buildResourcePlanWorkbookBlob(args: BuildArgs): Promise<Bl
 
   // Rows 5+ — data. Empty allocations are written as 0 (rendered "0%"),
   // never blank — resource managers need to see the cell.
+  // SECURITY: name and role are user-controlled (set by other users via
+  // shared projects). xlsxSanitize prevents formula-injection attacks on
+  // the round-trip — a malicious member name like `=cmd|'/c calc'!A1`
+  // would otherwise auto-evaluate when a recipient opens the file in
+  // Excel/LibreOffice/Sheets.
   members.forEach((member, idx) => {
     const row = sheet.getRow(5 + idx);
-    row.getCell(1).value = member.name;
-    row.getCell(2).value = member.role;
+    row.getCell(1).value = xlsxSanitize(member.name);
+    row.getCell(2).value = xlsxSanitize(member.role);
     months.forEach((month, mi) => {
       const value = getAllocation(allocationMap, month, member.id);
       const cell = row.getCell(3 + mi);

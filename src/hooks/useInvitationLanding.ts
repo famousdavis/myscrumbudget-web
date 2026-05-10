@@ -124,10 +124,32 @@ export function useInvitationLanding(): UseInvitationLandingResult {
         // localProjectCount > 0: banner 'claimed' copy will instruct the user
         // to flip via Settings to preserve their existing local data.
       } catch (e) {
-        console.warn('[useInvitationLanding] storage flip failed:', e);
+        // v0.28.2 (L2): explicit SESSION_KEY cleanup on cloud-flip failure.
+        // Previously the 30s timer was the only path to clear it on this
+        // branch; now we drop it immediately so the banner does not linger
+        // in 'pre_auth' beyond the recoverable failure. log only the code.
+        try { sessionStorage.removeItem(INVITE_SESSION_KEY); } catch {}
+        console.warn(
+          '[useInvitationLanding] storage flip failed:',
+          (e as { code?: string })?.code ?? 'unknown',
+        );
       }
     })();
   }, [user]);
+
+  // ---- Effect 2b: SESSION_KEY cleanup on sign-out mid-claim (v0.28.2 / L3) -
+  // If `user` becomes null while we are in 'claiming' (sign-out, token
+  // expiry, refresh failure), clear the stale invite token and reset the
+  // state machine. Without this, the 30s timer is the only path to fail-
+  // out, and a subsequent sign-in within 30s could re-enter the flow with
+  // user A's token. Same state-machine-transition exception as Effect 3.
+  useEffect(() => {
+    if (state !== 'claiming') return;
+    if (user) return;
+    try { sessionStorage.removeItem(INVITE_SESSION_KEY); } catch {}
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- state machine transition
+    setState('idle');
+  }, [state, user]);
 
   // ---- Effect 3: pre_auth → claiming when user resolves --------------------
   // Legitimate state-machine edge: when user becomes non-null while in

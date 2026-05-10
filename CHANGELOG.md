@@ -4,6 +4,51 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.28.2] - 2026-05-09
+
+Security audit release. Twelve findings closed across the canonical Firestore rules and the app code, matching the suite-wide pattern already applied to GanttApp v0.22.2, Story Map v0.29.2, Scheduler v0.42.6, and CFD v0.12.2. Companion rules change ships in `spert-landing` PR #46 (canonical `firestore.rules`).
+
+### Security — High
+
+- **H1: `myscrumbudget_profiles` bulk-enumeration block (rules + code).** Replaced `allow read: if isAuth()` with auth-only `get` plus `list: if isAuth() && request.query.limit <= 1` on `myscrumbudget_profiles`. MSB was the LAST app in the suite still on the legacy unbounded read; the rule change closes the bulk email/displayName/photoURL harvest vector. Companion app-side change deletes `SharingSection.tsx` and the legacy `findUidByEmail` / `addProjectMember` / `removeProjectMember` in `sharing.ts` (the only callers of the unbounded `getDocs(collection(myscrumbudget_profiles))` query), plus the `<SharingSection>` ternary branch in `src/app/projects/[id]/page.tsx`. The active member-add path runs through `callSendInvitationEmail` (Cloud Function, server-side authority); `getProjectMembers` survives unchanged for the BulkSharingSection member list.
+- **H2: XLSX export formula-injection sanitization.** Added an `xlsxSanitize` helper in `src/features/reforecast/lib/excelExport.ts` that prepends `'` to any string whose first character is `=`, `+`, `-`, `@`, `\t`, or `\r` — Excel/LibreOffice/Sheets evaluate such cells as formulas on file open. With v0.28.0 bulk invitations live, a collaborator could rename themselves to `=HYPERLINK(...)` or `=cmd|'/c calc'!A1` and any other collaborator who downloads the Resource Plan would auto-evaluate the payload. Sanitization applied to member name, role, the title cell, and the row-2 metadata line. Allocation cells are numeric and unchanged.
+- **H3: JSON import field-strip pass.** Added `src/lib/utils/sanitizeImport.ts` exporting `sanitizeAppState`, which reconstructs the entire imported tree using per-entity allowlists drawn directly from the domain types. Applied in `DataPortability.handleImport` AFTER `validateAppState`, so the data flowing into `repo.importAll` (and on cloud-flip into Firestore) is guaranteed to contain only known keys. Closes the smuggle vector where a malicious export file could inject `members: { '<victim_uid>': 'owner' }`, `_admin: true`, or other unknown fields onto a project, reforecast, allocation, or settings entity. Defense-in-depth on top of the v0.28.2 (M5) Firestore field allowlist; this layer also covers fields nested inside arrays where no rule guard exists.
+
+### Security — Medium
+
+- **M1: prototype-pollution defense at the JSON parse boundary.** Added `src/lib/utils/safeJsonParse.ts` exporting `parseImportJson`, which uses a `JSON.parse` reviver to drop `__proto__`, `constructor`, and `prototype` keys at every depth. `DataPortability.handleImport` now calls `parseImportJson` instead of `JSON.parse`. Closes the prototype-pollution sink where `{"__proto__": {"isAdmin": true}}` JSON, when later spread into a literal (as multiple migrations in `migrations.ts` do), would invoke the `__proto__` setter and pollute `Object.prototype` for the runtime.
+- **M2: BulkSharingSection runtime role guard.** `handleSend` now collapses the role state variable to `'editor'` for any value other than `'viewer'` before forwarding to `callSendInvitationEmail`. The `setRole(e.target.value as 'editor' | 'viewer')` cast is erased at runtime; a bundle-modified or DevTools-tampered client could send `role: 'owner'` and rely entirely on the Cloud Function's own role validation. Defense-in-depth.
+- **M3: callable wrapper runtime input validation.** `callSendInvitationEmail`, `callRevokeInvite`, and `callResendInvite` in `src/lib/firebase/invitations.ts` now reject malformed inputs at the wrapper layer before invoking `httpsCallable`: non-empty bounded strings for `modelId` (≤200) and `tokenId` (≤200), `role ∈ {editor, viewer}`, `emails` must be a non-empty array of ≤50 entries. Same defense-in-depth rationale as M2.
+- **M4: rules — `myscrumbudget_projects` create rule binds top-level `owner`.** Added `request.resource.data.owner == request.auth.uid` to the create predicate. Closes the split-state vector where `members[self] == 'owner'` but the top-level `owner` points to another UID, which would break `removeCollaborator` Guard 2 in `src/lib/firebase/invitations.ts:79`. Matches the M5 fix already shipped in Story Map v0.29.2 / GanttApp v0.22.2 / Scheduler v0.42.6 / CFD v0.12.2 / Forecaster / AHP.
+- **M5: rules — `myscrumbudget_projects` field allowlist.** Added a `myScrumBudgetProjectFields()` helper enumerating the 14 legitimate keys (mirrored from `firestoreRepo.ts` `createProject` / `saveProject` / `importAll`) plus `keys().hasOnly()` on create and `affectedKeys().hasOnly()` on update. Rejects any unknown field at the rule layer; allowlist must stay in sync with the converter.
+- **M6: `useCloudSync` listener error logs narrowed to error code only.** Both `onSnapshot` error callbacks for the projects query and the per-user settings doc previously logged the full `FirestoreError` object, whose serialization frequently includes the document path (e.g., `permission-denied at /myscrumbudget_projects/abc123`). A malicious browser extension scraping console output could harvest project IDs. Now logs only `(err as { code?: string })?.code ?? 'unknown'`.
+- **M7: XLSX export title/metadata cells sanitized.** Applied `xlsxSanitize` to the title cell and row-2 metadata line even though both currently sit inside a static prefix that shields formula evaluation today. Hardens against a future refactor that drops or reorders the prefix.
+
+### Security — Low
+
+- **L1: legacy SharingSection + sharing.ts paths deleted.** See H1 above for the deletion details.
+- **L2: SESSION_KEY cleanup on cloud-flip rejection.** `useInvitationLanding`'s Effect 2 IIFE catch block now drops `msb:invite-session` from sessionStorage immediately rather than relying on the 30s timer fallback.
+- **L3: SESSION_KEY cleanup on sign-out mid-claim.** New Effect 2b in `useInvitationLanding`: when `user` becomes null while `state === 'claiming'`, clear the stale token and reset state to `'idle'`. Without this, a sign-out + sign-in within the 30s timer window could re-enter the flow with the previous user's token.
+- **L4: `[sharing]` log hygiene.** `getProjectMembers` no longer interpolates the failing UID into its `console.warn` message and now logs only the error code.
+- **L5: `[profileWrites]` log hygiene.** `writeSpertsuiteProfile` and `writeMyscrumbudgetProfile` now log only the error code on failure, not the full FirebaseError.
+- **L6: sessionStorage cleared on sign-out.** Added a `SESSION_CLEAR_ON_SIGN_OUT` array beside `CLEAR_ON_SIGN_OUT` in `signOutCleanup.ts` and a matching loop in `performSignOutCleanup`. Closes the leak where `msb:invite-session` (a per-tab invite token) survived a same-tab sign-out and would surface to the next signed-in user.
+- **L7: bare `signOut()` export removed from `src/lib/firebase/auth.ts`.** The wrapper had no callers and was a footgun — autocomplete-driven imports could bypass `performSignOutCleanup` and revoke credentials without clearing localStorage / sessionStorage / storage mode / repo. All sign-outs now route through `performSignOutCleanup` (or `useAuth().signOut`, which calls it).
+- **L8: passive token expiry routes through `performSignOutCleanup`.** `AuthProvider.subscribeToAuth` now tracks a `previousUserRef` and, on transition from non-null → null without an explicit `signOut()`, fires `performSignOutCleanup`. An idempotency flag inside `performSignOutCleanup` makes the explicit-then-passive double-call safe (the second invocation short-circuits). Closes the gap where a passive expiry would leave a debounced save firing against a revoked credential plus localStorage/storage-mode pointing at the previous user's session.
+- **L9: defensive comments in `useDebouncedSave`.** Both `save()` and `flush()` `console.error` sites now carry a comment explaining that `value` (the closed-over T) MUST NOT be added to the log because it can contain member emails / UIDs. Future-maintainer trap mitigation.
+- **L10: resend-cap UX-only-disable comment in `BulkSharingSection`.** Documents that the `disabled={atCap}` button is UX only — the 5×/invitation cap is enforced authoritatively by the `resendInvite` Cloud Function plus `allow write: if false` on `spertsuite_invitations`.
+- **L11: Excel import length caps.** `excelImport.ts` row-parse loop now rejects rows where the name exceeds 200 chars or the role exceeds 100 chars with a new `E10` error code. Replaces a cryptic post-save Firestore-1MB-doc-limit error with a clean parse-time rejection.
+
+### Tests
+
+- 939 passing across 62 test files (was 911 / 59). New test files: `safeJsonParse.test.ts` (6 tests), `sanitizeImport.test.ts` (7 tests), `excelExport.sanitize.test.ts` (7 tests). Extended `invitations.test.ts` with 8 new tests covering the M3 runtime input validation paths (empty modelId, oversized modelId, role: owner, role: arbitrary string, empty emails array, oversized emails array, empty tokenId, oversized tokenId).
+
+### Out of scope / deferred
+
+- L12 (`useProject` undo/redo nested-setState pattern): no security impact. Existing investigation-flag comment from v0.28.1 remains. Revisit before any React major upgrade or strict-mode tightening.
+- All dependency upgrades: every non-current dep was inside the 60-day hold window per the v0.28.1 audit. Unchanged in v0.28.2.
+
+---
+
 ## [0.28.1] - 2026-05-09
 
 ### Refactored

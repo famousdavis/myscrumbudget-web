@@ -36,7 +36,12 @@ export async function writeSpertsuiteProfile(user: User): Promise<void> {
       { merge: true },
     );
   } catch (e) {
-    console.warn('[profileWrites] writeSpertsuiteProfile failed:', e);
+    // v0.28.2 (L5): log only the error code. The full FirebaseError can
+    // serialize document paths into the browser console, leaking UIDs.
+    console.warn(
+      '[profileWrites] writeSpertsuiteProfile failed:',
+      (e as { code?: string })?.code ?? 'unknown',
+    );
     // Error swallowed — claim still fires. CF may see stale data in error case.
     // Grep for this warning if claims show stale displayName/photoURL.
   }
@@ -73,6 +78,10 @@ export async function writeMyscrumbudgetProfile(user: User): Promise<void> {
       ...(!existing.exists() ? { createdAt: new Date().toISOString() } : {}),
     }, { merge: true });
   } catch (e) {
-    console.warn('[profileWrites] writeMyscrumbudgetProfile failed:', e);
+    // v0.28.2 (L5): log only the error code (see writeSpertsuiteProfile above).
+    console.warn(
+      '[profileWrites] writeMyscrumbudgetProfile failed:',
+      (e as { code?: string })?.code ?? 'unknown',
+    );
   }
 }

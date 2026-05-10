@@ -63,7 +63,13 @@ export function useCloudSync(): void {
       (err) => {
         // Listener has terminated. No automatic resubscribe — full reconnect
         // mechanism is deferred; user must reload or re-sign-in.
-        console.error('[useCloudSync] projects listener error:', err);
+        // v0.28.2 (M6): log only the error code. The full FirestoreError
+        // object can serialize document paths / project IDs into the
+        // browser console, which a malicious extension could harvest.
+        console.error(
+          '[useCloudSync] projects listener error:',
+          (err as { code?: string })?.code ?? 'unknown',
+        );
         toastOnce();
       },
     );
@@ -80,7 +86,11 @@ export function useCloudSync(): void {
       (err) => {
         // Listener has terminated. No automatic resubscribe — full reconnect
         // mechanism is deferred; user must reload or re-sign-in.
-        console.error('[useCloudSync] settings listener error:', err);
+        // v0.28.2 (M6): log only the error code (see projects listener above).
+        console.error(
+          '[useCloudSync] settings listener error:',
+          (err as { code?: string })?.code ?? 'unknown',
+        );
         toastOnce();
       },
     );
