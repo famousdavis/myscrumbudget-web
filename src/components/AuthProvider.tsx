@@ -4,7 +4,7 @@
 
 'use client';
 
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode } from 'react';
 import type { User } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { isFirebaseAvailable } from '@/lib/firebase/config';
@@ -71,6 +71,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   // Only show loading state if Firebase is configured (otherwise no auth to wait for)
   const [loading, setLoading] = useState(isFirebaseAvailable);
+  // v0.28.2 (L8): track the previous Firebase user so the subscriber can
+  // detect a passive transition to null (token expiry, refresh failure,
+  // server-side revocation) and route it through performSignOutCleanup.
+  // Without this, a passive expiry leaves localStorage/storageMode/repo
+  // pointing at the previous user's cloud session and a pending debounced
+  // save can fire against a revoked credential.
+  const previousUserRef = useRef<User | null>(null);
 
   useEffect(() => {
     if (!isFirebaseAvailable) return;
@@ -83,6 +90,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       //      deps [user] or [loading] see a clean resolved state, never an
       //      intermediate where loading is true and user is non-null.
       setLoading(false);
+      // v0.28.2 (L8): passive sign-out detection. Fire performSignOutCleanup
+      // when we transition from a non-null user to null without an explicit
+      // signOut() call. The cleanup is idempotent (in-flight guard inside
+      // performSignOutCleanup) so the explicit-signOut path that ALSO
+      // ultimately fires onAuthStateChanged(null) here is a no-op the
+      // second time around.
+      if (!firebaseUser && previousUserRef.current) {
+        void performSignOutCleanup();
+      }
+      previousUserRef.current = firebaseUser;
       if (firebaseUser && db) {
         // Serialized: spertsuite_profiles write completes BEFORE the claim CF
         // fires. Eliminates any first-sign-in race where the CF might read the
@@ -94,9 +111,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           claimPendingInvitationsAndNotify(firebaseUser);
         })();
         // Parallel: writeMyscrumbudgetProfile has no happens-before requirement
-        // vs. the claim CF. The legacy collection is consulted only by
-        // findUidByEmail in addProjectMember, gated behind the flag-off
-        // SharingSection (and removed entirely once the flag flips in PR 3).
+        // vs. the claim CF. The legacy myscrumbudget_profiles collection is
+        // now read-only (no client write paths after v0.28.2 / L1 deleted
+        // findUidByEmail + addProjectMember + the SharingSection caller).
+        // We keep writing the profile here so the BulkSharingSection
+        // member-list `getProjectMembers` fan-out can resolve emails for
+        // existing members.
         void writeMyscrumbudgetProfile(firebaseUser);
         recordTosAcceptance(firebaseUser).catch(() => {});
       }

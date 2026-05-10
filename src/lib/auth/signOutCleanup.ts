@@ -36,6 +36,13 @@
 //   - msb:theme                        per-browser UX
 //   - msb:version                      per-browser schema marker
 //   - spert_firstRun_seen              per-browser UX
+//
+// v0.28.2 (L6): also clear sessionStorage entries that hold per-user
+// invitation state. sessionStorage dies on tab close but a sign-out
+// without closing the tab leaves user A's invite token visible to user
+// B's subsequent sign-in flow in the same tab. Server-side rules reject
+// claims for the wrong account, but the leak still surfaces in
+// sessionStorage and a re-claim attempt would happen.
 
 import { signOut as firebaseSignOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase/config';
@@ -56,12 +63,31 @@ const CLEAR_ON_SIGN_OUT: readonly string[] = [
   'msb:hasUploadedToCloud',
 ] as const;
 
+/** Per-user sessionStorage keys cleared on sign-out (v0.28.2 / L6). */
+const SESSION_CLEAR_ON_SIGN_OUT: readonly string[] = [
+  'msb:invite-session',
+] as const;
+
+// v0.28.2 (L8): in-flight guard. Both the explicit sign-out path
+// (AuthProvider.signOut → performSignOutCleanup) and the passive token-
+// expiry path (AuthProvider subscriber sees firebaseUser === null →
+// performSignOutCleanup) can race to call this. Without the guard, the
+// second invocation runs cancelAll/localStorage clear redundantly, then
+// firebaseSignOut on an already-revoked credential, then schedules a
+// second window.location.reload() — wasted work mid-unmount. The flag
+// is module-scoped so a re-entrant call short-circuits.
+let cleanupInFlight = false;
+
 /**
  * Zero-argument sign-out helper. Every sign-out entry point in the app
- * (AuthProvider.signOut, settings page, chip popover) routes through this
- * single canonical sequence.
+ * (AuthProvider.signOut, settings page, chip popover, passive token-
+ * expiry detected by onAuthStateChanged) routes through this single
+ * canonical sequence.
  */
 export async function performSignOutCleanup(): Promise<void> {
+  if (cleanupInFlight) return;
+  cleanupInFlight = true;
+
   // 1. Abort in-flight debounced saves before credentials are revoked.
   cancelAll();
 
@@ -70,6 +96,16 @@ export async function performSignOutCleanup(): Promise<void> {
   for (const key of CLEAR_ON_SIGN_OUT) {
     try {
       localStorage.removeItem(key);
+    } catch {
+      // Storage disabled / SecurityError — ignore and continue.
+    }
+  }
+
+  // 2b. Clear per-user sessionStorage keys (v0.28.2 / L6). Same try/catch
+  //     pattern; missing keys are no-op.
+  for (const key of SESSION_CLEAR_ON_SIGN_OUT) {
+    try {
+      sessionStorage.removeItem(key);
     } catch {
       // Storage disabled / SecurityError — ignore and continue.
     }
@@ -93,6 +129,13 @@ export async function performSignOutCleanup(): Promise<void> {
   try {
     if (auth) await firebaseSignOut(auth);
   } finally {
+    // v0.28.2 (L8): release the in-flight flag inside the finally so a
+    // future passive-expiry path on the SAME page session can succeed if
+    // the production reload below somehow doesn't fire (test mocks, edge-
+    // case window scenarios). In production the reload races ahead of any
+    // re-entrant caller; this is defense-in-depth + makes the function
+    // testable across multiple invocations in the same module instance.
+    cleanupInFlight = false;
     if (typeof window !== 'undefined') {
       window.location.reload();
     }

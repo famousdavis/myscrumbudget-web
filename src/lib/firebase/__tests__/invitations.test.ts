@@ -166,3 +166,75 @@ describe('callable wrappers — null functions guard', () => {
     ).rejects.toThrow(/Firebase Functions not initialized/);
   });
 });
+
+// v0.28.2 (M3): runtime input validation at the callable boundary.
+// These guards fire BEFORE requireFunctions(), so they reject malformed
+// inputs even when Functions itself is not available. Each test verifies
+// the M3 guard error message rather than the null-functions error.
+describe('callable wrappers — M3 runtime input validation', () => {
+  it('callSendInvitationEmail rejects an empty modelId', async () => {
+    const { callSendInvitationEmail } = await import('../invitations');
+    await expect(
+      callSendInvitationEmail({ appId: 'myscrumbudget', modelId: '', emails: ['a@b.com'], role: 'editor', isVoting: false }),
+    ).rejects.toThrow(/Invalid modelId/);
+  });
+
+  it('callSendInvitationEmail rejects a modelId longer than 200 chars', async () => {
+    const { callSendInvitationEmail } = await import('../invitations');
+    const longId = 'x'.repeat(201);
+    await expect(
+      callSendInvitationEmail({ appId: 'myscrumbudget', modelId: longId, emails: ['a@b.com'], role: 'editor', isVoting: false }),
+    ).rejects.toThrow(/Invalid modelId/);
+  });
+
+  it('callSendInvitationEmail rejects role: "owner" (privilege-escalation attempt)', async () => {
+    const { callSendInvitationEmail } = await import('../invitations');
+    await expect(
+      callSendInvitationEmail({
+        appId: 'myscrumbudget', modelId: 'p',
+        emails: ['a@b.com'],
+        // @ts-expect-error — testing a runtime-only attack vector
+        role: 'owner',
+        isVoting: false,
+      }),
+    ).rejects.toThrow(/Invalid role/);
+  });
+
+  it('callSendInvitationEmail rejects role: arbitrary string', async () => {
+    const { callSendInvitationEmail } = await import('../invitations');
+    await expect(
+      callSendInvitationEmail({
+        appId: 'myscrumbudget', modelId: 'p',
+        emails: ['a@b.com'],
+        // @ts-expect-error — testing a runtime-only attack vector
+        role: 'admin',
+        isVoting: false,
+      }),
+    ).rejects.toThrow(/Invalid role/);
+  });
+
+  it('callSendInvitationEmail rejects an empty emails array', async () => {
+    const { callSendInvitationEmail } = await import('../invitations');
+    await expect(
+      callSendInvitationEmail({ appId: 'myscrumbudget', modelId: 'p', emails: [], role: 'editor', isVoting: false }),
+    ).rejects.toThrow(/Invalid emails/);
+  });
+
+  it('callSendInvitationEmail rejects an emails array exceeding the 50-entry cap', async () => {
+    const { callSendInvitationEmail } = await import('../invitations');
+    const big = Array.from({ length: 51 }, (_, i) => `u${i}@example.com`);
+    await expect(
+      callSendInvitationEmail({ appId: 'myscrumbudget', modelId: 'p', emails: big, role: 'editor', isVoting: false }),
+    ).rejects.toThrow(/Invalid emails/);
+  });
+
+  it('callRevokeInvite rejects an empty tokenId', async () => {
+    const { callRevokeInvite } = await import('../invitations');
+    await expect(callRevokeInvite('')).rejects.toThrow(/Invalid tokenId/);
+  });
+
+  it('callResendInvite rejects an oversized tokenId', async () => {
+    const { callResendInvite } = await import('../invitations');
+    await expect(callResendInvite('x'.repeat(201))).rejects.toThrow(/Invalid tokenId/);
+  });
+});

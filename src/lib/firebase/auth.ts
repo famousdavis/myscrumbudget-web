@@ -5,7 +5,6 @@
 import {
   onAuthStateChanged,
   signInWithPopup,
-  signOut as firebaseSignOut,
   OAuthProvider,
   GoogleAuthProvider,
   type User,
@@ -50,10 +49,12 @@ export async function signInWithGoogle(): Promise<void> {
   await signInWithPopup(auth, provider);
 }
 
-/**
- * Sign out.
- */
-export async function signOut(): Promise<void> {
-  if (!auth) return;
-  await firebaseSignOut(auth);
-}
+// v0.28.2 (L7): the bare `signOut()` wrapper that previously lived here was
+// removed. It was unused but exported, making it a footgun — a future
+// contributor importing `signOut from '@/lib/firebase/auth'` (autocomplete-
+// driven) would have called `firebaseSignOut(auth)` directly and bypassed
+// the canonical performSignOutCleanup sequence (cancelAll, clear localStorage,
+// clear sessionStorage, reset storage mode, swap repo, then revoke
+// credentials, then reload). Always sign out via:
+//   import { performSignOutCleanup } from '@/lib/auth/signOutCleanup';
+// or via useAuth().signOut from AuthProvider, which routes there.

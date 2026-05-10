@@ -95,12 +95,38 @@ function requireFunctions() {
   return functions;
 }
 
+// SECURITY (v0.28.2 / M3): runtime input validation at the callable
+// boundary. TypeScript types erase at runtime; bundle-modified or
+// DevTools-tampered clients can send arbitrary shapes. These guards are
+// defense-in-depth on top of the Cloud Function's own validation —
+// rejecting obvious bad inputs at the wrapper layer narrows the surface
+// in case of a CF regression and surfaces clearer client errors.
+const MAX_MODEL_ID_LEN = 200;
+const MAX_TOKEN_ID_LEN = 200;
+const MAX_BULK_EMAILS = 50;
+const ALLOWED_ROLES: ReadonlyArray<string> = ['editor', 'viewer'];
+
+function assertNonEmptyBoundedString(value: unknown, name: string, maxLen: number): asserts value is string {
+  if (typeof value !== 'string' || value.length === 0 || value.length > maxLen) {
+    throw new Error(`Invalid ${name}: expected non-empty string ≤ ${maxLen} chars`);
+  }
+}
+
 // async wrappers — synchronous requireFunctions() throw becomes a rejected
 // Promise, matching the documented contract that callers see rejections
 // (not synchronous throws) when Firebase Functions is unavailable.
 export async function callSendInvitationEmail(
   input: SendInvitationEmailInput,
 ): Promise<SendInvitationEmailResult> {
+  // M3: runtime guards
+  assertNonEmptyBoundedString(input.modelId, 'modelId', MAX_MODEL_ID_LEN);
+  if (!ALLOWED_ROLES.includes(input.role)) {
+    throw new Error(`Invalid role: expected one of ${ALLOWED_ROLES.join(', ')}`);
+  }
+  if (!Array.isArray(input.emails) || input.emails.length === 0 || input.emails.length > MAX_BULK_EMAILS) {
+    throw new Error(`Invalid emails: expected non-empty array ≤ ${MAX_BULK_EMAILS} entries`);
+  }
+
   const r = await httpsCallable<SendInvitationEmailInput, SendInvitationEmailResult>(
     requireFunctions(), 'sendInvitationEmail',
   )(input);
@@ -108,6 +134,7 @@ export async function callSendInvitationEmail(
 }
 
 export async function callRevokeInvite(tokenId: string): Promise<RevokeInviteResult> {
+  assertNonEmptyBoundedString(tokenId, 'tokenId', MAX_TOKEN_ID_LEN);
   const r = await httpsCallable<{ tokenId: string }, RevokeInviteResult>(
     requireFunctions(), 'revokeInvite',
   )({ tokenId });
@@ -115,6 +142,7 @@ export async function callRevokeInvite(tokenId: string): Promise<RevokeInviteRes
 }
 
 export async function callResendInvite(tokenId: string): Promise<ResendInviteResult> {
+  assertNonEmptyBoundedString(tokenId, 'tokenId', MAX_TOKEN_ID_LEN);
   const r = await httpsCallable<{ tokenId: string }, ResendInviteResult>(
     requireFunctions(), 'resendInvite',
   )({ tokenId });

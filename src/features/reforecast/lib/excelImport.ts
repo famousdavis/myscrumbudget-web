@@ -218,6 +218,22 @@ export async function parseResourcePlanWorkbook(
       continue;
     }
 
+    // E10 (v0.28.2 / L11): bound name and role lengths. Without caps a
+    // malicious .xlsx with a multi-MB cell flows through, eventually hits
+    // Firestore's 1MB doc limit on save, and produces a cryptic post-save
+    // error rather than a clean parse-time rejection. Caps mirror the
+    // suite-wide convention (name ≤ 200, role ≤ 100).
+    const NAME_MAX = 200;
+    const ROLE_MAX = 100;
+    if (nameRaw.length > NAME_MAX) {
+      errors.push(`E10: row ${r} name exceeds ${NAME_MAX} characters`);
+      continue;
+    }
+    if (roleRaw.length > ROLE_MAX) {
+      errors.push(`E10: row ${r} role exceeds ${ROLE_MAX} characters`);
+      continue;
+    }
+
     // E9: duplicate names (case-insensitive)
     const nameLower = nameRaw.toLowerCase();
     if (seenNamesLower.has(nameLower)) {

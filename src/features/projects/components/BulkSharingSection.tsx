@@ -133,13 +133,20 @@ export function BulkSharingSection({ projectId }: BulkSharingSectionProps) {
     }
 
     setSending(true);
+    // SECURITY (v0.28.2 / M2): runtime role guard. The `setRole(e.target.value
+    // as 'editor' | 'viewer')` cast (line ~346) is erased at runtime — a
+    // bundle-modified or DevTools-tampered client could send role: 'owner'.
+    // Defence-in-depth on top of the sendInvitationEmail Cloud Function's
+    // own role validation: collapse to 'editor' (the safer default) for
+    // any unrecognized value before forwarding.
+    const safeRole: 'editor' | 'viewer' = role === 'viewer' ? 'viewer' : 'editor';
     let result: SendInvitationEmailResult;
     try {
       result = await callSendInvitationEmail({
         appId: 'myscrumbudget', // string literal — NOT APP_ID constant (Lesson 15)
         modelId: projectId,
         emails: valid,
-        role,
+        role: safeRole,
         isVoting: false,
       });
     } catch (err) {
@@ -276,6 +283,13 @@ export function BulkSharingSection({ projectId }: BulkSharingSectionProps) {
           ) : (
             <div className="mt-2 space-y-2">
               {pendingInvites.map(inv => {
+                // SECURITY (v0.28.2 / L10): the 5×/invitation resend cap is
+                // enforced server-side by the resendInvite Cloud Function plus
+                // `allow write: if false` on spertsuite_invitations (canonical
+                // firestore.rules). The `disabled={atCap}` button below is UX
+                // only — re-enabling via DevTools triggers callResendInvite,
+                // which the CF still rejects with functions/failed-precondition.
+                // Removing the disable would NOT unlock more sends.
                 const cap = 5;
                 const atCap = inv.emailSendCount >= cap;
                 return (

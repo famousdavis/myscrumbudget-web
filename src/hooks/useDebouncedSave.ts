@@ -25,6 +25,11 @@ export function useDebouncedSave<T>(saveFn: (value: T) => void) {
       timerRef.current = setTimeout(() => {
         pendingRef.current = null;
         Promise.resolve(saveFn(value)).catch((err) => {
+          // SECURITY (v0.28.2 / L9): do NOT include `value` in the log —
+          // the closed-over T may be a Project / Settings / TeamPool
+          // payload containing member emails or UIDs. A malicious browser
+          // extension scraping console output would harvest PII. Log the
+          // error only.
           console.error('[useDebouncedSave] save failed:', err);
         });
       }, DEBOUNCE_MS);
@@ -39,6 +44,8 @@ export function useDebouncedSave<T>(saveFn: (value: T) => void) {
     }
     if (pendingRef.current) {
       Promise.resolve(saveFn(pendingRef.current.value)).catch((err) => {
+        // SECURITY (v0.28.2 / L9): do NOT include the rejected value in
+        // the log (see save() above for rationale).
         console.error('[useDebouncedSave] flush failed:', err);
       });
       pendingRef.current = null;
