@@ -116,6 +116,13 @@ export function createFirestoreRepository(uid: string): Repository {
      * Save project data to Firestore.
      * Uses merge:true and NEVER touches owner/members fields.
      * This prevents editors from accidentally overwriting ownership.
+     *
+     * INVESTIGATION FLAG (v0.28.1): both saveProject and createProject below
+     * call repo.getTeamPool() through the delegating module, relying on the
+     * active repo identity not switching mid-call. Safe today (single-tab,
+     * sign-out cleanup cancels in-flight saves). Revisit before introducing
+     * any concurrent or cross-tab path that could swap the active repo while
+     * a save is awaiting the pool snapshot.
      */
     async saveProject(project: Project): Promise<void> {
       const pool = await repo.getTeamPool();
@@ -158,7 +165,7 @@ export function createFirestoreRepository(uid: string): Repository {
         schemaVersion: 2,
       };
 
-      await setDoc(doc(db!, PROJECTS_COL, project.id), stripUndefined(docData as unknown as Record<string, unknown>));
+      await setDoc(doc(db!, PROJECTS_COL, project.id), stripUndefined(docData));
     },
 
     async deleteProject(id: string): Promise<void> {
@@ -243,7 +250,7 @@ export function createFirestoreRepository(uid: string): Repository {
         };
 
         // Full setDoc (no merge) for imports — old fields are replaced entirely
-        await setDoc(doc(db!, PROJECTS_COL, targetId), stripUndefined(docData as unknown as Record<string, unknown>));
+        await setDoc(doc(db!, PROJECTS_COL, targetId), stripUndefined(docData));
       }
 
       // Preserve origin ref from imported file; use UID as fallback

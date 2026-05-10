@@ -38,7 +38,9 @@ export function useDebouncedSave<T>(saveFn: (value: T) => void) {
       timerRef.current = null;
     }
     if (pendingRef.current) {
-      saveFn(pendingRef.current.value);
+      Promise.resolve(saveFn(pendingRef.current.value)).catch((err) => {
+        console.error('[useDebouncedSave] flush failed:', err);
+      });
       pendingRef.current = null;
     }
   }, [saveFn]);

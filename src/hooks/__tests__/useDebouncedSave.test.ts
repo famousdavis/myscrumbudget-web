@@ -90,4 +90,29 @@ describe('useDebouncedSave', () => {
 
     expect(saveFn).toHaveBeenCalledWith(obj);
   });
+
+  it('flush() swallows a rejected saveFn promise without an unhandled rejection', async () => {
+    // Real timers — we need the microtask queue to actually drain so the
+    // .catch() handler fires. Fake timers would leave the rejection pending.
+    vi.useRealTimers();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const saveFn = vi.fn(() => Promise.reject(new Error('save boom')) as unknown as void);
+
+    const { result } = renderHook(() => useDebouncedSave<string>(saveFn));
+
+    act(() => result.current.save('data'));
+    act(() => result.current.flush());
+
+    // Drain microtasks so the .catch() inside flush() runs.
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(saveFn).toHaveBeenCalledTimes(1);
+    expect(consoleSpy).toHaveBeenCalledWith(
+      '[useDebouncedSave] flush failed:',
+      expect.any(Error),
+    );
+
+    consoleSpy.mockRestore();
+  });
 });
