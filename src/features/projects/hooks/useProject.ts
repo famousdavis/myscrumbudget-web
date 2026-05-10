@@ -109,6 +109,11 @@ export function useProject(id: string) {
     // early-returns on every keystroke, and the new typing is unrecoverable.
     undoGroupActiveRef.current = false;
 
+    // INVESTIGATION FLAG (v0.28.1): the nested setRedoStack/setProject inside
+    // setUndoStack's updater technically violates React's "updaters are pure"
+    // contract. Tolerated by current React; revisit before any React major
+    // upgrade or strict-mode tightening — preferred refactor is to read both
+    // stacks and project via refs before issuing top-level setState calls.
     setUndoStack((stack) => {
       if (stack.length === 0) return stack;
       const snapshot = stack[stack.length - 1];

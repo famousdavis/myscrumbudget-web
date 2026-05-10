@@ -25,7 +25,7 @@ export function buildTeamSnapshot(
  * Strip undefined values from an object for Firestore compatibility.
  * Firestore rejects explicit undefined — omit those fields entirely.
  */
-export function stripUndefined<T extends Record<string, unknown>>(obj: T): T {
+export function stripUndefined<T extends object>(obj: T): T {
   const result = {} as Record<string, unknown>;
   Object.entries(obj).forEach(([key, value]) => {
     if (value !== undefined) {

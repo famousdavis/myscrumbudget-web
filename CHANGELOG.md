@@ -4,6 +4,23 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.28.1] - 2026-05-09
+
+### Refactored
+- **Extracted Excel-import diff logic from `ResourcePlanExcelPanel.tsx` into `src/features/reforecast/lib/importDiff.ts`.** The two pure helpers `computeImportDiff` and `countAllocationDiffs` (and the `ImportDiff` interface) are pure data transforms with typed inputs/outputs and no React or UI state — they were doing the heaviest lifting in the file (member matching by lowercased name, fallback-to-Unknown logic, symmetric-diff allocation counting) but couldn't be unit-tested through the component surface. Moving them to a sibling library file shrinks the panel from 486 → 328 LOC and unlocks direct testing. `ResourcePlanExcelPanel.tsx` now imports `computeImportDiff` and the `ImportDiff` type from `../lib/importDiff`. `warningToToastMessage`, `slug`, and `ImportConfirmDialog` stay in the parent file — no reuse surface and tightly coupled to the panel's render path.
+
+### Fixed
+- **`useDebouncedSave.flush()` now wraps the synchronous saveFn call in `Promise.resolve(...).catch(...)`** to match the existing pattern in the debounced `save()` callback. `saveFn` is typed `(value: T) => void`, but real callers (notably `persistProject` in `useProject`) return a Promise. When the user triggered an undo/redo (which calls `flush()` to bypass the 500ms debounce) and the underlying Firestore save rejected — permission change, network drop, etc. — the rejection became an unhandled-promise warning rather than a logged error. `flush()` now logs the same `[useDebouncedSave] flush failed:` prefix that `save()` already used.
+
+### Tidy
+- **Loosened `stripUndefined`'s generic constraint from `<T extends Record<string, unknown>>` to `<T extends object>`** in `src/lib/storage/firestoreUtils.ts`. Interface types like `FirestoreProjectDoc` are not structurally assignable to `Record<string, unknown>`, which previously forced two callers in `firestoreRepo.ts` (`createProject`, project import) to use `as unknown as Record<string, unknown>` double casts. The function body iterates `Object.entries(obj)` so the runtime is unchanged; only the call-site type signatures get cleaner. Both double casts removed.
+- **Investigation-flag comments added at two sites** that work today but warrant a second look before adjacent changes: (1) `useProject.ts` undo/redo nest `setRedoStack`/`setProject`/`setUndoStack` updaters in a way that technically violates React's "updaters are pure" contract — revisit before any React major upgrade or strict-mode tightening; (2) `firestoreRepo.ts` `saveProject`/`createProject` invoke `repo.getTeamPool()` through the delegating module — revisit before introducing any concurrent or cross-tab path that could swap the active repo while a save is awaiting the pool snapshot. No behavior change in either case.
+
+### Tests
+- 911 passing across 59 test files (was 899 across 58). New: `src/features/reforecast/lib/__tests__/importDiff.test.ts` covering `computeImportDiff` (case-insensitive pool match + assignment-id reuse, fallback-to-Unknown when role is not in laborRates, role kept when it matches a labor rate, orphaned existing assignments → `removedCount`, only emits new allocations for value > 0, detects allocation changes vs. active reforecast) and `countAllocationDiffs` (identity case, increase, removal, newly-added month, assignment-id rotation with stable poolMemberId/value as a non-change). Extended `useDebouncedSave.test.ts` with a `flush()` rejected-promise path that asserts `console.error` fires with the `[useDebouncedSave] flush failed:` prefix.
+
+---
+
 ## [0.27.1] - 2026-05-06
 
 ### Fixed
