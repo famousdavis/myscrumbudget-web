@@ -147,7 +147,19 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
           ? prev.reforecasts.find((r) => r.id === copyFromId)
           : undefined;
 
-        const newRf = createNewReforecast(name, prev.startDate, prev.endDate, source);
+        // v0.29.1: a blank new reforecast inherits the baseline reforecast's
+        // window (not the project's). Baseline = reforecast named 'Baseline'
+        // if present, else the earliest by createdAt. Falls back to project
+        // dates only when no reforecasts exist (project-creation edge case
+        // that should not occur in normal use).
+        const baseline =
+          prev.reforecasts.find((r) => r.name === 'Baseline') ??
+          [...prev.reforecasts].sort((a, b) => a.createdAt.localeCompare(b.createdAt))[0];
+        const defaults = baseline
+          ? { startDate: baseline.startDate, endDate: baseline.endDate }
+          : { startDate: prev.startDate, endDate: prev.endDate };
+
+        const newRf = createNewReforecast(name, defaults, source);
         newRfId = newRf.id;
 
         return {

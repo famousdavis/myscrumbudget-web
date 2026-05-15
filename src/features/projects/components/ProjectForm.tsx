@@ -21,6 +21,12 @@ interface ProjectFormProps {
   onSubmit: (data: ProjectFormData) => Promise<void>;
   submitLabel: string;
   autoFocusName?: boolean;
+  /**
+   * Optional helper text rendered below the date inputs. Lets callers
+   * explain context — e.g., on edit the dates affect the active
+   * reforecast, on create they seed the baseline.
+   */
+  dateHelperText?: React.ReactNode;
 }
 
 const defaultData: ProjectFormData = {
@@ -35,6 +41,7 @@ export function ProjectForm({
   onSubmit,
   submitLabel,
   autoFocusName,
+  dateHelperText,
 }: ProjectFormProps) {
   const router = useRouter();
   const baseId = useId();
@@ -150,9 +157,9 @@ export function ProjectForm({
           />
         </div>
       </div>
-      <p className="text-xs text-zinc-500 dark:text-zinc-400">
-        Defaults for future reforecasts. Does not modify the baseline or any existing reforecast — each reforecast carries its own window.
-      </p>
+      {dateHelperText && (
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">{dateHelperText}</p>
+      )}
 
       <div>
         <label htmlFor={budgetId} className="mb-1 block text-sm font-medium">

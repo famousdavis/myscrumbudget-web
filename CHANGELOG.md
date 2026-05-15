@@ -4,6 +4,32 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.29.1] - 2026-05-15
+
+UX refinement on v0.29.0's per-reforecast windows. The two competing date surfaces introduced in v0.29.0 (project header tile vs. new toolbar inputs) collapse into one: the header tile and the Edit Project page now both edit the **active reforecast's** window. The toolbar's Start/End date inputs are removed.
+
+### Changed
+
+- **Header tile** (`ProjectSummary` Start / Finish dates) now displays the active reforecast's `startDate` / `endDate`. Switching reforecasts updates the displayed dates immediately.
+- **Edit Project page** dates apply to the active reforecast (not the project). The same v0.29.0 confirmation dialog with `{from, to}` adjustments appears on submit if the change would trim allocations, remove historical-cost entries, clamp the Reforecast Date, or clamp the Actuals Through date. Helper text on the form makes the target reforecast explicit.
+- **PrintableReport** date header (and "Project Summary" Start/End rows) now read from the active reforecast.
+- **Productivity-window date input bounds** now use the active reforecast's window. The fully-out-of-range warning indicator (D9 from v0.29.0) is unchanged.
+
+### Removed
+
+- **Toolbar Start/End date inputs** (added in v0.29.0) and their confirmation dialog. The toolbar shrinks back to its v0.28.x size: Reforecast select · Pencil · Date · Actuals Through · + New · Delete.
+- **Toolbar's "Reforecast Window" line** in PrintableReport. Since the header now always shows the active reforecast's window, the conditional duplicate is no longer needed.
+- **`Project.startDate` / `Project.endDate` no longer drive any runtime UI.** They remain in the data type and Firestore documents for backward compatibility and are still set at project creation, but are no longer read by display code, the calc engine, or any chart. Effectively creation-time metadata.
+
+### Data model
+
+- **`createNewReforecast` signature change** — the `projectStartDate` / `projectEndDate` parameters are replaced by a single `defaults: { startDate; endDate }` object. The caller (`useReforecast.createReforecast`) resolves defaults to either the source reforecast's window (when copying) or the **baseline reforecast's window** (when creating blank). A blank new reforecast after project creation is rare in practice; this matches the user's mental model that "new scenarios inherit from the original plan."
+- **No migration needed** — v0.14.0 schema is unchanged.
+
+### Tests
+
+- 950/950 passing. Removed the toolbar Start/End commit-handler props from `ReforecastToolbar.test.tsx`. `createNewReforecast` test calls updated to the new defaults-object signature.
+
 ## [0.29.0] - 2026-05-14
 
 Per-reforecast independent timelines. Each what-if scenario now carries its own start and end dates, fully decoupled from the project and from sibling reforecasts. The allocation grid, calc engine, and charts are all driven by the active reforecast's window — editing the project no longer cascades.

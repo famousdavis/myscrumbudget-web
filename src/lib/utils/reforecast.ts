@@ -42,20 +42,21 @@ export function createBaselineReforecast(
  *   historical costs (cloned + materialized at the source's cutoff, then
  *   clipped to the source's window). Notes are NOT copied (a copy starts
  *   with blank notes).
- * - Without `source`: the new reforecast inherits the project's window
- *   and is otherwise empty.
+ * - Without `source`: the new reforecast inherits the `defaults` window
+ *   the caller resolved — typically the baseline reforecast's dates,
+ *   since blank new reforecasts after project creation are rare and
+ *   inherit naturally from the original plan (v0.29.1).
  *
  * baselineBudget is copied from the source (budget persists until re-baselined).
  * reforecastDate is always set to today (each reforecast is a new point in time).
  */
 export function createNewReforecast(
   name: string,
-  projectStartDate: string,
-  projectEndDate: string,
+  defaults: { startDate: string; endDate: string },
   source?: Reforecast,
 ): Reforecast {
-  const startDate = source ? source.startDate : projectStartDate;
-  const endDate = source ? source.endDate : projectEndDate;
+  const startDate = source ? source.startDate : defaults.startDate;
+  const endDate = source ? source.endDate : defaults.endDate;
 
   // Carry forward the source's historicalCosts entries (deep-cloned), then
   // materialize the source's CURRENT effective cutoff-bucket value so the

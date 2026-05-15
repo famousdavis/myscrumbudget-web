@@ -50,7 +50,7 @@ describe('User workflow: March → April reforecast with cutoff advance', () => 
     const projectStartDate = '2026-03-01';
 
     // ── Step 2: Create April reforecast by copying from March ────────────
-    let april = createNewReforecast('April 6 Reforecast', projectStartDate, '2026-12-31', march);
+    let april = createNewReforecast('April 6 Reforecast', { startDate: projectStartDate, endDate: '2026-12-31' }, march);
 
     console.log('After copy:', JSON.stringify(april.historicalCosts));
     console.log('  actualCost:', april.actualCost, 'cutoff:', april.actualsThroughDate);
@@ -140,7 +140,7 @@ describe('User workflow: March → April reforecast with cutoff advance', () => 
     };
     const projectStartDate = '2026-03-01';
 
-    let april = createNewReforecast('April', projectStartDate, '2026-12-31', march);
+    let april = createNewReforecast('April', { startDate: projectStartDate, endDate: '2026-12-31' }, march);
 
     // Bump actualCost while cutoff is still Mar 28 → user is restating Mar's actuals
     april = { ...april, actualCost: 25000 };

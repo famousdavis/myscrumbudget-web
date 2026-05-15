@@ -6,7 +6,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import type { Project, ProjectMetrics, TrafficLightThresholds } from '@/types/domain';
+import type { Project, ProjectMetrics, Reforecast, TrafficLightThresholds } from '@/types/domain';
 import { formatCurrency, formatDateMedium } from '@/lib/utils/format';
 import { getTrafficLightStatus, getTrafficLightDisplay, DEFAULT_THRESHOLDS } from '@/lib/calc';
 
@@ -102,6 +102,12 @@ function InlineEditableField({ label, value, onChange, tooltip }: InlineEditable
 
 interface ProjectSummaryProps {
   project: Project;
+  /**
+   * Active reforecast — when present, drives the displayed Start/Finish
+   * dates so they reflect the current scenario's window (v0.29.1). Falls
+   * back to project.startDate/endDate when null (degenerate state).
+   */
+  activeReforecast: Reforecast | null;
   metrics?: ProjectMetrics | null;
   actualCost: number;
   baselineBudget: number;
@@ -112,6 +118,7 @@ interface ProjectSummaryProps {
 
 export function ProjectSummary({
   project,
+  activeReforecast,
   metrics,
   actualCost,
   baselineBudget,
@@ -119,6 +126,8 @@ export function ProjectSummary({
   onActualCostChange,
   onBaselineBudgetChange,
 }: ProjectSummaryProps) {
+  const startDate = activeReforecast?.startDate ?? project.startDate;
+  const endDate = activeReforecast?.endDate ?? project.endDate;
   const trafficLight = metrics
     ? getTrafficLightDisplay(
         getTrafficLightStatus(metrics, trafficLightThresholds ?? DEFAULT_THRESHOLDS),
@@ -130,8 +139,8 @@ export function ProjectSummary({
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
         <Link href={`/projects/${project.id}/edit`} className={editableClass}>
           <div className="space-y-0.5 text-sm font-medium">
-            <p><span className="font-normal text-zinc-500 dark:text-zinc-400">Start:</span> {formatDateMedium(project.startDate)}</p>
-            <p><span className="font-normal text-zinc-500 dark:text-zinc-400">Finish:</span> {formatDateMedium(project.endDate)}</p>
+            <p><span className="font-normal text-zinc-500 dark:text-zinc-400">Start:</span> {formatDateMedium(startDate)}</p>
+            <p><span className="font-normal text-zinc-500 dark:text-zinc-400">Finish:</span> {formatDateMedium(endDate)}</p>
           </div>
         </Link>
         <InlineEditableField

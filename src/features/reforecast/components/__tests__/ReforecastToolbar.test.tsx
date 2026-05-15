@@ -55,8 +55,6 @@ describe('ReforecastToolbar', () => {
     onRename: vi.fn(),
     onReforecastDateChange: vi.fn(),
     onActualsThroughDateChange: vi.fn(),
-    onCommitStartDate: vi.fn(),
-    onCommitEndDate: vi.fn(),
   };
 
   it('renders Reforecast label', () => {
