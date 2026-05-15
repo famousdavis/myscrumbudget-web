@@ -112,7 +112,13 @@ export default function EditProjectPage({
             // dates (project.startDate / project.endDate) are intentionally
             // NOT touched — they remain in storage as creation-time metadata
             // but no longer drive runtime behavior.
-            const applyAll = () => {
+            //
+            // Awaits `flush()` so the repo write completes BEFORE the
+            // Promise resolves. ProjectForm calls `router.back()` only
+            // after `await onSubmit(...)`, and the detail page reloads
+            // from the repo on mount — without this await, the navigation
+            // beats the save and the user sees stale months (v0.29.2 fix).
+            const applyAll = async () => {
               // 1. Project name + baselineBudget (single updateProject call
               //    so the change-tracker sees them atomically).
               updateProject((prev) => {
@@ -132,7 +138,7 @@ export default function EditProjectPage({
               if (startChanged) commitReforecastStartDate(startDate, today);
               if (endChanged) commitReforecastEndDate(endDate);
 
-              flush();
+              await flush();
             };
 
             // If date changes have material effects (allocations trimmed,
@@ -147,8 +153,8 @@ export default function EditProjectPage({
                 };
                 setPendingSave({
                   summary,
-                  apply: () => {
-                    applyAll();
+                  apply: async () => {
+                    await applyAll();
                     setPendingSave(null);
                     resolve();
                   },
@@ -156,7 +162,7 @@ export default function EditProjectPage({
               });
             }
 
-            applyAll();
+            await applyAll();
           }}
         />
       </div>

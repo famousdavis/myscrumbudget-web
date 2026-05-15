@@ -56,7 +56,7 @@ describe('useSettings', () => {
     const { result } = renderHook(() => useSettings());
 
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(() => act(() => result.current.flush())).not.toThrow();
+    expect(() => act(() => { void result.current.flush(); })).not.toThrow();
   });
 
   it('updateSettings updates state and triggers debounced save', async () => {

@@ -13,6 +13,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.29.2',
+    date: '2026-05-15',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'Edit Project → confirm date change → stale allocation grid columns. useDebouncedSave.flush() previously fired the save as a fire-and-forget Promise; the Edit page\'s "await onSubmit(...)" would resolve before the repo write completed, and router.back() mounted the detail page against stale data. flush() now returns the underlying save Promise, and the Edit page\'s applyAll() awaits it before resolving the dialog Promise. Manual browser refresh is no longer needed — this was a pre-existing bug going back further than v0.29.0.',
+        ],
+      },
+      {
+        title: 'Tests',
+        items: [
+          '950/950 passing. Updated three test files (useDebouncedSave, useTeamPool, useSettings) to discard the Promise via "void" so act() stays in synchronous mode for assertions that don\'t need to await the save.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.29.1',
     date: '2026-05-15',
     sections: [

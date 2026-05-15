@@ -83,7 +83,7 @@ describe('useTeamPool', () => {
     const { result } = renderHook(() => useTeamPool());
 
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(() => act(() => result.current.flush())).not.toThrow();
+    expect(() => act(() => { void result.current.flush(); })).not.toThrow();
   });
 
   it('addPoolMember adds to pool state', async () => {
