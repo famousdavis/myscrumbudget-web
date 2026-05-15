@@ -37,19 +37,31 @@ export function useDebouncedSave<T>(saveFn: (value: T) => void) {
     [saveFn],
   );
 
-  const flush = useCallback(() => {
+  /**
+   * Flush any pending save synchronously. Returns a Promise that resolves
+   * when the underlying saveFn completes (or rejects, swallowed and logged).
+   * Callers that need a guaranteed-persisted state before navigation MUST
+   * `await flush()` (v0.29.2 fix — prevents Edit-page → Detail-page state
+   * staleness after a date change).
+   *
+   * Returns a resolved Promise when there is nothing pending (caller can
+   * still `await` safely with no extra latency).
+   */
+  const flush = useCallback((): Promise<void> => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
     if (pendingRef.current) {
-      Promise.resolve(saveFn(pendingRef.current.value)).catch((err) => {
+      const value = pendingRef.current.value;
+      pendingRef.current = null;
+      return Promise.resolve(saveFn(value)).catch((err) => {
         // SECURITY (v0.28.2 / L9): do NOT include the rejected value in
         // the log (see save() above for rationale).
         console.error('[useDebouncedSave] flush failed:', err);
       });
-      pendingRef.current = null;
     }
+    return Promise.resolve();
   }, [saveFn]);
 
   /** Cancel any pending debounced save without persisting. */

@@ -54,7 +54,7 @@ describe('useDebouncedSave', () => {
     const { result } = renderHook(() => useDebouncedSave(saveFn));
 
     act(() => result.current.save('urgent'));
-    act(() => result.current.flush());
+    act(() => { void result.current.flush(); });
 
     expect(saveFn).toHaveBeenCalledTimes(1);
     expect(saveFn).toHaveBeenCalledWith('urgent');
@@ -64,7 +64,7 @@ describe('useDebouncedSave', () => {
     const saveFn = vi.fn();
     const { result } = renderHook(() => useDebouncedSave(saveFn));
 
-    act(() => result.current.flush());
+    act(() => { void result.current.flush(); });
     expect(saveFn).not.toHaveBeenCalled();
   });
 
@@ -73,7 +73,7 @@ describe('useDebouncedSave', () => {
     const { result } = renderHook(() => useDebouncedSave(saveFn));
 
     act(() => result.current.save('data'));
-    act(() => result.current.flush());
+    act(() => { void result.current.flush(); });
     act(() => { vi.advanceTimersByTime(500); });
 
     // Should only have been called once (by flush), not twice
@@ -101,7 +101,7 @@ describe('useDebouncedSave', () => {
     const { result } = renderHook(() => useDebouncedSave<string>(saveFn));
 
     act(() => result.current.save('data'));
-    act(() => result.current.flush());
+    act(() => { void result.current.flush(); });
 
     // Drain microtasks so the .catch() inside flush() runs.
     await Promise.resolve();

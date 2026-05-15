@@ -4,6 +4,18 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.29.2] - 2026-05-15
+
+Bugfix release. Pre-existing UX bug surfaced again by v0.29.1's Edit-page flow: after confirming a reforecast-window change, the project detail page loaded with stale month columns until the user manually refreshed the browser. The fix awaits the debounced save before navigating, so the destination page reads the committed state.
+
+### Fixed
+
+- **Edit Project → confirm date change → stale allocation grid columns.** `useDebouncedSave.flush()` previously fired the save as a fire-and-forget Promise; the Edit page's `await onSubmit(...)` would resolve before the repo write completed, and `router.back()` would then mount the detail page against stale data. `flush()` now returns the underlying save Promise, and the Edit page's `applyAll()` awaits it before resolving the dialog Promise. The detail page's mount-time `repo.getProject(id)` reload now reliably sees the committed state.
+
+### Tests
+
+- 950/950 passing. Updated three test files (`useDebouncedSave.test.ts`, `useTeamPool.test.ts`, `useSettings.test.ts`) to discard the Promise via `void` so `act()` stays in synchronous mode for assertions that don't need to await the save.
+
 ## [0.29.1] - 2026-05-15
 
 UX refinement on v0.29.0's per-reforecast windows. The two competing date surfaces introduced in v0.29.0 (project header tile vs. new toolbar inputs) collapse into one: the header tile and the Edit Project page now both edit the **active reforecast's** window. The toolbar's Start/End date inputs are removed.
