@@ -7,23 +7,31 @@
 import { useState } from 'react';
 import type { Reforecast } from '@/types/domain';
 import { NewReforecastDialog } from './NewReforecastDialog';
-import { ConfirmDialog } from '@/components/BaseDialog';
+import { BaseDialog, ConfirmDialog, dialogButtonStyles } from '@/components/BaseDialog';
 import { TrashIcon } from '@/components/icons/TrashIcon';
 import { PencilIcon } from '@/components/icons/PencilIcon';
+import { isValidDateString } from '@/lib/utils/validation';
+import {
+  computeSingleReforecastTimelineChangeSummary,
+  summaryHasChanges,
+  type TimelineChangeSummary,
+} from '@/features/projects/lib/timelineChange';
 
 interface ReforecastToolbarProps {
   reforecasts: Reforecast[];
   activeReforecastId: string | null;
   reforecastDate: string;
   actualsThroughDate?: string;
-  projectStartDate?: string;
-  projectEndDate?: string;
+  reforecastStartDate: string;
+  reforecastEndDate: string;
   onSwitch: (id: string) => void;
   onCreate: (name: string, copyFromId?: string) => void;
   onDelete: (id: string) => void;
   onRename: (newName: string) => void;
   onReforecastDateChange: (date: string) => void;
   onActualsThroughDateChange: (date: string | undefined) => void;
+  onCommitStartDate: (date: string, today: string) => void;
+  onCommitEndDate: (date: string) => void;
 }
 
 export function ReforecastToolbar({
@@ -31,19 +39,30 @@ export function ReforecastToolbar({
   activeReforecastId,
   reforecastDate,
   actualsThroughDate,
-  projectStartDate,
-  projectEndDate,
+  reforecastStartDate,
+  reforecastEndDate,
   onSwitch,
   onCreate,
   onDelete,
   onRename,
   onReforecastDateChange,
   onActualsThroughDateChange,
+  onCommitStartDate,
+  onCommitEndDate,
 }: ReforecastToolbarProps) {
   const [showNewDialog, setShowNewDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [draftName, setDraftName] = useState('');
+
+  // Window-change confirmation draft state
+  const [draftDate, setDraftDate] = useState<string | null>(null);
+  const [pendingField, setPendingField] = useState<'start' | 'end' | null>(null);
+  const [pendingSummary, setPendingSummary] = useState<TimelineChangeSummary | null>(null);
+  const [pendingToday, setPendingToday] = useState<string | null>(null);
+
+  // today captured at render; frozen into pendingToday when a dialog opens (D20)
+  const today = new Date().toISOString().slice(0, 10);
 
   // Newest first by reforecastDate (createdAt as tiebreaker). Lexical
   // comparison works since both are ISO date strings.
@@ -57,6 +76,7 @@ export function ReforecastToolbar({
   const selectedId =
     activeReforecastId ?? (sortedReforecasts.length > 0 ? sortedReforecasts[0].id : '');
   const selectedReforecast = sortedReforecasts.find((r) => r.id === selectedId);
+  const rf: Reforecast | null = reforecasts.find((r) => r.id === activeReforecastId) ?? null;
 
   const beginEdit = () => {
     if (!selectedReforecast) return;
@@ -75,6 +95,77 @@ export function ReforecastToolbar({
   const cancelEdit = () => {
     setEditingName(false);
   };
+
+  const clearPending = () => {
+    setDraftDate(null);
+    setPendingField(null);
+    setPendingSummary(null);
+    setPendingToday(null);
+  };
+
+  const handleStartChange = (newValue: string) => {
+    if (!rf || !newValue || !isValidDateString(newValue)) return;
+    if (newValue === reforecastStartDate) return;
+    const frozenToday = today;
+    const summary = computeSingleReforecastTimelineChangeSummary(
+      rf,
+      newValue,
+      reforecastEndDate,
+      frozenToday,
+    );
+    if (summaryHasChanges(summary)) {
+      setDraftDate(newValue);
+      setPendingField('start');
+      setPendingSummary(summary);
+      setPendingToday(frozenToday);
+    } else {
+      onCommitStartDate(newValue, frozenToday);
+    }
+  };
+
+  const handleEndChange = (newValue: string) => {
+    if (!rf || !newValue || !isValidDateString(newValue)) return;
+    if (newValue === reforecastEndDate) return;
+    const frozenToday = today; // captured for symmetry; unused by commitReforecastEndDate
+    const summary = computeSingleReforecastTimelineChangeSummary(
+      rf,
+      reforecastStartDate,
+      newValue,
+      frozenToday,
+    );
+    if (summaryHasChanges(summary)) {
+      setDraftDate(newValue);
+      setPendingField('end');
+      setPendingSummary(summary);
+      setPendingToday(frozenToday); // pendingToday unused on end path; set for future symmetry with start path
+    } else {
+      onCommitEndDate(newValue);
+    }
+  };
+
+  const handleReforecastDateChange = (newValue: string) => {
+    if (!newValue) return;
+    const minBound = reforecastStartDate <= today ? reforecastStartDate : today;
+    let clamped = newValue;
+    if (clamped > today) clamped = today;
+    if (clamped < minBound) clamped = minBound;
+    onReforecastDateChange(clamped);
+  };
+
+  const handleConfirm = () => {
+    if (!draftDate) return;
+    if (pendingField === 'start' && pendingToday !== null) {
+      onCommitStartDate(draftDate, pendingToday);
+    } else if (pendingField === 'end') {
+      onCommitEndDate(draftDate);
+    }
+    clearPending();
+  };
+
+  const dialogHeading =
+    pendingSummary && summaryOnlyFlagsWindows(pendingSummary)
+      ? "Changing this reforecast's dates will have the following effects:"
+      : "Changing this reforecast's dates will affect its existing data:";
 
   return (
     <>
@@ -116,9 +207,9 @@ export function ReforecastToolbar({
               onChange={(e) => onSwitch(e.target.value)}
               className="min-w-56 rounded border border-zinc-300 bg-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
             >
-              {sortedReforecasts.map((rf) => (
-                <option key={rf.id} value={rf.id}>
-                  {rf.name}
+              {sortedReforecasts.map((rfOpt) => (
+                <option key={rfOpt.id} value={rfOpt.id}>
+                  {rfOpt.name}
                 </option>
               ))}
             </select>
@@ -144,6 +235,50 @@ export function ReforecastToolbar({
         {reforecasts.length > 0 && (
           <div className="flex items-center gap-1.5">
             <label
+              htmlFor="rf-start-date"
+              className="text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap"
+            >
+              Start
+            </label>
+            <input
+              id="rf-start-date"
+              type="date"
+              value={reforecastStartDate}
+              max={reforecastEndDate}
+              onChange={(e) => handleStartChange(e.target.value)}
+              title="Reforecast window start date"
+              aria-label="Reforecast start date"
+              style={{ width: 120, minWidth: 120 }}
+              className="rounded border border-zinc-300 bg-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            />
+          </div>
+        )}
+
+        {reforecasts.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            <label
+              htmlFor="rf-end-date"
+              className="text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap"
+            >
+              End
+            </label>
+            <input
+              id="rf-end-date"
+              type="date"
+              value={reforecastEndDate}
+              min={reforecastStartDate}
+              onChange={(e) => handleEndChange(e.target.value)}
+              title="Reforecast window end date"
+              aria-label="Reforecast end date"
+              style={{ width: 120, minWidth: 120 }}
+              className="rounded border border-zinc-300 bg-white px-2 py-1 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            />
+          </div>
+        )}
+
+        {reforecasts.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            <label
               htmlFor="rf-date"
               className="text-xs text-zinc-500 dark:text-zinc-400 whitespace-nowrap"
             >
@@ -153,9 +288,9 @@ export function ReforecastToolbar({
               id="rf-date"
               type="date"
               value={reforecastDate}
-              min={projectStartDate}
-              max={projectEndDate}
-              onChange={(e) => onReforecastDateChange(e.target.value)}
+              min={reforecastStartDate <= today ? reforecastStartDate : today}
+              max={today}
+              onChange={(e) => handleReforecastDateChange(e.target.value)}
               title="Reforecast date"
               aria-label="Reforecast date"
               style={{ width: 120, minWidth: 120 }}
@@ -176,8 +311,8 @@ export function ReforecastToolbar({
               id="actuals-through-date"
               type="date"
               value={actualsThroughDate ?? ''}
-              min={projectStartDate}
-              max={projectEndDate}
+              min={reforecastStartDate}
+              max={reforecastEndDate}
               onChange={(e) => onActualsThroughDateChange(e.target.value || undefined)}
               title="Actuals through date — ETC starts the day after this date"
               aria-label="Actuals through date"
@@ -242,6 +377,85 @@ export function ReforecastToolbar({
           onCancel={() => setShowDeleteDialog(false)}
         />
       )}
+
+      {pendingSummary && draftDate && (
+        <BaseDialog
+          title="Adjust reforecast window"
+          actions={
+            <>
+              <button onClick={clearPending} className={dialogButtonStyles.cancel}>
+                Cancel
+              </button>
+              <button onClick={handleConfirm} className={dialogButtonStyles.primary}>
+                Confirm
+              </button>
+            </>
+          }
+        >
+          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{dialogHeading}</p>
+          <ul className="mt-2 list-disc pl-5 text-sm text-zinc-600 dark:text-zinc-400">
+            {renderSummaryBullets(pendingSummary)}
+          </ul>
+        </BaseDialog>
+      )}
     </>
   );
+}
+
+function summaryOnlyFlagsWindows(s: TimelineChangeSummary): boolean {
+  return (
+    s.productivityWindowsToFlag > 0 &&
+    s.allocationsToRemove === 0 &&
+    s.historicalCostEntriesToRemove === 0 &&
+    s.reforecastDateAdjustment === null &&
+    s.actualsThroughDateAdjustment === null
+  );
+}
+
+function renderSummaryBullets(s: TimelineChangeSummary): React.ReactNode {
+  const items: React.ReactNode[] = [];
+  if (s.allocationsToRemove > 0) {
+    items.push(
+      <li key="alloc">
+        {s.allocationsToRemove === 1
+          ? 'Remove 1 allocation outside the new date range.'
+          : `Remove ${s.allocationsToRemove} allocations outside the new date range.`}
+      </li>,
+    );
+  }
+  if (s.historicalCostEntriesToRemove > 0) {
+    items.push(
+      <li key="hist">
+        {s.historicalCostEntriesToRemove === 1
+          ? 'Remove 1 historical cost entry outside the new range.'
+          : `Remove ${s.historicalCostEntriesToRemove} historical cost entries outside the new range.`}
+      </li>,
+    );
+  }
+  if (s.productivityWindowsToFlag > 0) {
+    items.push(
+      <li key="pw">
+        {s.productivityWindowsToFlag === 1
+          ? '1 productivity window will fall outside the new range and be flagged for review.'
+          : `${s.productivityWindowsToFlag} productivity windows will fall outside the new range and be flagged for review.`}
+      </li>,
+    );
+  }
+  if (s.reforecastDateAdjustment) {
+    items.push(
+      <li key="rd">
+        Adjust the Reforecast Date from <strong>{s.reforecastDateAdjustment.from}</strong> to{' '}
+        <strong>{s.reforecastDateAdjustment.to}</strong>.
+      </li>,
+    );
+  }
+  if (s.actualsThroughDateAdjustment) {
+    items.push(
+      <li key="atd">
+        Adjust the Actuals Through date from <strong>{s.actualsThroughDateAdjustment.from}</strong>{' '}
+        to <strong>{s.actualsThroughDateAdjustment.to}</strong>.
+      </li>,
+    );
+  }
+  return items;
 }

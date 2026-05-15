@@ -5,7 +5,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { HistoricalCostEntry, Project, Reforecast } from '@/types/domain';
+import type { HistoricalCostEntry, Reforecast } from '@/types/domain';
 import { useToast } from '@/components/Toast';
 import { formatCurrency, formatDateMedium } from '@/lib/utils/format';
 import { formatShortMonth } from '@/lib/utils/dates';
@@ -17,13 +17,11 @@ import {
 
 interface HistoricalCostsTableProps {
   activeReforecast: Reforecast;
-  project: Project;
   onUpdate: (entries: HistoricalCostEntry[]) => void;
 }
 
 export function HistoricalCostsTable({
   activeReforecast,
-  project,
   onUpdate,
 }: HistoricalCostsTableProps) {
   const [expanded, setExpanded] = useState(false);
@@ -32,16 +30,22 @@ export function HistoricalCostsTable({
   const cutoff = activeReforecast.actualsThroughDate;
   if (!cutoff) return null;
 
+  // v0.29.0: Historical-cost display and edit are now scoped to the
+  // reforecast's window, not the project's. Each reforecast carries an
+  // independent window.
+  const rfStartMonth = activeReforecast.startDate.slice(0, 7);
+  const rfEndMonth = activeReforecast.endDate.slice(0, 7);
+
   const rows = buildHistoricalCostsView(
     activeReforecast.historicalCosts,
     activeReforecast.actualCost,
     cutoff,
-    project.startDate,
+    activeReforecast.startDate,
+    rfEndMonth,
   );
   if (rows.length === 0) return null;
 
   const cutoffMonth = cutoff.slice(0, 7);
-  const projectStartMonth = project.startDate.slice(0, 7);
   const stored = activeReforecast.historicalCosts ?? [];
 
   const handleBlur = (month: string, rawValue: string) => {
@@ -51,8 +55,13 @@ export function HistoricalCostsTable({
       rawValue,
       activeReforecast.actualCost,
       cutoffMonth,
-      projectStartMonth,
+      rfStartMonth,
+      rfEndMonth,
     );
+    if (result.outOfRange) {
+      addToast('This month is outside the current reforecast window.', 'error');
+      return;
+    }
     if (result.cappedAt !== null) {
       addToast(
         `Capped at ${formatCurrency(result.cappedAt)} — cannot exceed the project total`,

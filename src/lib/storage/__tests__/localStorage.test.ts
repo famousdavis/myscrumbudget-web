@@ -26,7 +26,8 @@ function makeProject(overrides: Partial<Project> = {}): Project {
         id: 'rf-baseline',
         name: 'Baseline',
         createdAt: '2026-06-01T00:00:00Z',
-        startDate: '2026-06',
+        startDate: '2026-06-15',
+        endDate: '2027-07-15',
         reforecastDate: '2026-06-01',
         assignments: [],
         allocations: [],
@@ -128,7 +129,7 @@ describe('LocalStorage Repository', () => {
       const project = makeProject();
       await repo.saveProject(project);
       const exported = await repo.exportAll();
-      expect(exported.version).toBe('0.13.0');
+      expect(exported.version).toBe('0.14.0');
       expect(exported.settings).toEqual(DEFAULT_SETTINGS);
       expect(exported.teamPool).toEqual([]);
       expect(exported.projects).toEqual([project]);
@@ -257,7 +258,7 @@ describe('LocalStorage Repository', () => {
   describe('Version', () => {
     it('returns current version when none stored', async () => {
       const version = await repo.getVersion();
-      expect(version).toBe('0.13.0');
+      expect(version).toBe('0.14.0');
     });
   });
 

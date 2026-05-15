@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
-import type { Project, Reforecast } from '@/types/domain';
+import type { Reforecast } from '@/types/domain';
 
 // Mock the toast hook BEFORE importing the component so the mock is used.
 const addToast = vi.fn();
@@ -19,7 +19,8 @@ function makeReforecast(overrides: Partial<Reforecast> = {}): Reforecast {
     id: 'rf-1',
     name: 'Baseline',
     createdAt: '2026-01-01T00:00:00Z',
-    startDate: '2026-01',
+    startDate: '2026-01-15',
+    endDate: '2026-12-31',
     reforecastDate: '2026-01-15',
     assignments: [],
     allocations: [],
@@ -27,18 +28,6 @@ function makeReforecast(overrides: Partial<Reforecast> = {}): Reforecast {
     actualCost: 50000,
     baselineBudget: 100000,
     actualsThroughDate: '2026-03-15',
-    ...overrides,
-  };
-}
-
-function makeProject(overrides: Partial<Project> = {}): Project {
-  return {
-    id: 'p-1',
-    name: 'Test',
-    startDate: '2026-01-15',
-    endDate: '2026-12-31',
-    reforecasts: [],
-    activeReforecastId: 'rf-1',
     ...overrides,
   };
 }
@@ -53,7 +42,6 @@ describe('HistoricalCostsTable', () => {
     const { container } = render(
       <HistoricalCostsTable
         activeReforecast={rf}
-        project={makeProject()}
         onUpdate={vi.fn()}
       />,
     );
@@ -66,7 +54,6 @@ describe('HistoricalCostsTable', () => {
     const { container } = render(
       <HistoricalCostsTable
         activeReforecast={rf}
-        project={makeProject()}
         onUpdate={vi.fn()}
       />,
     );
@@ -77,7 +64,6 @@ describe('HistoricalCostsTable', () => {
     render(
       <HistoricalCostsTable
         activeReforecast={makeReforecast()}
-        project={makeProject()}
         onUpdate={vi.fn()}
       />,
     );
@@ -92,7 +78,6 @@ describe('HistoricalCostsTable', () => {
     render(
       <HistoricalCostsTable
         activeReforecast={rf}
-        project={makeProject({ startDate: '2026-01-15' })}
         onUpdate={vi.fn()}
       />,
     );
@@ -107,7 +92,6 @@ describe('HistoricalCostsTable', () => {
     render(
       <HistoricalCostsTable
         activeReforecast={makeReforecast()}
-        project={makeProject({ startDate: '2026-01-15' })}
         onUpdate={vi.fn()}
       />,
     );
@@ -122,7 +106,6 @@ describe('HistoricalCostsTable', () => {
     render(
       <HistoricalCostsTable
         activeReforecast={makeReforecast()}
-        project={makeProject({ startDate: '2026-01-15' })}
         onUpdate={onUpdate}
       />,
     );
@@ -148,7 +131,6 @@ describe('HistoricalCostsTable', () => {
     render(
       <HistoricalCostsTable
         activeReforecast={rf}
-        project={makeProject({ startDate: '2026-01-15' })}
         onUpdate={onUpdate}
       />,
     );
@@ -173,7 +155,6 @@ describe('HistoricalCostsTable', () => {
     render(
       <HistoricalCostsTable
         activeReforecast={rf}
-        project={makeProject({ startDate: '2026-01-15' })}
         onUpdate={onUpdate}
       />,
     );
@@ -200,7 +181,6 @@ describe('HistoricalCostsTable', () => {
     const { container } = render(
       <HistoricalCostsTable
         activeReforecast={makeReforecast()}
-        project={makeProject()}
         onUpdate={vi.fn()}
       />,
     );
@@ -218,7 +198,6 @@ describe('HistoricalCostsTable', () => {
     render(
       <HistoricalCostsTable
         activeReforecast={makeReforecast()}
-        project={makeProject({ startDate: '2026-01-15' })}
         onUpdate={onUpdate}
       />,
     );
@@ -243,7 +222,6 @@ describe('HistoricalCostsTable', () => {
     render(
       <HistoricalCostsTable
         activeReforecast={rf}
-        project={makeProject({ startDate: '2026-01-15' })}
         onUpdate={onUpdate}
       />,
     );
@@ -262,7 +240,6 @@ describe('HistoricalCostsTable', () => {
     render(
       <HistoricalCostsTable
         activeReforecast={makeReforecast({ actualCost: 75000 })}
-        project={makeProject()}
         onUpdate={vi.fn()}
       />,
     );

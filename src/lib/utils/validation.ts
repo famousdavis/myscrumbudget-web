@@ -40,7 +40,7 @@ function isValidAllocation(val: unknown): boolean {
   return isNumber(val) && val >= 0 && val <= 1;
 }
 
-function isValidDateString(val: unknown): boolean {
+export function isValidDateString(val: unknown): boolean {
   if (!isString(val)) return false;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(val)) return false;
   // Verify the date is semantically valid (rejects e.g. 9999-99-99)
@@ -244,8 +244,17 @@ function validateReforecast(reforecast: unknown, path: string): string[] {
   if (!isString(reforecast.createdAt)) {
     errors.push(`${path}.createdAt: expected string`);
   }
-  if (!isValidMonthString(reforecast.startDate)) {
-    errors.push(`${path}.startDate: expected YYYY-MM month string`);
+  const startValid = isValidDateString(reforecast.startDate);
+  if (!startValid) {
+    errors.push(`${path}.startDate: expected YYYY-MM-DD date string`);
+  }
+  const endValid = isValidDateString(reforecast.endDate);
+  if (!endValid) {
+    errors.push(`${path}.endDate: expected YYYY-MM-DD date string`);
+  }
+  // Cross-field: endDate >= startDate. Skip silently when either upstream errored.
+  if (startValid && endValid && (reforecast.endDate as string) < (reforecast.startDate as string)) {
+    errors.push(`${path}.endDate: must be on or after startDate`);
   }
   if (!isNonNegativeNumber(reforecast.actualCost)) {
     errors.push(`${path}.actualCost: expected non-negative number`);
@@ -253,12 +262,21 @@ function validateReforecast(reforecast: unknown, path: string): string[] {
   if (!isNonNegativeNumber(reforecast.baselineBudget)) {
     errors.push(`${path}.baselineBudget: expected non-negative number`);
   }
+  // reforecastDate is validated for format only — no cross-field lower bound.
+  // The toolbar's min/max are UX guardrails; any time-dependent rule would
+  // reject legally-stored data as `today` advances.
   if (!isValidDateString(reforecast.reforecastDate)) {
     errors.push(`${path}.reforecastDate: expected YYYY-MM-DD date string`);
   }
   if (reforecast.actualsThroughDate !== undefined) {
-    if (!isValidDateString(reforecast.actualsThroughDate)) {
+    const atdValid = isValidDateString(reforecast.actualsThroughDate);
+    if (!atdValid) {
       errors.push(`${path}.actualsThroughDate: expected YYYY-MM-DD date string`);
+    } else if (startValid && endValid) {
+      const atd = reforecast.actualsThroughDate as string;
+      if (atd < (reforecast.startDate as string) || atd > (reforecast.endDate as string)) {
+        errors.push(`${path}.actualsThroughDate: must lie within [startDate, endDate]`);
+      }
     }
   }
   if (reforecast.notes !== undefined) {

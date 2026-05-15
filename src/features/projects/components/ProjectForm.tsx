@@ -150,6 +150,9 @@ export function ProjectForm({
           />
         </div>
       </div>
+      <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        Defaults for future reforecasts. Does not modify the baseline or any existing reforecast — each reforecast carries its own window.
+      </p>
 
       <div>
         <label htmlFor={budgetId} className="mb-1 block text-sm font-medium">

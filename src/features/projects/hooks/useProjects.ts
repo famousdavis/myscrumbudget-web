@@ -38,7 +38,7 @@ export function useProjects() {
   const createProject = useCallback(
     async (data: { name: string; startDate: string; endDate: string; baselineBudget: number }) => {
       const { baselineBudget, ...projectData } = data;
-      const baseline = createBaselineReforecast(projectData.startDate, baselineBudget);
+      const baseline = createBaselineReforecast(projectData.startDate, projectData.endDate, baselineBudget);
       const project: Project = {
         ...projectData,
         id: generateId(),

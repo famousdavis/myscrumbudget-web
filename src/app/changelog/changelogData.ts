@@ -13,6 +13,66 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.29.0',
+    date: '2026-05-14',
+    sections: [
+      {
+        title: '⚠️ Breaking semantic change',
+        items: [
+          'Reforecast.startDate format changed from YYYY-MM to YYYY-MM-DD and is now the runtime driver for the allocation grid, calc engine, and chart rendering. Data files saved in v0.29.0 cannot be opened by v0.28.x or earlier — do not export from v0.29.0 if the destination is on an earlier version.',
+        ],
+      },
+      {
+        title: 'Added',
+        items: [
+          'Per-reforecast Start and End date inputs in the reforecast toolbar. Each what-if scenario carries its own window, independent of the project and of sibling reforecasts. The allocation grid, calc engine, and charts now read from the active reforecast.',
+          'Confirmation dialog with exact "from → to" values. When a window change would trim allocations, remove historical-cost entries, clamp the Reforecast Date, or clamp the Actuals Through date, the dialog surfaces precise counts and adjustments before applying. Productivity windows that fall fully outside the new range are listed in the dialog and visually flagged after commit — never auto-deleted.',
+          'Reforecast.endDate field (required, YYYY-MM-DD). Migration backfills from project.endDate (or the latest allocation month / rf.startDate if project end is unset). New reforecasts inherit either the project window (blank) or the source reforecast window (copy).',
+          '"Reforecast Window" line in PrintableReport, rendered only when the active reforecast\'s window differs from the project\'s.',
+        ],
+      },
+      {
+        title: 'Changed',
+        items: [
+          'Editing the project no longer cascades to existing reforecasts. Project dates seed new reforecasts only. Each reforecast permanently carries its own window from the moment of creation. ProjectForm date helper text makes this explicit.',
+          'Mid-month reforecast start dates produce partial first-month working hours. A 1.0 FTE allocation for March on a reforecast starting March 15 produces roughly half a full-March cost (same behavior already applied for project start dates).',
+          'reforecastDate ("when this forecast was prepared") is independently editable. Maximum is today\'s date; a reforecastDate past the reforecast\'s end date is permitted (you can document a December forecast for a project that ended in June). Future-dated values in existing data are preserved on read.',
+          'actualsThroughDate constrained to [rf.startDate, rf.endDate] when set. Cleared via the × button. Clamped in either direction during migration if it fell outside the new window.',
+          'Copying reforecasts inherits the source\'s startDate/endDate, actualCost, historicalCosts, and actualsThroughDate. Carrying the actual cost record forward gives the correct EAC and variance baseline for the new scenario.',
+        ],
+      },
+      {
+        title: 'Removed',
+        items: [
+          'computeTimelineChangeSummary and applyTimelineChangeToReforecasts (the multi-reforecast cascade helpers) — replaced by computeSingleReforecastTimelineChangeSummary and applyTimelineChangeToSingleReforecast. The PendingSave dialog on the project edit page is gone.',
+        ],
+      },
+      {
+        title: 'Migration (automatic on first load)',
+        items: [
+          'Converts Reforecast.startDate from YYYY-MM to YYYY-MM-DD using the day component from project.startDate (defaults to -01 if absent or invalid).',
+          'Backfills Reforecast.endDate from project.endDate (fallback chain: latest allocation month → rf.startDate).',
+          'Clamps any out-of-range reforecastDate / actualsThroughDate to the new window. Migration-time clamps are silent — if you had a value near the edge of your reforecast window before upgrading, check the toolbar after the first load to confirm it landed where expected.',
+          'If pre-migration data is entirely corrupt and all date fields are invalid, the reforecast window defaults to 1970-01-01 as a fail-safe — open the toolbar and enter the correct dates.',
+          'Internal AppState.version advances to "0.14.0". The user-facing app version 0.29.0 and the internal schema version are intentionally independent.',
+        ],
+      },
+      {
+        title: 'Notes',
+        items: [
+          'Productivity windows fully outside the active reforecast\'s range receive a warning indicator (!) in the productivity-window table with a tooltip. They are not auto-deleted; the input bounds remain at project-level so users can edit windows back into the rf window without delete-and-recreate.',
+          'Known edge case: if the page remains open across midnight, date constraints and confirmation dialog "from → to" values reflect the day captured at render. The committed value always matches what the dialog showed (the dialog freezes today at open time). A page refresh resolves any visual stale-date display.',
+        ],
+      },
+      {
+        title: 'Tests',
+        items: [
+          '950 passing across 62 test files (was 939 / 62). Rewrote timelineChange tests for the single-reforecast helpers (computeClampedReforecastDate, computeSingleReforecastTimelineChangeSummary, applyTimelineChangeToSingleReforecast, filterHistoricalCostsByRange, summaryHasChanges). Updated all Reforecast test fixtures to YYYY-MM-DD startDate + endDate. Added C1 regression guard (end-date-only edit never adjusts reforecastDate). Added productivity-window overlap test (fully out-of-range counted, partial overlap not).',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.28.2',
     date: '2026-05-09',
     sections: [

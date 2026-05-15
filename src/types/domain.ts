@@ -90,7 +90,8 @@ export interface Reforecast {
   id: string;
   name: string;
   createdAt: string;
-  startDate: string; // YYYY-MM — month the reforecast begins (project start month)
+  startDate: string; // YYYY-MM-DD — first day of the reforecast window
+  endDate: string; // YYYY-MM-DD — last day of the reforecast window
   reforecastDate: string; // ISO date (YYYY-MM-DD) — when this reforecast was prepared
   allocations: MonthlyAllocation[];
   assignments: ProjectAssignment[];

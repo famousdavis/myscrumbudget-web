@@ -31,11 +31,14 @@ function makeProject(overrides: Partial<Project> = {}): Project {
 }
 
 function makeReforecast(overrides: Partial<Reforecast> = {}): Reforecast {
+  // Default window aligns with the most common edge-case fixture
+  // (single-month June 2026). Multi-month tests override start/end.
   return {
     id: 'rf1',
     name: 'Baseline',
     createdAt: '2026-06-01T00:00:00Z',
-    startDate: '2026-06',
+    startDate: '2026-06-01',
+    endDate: '2026-06-30',
     reforecastDate: '2026-06-01',
     assignments: [{ id: 'a1', poolMemberId: 'pm1' }],
     allocations: [],
@@ -122,8 +125,8 @@ describe('Edge Cases', () => {
       // Only 'a1' is in the team — orphan should not cause errors
       const metrics = calculateProjectMetrics(project, SETTINGS, TEAM);
       expect(Number.isFinite(metrics.etc)).toBe(true);
-      // Cost should only reflect 'a1': 0.5 * 100 * 96 (12 workdays in Jun 15-30) = 4800
-      expect(metrics.monthlyData[0].cost).toBe(4_800);
+      // Cost should only reflect 'a1': 0.5 * 100 * 176 (22 workdays in full Jun 2026) = 8800
+      expect(metrics.monthlyData[0].cost).toBe(8_800);
     });
 
     it('handles empty team with allocations', () => {
@@ -331,6 +334,8 @@ describe('Edge Cases', () => {
 
     it('applies productivity to some months but not others', () => {
       const rf = makeReforecast({
+        startDate: '2026-06-01',
+        endDate: '2026-07-31',
         allocations: [
           { memberId: 'a1', month: '2026-06', allocation: 1.0 },
           { memberId: 'a1', month: '2026-07', allocation: 1.0 },
@@ -396,6 +401,8 @@ describe('Edge Cases', () => {
       // Project: Jun 1 – Jul 31, 2026
       // Actuals through Jun 30 → ETC starts Jul 1 → June is fully zeroed
       const rf = makeReforecast({
+        startDate: '2026-06-01',
+        endDate: '2026-07-31',
         allocations: [
           { memberId: 'a1', month: '2026-06', allocation: 1.0 },
           { memberId: 'a1', month: '2026-07', allocation: 1.0 },
@@ -431,6 +438,8 @@ describe('Edge Cases', () => {
       // Actuals through Jul 15 → etcStartDate = Jul 16 (Thursday)
       // Jul 16-31: 12 workdays * 8 * 100 = 9,600
       const rf = makeReforecast({
+        startDate: '2026-07-01',
+        endDate: '2026-07-31',
         allocations: [
           { memberId: 'a1', month: '2026-07', allocation: 1.0 },
         ],
@@ -471,6 +480,8 @@ describe('Edge Cases', () => {
 
     it('returns zero ETC when cutoff is at or after project end', () => {
       const rf = makeReforecast({
+        startDate: '2026-07-01',
+        endDate: '2026-07-31',
         allocations: [
           { memberId: 'a1', month: '2026-07', allocation: 1.0 },
         ],
@@ -492,6 +503,8 @@ describe('Edge Cases', () => {
     it('burn rate uses only post-cutoff months', () => {
       // 3-month project: Jun-Aug. Cutoff at Jun 30 → only Jul+Aug have cost
       const rf = makeReforecast({
+        startDate: '2026-06-01',
+        endDate: '2026-08-31',
         allocations: [
           { memberId: 'a1', month: '2026-06', allocation: 1.0 },
           { memberId: 'a1', month: '2026-07', allocation: 1.0 },
