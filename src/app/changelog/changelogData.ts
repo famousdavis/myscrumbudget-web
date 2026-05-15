@@ -13,6 +13,48 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.29.1',
+    date: '2026-05-15',
+    sections: [
+      {
+        title: 'UX refinement on v0.29.0 per-reforecast windows',
+        items: [
+          'The two competing date surfaces v0.29.0 introduced (project header tile vs. new toolbar Start/End inputs) collapse into one. The header tile and the Edit Project page now both edit the ACTIVE REFORECAST\'s window. Toolbar Start/End inputs are removed.',
+        ],
+      },
+      {
+        title: 'Changed',
+        items: [
+          'Header tile (ProjectSummary Start / Finish) displays the active reforecast\'s startDate / endDate. Switching reforecasts updates the displayed dates immediately.',
+          'Edit Project page dates apply to the active reforecast (not the project). The v0.29.0 confirmation dialog with {from, to} adjustments now appears here on submit when the change would trim allocations, remove historical-cost entries, clamp the Reforecast Date, or clamp the Actuals Through date.',
+          'PrintableReport date header and the Project Summary section\'s Start/End rows now read from the active reforecast.',
+          'Productivity-window date input bounds now use the active reforecast\'s window. The fully-out-of-range warning indicator is unchanged.',
+        ],
+      },
+      {
+        title: 'Removed',
+        items: [
+          'Toolbar Start/End date inputs and their confirmation dialog (added in v0.29.0). The toolbar shrinks back to its v0.28.x size.',
+          'PrintableReport\'s conditional "Reforecast Window" line — the header now always shows the active reforecast\'s window, so the duplicate is no longer needed.',
+          'Project.startDate / Project.endDate are still stored for backward compatibility but no longer drive any runtime UI. Effectively creation-time metadata.',
+        ],
+      },
+      {
+        title: 'Data model',
+        items: [
+          'createNewReforecast signature change: projectStartDate/projectEndDate params replaced by a defaults: { startDate; endDate } object. Caller resolves defaults to either the source reforecast\'s window (when copying) or the baseline reforecast\'s window (when creating blank). Matches the mental model that new scenarios inherit from the original plan.',
+          'No migration needed — v0.14.0 schema unchanged.',
+        ],
+      },
+      {
+        title: 'Tests',
+        items: [
+          '950/950 passing. Removed the toolbar Start/End commit-handler props from ReforecastToolbar.test.tsx. createNewReforecast test calls updated to the new defaults-object signature.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.29.0',
     date: '2026-05-14',
     sections: [

@@ -109,8 +109,6 @@ export default function ProjectDetailPage({
     updateHistoricalCosts,
     updateNotes,
     updateName,
-    commitReforecastStartDate,
-    commitReforecastEndDate,
   } = useReforecast({
     project,
     updateProject,
@@ -235,6 +233,7 @@ export default function ProjectDetailPage({
       <div className="mt-6">
         <ProjectSummary
           project={project}
+          activeReforecast={activeReforecast ?? null}
           metrics={metrics}
           actualCost={actualCost}
           baselineBudget={baselineBudget}
@@ -261,8 +260,6 @@ export default function ProjectDetailPage({
             onRename={updateName}
             onReforecastDateChange={updateReforecastDate}
             onActualsThroughDateChange={updateActualsThroughDate}
-            onCommitStartDate={commitReforecastStartDate}
-            onCommitEndDate={commitReforecastEndDate}
           />
         </div>
         {activeReforecast && (
@@ -313,8 +310,6 @@ export default function ProjectDetailPage({
         <div className="mt-8">
           <ProductivityWindowPanel
             windows={productivityWindows}
-            projectStartDate={project.startDate}
-            projectEndDate={project.endDate}
             rfStartDate={activeReforecast.startDate}
             rfEndDate={activeReforecast.endDate}
             onAdd={addProductivityWindow}

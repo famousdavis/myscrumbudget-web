@@ -106,7 +106,7 @@ export function PrintableReport({
         </p>
         <h1 className="mt-0.5 text-2xl font-bold leading-tight">{project.name}</h1>
         <p className="mt-0.5 text-sm text-zinc-700">
-          {formatDateLong(project.startDate)} – {formatDateLong(project.endDate)}
+          {formatDateLong(activeReforecast?.startDate ?? project.startDate)} – {formatDateLong(activeReforecast?.endDate ?? project.endDate)}
         </p>
         <p className="text-xs text-zinc-600">
           Reforecast: {reforecastName} · Generated {new Date().toLocaleString()}
@@ -130,10 +130,10 @@ export function PrintableReport({
           <tbody>
             <tr>
               <td className={labelCell}>Start Date</td>
-              <td className={valueCell}>{formatDateMedium(project.startDate)}</td>
+              <td className={valueCell}>{formatDateMedium(activeReforecast?.startDate ?? project.startDate)}</td>
               <td className={gapCell} aria-hidden="true" />
               <td className={labelCell}>End Date</td>
-              <td className={valueCell}>{formatDateMedium(project.endDate)}</td>
+              <td className={valueCell}>{formatDateMedium(activeReforecast?.endDate ?? project.endDate)}</td>
             </tr>
             <tr>
               <td className={labelCell}>Baseline Budget</td>
@@ -188,15 +188,6 @@ export function PrintableReport({
                   {formatCurrency(activeReforecast.baselineBudget)}
                 </td>
               </tr>
-              {(activeReforecast.startDate !== project.startDate ||
-                activeReforecast.endDate !== project.endDate) && (
-                <tr>
-                  <td className={labelCell}>Reforecast Window</td>
-                  <td className={valueCell} colSpan={4}>
-                    {formatDateMedium(activeReforecast.startDate)} – {formatDateMedium(activeReforecast.endDate)}
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </section>

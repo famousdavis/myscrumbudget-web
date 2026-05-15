@@ -12,16 +12,11 @@ import { CollapsibleSection } from '@/components/CollapsibleSection';
 interface ProductivityWindowPanelProps {
   windows: ProductivityWindow[];
   /**
-   * Project window — drives the `min`/`max` bounds on the date inputs so
-   * users can edit windows back into the project range without delete-and-
-   * recreate. Soft default since v0.29.0 (D2).
-   */
-  projectStartDate: string;
-  projectEndDate: string;
-  /**
-   * Active reforecast window — drives the fully-out-of-range visual flag.
-   * Windows with zero month-overlap with [rfStartDate, rfEndDate] receive
-   * a warning indicator (D9).
+   * Active reforecast window — drives BOTH the `min`/`max` bounds on the
+   * date inputs and the fully-out-of-range visual flag (v0.29.1). Windows
+   * with zero month-overlap with [rfStartDate, rfEndDate] receive a
+   * warning indicator and remain in the data — users can switch the
+   * active reforecast or delete-and-recreate to resolve.
    */
   rfStartDate: string;
   rfEndDate: string;
@@ -55,8 +50,6 @@ function validateForm(
 
 export function ProductivityWindowPanel({
   windows,
-  projectStartDate,
-  projectEndDate,
   rfStartDate,
   rfEndDate,
   onAdd,
@@ -74,9 +67,9 @@ export function ProductivityWindowPanel({
   const [editForm, setEditForm] = useState<FormState>(emptyForm);
   const [editError, setEditError] = useState('');
 
-  // Derive min/max dates from project for date inputs
-  const minDate = projectStartDate.slice(0, 10);
-  const maxDate = projectEndDate.slice(0, 10);
+  // Derive min/max dates from the active reforecast for date inputs (v0.29.1).
+  const minDate = rfStartDate.slice(0, 10);
+  const maxDate = rfEndDate.slice(0, 10);
 
   const handleAdd = () => {
     const error = validateForm(addForm);
