@@ -29,13 +29,13 @@ describe('Migrations', () => {
   });
 
   it('returns data unchanged when no migrations are pending', () => {
-    const data = makeAppState({ version: '0.13.0' });
-    const result = runMigrations(data, '0.13.0');
+    const data = makeAppState({ version: '0.14.0' });
+    const result = runMigrations(data, '0.14.0');
     expect(result).toEqual(data);
   });
 
   it('exports current version constant', () => {
-    expect(DATA_VERSION).toBe('0.13.0');
+    expect(DATA_VERSION).toBe('0.14.0');
   });
 
   it('migrates v1 data to v2 (extracts team pool from projects)', () => {
@@ -68,7 +68,7 @@ describe('Migrations', () => {
     const result = runMigrations(v1Data, '1.0.0');
 
     // Version should be bumped to latest
-    expect(result.version).toBe('0.13.0');
+    expect(result.version).toBe('0.14.0');
 
     // Pool should contain both members
     expect(result.teamPool).toHaveLength(2);
@@ -141,7 +141,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v2Data, '0.2.0');
 
-    expect(result.version).toBe('0.13.0');
+    expect(result.version).toBe('0.14.0');
     // hoursPerMonth should be removed
     expect((result.settings as unknown as Record<string, unknown>).hoursPerMonth).toBeUndefined();
     // Other settings preserved
@@ -179,7 +179,7 @@ describe('Migrations', () => {
 
     const migrated = runMigrations(importedData, '1.0.0');
 
-    expect(migrated.version).toBe('0.13.0');
+    expect(migrated.version).toBe('0.14.0');
     expect(migrated.teamPool).toHaveLength(1);
     expect(migrated.teamPool[0].name).toBe('Alice');
     expect((migrated.projects[0] as unknown as Record<string, unknown>).assignments).toBeUndefined();
@@ -243,7 +243,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v3Data, '0.3.0');
 
-    expect(result.version).toBe('0.13.0');
+    expect(result.version).toBe('0.14.0');
     const proj = result.projects[0];
 
     // actualCost should be removed from project level
@@ -294,7 +294,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v3Data, '0.3.0');
 
-    expect(result.version).toBe('0.13.0');
+    expect(result.version).toBe('0.14.0');
     const proj = result.projects[0];
 
     // actualCost removed from project
@@ -304,7 +304,9 @@ describe('Migrations', () => {
     expect(proj.reforecasts).toHaveLength(1);
     expect(proj.reforecasts[0].name).toBe('Baseline');
     expect(proj.reforecasts[0].actualCost).toBe(30000);
-    expect(proj.reforecasts[0].startDate).toBe('2026-06');
+    // v0.14.0 migration converts YYYY-MM → YYYY-MM-DD using the day component
+    // from project.startDate (2026-06-15 → day 15).
+    expect(proj.reforecasts[0].startDate).toBe('2026-06-15');
 
     // activeReforecastId set to the new Baseline
     expect(proj.activeReforecastId).toBe(proj.reforecasts[0].id);
@@ -448,7 +450,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v4Data, '0.4.0');
 
-    expect(result.version).toBe('0.13.0');
+    expect(result.version).toBe('0.14.0');
     const proj = result.projects[0];
 
     // baselineBudget removed from project level
@@ -497,7 +499,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v4Data, '0.4.0');
 
-    expect(result.version).toBe('0.13.0');
+    expect(result.version).toBe('0.14.0');
     const proj = result.projects[0];
 
     // Missing baselineBudget defaults to 0
@@ -539,7 +541,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v4Data, '0.4.0');
 
-    expect(result.version).toBe('0.13.0');
+    expect(result.version).toBe('0.14.0');
     expect(result.projects[0].reforecasts[0].baselineBudget).toBe(0);
   });
 
@@ -597,7 +599,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v4Data, '0.4.0');
 
-    expect(result.version).toBe('0.13.0');
+    expect(result.version).toBe('0.14.0');
     expect(result.projects[0].reforecasts[0].baselineBudget).toBe(0);
     expect(result.projects[1].reforecasts[0].baselineBudget).toBe(0);
   });
@@ -615,7 +617,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v5Data, '0.5.0');
 
-    expect(result.version).toBe('0.13.0');
+    expect(result.version).toBe('0.14.0');
     expect(result.settings.holidays).toEqual([]);
     // Other settings preserved
     expect(result.settings.discountRateAnnual).toBe(0.03);
@@ -638,7 +640,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v5Data, '0.5.0');
 
-    expect(result.version).toBe('0.13.0');
+    expect(result.version).toBe('0.14.0');
     expect(result.settings.holidays).toHaveLength(1);
     expect(result.settings.holidays[0].name).toBe('Test');
   });
@@ -677,7 +679,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v4Data, '0.4.0');
 
-    expect(result.version).toBe('0.13.0');
+    expect(result.version).toBe('0.14.0');
     const proj = result.projects[0];
 
     // reforecastDate falls back to today when createdAt is missing
@@ -699,7 +701,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v6Data, '0.6.0');
 
-    expect(result.version).toBe('0.13.0');
+    expect(result.version).toBe('0.14.0');
     // v0.7.0 seeds defaults, v0.13.0 backfills violetPercent.
     expect(result.settings.trafficLightThresholds).toEqual({
       amberPercent: 5,
@@ -727,7 +729,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v6Data, '0.6.0');
 
-    expect(result.version).toBe('0.13.0');
+    expect(result.version).toBe('0.14.0');
     // User customizations preserved through 0.7.0; 0.13.0 backfills violetPercent.
     expect(result.settings.trafficLightThresholds).toEqual({
       amberPercent: 10,
@@ -784,7 +786,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v7Data, '0.7.0');
 
-    expect(result.version).toBe('0.13.0');
+    expect(result.version).toBe('0.14.0');
     expect(result.projects[0].reforecasts[0].notes).toBe('');
     expect(result.projects[0].reforecasts[1].notes).toBe('');
   });
@@ -896,7 +898,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v9Data, '0.9.0');
 
-    expect(result.version).toBe('0.13.0');
+    expect(result.version).toBe('0.14.0');
 
     const baseline = result.projects[0].reforecasts[0];
     const march30 = result.projects[0].reforecasts[1];
@@ -961,7 +963,7 @@ describe('Migrations', () => {
 
     const result = runMigrations(v9Data, '0.9.0');
 
-    expect(result.version).toBe('0.13.0');
+    expect(result.version).toBe('0.14.0');
     const rf = result.projects[0].reforecasts[0];
 
     // User-entered Jan entry survives, normalized to {month, cost, hours}
@@ -1007,10 +1009,14 @@ describe('Migrations', () => {
     } as unknown as AppState;
 
     const result = runMigrations(v9Data, '0.9.0');
-    expect(result.version).toBe('0.13.0');
+    expect(result.version).toBe('0.14.0');
     // v0.11.0 migration adds an empty `assignments` array to each reforecast.
+    // v0.14.0 migration converts startDate to YYYY-MM-DD (using day-01 from project.startDate)
+    // and backfills endDate from project.endDate.
     expect(result.projects[0].reforecasts[0]).toEqual({
       ...v9Data.projects[0].reforecasts[0],
+      startDate: '2026-01-01',
+      endDate: '2026-12-31',
       assignments: [],
     });
   });
@@ -1108,7 +1114,7 @@ describe('Migrations', () => {
 
       const result = runMigrations(v10Data, '0.10.0');
 
-      expect(result.version).toBe('0.13.0');
+      expect(result.version).toBe('0.14.0');
       const proj = result.projects[0];
       expect((proj as unknown as Record<string, unknown>).assignments).toBeUndefined();
       expect(proj.reforecasts[0].assignments).toEqual([
@@ -1164,7 +1170,7 @@ describe('Migrations', () => {
 
       const result = runMigrations(v10Data, '0.10.0');
 
-      expect(result.version).toBe('0.13.0');
+      expect(result.version).toBe('0.14.0');
       expect(result.projects[0].reforecasts[0].assignments).toEqual([]);
     });
 
@@ -1204,7 +1210,7 @@ describe('Migrations', () => {
 
       const result = runMigrations(v10Data, '0.10.0');
 
-      expect(result.version).toBe('0.13.0');
+      expect(result.version).toBe('0.14.0');
       expect(result.projects[0].reforecasts[0].assignments).toEqual([]);
     });
 
@@ -1246,7 +1252,7 @@ describe('Migrations', () => {
 
       const result = runMigrations(v10Data, '0.10.0');
 
-      expect(result.version).toBe('0.13.0');
+      expect(result.version).toBe('0.14.0');
       // Existing per-reforecast assignments win
       expect(result.projects[0].reforecasts[0].assignments).toEqual([
         { id: 'a99', poolMemberId: 'pm99' },
@@ -1298,12 +1304,22 @@ describe('Migrations', () => {
       const v11Data = makeV11();
       const result = runMigrations(v11Data as never, '0.11.0');
 
-      expect(result.version).toBe('0.13.0');
+      expect(result.version).toBe('0.14.0');
       expect(result.teamPool).toEqual([
         { id: 'pm-1', name: 'Alice', role: 'BA' },
         { id: 'pm-2', name: 'Bob', role: 'IT-SoftEng' },
       ]);
-      expect(result.projects).toEqual((v11Data as { projects: unknown }).projects);
+      // v0.14.0 migration transforms each reforecast's startDate to YYYY-MM-DD
+      // and backfills endDate from project.endDate.
+      const expectedProjects = (v11Data as { projects: { reforecasts: { startDate: string }[] }[] }).projects.map((p) => ({
+        ...p,
+        reforecasts: p.reforecasts.map((rf) => ({
+          ...rf,
+          startDate: '2026-01-01',
+          endDate: '2026-12-31',
+        })),
+      }));
+      expect(result.projects).toEqual(expectedProjects);
       // Settings preserved EXCEPT trafficLightThresholds gains violetPercent: 20 from the 0.13.0 migration.
       const v11Settings = (v11Data as { settings: { trafficLightThresholds: object } }).settings;
       expect(result.settings).toEqual({
@@ -1319,7 +1335,7 @@ describe('Migrations', () => {
       };
       const result = runMigrations(v12Data as never, '0.12.0');
 
-      expect(result.version).toBe('0.13.0');
+      expect(result.version).toBe('0.14.0');
       expect(result.settings.trafficLightThresholds).toEqual({
         amberPercent: 5,
         redPercent: 15,
@@ -1346,7 +1362,7 @@ describe('Migrations', () => {
     it('backfills violetPercent: 20 when missing', () => {
       const data = makeV12();
       const result = runMigrations(data as never, '0.12.0');
-      expect(result.version).toBe('0.13.0');
+      expect(result.version).toBe('0.14.0');
       expect(result.settings.trafficLightThresholds).toEqual({
         amberPercent: 5,
         redPercent: 15,

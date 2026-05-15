@@ -65,7 +65,7 @@ const gapCell = '';
 
 interface PrintableReportProps {
   project: Project;
-  activeReforecast: Reforecast | null | undefined;
+  activeReforecast: Reforecast | null;
   metrics: ProjectMetrics | null;
   chartData: ChartDataPoint[];
   baselineBudget: number;
@@ -188,6 +188,15 @@ export function PrintableReport({
                   {formatCurrency(activeReforecast.baselineBudget)}
                 </td>
               </tr>
+              {(activeReforecast.startDate !== project.startDate ||
+                activeReforecast.endDate !== project.endDate) && (
+                <tr>
+                  <td className={labelCell}>Reforecast Window</td>
+                  <td className={valueCell} colSpan={4}>
+                    {formatDateMedium(activeReforecast.startDate)} – {formatDateMedium(activeReforecast.endDate)}
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </section>

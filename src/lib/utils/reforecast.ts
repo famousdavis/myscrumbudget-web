@@ -5,20 +5,24 @@
 import type { HistoricalCostEntry, Reforecast } from '@/types/domain';
 import { generateId } from './id';
 import { materializeBucketAt } from './historicalCostsView';
+import { filterHistoricalCostsByRange } from '@/features/projects/lib/timelineChange';
 
 /**
- * Create a default Baseline reforecast for a new project.
- * Used by useProjects (project creation) and useReforecast (ensureReforecast fallback).
+ * Create a default Baseline reforecast for a new project. The baseline
+ * inherits the project's window verbatim. Used by useProjects (project
+ * creation) and useReforecast (ensureReforecast fallback).
  */
 export function createBaselineReforecast(
   projectStartDate: string,
+  projectEndDate: string,
   baselineBudget: number = 0,
 ): Reforecast {
   return {
     id: generateId(),
     name: 'Baseline',
     createdAt: new Date().toISOString(),
-    startDate: projectStartDate.slice(0, 7),
+    startDate: projectStartDate,
+    endDate: projectEndDate,
     reforecastDate: new Date().toISOString().slice(0, 10),
     assignments: [],
     allocations: [],
@@ -29,8 +33,17 @@ export function createBaselineReforecast(
 }
 
 /**
- * Create a new reforecast, optionally copying data from a source reforecast.
- * Used by useReforecast hook for reforecast creation.
+ * Create a new reforecast, optionally copying data from a source.
+ *
+ * - With `source`: the new reforecast inherits the source's window
+ *   (`startDate`/`endDate`), assignments (IDs preserved for allocation
+ *   linkage), allocations, productivity windows (with NEW IDs),
+ *   `actualCost`, `baselineBudget`, `actualsThroughDate` (when set), and
+ *   historical costs (cloned + materialized at the source's cutoff, then
+ *   clipped to the source's window). Notes are NOT copied (a copy starts
+ *   with blank notes).
+ * - Without `source`: the new reforecast inherits the project's window
+ *   and is otherwise empty.
  *
  * baselineBudget is copied from the source (budget persists until re-baselined).
  * reforecastDate is always set to today (each reforecast is a new point in time).
@@ -38,8 +51,12 @@ export function createBaselineReforecast(
 export function createNewReforecast(
   name: string,
   projectStartDate: string,
+  projectEndDate: string,
   source?: Reforecast,
 ): Reforecast {
+  const startDate = source ? source.startDate : projectStartDate;
+  const endDate = source ? source.endDate : projectEndDate;
+
   // Carry forward the source's historicalCosts entries (deep-cloned), then
   // materialize the source's CURRENT effective cutoff-bucket value so the
   // prior month's actuals are preserved when the user later advances the
@@ -58,7 +75,18 @@ export function createNewReforecast(
       copiedEntries,
       source.actualCost,
       source.actualsThroughDate.slice(0, 7),
-      projectStartDate.slice(0, 7),
+      source.startDate.slice(0, 7),
+    );
+  }
+
+  // Clip any stale entries (materialization preserves all input entries;
+  // some may pre-date the source's current start, e.g. if the source's
+  // start was shrunk after the entries were captured).
+  if (source && copiedEntries.length > 0) {
+    copiedEntries = filterHistoricalCostsByRange(
+      copiedEntries,
+      source.startDate.slice(0, 7),
+      source.endDate.slice(0, 7),
     );
   }
 
@@ -66,7 +94,8 @@ export function createNewReforecast(
     id: generateId(),
     name,
     createdAt: new Date().toISOString(),
-    startDate: projectStartDate.slice(0, 7),
+    startDate,
+    endDate,
     reforecastDate: new Date().toISOString().slice(0, 10),
     // Preserve assignment IDs verbatim — cloned `allocations` (which key on
     // assignment.id) must continue to resolve. Reforecast independence is

@@ -49,8 +49,11 @@ export function calculateProjectMetrics(
   }
 
   const allocationMap = buildAllocationMap(reforecast.allocations);
-  const startMonth = project.startDate.slice(0, 7);
-  const endMonth = project.endDate.slice(0, 7);
+  // v0.29.0: the active reforecast's window drives the calc engine. Project
+  // dates remain available for display/header purposes but no longer drive
+  // runtime calculations.
+  const startMonth = reforecast.startDate.slice(0, 7);
+  const endMonth = reforecast.endDate.slice(0, 7);
   const months = generateMonthRange(startMonth, endMonth);
 
   // Compute ETC start date from actualsThroughDate (if set)
@@ -65,8 +68,11 @@ export function calculateProjectMetrics(
 
   for (const month of months) {
     const factor = getProductivityFactor(month, reforecast.productivityWindows);
+    // getMonthlyWorkHours honors the day component of startDate/endDate
+    // (verified at dates.ts:169-184). Mid-month reforecast.startDate values
+    // produce partial first-month hour totals — see D22 and CHANGELOG.
     const availableHours = getMonthlyWorkHours(
-      month, project.startDate, project.endDate, settings.holidays, etcStartDate,
+      month, reforecast.startDate, reforecast.endDate, settings.holidays, etcStartDate,
     );
     const cost = calculateTotalMonthlyCost(
       month, allocationMap, teamMembers, settings, availableHours, factor,
@@ -89,7 +95,7 @@ export function calculateProjectMetrics(
   const burnRateActiveMonths = months.filter(m => (costMap.get(m) ?? 0) > 0);
   const burnRateStartDate = reforecast.actualsThroughDate
     ? new Date(reforecast.actualsThroughDate)
-    : new Date(project.startDate);
+    : new Date(reforecast.startDate);
 
   return {
     etc,

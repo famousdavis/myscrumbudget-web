@@ -11,8 +11,20 @@ import { CollapsibleSection } from '@/components/CollapsibleSection';
 
 interface ProductivityWindowPanelProps {
   windows: ProductivityWindow[];
+  /**
+   * Project window — drives the `min`/`max` bounds on the date inputs so
+   * users can edit windows back into the project range without delete-and-
+   * recreate. Soft default since v0.29.0 (D2).
+   */
   projectStartDate: string;
   projectEndDate: string;
+  /**
+   * Active reforecast window — drives the fully-out-of-range visual flag.
+   * Windows with zero month-overlap with [rfStartDate, rfEndDate] receive
+   * a warning indicator (D9).
+   */
+  rfStartDate: string;
+  rfEndDate: string;
   onAdd: (startDate: string, endDate: string, factor: number) => void;
   onUpdate: (
     id: string,
@@ -45,6 +57,8 @@ export function ProductivityWindowPanel({
   windows,
   projectStartDate,
   projectEndDate,
+  rfStartDate,
+  rfEndDate,
   onAdd,
   onUpdate,
   onRemove,
@@ -204,7 +218,20 @@ export function ProductivityWindowPanel({
                         </>
                       ) : (
                         <>
-                          <td className="py-2 pr-4">{w.startDate}</td>
+                          <td className="py-2 pr-4">
+                            <div className="flex items-center gap-1.5">
+                              {w.startDate}
+                              {isFullyOutOfRange(w, rfStartDate, rfEndDate) && (
+                                <span
+                                  title="This window falls outside the current forecast period and will not be applied."
+                                  aria-label="Outside current reforecast window"
+                                  className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-amber-100 text-xs font-bold text-amber-700 dark:bg-amber-950 dark:text-amber-400"
+                                >
+                                  !
+                                </span>
+                              )}
+                            </div>
+                          </td>
                           <td className="py-2 pr-4">{w.endDate}</td>
                           <td className="py-2 pr-4">
                             {Math.round(w.factor * 100)}%
@@ -332,4 +359,13 @@ export function ProductivityWindowPanel({
           )}
     </CollapsibleSection>
   );
+}
+
+function isFullyOutOfRange(
+  w: ProductivityWindow,
+  rfStartDate: string,
+  rfEndDate: string,
+): boolean {
+  const hasOverlap = w.startDate <= rfEndDate && w.endDate >= rfStartDate;
+  return !hasOverlap;
 }

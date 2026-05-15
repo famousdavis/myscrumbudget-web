@@ -17,6 +17,12 @@ export interface CommitResult {
   next: HistoricalCostEntry[] | null;
   /** When non-null, over-allocation was clamped to this ceiling. */
   cappedAt: number | null;
+  /**
+   * True when the edit's target month falls outside the reforecast's end
+   * month and was refused. When set, `next` is `null` and the caller should
+   * surface a user-facing message rather than calling `onUpdate`.
+   */
+  outOfRange?: boolean;
 }
 
 /**
@@ -44,7 +50,16 @@ export function commitHistoricalCostEdit(
   actualCost: number,
   cutoffMonth: string,
   projectStartMonth?: string,
+  rfEndMonth?: string,
 ): CommitResult {
+  // Defensive guard against edits that target months outside the active
+  // reforecast's window. The display layer normally bounds rows to the
+  // window, but a write path that bypasses `applyTimelineChangeToSingleReforecast`
+  // could otherwise insert a stale month.
+  if (rfEndMonth && month > rfEndMonth) {
+    return { next: null, cappedAt: null, outOfRange: true };
+  }
+
   const parsed = parseFloat(rawValue);
   const sanitized = Math.max(0, Number.isFinite(parsed) ? parsed : 0);
 
@@ -181,6 +196,7 @@ export function buildHistoricalCostsView(
   actualCost: number,
   actualsThroughDate: string | undefined,
   projectStartDate: string,
+  rfEndMonth?: string,
 ): HistoricalCostsDisplayRow[] {
   if (!actualsThroughDate) return [];
 
@@ -191,8 +207,14 @@ export function buildHistoricalCostsView(
   // before project start are defensively ignored (typically phantom entries
   // from a mis-typed cutoff that was later corrected). Entries at or after
   // the cutoff are ignored by construction (cutoff row is derived).
+  // `rfEndMonth` further excludes entries past the reforecast's end month
+  // as a defensive guard for any future write path that bypasses
+  // `applyTimelineChangeToSingleReforecast`.
   const inRangeEntries = (storedEntries ?? []).filter(
-    (e) => e.month >= startMonth && e.month < cutoffMonth,
+    (e) =>
+      e.month >= startMonth &&
+      e.month < cutoffMonth &&
+      (!rfEndMonth || e.month <= rfEndMonth),
   );
   const stored = new Map<string, HistoricalCostEntry>();
   for (const entry of inRangeEntries) {

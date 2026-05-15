@@ -202,7 +202,8 @@ describe('Regression Tests — Workday-Based Calculation Engine', () => {
           id: 'rf-baseline',
           name: 'Baseline',
           createdAt: new Date().toISOString(),
-          startDate: '2026-06',
+          startDate: FIX.project.startDate,
+          endDate: FIX.project.endDate,
           reforecastDate: '2026-06-15',
           assignments: FIX.teamMembers.map((m) => ({
             id: m.id,

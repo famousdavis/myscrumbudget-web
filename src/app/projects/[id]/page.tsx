@@ -109,6 +109,8 @@ export default function ProjectDetailPage({
     updateHistoricalCosts,
     updateNotes,
     updateName,
+    commitReforecastStartDate,
+    commitReforecastEndDate,
   } = useReforecast({
     project,
     updateProject,
@@ -123,30 +125,25 @@ export default function ProjectDetailPage({
   const monthlyChartRef = useRef<HTMLDivElement>(null);
   const cumulativeChartRef = useRef<HTMLDivElement>(null);
 
+  // v0.29.0: months are now driven by the active reforecast's window,
+  // not the project's. Each reforecast carries an independent window.
   const months = useMemo(() => {
-    if (!project) return [];
-    // Extract YYYY-MM from YYYY-MM-DD dates
-    const startMonth = project.startDate.slice(0, 7);
-    const endMonth = project.endDate.slice(0, 7);
+    if (!activeReforecast) return [];
+    const startMonth = activeReforecast.startDate.slice(0, 7);
+    const endMonth = activeReforecast.endDate.slice(0, 7);
     return generateMonthRange(startMonth, endMonth);
-  }, [project]);
+  }, [activeReforecast]);
 
-  const chartData = useMemo(
-    () => buildChartData(
-      activeReforecast?.historicalCosts,
+  const chartData = useMemo(() => {
+    if (!activeReforecast) return [];
+    return buildChartData(
+      activeReforecast.historicalCosts,
       metrics?.monthlyData ?? [],
-      activeReforecast?.actualsThroughDate,
-      project?.startDate ?? '',
-      activeReforecast?.actualCost ?? 0,
-    ),
-    [
-      activeReforecast?.historicalCosts,
-      metrics?.monthlyData,
-      activeReforecast?.actualsThroughDate,
-      project?.startDate,
-      activeReforecast?.actualCost,
-    ],
-  );
+      activeReforecast.actualsThroughDate,
+      activeReforecast.startDate,
+      activeReforecast.actualCost ?? 0,
+    );
+  }, [activeReforecast, metrics?.monthlyData]);
 
   if (loading) {
     return <SkeletonProjectDetail />;
@@ -256,14 +253,16 @@ export default function ProjectDetailPage({
             activeReforecastId={project.activeReforecastId}
             reforecastDate={reforecastDate}
             actualsThroughDate={actualsThroughDate}
-            projectStartDate={project.startDate}
-            projectEndDate={project.endDate}
+            reforecastStartDate={activeReforecast?.startDate ?? project.startDate}
+            reforecastEndDate={activeReforecast?.endDate ?? project.endDate}
             onSwitch={switchReforecast}
             onCreate={createReforecast}
             onDelete={deleteReforecast}
             onRename={updateName}
             onReforecastDateChange={updateReforecastDate}
             onActualsThroughDateChange={updateActualsThroughDate}
+            onCommitStartDate={commitReforecastStartDate}
+            onCommitEndDate={commitReforecastEndDate}
           />
         </div>
         {activeReforecast && (
@@ -310,16 +309,20 @@ export default function ProjectDetailPage({
       </div>
 
       {/* Productivity Windows */}
-      <div className="mt-8">
-        <ProductivityWindowPanel
-          windows={productivityWindows}
-          projectStartDate={project.startDate}
-          projectEndDate={project.endDate}
-          onAdd={addProductivityWindow}
-          onUpdate={updateProductivityWindow}
-          onRemove={removeProductivityWindow}
-        />
-      </div>
+      {activeReforecast && (
+        <div className="mt-8">
+          <ProductivityWindowPanel
+            windows={productivityWindows}
+            projectStartDate={project.startDate}
+            projectEndDate={project.endDate}
+            rfStartDate={activeReforecast.startDate}
+            rfEndDate={activeReforecast.endDate}
+            onAdd={addProductivityWindow}
+            onUpdate={updateProductivityWindow}
+            onRemove={removeProductivityWindow}
+          />
+        </div>
+      )}
 
       {/* Forecast Metrics */}
       <div className="mt-8">
@@ -360,7 +363,6 @@ export default function ProjectDetailPage({
         <div className="mt-8">
           <HistoricalCostsTable
             activeReforecast={activeReforecast}
-            project={project}
             onUpdate={updateHistoricalCosts}
           />
         </div>
@@ -403,7 +405,7 @@ export default function ProjectDetailPage({
 
       <PrintableReport
         project={project}
-        activeReforecast={activeReforecast}
+        activeReforecast={activeReforecast ?? null}
         metrics={metrics}
         chartData={chartData}
         baselineBudget={baselineBudget}

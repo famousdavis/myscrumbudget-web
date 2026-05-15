@@ -19,6 +19,10 @@ import { buildAllocationMap } from '@/lib/calc/allocationMap';
 import { getActiveReforecast } from '@/lib/utils/teamResolution';
 import { createBaselineReforecast, createNewReforecast } from '@/lib/utils/reforecast';
 import { materializeBucketOnAdvance } from '@/lib/utils/historicalCostsView';
+import {
+  applyTimelineChangeToSingleReforecast,
+  computeClampedReforecastDate,
+} from '@/features/projects/lib/timelineChange';
 import { ensureOriginRef, appendToChangeLog } from '@/lib/storage/fingerprint';
 
 interface UseReforecastOptions {
@@ -54,7 +58,7 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
         return { project: prev, reforecastId: id };
       }
 
-      const rf = createBaselineReforecast(prev.startDate);
+      const rf = createBaselineReforecast(prev.startDate, prev.endDate);
       const updated = {
         ...prev,
         reforecasts: [rf],
@@ -143,7 +147,7 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
           ? prev.reforecasts.find((r) => r.id === copyFromId)
           : undefined;
 
-        const newRf = createNewReforecast(name, prev.startDate, source);
+        const newRf = createNewReforecast(name, prev.startDate, prev.endDate, source);
         newRfId = newRf.id;
 
         return {
@@ -283,12 +287,14 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
         // bucket value so the previously-derived total isn't lost. Pass the
         // project start date so out-of-range cutoffs (e.g. user typed Feb
         // then corrected to March) don't materialize phantom entries.
+        // Use the reforecast's own window for the range guard now that
+        // reforecast.startDate is the runtime driver (v0.29.0).
         const nextHistorical = materializeBucketOnAdvance(
           rf.historicalCosts,
           rf.actualCost,
           rf.actualsThroughDate,
           date,
-          project?.startDate,
+          rf.startDate,
         );
         const next: Reforecast = { ...rf, actualsThroughDate: date };
         if (nextHistorical.length > 0) {
@@ -302,7 +308,43 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
         return next;
       });
     },
-    [updateActiveRf, project?.startDate],
+    [updateActiveRf],
+  );
+
+  /**
+   * Commit a new startDate to the active reforecast. Applies the window
+   * change (allocations / historicalCosts / actualsThroughDate clamping)
+   * and conditionally clamps `reforecastDate` forward when needed.
+   *
+   * `today` is taken from the toolbar (frozen at dialog-open time per D20)
+   * to keep the clamp consistent with the summary the user confirmed.
+   */
+  const commitReforecastStartDate = useCallback(
+    (newStart: string, today: string) => {
+      updateActiveRf((rf) => {
+        const updated = applyTimelineChangeToSingleReforecast(rf, newStart, rf.endDate);
+        const nextReforecastDate = computeClampedReforecastDate(
+          rf.reforecastDate,
+          newStart,
+          today,
+        );
+        return { ...updated, reforecastDate: nextReforecastDate };
+      });
+    },
+    [updateActiveRf],
+  );
+
+  /**
+   * Commit a new endDate to the active reforecast. `reforecastDate` is
+   * intentionally not touched — a `reforecastDate` past `endDate` is
+   * permitted (you can document a forecast in December for a project
+   * that ended in June).
+   */
+  const commitReforecastEndDate = useCallback(
+    (newEnd: string) => {
+      updateActiveRf((rf) => applyTimelineChangeToSingleReforecast(rf, rf.startDate, newEnd));
+    },
+    [updateActiveRf],
   );
 
   const updateHistoricalCosts = useCallback(
@@ -343,5 +385,7 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
     updateHistoricalCosts,
     updateNotes,
     updateName,
+    commitReforecastStartDate,
+    commitReforecastEndDate,
   };
 }

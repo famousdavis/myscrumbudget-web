@@ -4,7 +4,25 @@
 
 import type { AppState, PoolMember, ProjectAssignment } from '@/types/domain';
 
-export const DATA_VERSION = '0.13.0';
+export const DATA_VERSION = '0.14.0';
+
+// Local regex-only date validator for migrations. We avoid importing the
+// validator from validation.ts because (a) it's internal there, and (b)
+// migrations should be self-contained and not coupled to runtime validation.
+function isMigrationValidYmd(val: unknown): val is string {
+  if (typeof val !== 'string') return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(val)) return false;
+  const [y, m, d] = val.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  return date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d;
+}
+
+function lastDayOfMonth(yyyyMm: string): string {
+  // yyyyMm: 'YYYY-MM' -> 'YYYY-MM-DD' (last day)
+  const [y, m] = yyyyMm.split('-').map(Number);
+  const last = new Date(y, m, 0).getDate(); // day 0 of next month = last of this month
+  return `${yyyyMm}-${String(last).padStart(2, '0')}`;
+}
 
 type Migration = {
   version: string;
@@ -398,6 +416,114 @@ const MIGRATIONS: Migration[] = [
           },
         },
       };
+    },
+  },
+  {
+    version: '0.14.0',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    migrate: (data: any): AppState => {
+      // v0.29.0 — Per-reforecast independent windows.
+      // - Convert Reforecast.startDate from YYYY-MM to YYYY-MM-DD (runtime driver).
+      // - Backfill Reforecast.endDate from project.endDate (or fallback chain).
+      // - Clamp legacy reforecastDate / actualsThroughDate values to the new window.
+      // If pre-migration data is fully invalid, a 1970-01-01 sentinel window is
+      // produced as a fail-safe; the user corrects via the toolbar.
+      assertArray(data.projects, 'projects', '0.14.0');
+      const today = new Date().toISOString().slice(0, 10);
+
+      const migratedProjects = (data.projects ?? []).map(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (project: any) => {
+          const projectStartValid = isMigrationValidYmd(project?.startDate);
+          const projectEndValid = isMigrationValidYmd(project?.endDate);
+          const corruptProject =
+            projectStartValid && projectEndValid && project.startDate > project.endDate;
+          if (corruptProject) {
+            console.warn(
+              `Migration 0.14.0: project "${project?.id ?? '<unknown>'}" has startDate > endDate; skipping reforecast date migration.`,
+            );
+          }
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const migratedReforecasts = (project.reforecasts ?? []).map((rf: any) => {
+            if (corruptProject) {
+              return rf;
+            }
+
+            // Resolve startDate
+            let nextStart: string;
+            const rawStart = rf?.startDate;
+            if (typeof rawStart === 'string' && rawStart.length === 10 && isMigrationValidYmd(rawStart)) {
+              nextStart = rawStart; // already YYYY-MM-DD; idempotent
+            } else if (typeof rawStart === 'string' && /^\d{4}-\d{2}$/.test(rawStart)) {
+              // YYYY-MM legacy — use project.startDate's day, else day 01
+              const dayPart = projectStartValid ? project.startDate.slice(-2) : '01';
+              const candidate = `${rawStart}-${dayPart}`;
+              nextStart = isMigrationValidYmd(candidate) ? candidate : `${rawStart}-01`;
+            } else {
+              nextStart = projectStartValid ? project.startDate : '1970-01-01';
+            }
+
+            // Resolve endDate
+            let nextEnd: string;
+            const rawEnd = rf?.endDate;
+            if (typeof rawEnd === 'string' && isMigrationValidYmd(rawEnd)) {
+              nextEnd = rawEnd; // already present; idempotent
+            } else if (projectEndValid) {
+              nextEnd = project.endDate;
+            } else {
+              // Fallback chain: latest allocation month → rf.startDate
+              const allocations = Array.isArray(rf?.allocations) ? rf.allocations : [];
+              const months = allocations
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                .map((a: any) => a?.month)
+                .filter((m: unknown): m is string => typeof m === 'string' && /^\d{4}-\d{2}$/.test(m));
+              if (months.length > 0) {
+                months.sort();
+                nextEnd = lastDayOfMonth(months[months.length - 1]);
+              } else {
+                nextEnd = nextStart;
+              }
+            }
+
+            // Safety: if somehow end < start, collapse to a one-day window at start.
+            if (nextEnd < nextStart) {
+              nextEnd = nextStart;
+            }
+
+            // Legacy date clamping
+            const next: typeof rf = { ...rf, startDate: nextStart, endDate: nextEnd };
+
+            // reforecastDate: clamp forward only if rf.startDate ≤ today
+            if (
+              typeof next.reforecastDate === 'string' &&
+              isMigrationValidYmd(next.reforecastDate) &&
+              nextStart <= today &&
+              next.reforecastDate < nextStart
+            ) {
+              next.reforecastDate = nextStart;
+            }
+
+            // actualsThroughDate: clamp to [nextStart, nextEnd] when set
+            if (
+              typeof next.actualsThroughDate === 'string' &&
+              isMigrationValidYmd(next.actualsThroughDate)
+            ) {
+              if (next.actualsThroughDate < nextStart) {
+                next.actualsThroughDate = nextStart;
+              } else if (next.actualsThroughDate > nextEnd) {
+                next.actualsThroughDate = nextEnd;
+              }
+            }
+
+            return next;
+          });
+
+          return { ...project, reforecasts: migratedReforecasts };
+        },
+      );
+
+      return { ...data, version: '0.14.0', projects: migratedProjects };
     },
   },
 ];

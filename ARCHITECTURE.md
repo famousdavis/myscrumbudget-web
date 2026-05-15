@@ -195,7 +195,8 @@ interface Reforecast {
   id: string;
   name: string;
   createdAt: string;        // ISO datetime
-  startDate: string;        // forecast start month
+  startDate: string;        // YYYY-MM-DD — first day of the reforecast window (v0.29.0; YYYY-MM pre-0.29.0)
+  endDate: string;          // YYYY-MM-DD — last day of the reforecast window (v0.29.0)
   reforecastDate: string;   // ISO date (YYYY-MM-DD) — when this reforecast was prepared (v0.7.0)
   allocations: MonthlyAllocation[];
   assignments: ProjectAssignment[]; // per-reforecast team roster (v0.24.0; was project-level pre-0.11.0)
@@ -220,6 +221,17 @@ interface Project {
 }
 ```
 
+> **Per-reforecast windows (v0.29.0):** Each `Reforecast` now owns its `startDate` and
+> `endDate` (both YYYY-MM-DD). These fields drive the allocation grid columns, the calc
+> engine's month range and `getMonthlyWorkHours` inputs, and the chart x-axis. The project's
+> `startDate` / `endDate` are soft defaults only — they seed new reforecasts and provide
+> display context but no longer affect existing reforecasts' runtime behavior. Editing the
+> project does not cascade. The reforecast toolbar's confirmation dialog surfaces exact
+> "from → to" adjustments before applying a window change (allocations / historical-cost
+> entries trimmed, `reforecastDate` clamped forward when appropriate, `actualsThroughDate`
+> clamped to the new range, productivity windows that fall fully outside are flagged
+> visually but never auto-deleted).
+>
 > **Snapshot semantics (v0.24.0):** Each `Reforecast` owns its own `assignments` array.
 > Removing a member from the active reforecast does not affect sibling reforecasts.
 > Assignment IDs are preserved when reforecasts are cloned (`createNewReforecast` deep-clones
@@ -353,7 +365,7 @@ const exampleState: AppState = {
     // assignments removed in v0.24.0 — now lives in Reforecast (each is a snapshot)
     reforecasts: [{
       id: "rf_001",
-      name: "Q3 2026 Reforecast",
+      name: "Q3 2026 Reforecast",  // (example pre-v0.29.0 startDate format follows)
       createdAt: "2026-07-01T10:00:00Z",
       startDate: "2026-06",
       reforecastDate: "2026-07-01",

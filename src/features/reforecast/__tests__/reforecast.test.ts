@@ -29,7 +29,8 @@ function makeReforecast(overrides: Partial<Reforecast> = {}): Reforecast {
     id: 'rf_1',
     name: 'Baseline',
     createdAt: '2026-06-01T00:00:00Z',
-    startDate: '2026-06',
+    startDate: '2026-06-15',
+    endDate: '2027-07-15',
     reforecastDate: '2026-06-01',
     assignments: [
       { id: 'a_1', poolMemberId: 'pm_1' },
@@ -64,6 +65,7 @@ function createReforecastUpdater(
       name,
       createdAt: new Date().toISOString(),
       startDate: prev.startDate,
+      endDate: prev.endDate,
       reforecastDate: new Date().toISOString().slice(0, 10),
       assignments: sourceReforecast
         ? sourceReforecast.assignments.map((a) => ({ ...a }))

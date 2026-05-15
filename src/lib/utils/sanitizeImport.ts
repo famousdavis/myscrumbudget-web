@@ -73,7 +73,7 @@ const HISTORICAL_COST_FIELDS: ReadonlyArray<keyof HistoricalCostEntry> = [
 
 const REFORECAST_FIELDS: ReadonlyArray<keyof Reforecast> = [
   'id', 'name', 'createdAt',
-  'startDate', 'reforecastDate',
+  'startDate', 'endDate', 'reforecastDate',
   'allocations', 'assignments', 'productivityWindows',
   'actualCost', 'baselineBudget',
   'actualsThroughDate', 'notes', 'historicalCosts',

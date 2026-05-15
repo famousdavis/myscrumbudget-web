@@ -34,7 +34,8 @@ describe('User workflow: March → April reforecast with cutoff advance', () => 
       id: 'rf-march',
       name: 'March 30 Reforecast',
       createdAt: '2026-03-30T00:00:00Z',
-      startDate: '2026-03',
+      startDate: '2026-03-01',
+      endDate: '2026-12-31',
       reforecastDate: '2026-03-30',
       allocations: [],          // user's project has allocations; not relevant here
       assignments: [],
@@ -49,7 +50,7 @@ describe('User workflow: March → April reforecast with cutoff advance', () => 
     const projectStartDate = '2026-03-01';
 
     // ── Step 2: Create April reforecast by copying from March ────────────
-    let april = createNewReforecast('April 6 Reforecast', projectStartDate, march);
+    let april = createNewReforecast('April 6 Reforecast', projectStartDate, '2026-12-31', march);
 
     console.log('After copy:', JSON.stringify(april.historicalCosts));
     console.log('  actualCost:', april.actualCost, 'cutoff:', april.actualsThroughDate);
@@ -127,7 +128,8 @@ describe('User workflow: March → April reforecast with cutoff advance', () => 
       id: 'rf-march',
       name: 'March',
       createdAt: '2026-03-30T00:00:00Z',
-      startDate: '2026-03',
+      startDate: '2026-03-01',
+      endDate: '2026-12-31',
       reforecastDate: '2026-03-30',
       allocations: [],
       assignments: [],
@@ -138,7 +140,7 @@ describe('User workflow: March → April reforecast with cutoff advance', () => 
     };
     const projectStartDate = '2026-03-01';
 
-    let april = createNewReforecast('April', projectStartDate, march);
+    let april = createNewReforecast('April', projectStartDate, '2026-12-31', march);
 
     // Bump actualCost while cutoff is still Mar 28 → user is restating Mar's actuals
     april = { ...april, actualCost: 25000 };
@@ -223,7 +225,8 @@ describe('B1 regression: stale historicalCosts after cutoff advance', () => {
       id: 'rf-edge',
       name: 'Edge case',
       createdAt: '2026-03-15T00:00:00Z',
-      startDate: '2026-03',
+      startDate: '2026-03-01',
+      endDate: '2026-12-31',
       reforecastDate: '2026-03-15',
       allocations: [],
       assignments: [],
@@ -259,7 +262,8 @@ describe('B1 regression: stale historicalCosts after cutoff advance', () => {
       id: 'rf-fresh',
       name: 'Fresh',
       createdAt: '2026-03-15T00:00:00Z',
-      startDate: '2026-03',
+      startDate: '2026-03-01',
+      endDate: '2026-12-31',
       reforecastDate: '2026-03-15',
       allocations: [],
       assignments: [],

@@ -4,6 +4,46 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.29.0] - 2026-05-14
+
+Per-reforecast independent timelines. Each what-if scenario now carries its own start and end dates, fully decoupled from the project and from sibling reforecasts. The allocation grid, calc engine, and charts are all driven by the active reforecast's window — editing the project no longer cascades.
+
+### ⚠️ Breaking semantic change — `Reforecast.startDate`
+
+Previously stored as YYYY-MM and never consumed at runtime. Now stored as YYYY-MM-DD and actively drives the allocation grid, calc engine, and chart rendering. Data files saved in v0.29.0 cannot be opened by v0.28.x or earlier — do not export from v0.29.0 if the destination is running an earlier version.
+
+### Added
+
+- **Per-reforecast Start and End date inputs in the reforecast toolbar.** Each what-if scenario carries its own window, independent of the project and of sibling reforecasts. The allocation grid columns, the calc engine's month range, and chart rendering all read from the active reforecast.
+- **Confirmation dialog with exact "from → to" values.** When a date change would trim allocations, remove historical cost entries, clamp the Reforecast Date, or clamp the Actuals Through date, the dialog surfaces precise counts and date adjustments before applying. Productivity windows that fall outside the new range are listed in the dialog and visually flagged after commit — never auto-deleted.
+- **`Reforecast.endDate` field (required, YYYY-MM-DD).** Migration backfills from `project.endDate` (or the latest allocation month / `rf.startDate` if project end is unset). New reforecasts inherit either the project's window (blank) or the source reforecast's window (copy).
+- **"Reforecast Window" line in PrintableReport,** rendered only when the active reforecast's window differs from the project's window.
+
+### Changed
+
+- **Editing the project no longer cascades to existing reforecasts.** Changing project start/end dates only updates project-level fields and seeds future new reforecasts. The baseline and every other existing reforecast permanently carry their own windows from the moment of creation. Helper text on the ProjectForm date inputs makes this explicit.
+- **Mid-month reforecast start dates produce partial first-month working hours.** A 1.0 FTE allocation for March on a reforecast starting March 15 produces roughly half a full-March cost (same behavior the app already applied for project start dates).
+- **`reforecastDate` ("when this forecast was prepared") is independently editable.** Maximum value is today's date; a `reforecastDate` past the reforecast's end date is permitted (you can document a forecast in December for a project that ended in June). Future-dated values in existing data are preserved on read; any user edit via the toolbar snaps to today's maximum.
+- **`actualsThroughDate` constrained to `[rf.startDate, rf.endDate]` when set.** Cleared via the `×` button as before. Clamped in either direction during migration if it fell outside the new window.
+- **Copying reforecasts inherits source `startDate`/`endDate`, `actualCost`, `historicalCosts`, and `actualsThroughDate`.** Carrying the actual cost record forward gives the correct EAC and variance baseline for the new scenario.
+
+### Removed
+
+- `computeTimelineChangeSummary` and `applyTimelineChangeToReforecasts` (the multi-reforecast cascade helpers) — replaced by `computeSingleReforecastTimelineChangeSummary` and `applyTimelineChangeToSingleReforecast`. The `PendingSave` dialog on the project edit page is gone.
+
+### Migration (automatic on first load)
+
+- Converts `Reforecast.startDate` from YYYY-MM to YYYY-MM-DD using the day component from `project.startDate` (defaults to `-01` if absent or invalid).
+- Backfills `Reforecast.endDate` from `project.endDate` (fallback chain: latest allocation month → `rf.startDate`).
+- Clamps any out-of-range `reforecastDate` / `actualsThroughDate` to the new window. Migration-time clamps are silent — if you had a value near the edge of your reforecast window before upgrading, check the toolbar after the first load to confirm it landed where expected.
+- If pre-migration data is entirely corrupt and all date fields are invalid, the reforecast window defaults to `1970-01-01` as a fail-safe — you will see `1970-01-01` in the toolbar's Start and End date fields and the chart will begin at January 1970. Open the toolbar and enter the correct dates.
+- Internal `AppState.version` advances to `'0.14.0'`. The user-facing app version `0.29.0` and the internal schema version are intentionally independent.
+
+### Notes
+
+- Productivity windows that fall fully outside the active reforecast's range receive a warning indicator (`!`) in the productivity-window table with a tooltip. They are not auto-deleted; the input bounds remain at project-level so users can edit windows back into the rf window without delete-and-recreate.
+- Known edge case: if the page remains open across midnight, date constraints and confirmation dialog "from → to" values reflect the day captured at render. The committed value always matches what the dialog showed (the dialog freezes `today` at open time). A page refresh resolves any visual stale-date display.
+
 ## [0.28.2] - 2026-05-09
 
 Security audit release. Twelve findings closed across the canonical Firestore rules and the app code, matching the suite-wide pattern already applied to GanttApp v0.22.2, Story Map v0.29.2, Scheduler v0.42.6, and CFD v0.12.2. Companion rules change ships in `spert-landing` PR #46 (canonical `firestore.rules`).
