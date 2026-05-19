@@ -140,6 +140,14 @@ export type ThemeMode = 'light' | 'dark' | 'system';
 // Full application state
 export interface AppState {
   version: string;
+  /**
+   * Discriminant for future multi-format defense (pitfall #61 gate).
+   * Added v0.30.0. Legacy exports (before v0.30.0) omit this field — they
+   * are accepted by the import handler as 'dataset' by convention.
+   * When a second export format ships (e.g. 'single-project'), the import
+   * handler's guard must be tightened to REQUIRE this field.
+   */
+  msbExportKind?: 'dataset';
   settings: Settings;
   teamPool: PoolMember[];
   projects: Project[];

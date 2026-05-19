@@ -143,6 +143,7 @@ export function createLocalStorageRepository(): Repository {
     async exportAll() {
       const data: AppState = {
         version: DATA_VERSION,
+        msbExportKind: 'dataset',  // discriminant — pitfall #61 gate for future formats
         settings: await repo.getSettings(),
         teamPool: await repo.getTeamPool(),
         projects: await repo.getProjects(),

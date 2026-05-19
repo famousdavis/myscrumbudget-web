@@ -4,18 +4,23 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import Link from 'next/link';
 import { useProjects } from '@/features/projects/hooks/useProjects';
 import { useSettings } from '@/features/settings/hooks/useSettings';
 import { useTeamPool } from '@/features/team/hooks/useTeamPool';
 import { useDragReorder } from '@/hooks/useDragReorder';
 import { ProjectCard } from '@/features/projects/components/ProjectCard';
-import { ConfirmDialog } from '@/components/BaseDialog';
+import { ConfirmDialog, AlertDialog } from '@/components/BaseDialog';
 import { useToast } from '@/components/Toast';
 import { SkeletonProjectCard } from '@/components/Skeleton';
 import { STORAGE_KEYS } from '@/types/storage';
 import { repo } from '@/lib/storage/repo';
+import { useImportState } from '@/features/projects/hooks/useImportState';
+import {
+  ImportPreviewSection,
+  ImportBanner,
+} from '@/features/projects/components/ImportPreviewSection';
 
 export default function DashboardPage() {
   const { projects, loading, deleteProject, reorderProjects } = useProjects();
@@ -35,6 +40,21 @@ export default function DashboardPage() {
   });
   const drag = useDragReorder(projects, 'id', reorderProjects);
 
+  const importFileRef = useRef<HTMLInputElement>(null);
+  const {
+    phase: importPhase,
+    handleFileChange,
+    setDecision,
+    setSettingsDecision,
+    setTeamPoolDecision,
+    runApply,
+    cancelImport,
+    fileError,
+    clearFileError,
+  } = useImportState(importFileRef);
+  // No useEffect for auto-reload: applyImportMerge calls cloudSyncBus.emit('projects'),
+  // which useProjects subscribes to. Dashboard re-fetches automatically.
+
   const handleExportAll = async () => {
     const data = await repo.exportAll();
     const json = JSON.stringify(data, null, 2);
@@ -53,6 +73,21 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Dashboard</h1>
         <div className="flex items-center gap-2">
+          <input
+            ref={importFileRef}
+            type="file"
+            accept=".json"
+            onChange={handleFileChange}
+            className="hidden"
+            aria-label="Import JSON workspace file"
+          />
+          <button
+            onClick={() => importFileRef.current?.click()}
+            disabled={importPhase.phase === 'applying'}
+            className="rounded border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-zinc-700 dark:hover:bg-zinc-800"
+          >
+            Import JSON
+          </button>
           <button
             onClick={handleExportAll}
             disabled={projects.length === 0}
@@ -68,6 +103,47 @@ export default function DashboardPage() {
           </Link>
         </div>
       </div>
+
+      {importPhase.phase === 'preview' && (
+        <ImportPreviewSection
+          preview={importPhase.preview}
+          isApplying={false}
+          onDecision={setDecision}
+          onSettingsDecision={setSettingsDecision}
+          onTeamPoolDecision={setTeamPoolDecision}
+          onApply={runApply}
+          onCancel={cancelImport}
+        />
+      )}
+      {importPhase.phase === 'applying' && (
+        // Simple spinner — applying phase carries no payload (pitfall #70).
+        // ImportPreviewSection is NOT rendered here to avoid carrying preview
+        // into the applying phase variant.
+        <div
+          role="status"
+          aria-live="polite"
+          className="mt-6 flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
+        >
+          <span
+            className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-600 dark:border-zinc-600 dark:border-t-zinc-300"
+            aria-hidden="true"
+          />
+          Importing…
+        </div>
+      )}
+      {importPhase.phase === 'banner' && (
+        // cancelImport transitions any non-applying phase → idle.
+        // Correct for banner-dismiss: banner → idle. The name is reused here
+        // intentionally (both cancel and dismiss share the same → idle semantics).
+        <ImportBanner result={importPhase.result} onDismiss={cancelImport} />
+      )}
+      {fileError && (
+        <AlertDialog
+          title="Import Error"
+          message={fileError}
+          onClose={clearFileError}
+        />
+      )}
 
       {loading ? (
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

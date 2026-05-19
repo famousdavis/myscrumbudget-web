@@ -13,6 +13,56 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.30.0',
+    date: '2026-05-19',
+    sections: [
+      {
+        title: 'Level 4 import capability',
+        items: [
+          'The legacy all-or-nothing "Import JSON" flow in Settings is retired. A new Dashboard import surfaces a per-project preview with conflict detection and per-row decisions (Add / Skip / Replace), plus independent Keep/Replace for Settings and Keep/Merge/Replace for the Team Pool. The default for every conflict is Skip — Replace is always an explicit user choice, never a default.',
+        ],
+      },
+      {
+        title: 'Added',
+        items: [
+          'Per-project import preview with Add / Skip / Replace controls. ID conflicts and name conflicts (case-insensitive, NFC-normalized) are labeled with the colliding project\'s name.',
+          'msbExportKind: "dataset" discriminant added to every export. Future-proofs the format guard at the import boundary — any non-"dataset" value is rejected. Legacy exports without the field continue to import.',
+          'Duplicate-ID protection in the import file. Subsequent duplicates are dropped; the preview shows a "N of M from file" header and a notice naming the count.',
+          'Cloud hydration hint in the preview when cloud mode is active but no existing projects are visible — narrows the post-sign-in race window.',
+          'Two-layer stale-data guard during apply: Layer 1 reads existing projects at parse time, Layer 2 re-reads at apply time. If a target was deleted or renamed between layers, "replace" falls back to "add" instead of clobbering an unrelated project.',
+        ],
+      },
+      {
+        title: 'Changed',
+        items: [
+          'DataPortability (Settings page) is now export-only. The Settings "Import JSON" UI and its window.location.reload() onImportComplete consumer are removed. The new flow on the Dashboard notifies subscribers via cloudSyncBus, so the dashboard re-renders without a full page reload.',
+          'Apply order is teamPool → settings → projects. firestoreRepo.createProject and saveProject snapshot the team pool at write time; writing the pool first ensures every imported project\'s _teamSnapshot reflects the final pool state.',
+          'firestoreRepo.saveProject JSDoc clarifies which fields are written every save vs. preserved by merge:true, and calls out the v0.30.0 import "replace" path\'s dependency on that preservation.',
+        ],
+      },
+      {
+        title: 'Security / hardening',
+        items: [
+          'Import boundary unchanged: same parseImportJson (prototype-pollution-safe), validateAppState, and sanitizeAppState chain from v0.28.2. The msbExportKind discriminant check runs on the raw parsed object before migrate/sanitize.',
+          'Cloud "add" decisions regenerate Project.id to prevent Firestore document-ID collision with another workspace\'s unreadable document. Internal IDs (Reforecast, Assignment, Allocation.memberId) are intentionally preserved — they are document-scoped, not cross-document references.',
+        ],
+      },
+      {
+        title: 'Deferred (documented limitations)',
+        items: [
+          'Cloud-flip migration paths (firestoreRepo.importAll) still rewrite createdAt, order, and _originRef on each project. The Level 4 import does not touch this code path, but a local→cloud flip on an existing workspace resets those fields. Tech-debt backlog.',
+          'Cloud hydration race on post-sign-in import: importing immediately after enabling cloud sync (before Firestore listeners hydrate) may cause both stale-data layers to read empty, producing duplicate "add" rows. The preview UI now flags this case; wait for the dashboard to show existing projects before importing.',
+        ],
+      },
+      {
+        title: 'Tests',
+        items: [
+          '1011/1011 passing (61 net new). importUtils.test.ts (30), useImportState.test.ts (15), ImportPreviewSection.test.tsx (16). Coverage includes: normalization, conflict detection, dedup, the write-order guard, the name-conflict target-changed guard, the named-success-flag changelog gate, the Layer 2 delete-between-layers guard, the all-skip banner, the cloud hydration hint, role transitions, and component rendering.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.29.2',
     date: '2026-05-15',
     sections: [

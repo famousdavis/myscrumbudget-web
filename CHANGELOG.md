@@ -4,6 +4,38 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.30.0] - 2026-05-19
+
+Level 4 import capability. The legacy "Import JSON" flow in Settings (a blunt all-or-nothing replace) is retired. A new Dashboard import surfaces a per-project preview with conflict detection, per-row decisions (add / skip / replace), and independent decisions for Settings and Team Pool. The import never silently overwrites: every conflict starts as `skip`, and `replace` is always an explicit user choice.
+
+### Added
+
+- **Per-project import preview.** New Dashboard "Import JSON" button parses, validates, sanitizes, and previews the file before any write. Each incoming project gets an Add / Skip / Replace control. ID conflicts and name conflicts (case-insensitive, NFC-normalized) are labeled with the colliding project's name. Settings get a Keep / Replace pair; Team Pool gets Keep / Merge / Replace (defaulting to Merge so pre-existing members are never overwritten unless the user opts in).
+- **`msbExportKind: 'dataset'` discriminant on every export.** Future-proofs the format guard: any non-`'dataset'` value is rejected at the boundary (pitfall #61). Legacy exports without the field continue to import.
+- **Duplicate-ID protection.** If the import file contains the same project ID twice, only the first occurrence is kept; the preview shows a "N of M from file" header and a notice naming the count dropped.
+- **Cloud hydration hint.** When cloud mode is active but `existingProjects` is empty, the preview surfaces a warning to wait for the dashboard to load existing projects before applying — narrowing the post-sign-in race window where Layer 1 and Layer 2 reads both see an empty workspace.
+- **Two-layer stale-data guard on apply.** Layer 1 reads existing projects at parse time; Layer 2 re-reads at apply time. If a target project was deleted or renamed between layers, `replace` falls back to `add` instead of clobbering an unrelated project that now holds the same name.
+
+### Changed
+
+- **`DataPortability` is now export-only.** Settings keeps Export JSON; the import flow moved to the Dashboard. The orphan `onImportComplete` prop and its `window.location.reload()` consumer in the Settings page are removed — the new flow notifies the Dashboard via `cloudSyncBus.emit('projects' | 'settings' | 'teamPool')` and lets the existing subscriptions re-fetch.
+- **Write order during apply is teamPool → settings → projects.** `firestoreRepo.createProject` and `saveProject` snapshot the team pool into the Firestore project document at write time. Writing team-pool changes first guarantees every imported project's `_teamSnapshot` reflects the final pool state, not a stale pre-import pool.
+- **`saveProject` JSDoc** clarifies which fields are written every save vs. preserved by `merge: true`, with an explicit note that the v0.30.0 import path relies on this preservation.
+
+### Security / hardening
+
+- **Input boundary unchanged.** New import uses the same `parseImportJson` (prototype-pollution-safe), `validateAppState`, and `sanitizeAppState` chain that landed in v0.28.2. The discriminant check runs on the raw parsed object before sanitize/migrate.
+- **Cloud 'add' regenerates `Project.id`.** Prevents Firestore document-ID collision with another workspace's unreadable document. Internal IDs (Reforecast, Assignment, Allocation.memberId) are intentionally preserved — they are document-scoped, not cross-document references.
+
+### Deferred (documented limitations)
+
+- **Cloud-flip migration paths (`firestoreRepo.importAll`)** still rewrite `createdAt`, `order`, and `_originRef` on each project. The new Level 4 import does not touch this code path, but a local→cloud flip on an existing workspace will reset those fields on every project. Tech-debt backlog.
+- **Cloud hydration race on post-sign-in import.** Importing immediately after enabling cloud sync (before Firestore listeners hydrate) may cause both stale-data layers to read empty, producing duplicate "add" rows. Wait for the dashboard to show existing projects before importing.
+
+### Tests
+
+- 1011/1011 passing. Added `importUtils.test.ts` (30), `useImportState.test.ts` (15), `ImportPreviewSection.test.tsx` (16) — 61 net new tests covering normalization, conflict detection, dedup, the C2 write-order guard, the C3 name-conflict-target-changed guard, the C4 named-success-flag changelog gate, the Layer 2 delete-between-layers guard, the all-skip banner, the cloud hydration hint, role transitions, and component rendering.
+
 ## [0.29.2] - 2026-05-15
 
 Bugfix release. Pre-existing UX bug surfaced again by v0.29.1's Edit-page flow: after confirming a reforecast-window change, the project detail page loaded with stale month columns until the user manually refreshed the browser. The fix awaits the debounced save before navigating, so the destination page reads the committed state.
