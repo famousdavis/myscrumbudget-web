@@ -85,7 +85,7 @@ const PROJECT_FIELDS: ReadonlyArray<keyof Project> = [
 ];
 
 const APP_STATE_FIELDS: ReadonlyArray<keyof AppState> = [
-  'version', 'settings', 'teamPool', 'projects',
+  'version', 'msbExportKind', 'settings', 'teamPool', 'projects',
   '_originRef', '_storageRef', '_changeLog',
   '_exportedBy', '_exportedById',
 ];

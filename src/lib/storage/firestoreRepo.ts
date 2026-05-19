@@ -113,9 +113,22 @@ export function createFirestoreRepository(uid: string): Repository {
     },
 
     /**
-     * Save project data to Firestore.
-     * Uses merge:true and NEVER touches owner/members fields.
-     * This prevents editors from accidentally overwriting ownership.
+     * Save mutable project fields to Firestore with merge: true.
+     *
+     * Fields WRITTEN every save (regenerated from current state):
+     *   name, startDate, endDate, reforecasts, activeReforecastId,
+     *   _teamSnapshot (regenerated from the calling user's current team pool),
+     *   updatedAt
+     *
+     * Fields INTENTIONALLY EXCLUDED (merge: true preserves existing Firestore values):
+     *   owner, members, order, createdAt, _originRef, _changeLog, schemaVersion
+     *   (These live on FirestoreProjectDoc, not on the Project domain type.)
+     *
+     * The exclusion of createdAt, _originRef, owner, members, and order is
+     * load-bearing for the v0.30.0 import 'replace' path: applyImportMerge calls
+     * saveProject for 'replace' decisions and relies on merge: true to preserve
+     * identity fields from the existing document. Do NOT add any of those fields
+     * to this write payload without auditing the import path for regressions.
      *
      * INVESTIGATION FLAG (v0.28.1): both saveProject and createProject below
      * call repo.getTeamPool() through the delegating module, relying on the
@@ -188,6 +201,7 @@ export function createFirestoreRepository(uid: string): Repository {
 
       const data: AppState = {
         version: DATA_VERSION,
+        msbExportKind: 'dataset',  // discriminant — pitfall #61 gate for future formats
         settings,
         teamPool,
         projects,

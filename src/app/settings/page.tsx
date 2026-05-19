@@ -35,10 +35,6 @@ export default function SettingsPage() {
     );
   }
 
-  const handleImportComplete = () => {
-    window.location.reload();
-  };
-
   return (
     <div>
       <h1 className="text-2xl font-bold">Settings</h1>
@@ -67,7 +63,7 @@ export default function SettingsPage() {
         <hr className="border-zinc-200 dark:border-zinc-800" />
         <ExportAttribution />
         <hr className="border-zinc-200 dark:border-zinc-800" />
-        <DataPortability onImportComplete={handleImportComplete} />
+        <DataPortability />
       </div>
     </div>
   );
