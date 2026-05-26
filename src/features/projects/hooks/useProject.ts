@@ -61,7 +61,7 @@ export function useProject(id: string) {
       throw err;
     }
   }, []);
-  const { save: persistProject, flush } = useDebouncedSave<Project>(persistProjectFn);
+  const { save: persistProject, flush } = useDebouncedSave<Project>(persistProjectFn, id);
 
   const updateProject = useCallback(
     (updater: (prev: Project) => Project) => {

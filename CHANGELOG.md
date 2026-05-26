@@ -4,6 +4,34 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.31.0] - 2026-05-26
+
+Cloud storage remediation. Eight targeted fixes across sign-out cascade, controlled-input echo guards, debounced-save lifecycle, listener error handling, Firestore write contracts, and the import Apply flow.
+
+### Fixed
+
+- **E2a — Local-mode sign-out no longer wipes local data.** Signing out in local storage mode used to clear `msb:projects`, `msb:settings`, `msb:teamPool`, `msb:changeLog`, and `msb:originRef` — destroying the user's only copy. These keys are now cleared only when signing out of cloud mode. Users who briefly sign into Firebase and sign out without switching to cloud retain all their work.
+- **A3 — Echo guards on controlled inputs.** Reforecast notes textarea, dashboard threshold inputs, and reforecast date inputs now use local buffers that reject incoming cloud-sync updates while the user is actively typing. Per-keystroke commits to the store are preserved so undo/redo is unaffected. ReforecastToolbar additionally clamps date values through a single source (the same function that writes the store) so the displayed input never diverges from the stored value; an empty-input clear is safely ignored without leaving a blank display over a populated store.
+- **D2 — Tab-close flush.** Pending debounced saves are flushed on `pagehide` and `beforeunload`. Edits made within 500 ms of closing the tab are no longer silently discarded. In cloud mode with no authenticated user, pending writes are cancelled instead of flushed to avoid a guaranteed `PERMISSION_DENIED`.
+- **I3 — Per-id cancel before deleteProject.** Pending debounced saves for a project are cancelled before `repo.deleteProject` runs, closing the race where a pending timer fires after `deleteDoc` and re-creates the document via `setDoc(merge: true)`. Residual window: ~200 ms after a debounce fire (in-flight network is not aborted; accepted).
+
+### Improved
+
+- **I2 — Listener permission-denied evicts inaccessible data.** Cloud `onSnapshot` listeners now emit a bus event on permission-denied so the consuming hook re-fetches and either silently evicts (`useProjects` sets `projects = []`) or no-ops. Silent across the chain — the user typically caused this (sign-out cascade, role change) and the prior behavior left stale data visible until manual reload.
+- **C1 — Explicit `mergeFields` on every Firestore write.** `saveProject`, `saveSettings`, and `saveTeamPool` replace `merge: true` with explicit `mergeFields` lists, making the write contract auditable. Ownership / identity fields (`owner`, `members`, `order`, `createdAt`, `_originRef`, `_changeLog`, `schemaVersion`) are explicitly excluded from `saveProject` so the v0.30.0 import "replace" path continues to preserve them.
+- **K2 — Settings `schemaVersion: 2`.** Settings documents now carry a `schemaVersion: 2` field, with a comment marking the migration integration point in `getSettings`. Legacy docs without `schemaVersion` should be treated as version 1.
+- **J1 — Import Apply gated on cloud-data load.** The import Apply button is disabled in cloud mode while `useProjects.loading` is true, preventing the hydration-race duplicate-project case where Layer 1 and Layer 2 both read an empty workspace. Title tooltip directs the user to close the dialog and re-open the file once the dashboard shows existing projects. Local mode and post-hydration cloud are unaffected.
+
+### Behavioral notes
+
+- **Mid-edit undo (Ctrl+Z while typing notes):** the store reverts correctly but the textarea continues to display the typed text while the user remains focused. On next blur, the textarea snaps to the undone value. Undo / redo after blur is fully correct.
+- **`msb:originRef` and `msb:changeLog`** are now preserved on local-mode sign-out. These per-browser fingerprint keys belong to the browser, not the Firebase account, and should persist across sign-in / sign-out cycles.
+- **Threshold inputs (Settings → Dashboard Thresholds):** if the user focuses a threshold field, types, collapses the section without blurring, then focuses a different threshold field and navigates away, the first field's typed value is lost — only the second field commits. To save, blur (Tab or click out) before collapsing.
+
+### Tests
+
+1055 passing across 68 test files (~44 net new). New coverage: sign-out mode-gating + cloud / local sessionStorage matrix; ReforecastNotes echo-guard + handler ordering + blur snap; ThresholdSettings local buffer + unmount-commit (new file); ReforecastToolbar date echo-guard; pendingSaveRegistry `flushAll` + `registerKeyed` / `cancelByKey` (full replacement); `tabCloseFlush` handlers (new file); useDebouncedSave registry integration; useProjects deleteProject ordering + reload error matrix (permission-denied vs network); useSettings + useTeamPool reload error matrix; ImportPreviewSection `cloudDataReady` Apply gating.
+
 ## [0.30.0] - 2026-05-19
 
 Level 4 import capability. The legacy "Import JSON" flow in Settings (a blunt all-or-nothing replace) is retired. A new Dashboard import surfaces a per-project preview with conflict detection, per-row decisions (add / skip / replace), and independent decisions for Settings and Team Pool. The import never silently overwrites: every conflict starts as `skip`, and `replace` is always an explicit user choice.

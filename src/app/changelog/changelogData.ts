@@ -13,6 +13,44 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.31.0',
+    date: '2026-05-26',
+    sections: [
+      {
+        title: 'Bug fixes',
+        items: [
+          'E2a — Signing out in local storage mode no longer clears local projects, settings, team pool, changelog, or origin fingerprint. Only cloud-mode sign-out clears these keys. Users who briefly sign into Firebase and sign out without switching to cloud retain all their work.',
+          'A3 — Reforecast notes textarea, dashboard threshold inputs, and reforecast date inputs now use local buffers that reject incoming cloud-sync updates while the user is actively typing. Per-keystroke commits to the store are preserved so undo/redo is unaffected. ReforecastToolbar additionally clamps date values through a single source (the same function that writes the store) so the displayed input never diverges from the stored value, and an empty-input clear is safely ignored without leaving a blank display over a populated store.',
+          'D2 — Pending debounced saves are flushed on tab close (pagehide and beforeunload). Edits made within 500ms of closing the tab are no longer silently discarded. In cloud mode with no authenticated user, pending writes are cancelled instead of flushed to avoid a guaranteed PERMISSION_DENIED.',
+          'I3 — Pending debounced saves for a project are cancelled before deletion, closing the race where an in-flight setDoc(merge:true) could re-create the deleted document. Residual window: ~200ms after a debounce fire (in-flight network, accepted).',
+        ],
+      },
+      {
+        title: 'Improvements',
+        items: [
+          'I2 — Cloud listener permission-denied errors now trigger a data reload to evict inaccessible projects, instead of leaving stale data visible until page refresh. Reloads triggered by permission-denied are silent across the chain (no toast) — useSettings and useTeamPool both react to the same settings-listener bus emit, and silent eviction matches the typical user context (sign-out cascade, admin revocation).',
+          'C1 — Firestore project, settings, and team-pool saves now use explicit mergeFields instead of merge:true, making the write contract auditable. Ownership / identity fields (owner, members, order, createdAt, _originRef, _changeLog, schemaVersion) are explicitly excluded from saveProject so the v0.30.0 import "replace" path continues to preserve them.',
+          'K2 — Settings documents now include schemaVersion: 2, providing an integration point for future settings-schema migrations. getSettings now carries a comment marking that integration point; legacy docs without schemaVersion should be treated as version 1.',
+          'J1 — The import Apply button is disabled while cloud projects are loading (cloud mode only), preventing duplicate-project races on first sign-in. Close the dialog, wait for the dashboard to show existing projects, then re-open the file. Local mode and post-hydration cloud are unaffected.',
+        ],
+      },
+      {
+        title: 'Behavioral notes',
+        items: [
+          'Mid-edit undo (Ctrl+Z while typing notes): the store reverts correctly but the textarea continues to display the typed text while the user remains focused. On next blur, the textarea snaps to the undone value. Undo/redo after blur is fully correct.',
+          'msb:originRef and msb:changeLog are now preserved on local-mode sign-out. These per-browser fingerprint keys belong to the browser, not the Firebase account, and should persist across sign-in/sign-out cycles.',
+          'Threshold inputs (Settings → Dashboard Thresholds): if the user focuses a threshold field, types, collapses the section without blurring, then focuses a different threshold field and navigates away, the first field\'s typed value is lost — only the second field commits. To save, blur (Tab or click out) before collapsing.',
+        ],
+      },
+      {
+        title: 'Tests',
+        items: [
+          '1055/1055 passing (~44 net additions). New tests: signOutCleanup mode-gating + cloud / local sessionStorage matrix; ReforecastNotes echo-guard + onBeginEdit ordering + onBlur snap; ThresholdSettings local buffer + unmount-commit (new file); ReforecastToolbar date echo-guard; pendingSaveRegistry flushAll + registerKeyed/cancelByKey (full replacement); tabCloseFlush handlers (new file); useDebouncedSave registry integration; useProjects deleteProject ordering + reload error matrix (permission-denied vs network); useSettings + useTeamPool reload error matrix; ImportPreviewSection cloudDataReady Apply gating.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.30.0',
     date: '2026-05-19',
     sections: [

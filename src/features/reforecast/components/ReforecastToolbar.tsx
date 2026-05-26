@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { Reforecast } from '@/types/domain';
 import { NewReforecastDialog } from './NewReforecastDialog';
 import { ConfirmDialog } from '@/components/BaseDialog';
@@ -83,14 +83,51 @@ export function ReforecastToolbar({
     setEditingName(false);
   };
 
-  const handleReforecastDateChange = (newValue: string) => {
-    if (!newValue) return;
+  // Returns the clamped string when a non-empty value was committed to the
+  // store. Returns undefined for empty input (user cleared the picker) so
+  // the caller can suppress the local-buffer update and let React revert
+  // the controlled input to the prior valid value.
+  const handleReforecastDateChange = (newValue: string): string | undefined => {
+    if (!newValue) return undefined;
     const minBound = reforecastStartDate <= today ? reforecastStartDate : today;
     let clamped = newValue;
     if (clamped > today) clamped = today;
     if (clamped < minBound) clamped = minBound;
     onReforecastDateChange(clamped);
+    return clamped;
   };
+
+  // ── A3 local buffer for date inputs ──────────────────────────────────────
+  // Date inputs write to the store on every onChange. Focus guards prevent
+  // incoming cloud-sync prop updates from overwriting a date the user is
+  // actively selecting.
+  //
+  // For reforecast date: setLocalRfDate receives the CLAMPED value (the return
+  // from handleReforecastDateChange). Without this, an out-of-range date
+  // entered via paste/keyboard would display the unclamped value while the
+  // store held the clamped one.
+  //
+  // S2 — clear-input handling: if the user clears the date picker
+  // (e.target.value === ''), handleReforecastDateChange returns undefined and
+  // does NOT update the store. We must NOT setLocalRfDate('') in that case —
+  // doing so leaves the displayed buffer empty while the store retains the
+  // prior value, and the prop-sync effect cannot recover because reforecastDate
+  // did not change. Skipping setLocalRfDate keeps the controlled input pinned
+  // to the prior valid value (React reverts the visual clear automatically).
+  const [localRfDate, setLocalRfDate] = useState(reforecastDate);
+  const rfDateFocusedRef = useRef(false);
+  const [localActualsDate, setLocalActualsDate] = useState(actualsThroughDate ?? '');
+  const actualsFocusedRef = useRef(false);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!rfDateFocusedRef.current) setLocalRfDate(reforecastDate);
+  }, [reforecastDate]);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!actualsFocusedRef.current) setLocalActualsDate(actualsThroughDate ?? '');
+  }, [actualsThroughDate]);
+  // ─────────────────────────────────────────────────────────────────────────
 
   return (
     <>
@@ -168,10 +205,19 @@ export function ReforecastToolbar({
             <input
               id="rf-date"
               type="date"
-              value={reforecastDate}
+              value={localRfDate}
               min={reforecastStartDate <= today ? reforecastStartDate : today}
               max={today}
-              onChange={(e) => handleReforecastDateChange(e.target.value)}
+              onFocus={() => { rfDateFocusedRef.current = true; }}
+              onBlur={() => { rfDateFocusedRef.current = false; }}
+              onChange={(e) => {
+                const clamped = handleReforecastDateChange(e.target.value);
+                // Only update the local buffer when the handler committed a
+                // value to the store. Skipping the update on an empty input
+                // lets React's controlled-input behavior revert the visual
+                // clear to the prior valid localRfDate (S2 — clear-date fix).
+                if (clamped !== undefined) setLocalRfDate(clamped);
+              }}
               title="Reforecast date"
               aria-label="Reforecast date"
               style={{ width: 120, minWidth: 120 }}
@@ -191,10 +237,15 @@ export function ReforecastToolbar({
             <input
               id="actuals-through-date"
               type="date"
-              value={actualsThroughDate ?? ''}
+              value={localActualsDate}
               min={reforecastStartDate}
               max={reforecastEndDate}
-              onChange={(e) => onActualsThroughDateChange(e.target.value || undefined)}
+              onFocus={() => { actualsFocusedRef.current = true; }}
+              onBlur={() => { actualsFocusedRef.current = false; }}
+              onChange={(e) => {
+                setLocalActualsDate(e.target.value);
+                onActualsThroughDateChange(e.target.value || undefined);
+              }}
               title="Actuals through date — ETC starts the day after this date"
               aria-label="Actuals through date"
               style={{ width: 120, minWidth: 120 }}

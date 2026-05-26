@@ -113,6 +113,7 @@ export default function DashboardPage() {
           onTeamPoolDecision={setTeamPoolDecision}
           onApply={runApply}
           onCancel={cancelImport}
+          cloudDataReady={!loading}
         />
       )}
       {importPhase.phase === 'applying' && (

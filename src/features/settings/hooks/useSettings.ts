@@ -16,14 +16,27 @@ export function useSettings() {
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {
-    const s = await repo.getSettings();
-    setSettings(s);
-    setLoading(false);
+    try {
+      const s = await repo.getSettings();
+      setSettings(s);
+    } catch (err) {
+      const code = (err as { code?: string })?.code;
+      if (code !== 'permission-denied') {
+        // v0.31.0 (I2): permission-denied is silent across the cloud-sync
+        // chain. The listener emitted a bus event that brought us here;
+        // useSettings and useTeamPool both react to the same event, so
+        // toasting in either would produce a confusing duplicate. Silent
+        // eviction is intentional — users who lost access (sign-out
+        // cascade, admin revocation) typically already know.
+        addToastGlobal('Failed to load settings. Please check your connection.', 'error');
+      }
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   // Fetch-on-mount + cloudSyncBus subscription — externally driven, not cascading.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     reload();
   }, [reload]);
 

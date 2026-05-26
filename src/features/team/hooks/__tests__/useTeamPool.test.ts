@@ -5,6 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { repo } from '@/lib/storage/repo';
+import { addToastGlobal } from '@/components/Toast';
 
 vi.mock('@/lib/storage/repo', () => ({
   repo: {
@@ -13,6 +14,7 @@ vi.mock('@/lib/storage/repo', () => ({
     getProjects: vi.fn().mockResolvedValue([]),
   },
 }));
+vi.mock('@/components/Toast', () => ({ addToastGlobal: vi.fn() }));
 
 const DEFAULT_POOL = [
   { id: 'pm-1', name: 'Alice', role: 'Developer' },
@@ -187,6 +189,27 @@ describe('useTeamPool', () => {
 
       expect(deleteResult?.ok).toBe(false);
       expect(deleteResult?.canArchive).toBe(false);
+    });
+  });
+
+  describe('reload error handling', () => {
+    it('toasts and sets loading=false when getTeamPool rejects with network error', async () => {
+      vi.mocked(repo.getTeamPool).mockRejectedValueOnce(new Error('network failure'));
+      const { result } = renderHook(() => useTeamPool());
+      await act(async () => {});
+      expect(result.current.loading).toBe(false);
+      expect(vi.mocked(addToastGlobal)).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to load'),
+        'error',
+      );
+    });
+
+    it('does NOT toast on permission-denied (avoids double-toast with listener)', async () => {
+      vi.mocked(repo.getTeamPool).mockRejectedValueOnce({ code: 'permission-denied' });
+      const { result } = renderHook(() => useTeamPool());
+      await act(async () => {});
+      expect(result.current.loading).toBe(false);
+      expect(vi.mocked(addToastGlobal)).not.toHaveBeenCalled();
     });
   });
 });

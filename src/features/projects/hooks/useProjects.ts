@@ -11,20 +11,35 @@ import { cloudSyncBus } from '@/lib/firebase/cloudSyncBus';
 import { generateId } from '@/lib/utils/id';
 import { createBaselineReforecast } from '@/lib/utils/reforecast';
 import { ensureOriginRef, appendToChangeLog } from '@/lib/storage/fingerprint';
+import { cancelByKey } from '@/lib/storage/pendingSaveRegistry';
+import { addToastGlobal } from '@/components/Toast';
 
 export function useProjects() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {
-    const all = await repo.getProjects();
-    setProjects(all);
-    setLoading(false);
+    try {
+      const all = await repo.getProjects();
+      setProjects(all);
+    } catch (err) {
+      const code = (err as { code?: string })?.code;
+      if (code === 'permission-denied') {
+        // v0.31.0 (I2): silent eviction of inaccessible projects. Listener
+        // emitted a bus event that brought us here; user notification is
+        // suppressed end-to-end (sign-out cascade, role revocation —
+        // the user typically already knows).
+        setProjects([]);
+      } else {
+        addToastGlobal('Failed to load projects. Please check your connection.', 'error');
+      }
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   // Fetch-on-mount + cloudSyncBus subscription — externally driven, not cascading.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     reload();
   }, [reload]);
 
@@ -56,6 +71,11 @@ export function useProjects() {
 
   const deleteProject = useCallback(
     async (id: string) => {
+      // Cancel pending debounced save before deleting. Closes the race where
+      // a pending timer fires after deleteDoc and re-creates the document via
+      // setDoc(merge:true). Limitation: cancels the timer only; a setDoc
+      // already in-flight over the network is not aborted (~200ms residual).
+      cancelByKey(id);
       await repo.deleteProject(id);
       appendToChangeLog({ op: 'delete', entity: 'project', id });
       await reload();

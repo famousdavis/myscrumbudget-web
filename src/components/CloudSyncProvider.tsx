@@ -4,13 +4,17 @@
 
 'use client';
 
+import { useEffect } from 'react';
 import { useCloudSync } from '@/hooks/useCloudSync';
+import { registerTabCloseFlush } from '@/lib/storage/tabCloseFlush';
 
 /**
- * Activates Firestore onSnapshot listeners when in cloud mode.
+ * Activates Firestore onSnapshot listeners when in cloud mode AND
+ * the pagehide/beforeunload tab-close flush handlers (both modes).
  * Must be mounted inside AuthProvider so it can access the current user.
  */
 export function CloudSyncProvider({ children }: { children: React.ReactNode }) {
   useCloudSync();
+  useEffect(() => registerTabCloseFlush(), []);
   return <>{children}</>;
 }

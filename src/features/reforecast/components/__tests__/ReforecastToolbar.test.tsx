@@ -203,4 +203,29 @@ describe('ReforecastToolbar', () => {
     expect(onRename).not.toHaveBeenCalled();
     expect(screen.getByRole('combobox')).toBeDefined();
   });
+
+  it('does not update reforecast date from prop while focused (echo guard)', () => {
+    const onReforecastDateChange = vi.fn();
+    const { rerender } = render(
+      <ReforecastToolbar {...defaultProps} reforecastDate="2026-01-15"
+        onReforecastDateChange={onReforecastDateChange} />,
+    );
+    const dateInput = screen.getByLabelText('Reforecast date') as HTMLInputElement;
+    fireEvent.focus(dateInput);
+    onReforecastDateChange.mockClear();
+    rerender(<ReforecastToolbar {...defaultProps} reforecastDate="2026-03-01"
+      onReforecastDateChange={onReforecastDateChange} />);
+    expect(dateInput.value).toBe('2026-01-15');
+    expect(onReforecastDateChange).not.toHaveBeenCalled();
+  });
+
+  it('updates reforecast date from prop when NOT focused', () => {
+    const { rerender } = render(
+      <ReforecastToolbar {...defaultProps} reforecastDate="2026-01-15" />,
+    );
+    const dateInput = screen.getByLabelText('Reforecast date') as HTMLInputElement;
+    expect(dateInput.value).toBe('2026-01-15');
+    rerender(<ReforecastToolbar {...defaultProps} reforecastDate="2026-03-01" />);
+    expect(dateInput.value).toBe('2026-03-01');
+  });
 });
