@@ -66,11 +66,18 @@ export function useCloudSync(): void {
         // v0.28.2 (M6): log only the error code. The full FirestoreError
         // object can serialize document paths / project IDs into the
         // browser console, which a malicious extension could harvest.
-        console.error(
-          '[useCloudSync] projects listener error:',
-          (err as { code?: string })?.code ?? 'unknown',
-        );
-        toastOnce();
+        const code = (err as { code?: string })?.code ?? 'unknown';
+        console.error('[useCloudSync] projects listener error:', code);
+        if (code === 'permission-denied') {
+          // v0.31.0 (I2): access revoked or rules-change. Emit the bus event
+          // so useProjects re-fetches and evicts inaccessible projects.
+          // useProjects.reload swallows the permission-denied silently
+          // (sets projects=[]); no toast — silent eviction is intentional
+          // because the user typically caused this (sign-out, role change).
+          cloudSyncBus.emit('projects');
+        } else {
+          toastOnce();
+        }
       },
     );
 
@@ -87,11 +94,18 @@ export function useCloudSync(): void {
         // Listener has terminated. No automatic resubscribe — full reconnect
         // mechanism is deferred; user must reload or re-sign-in.
         // v0.28.2 (M6): log only the error code (see projects listener above).
-        console.error(
-          '[useCloudSync] settings listener error:',
-          (err as { code?: string })?.code ?? 'unknown',
-        );
-        toastOnce();
+        const code = (err as { code?: string })?.code ?? 'unknown';
+        console.error('[useCloudSync] settings listener error:', code);
+        if (code === 'permission-denied') {
+          // v0.31.0 (I2): settings and teamPool share the same doc; emit
+          // both so each hook reloads. Both useSettings.reload and
+          // useTeamPool.reload swallow permission-denied silently so this
+          // single revocation event does not produce a duplicate toast.
+          cloudSyncBus.emit('settings');
+          cloudSyncBus.emit('teamPool');
+        } else {
+          toastOnce();
+        }
       },
     );
 

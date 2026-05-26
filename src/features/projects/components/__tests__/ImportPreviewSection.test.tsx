@@ -281,6 +281,46 @@ describe('ImportPreviewSection', () => {
       screen.queryByText(/cloud sync/i),
     ).not.toBeInTheDocument();
   });
+
+  describe('cloudDataReady prop — Apply button gating', () => {
+    it('disables Apply and shows tooltip when cloudDataReady=false in cloud mode', () => {
+      render(
+        <ImportPreviewSection
+          {...noopProps()}
+          isApplying={false}
+          preview={makePreview({ mode: 'cloud' })}
+          cloudDataReady={false}
+        />,
+      );
+      const applyBtn = screen.getByRole('button', { name: /Apply Import/i });
+      expect(applyBtn).toBeDisabled();
+      expect(applyBtn).toHaveAttribute('title', expect.stringContaining('Waiting'));
+    });
+
+    it('enables Apply when cloudDataReady=true in cloud mode', () => {
+      render(
+        <ImportPreviewSection
+          {...noopProps()}
+          isApplying={false}
+          preview={makePreview({ mode: 'cloud' })}
+          cloudDataReady={true}
+        />,
+      );
+      expect(screen.getByRole('button', { name: /Apply Import/i })).not.toBeDisabled();
+    });
+
+    it('enables Apply in local mode regardless of cloudDataReady', () => {
+      render(
+        <ImportPreviewSection
+          {...noopProps()}
+          isApplying={false}
+          preview={makePreview({ mode: 'local' })}
+          cloudDataReady={false}
+        />,
+      );
+      expect(screen.getByRole('button', { name: /Apply Import/i })).not.toBeDisabled();
+    });
+  });
 });
 
 describe('ImportBanner', () => {

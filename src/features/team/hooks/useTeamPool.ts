@@ -18,14 +18,24 @@ export function useTeamPool() {
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {
-    const p = await repo.getTeamPool();
-    setPool(p);
-    setLoading(false);
+    try {
+      const p = await repo.getTeamPool();
+      setPool(p);
+    } catch (err) {
+      const code = (err as { code?: string })?.code;
+      if (code !== 'permission-denied') {
+        // v0.31.0 (I2): see useSettings.reload for rationale. Silent on
+        // permission-denied to avoid double-toasting with useSettings,
+        // since both react to the same settings-listener bus emit.
+        addToastGlobal('Failed to load team pool. Please check your connection.', 'error');
+      }
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   // Fetch-on-mount + cloudSyncBus subscription — externally driven, not cascading.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     reload();
   }, [reload]);
 

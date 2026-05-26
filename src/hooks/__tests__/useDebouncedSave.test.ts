@@ -115,4 +115,16 @@ describe('useDebouncedSave', () => {
 
     consoleSpy.mockRestore();
   });
+
+  describe('registry integration', () => {
+    it('flush registered with registry is called by flushAll()', async () => {
+      vi.useRealTimers();
+      const saveFn = vi.fn().mockResolvedValue(undefined);
+      const { result } = renderHook(() => useDebouncedSave<string>(saveFn));
+      act(() => result.current.save('pending'));
+      const { flushAll } = await import('@/lib/storage/pendingSaveRegistry');
+      await act(async () => { await flushAll(); });
+      expect(saveFn).toHaveBeenCalledWith('pending');
+    });
+  });
 });

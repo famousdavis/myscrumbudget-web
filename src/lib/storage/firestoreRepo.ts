@@ -49,6 +49,10 @@ export function createFirestoreRepository(uid: string): Repository {
       const snap = await getDoc(settingsRef);
       if (!snap.exists()) return DEFAULT_SETTINGS;
       const data = snap.data();
+      // v0.31.0 (K2): schemaVersion migration integration point.
+      // Current settings schema is version 2. When a settings-schema bump
+      // is needed, branch here on data.schemaVersion (legacy docs predating
+      // v0.31.0 have no schemaVersion and should be treated as version 1).
       return {
         discountRateAnnual: data.discountRateAnnual ?? DEFAULT_SETTINGS.discountRateAnnual,
         laborRates: data.laborRates ?? DEFAULT_SETTINGS.laborRates,
@@ -61,12 +65,17 @@ export function createFirestoreRepository(uid: string): Repository {
     },
 
     async saveSettings(settings: Settings): Promise<void> {
+      // v0.31.0 (C1+K2): explicit mergeFields instead of merge:true, and
+      // schemaVersion: 2 written so future settings-schema bumps can branch
+      // on the stored version in getSettings below.
       await setDoc(settingsRef, stripUndefined({
         discountRateAnnual: settings.discountRateAnnual,
         laborRates: settings.laborRates,
         holidays: settings.holidays,
         trafficLightThresholds: settings.trafficLightThresholds,
-      }), { merge: true });
+        schemaVersion: 2,
+      }), { mergeFields: ['discountRateAnnual', 'laborRates', 'holidays',
+                          'trafficLightThresholds', 'schemaVersion'] });
     },
 
     // ── Team Pool (stored in settings doc) ──
@@ -77,7 +86,9 @@ export function createFirestoreRepository(uid: string): Repository {
     },
 
     async saveTeamPool(pool: PoolMember[]): Promise<void> {
-      await setDoc(settingsRef, { teamPool: pool }, { merge: true });
+      // v0.31.0 (C1): explicit mergeFields. Replaces the entire teamPool
+      // array (correct behavior — array-element merging is not desired).
+      await setDoc(settingsRef, { teamPool: pool }, { mergeFields: ['teamPool'] });
     },
 
     // ── Projects ──
@@ -141,6 +152,12 @@ export function createFirestoreRepository(uid: string): Repository {
       const pool = await repo.getTeamPool();
       const now = new Date().toISOString();
 
+      // v0.31.0 (C1): explicit mergeFields instead of merge:true. The
+      // listed fields are the only ones written every save; ownership /
+      // identity fields (owner, members, order, createdAt, _originRef,
+      // _changeLog, schemaVersion) are intentionally excluded so the
+      // existing Firestore values are preserved (load-bearing for the
+      // v0.30.0 import 'replace' path — see JSDoc above).
       await setDoc(doc(db!, PROJECTS_COL, project.id), stripUndefined({
         name: project.name,
         startDate: project.startDate,
@@ -149,7 +166,8 @@ export function createFirestoreRepository(uid: string): Repository {
         activeReforecastId: project.activeReforecastId,
         _teamSnapshot: buildTeamSnapshot(getActiveReforecast(project)?.assignments ?? [], pool),
         updatedAt: now,
-      }), { merge: true });
+      }), { mergeFields: ['name', 'startDate', 'endDate', 'reforecasts',
+                          'activeReforecastId', '_teamSnapshot', 'updatedAt'] });
     },
 
     /**

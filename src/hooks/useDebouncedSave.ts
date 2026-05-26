@@ -5,16 +5,20 @@
 'use client';
 
 import { useCallback, useEffect, useRef } from 'react';
-import { register as registerPendingSave } from '@/lib/storage/pendingSaveRegistry';
+import { register, registerKeyed } from '@/lib/storage/pendingSaveRegistry';
 
 const DEBOUNCE_MS = 500;
 
 /**
  * Returns a debounced save callback and a flush function.
  * Each new call resets the timer so only the last value is persisted.
- * Call `flush()` to immediately persist any pending value.
+ *
+ * Optional `registryKey` lets callers register the cancel callback in the
+ * per-key cancel registry so that `cancelByKey(registryKey)` can abort
+ * pending saves for a specific entity (e.g., a project being deleted).
+ * Cancel is ALSO registered globally; both registries are stripped on unmount.
  */
-export function useDebouncedSave<T>(saveFn: (value: T) => void) {
+export function useDebouncedSave<T>(saveFn: (value: T) => void, registryKey?: string) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingRef = useRef<{ value: T } | null>(null);
 
@@ -27,9 +31,7 @@ export function useDebouncedSave<T>(saveFn: (value: T) => void) {
         Promise.resolve(saveFn(value)).catch((err) => {
           // SECURITY (v0.28.2 / L9): do NOT include `value` in the log —
           // the closed-over T may be a Project / Settings / TeamPool
-          // payload containing member emails or UIDs. A malicious browser
-          // extension scraping console output would harvest PII. Log the
-          // error only.
+          // payload containing member emails or UIDs.
           console.error('[useDebouncedSave] save failed:', err);
         });
       }, DEBOUNCE_MS);
@@ -37,16 +39,6 @@ export function useDebouncedSave<T>(saveFn: (value: T) => void) {
     [saveFn],
   );
 
-  /**
-   * Flush any pending save synchronously. Returns a Promise that resolves
-   * when the underlying saveFn completes (or rejects, swallowed and logged).
-   * Callers that need a guaranteed-persisted state before navigation MUST
-   * `await flush()` (v0.29.2 fix — prevents Edit-page → Detail-page state
-   * staleness after a date change).
-   *
-   * Returns a resolved Promise when there is nothing pending (caller can
-   * still `await` safely with no extra latency).
-   */
   const flush = useCallback((): Promise<void> => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
@@ -56,15 +48,12 @@ export function useDebouncedSave<T>(saveFn: (value: T) => void) {
       const value = pendingRef.current.value;
       pendingRef.current = null;
       return Promise.resolve(saveFn(value)).catch((err) => {
-        // SECURITY (v0.28.2 / L9): do NOT include the rejected value in
-        // the log (see save() above for rationale).
         console.error('[useDebouncedSave] flush failed:', err);
       });
     }
     return Promise.resolve();
   }, [saveFn]);
 
-  /** Cancel any pending debounced save without persisting. */
   const cancel = useCallback(() => {
     if (timerRef.current) {
       clearTimeout(timerRef.current);
@@ -73,10 +62,11 @@ export function useDebouncedSave<T>(saveFn: (value: T) => void) {
     pendingRef.current = null;
   }, []);
 
-  // Register this instance's cancel with the module-level registry so
-  // `performSignOutCleanup` can abort every in-flight save before Firebase
-  // credentials are revoked. Unregisters on unmount.
-  useEffect(() => registerPendingSave(cancel), [cancel]);
+  useEffect(() => {
+    const unregisterGlobal = register(cancel, flush);
+    const unregisterKeyed = registryKey ? registerKeyed(registryKey, cancel) : () => {};
+    return () => { unregisterGlobal(); unregisterKeyed(); };
+  }, [cancel, flush, registryKey]);
 
   return { save, flush, cancel };
 }

@@ -75,6 +75,12 @@ interface ImportPreviewSectionProps {
   onTeamPoolDecision: (d: TeamPoolDecision) => void;
   onApply: () => void;
   onCancel: () => void;
+  /**
+   * v0.31.0 (J1): when false in cloud mode, the Apply button is disabled
+   * to prevent hydration-race duplicate imports. Defaults to true so
+   * existing callers (and local mode) are unaffected.
+   */
+  cloudDataReady?: boolean;
 }
 
 export function ImportPreviewSection({
@@ -85,6 +91,7 @@ export function ImportPreviewSection({
   onTeamPoolDecision,
   onApply,
   onCancel,
+  cloudDataReady = true,
 }: ImportPreviewSectionProps) {
   const {
     incomingState,
@@ -230,11 +237,22 @@ export function ImportPreviewSection({
           >
             Cancel
           </button>
-          {/* Apply always enabled — even all-skip+keep+keep shows "nothing applied"
-              banner rather than a dead button. Pitfall #71. */}
+          {/* v0.31.0 (J1): Apply is gated on cloudDataReady in cloud mode to
+              prevent hydration-race duplicates (both Layer 1 and Layer 2 reads
+              return empty before Firestore hydrates, causing all incoming
+              projects to default to 'add'). In local mode and once cloud data
+              loads, Apply is always enabled — even all-skip+keep+keep shows
+              a "nothing applied" banner rather than a dead button (pitfall #71;
+              still handled, only pre-hydration cloud is gated). */}
           <button
+            type="button"
             onClick={onApply}
-            disabled={isApplying}
+            disabled={isApplying || (!cloudDataReady && preview.mode === 'cloud')}
+            title={
+              !cloudDataReady && preview.mode === 'cloud'
+                ? 'Waiting for cloud projects to load — close this dialog and re-open your file after the dashboard shows your existing projects'
+                : undefined
+            }
             aria-busy={isApplying}
             className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >

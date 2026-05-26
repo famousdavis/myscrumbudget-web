@@ -5,6 +5,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import type { Settings } from '@/types/domain';
+import { repo } from '@/lib/storage/repo';
+import { addToastGlobal } from '@/components/Toast';
 
 vi.mock('@/lib/storage/repo', () => ({
   repo: {
@@ -17,6 +19,7 @@ vi.mock('@/lib/storage/repo', () => ({
     saveSettings: vi.fn().mockResolvedValue(undefined),
   },
 }));
+vi.mock('@/components/Toast', () => ({ addToastGlobal: vi.fn() }));
 
 import { useSettings } from '../useSettings';
 
@@ -72,5 +75,26 @@ describe('useSettings', () => {
     });
 
     expect(result.current.settings?.discountRateAnnual).toBe(0.1);
+  });
+
+  describe('reload error handling', () => {
+    it('toasts and sets loading=false when getSettings rejects with network error', async () => {
+      vi.mocked(repo.getSettings).mockRejectedValueOnce(new Error('network failure'));
+      const { result } = renderHook(() => useSettings());
+      await act(async () => {});
+      expect(result.current.loading).toBe(false);
+      expect(vi.mocked(addToastGlobal)).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to load'),
+        'error',
+      );
+    });
+
+    it('does NOT toast on permission-denied (avoids double-toast with listener)', async () => {
+      vi.mocked(repo.getSettings).mockRejectedValueOnce({ code: 'permission-denied' });
+      const { result } = renderHook(() => useSettings());
+      await act(async () => {});
+      expect(result.current.loading).toBe(false);
+      expect(vi.mocked(addToastGlobal)).not.toHaveBeenCalled();
+    });
   });
 });
