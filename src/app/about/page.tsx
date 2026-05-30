@@ -67,6 +67,30 @@ export default function AboutPage() {
           </div>
         </section>
 
+        {/* Charter Budget Reference Guide */}
+        <section>
+          <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">
+            Charter Budget Reference Guide
+          </h2>
+          <p className="mt-2">
+            Setting a baseline budget with the <strong>Charter Budget</strong> tool? This companion
+            guide explains the statistical model behind it — how the coefficient of variation is
+            calibrated from your project&apos;s risk profile, the three probability distributions
+            (Normal, Lognormal, Beta-PERT), the optional optimism-bias adjustment, P80-schedule
+            integration, and the underlying research basis for defending the number to a sponsor.
+          </p>
+          <div className="mt-3">
+            <a
+              href="/MyScrumBudget_Charter_Budget_Guide.pdf"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block rounded bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
+            >
+              Open Charter Budget Reference Guide (PDF)
+            </a>
+          </div>
+        </section>
+
         {/* Your Data & Storage */}
         <section>
           <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">

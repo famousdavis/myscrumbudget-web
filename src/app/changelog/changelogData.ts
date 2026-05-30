@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.32.1',
+    date: '2026-05-30',
+    sections: [
+      {
+        title: 'Documentation',
+        items: [
+          'New Charter Budget Reference Guide (PDF) added to the About page. A companion to the Quick Reference Guide that documents the full statistical model behind the Charter Budget feature — the coefficient-of-variation calibration by project type, the additive risk-factor adjustments, the three probability distributions (Normal / Lognormal / Beta-PERT), the optimism-bias option, the P80-schedule integration guidance, and the underlying research basis.',
+          'Updated Quick Reference Guide (PDF). Now covers the Charter Budget panel, pool-member archiving, the conflict-aware per-project import flow, and other features added since the previous edition.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.32.0',
     date: '2026-05-30',
     sections: [
