@@ -31,6 +31,8 @@ import type {
   MonthlyAllocation,
   ProductivityWindow,
   HistoricalCostEntry,
+  CharterBudget,
+  RiskProfile,
 } from '@/types/domain';
 
 // Per-entity allowlists. Keep alphabetical-within-group for review ease.
@@ -71,12 +73,23 @@ const HISTORICAL_COST_FIELDS: ReadonlyArray<keyof HistoricalCostEntry> = [
   'month', 'cost', 'hours',
 ];
 
+const RISK_PROFILE_FIELDS: ReadonlyArray<keyof RiskProfile> = [
+  'projectType', 'requirementsClarity', 'teamExperience',
+  'orgChangeImpact', 'integrationComplexity', 'cvOverride', 'optimismUpliftPct',
+];
+
+const CHARTER_BUDGET_FIELDS: ReadonlyArray<keyof CharterBudget> = [
+  'riskProfile', 'distribution', 'targetPercentile', 'etcIsP80Schedule',
+  'derivedCV', 'derivedSigma', 'etcAtCalculation', 'adjustedCostBasis',
+  'charterBudgetAmount', 'medianAmount', 'calculatedAt',
+];
+
 const REFORECAST_FIELDS: ReadonlyArray<keyof Reforecast> = [
   'id', 'name', 'createdAt',
   'startDate', 'endDate', 'reforecastDate',
   'allocations', 'assignments', 'productivityWindows',
   'actualCost', 'baselineBudget',
-  'actualsThroughDate', 'notes', 'historicalCosts',
+  'actualsThroughDate', 'notes', 'historicalCosts', 'charterBudget',
 ];
 
 const PROJECT_FIELDS: ReadonlyArray<keyof Project> = [
@@ -151,6 +164,22 @@ function sanitizeHistoricalCost(h: HistoricalCostEntry): HistoricalCostEntry {
   return pickKeys(h, HISTORICAL_COST_FIELDS) as HistoricalCostEntry;
 }
 
+/**
+ * Two-stage deep pick: `pickKeys` is shallow, and `charterBudget` nests a
+ * `riskProfile` object (7 sub-keys), so the nested object must be picked
+ * separately or unknown nested keys would leak through the import strip.
+ */
+function sanitizeCharterBudget(cb: CharterBudget): CharterBudget {
+  const picked = pickKeys(cb, CHARTER_BUDGET_FIELDS);
+  return {
+    ...picked,
+    riskProfile: pickKeys(
+      (picked.riskProfile ?? {}) as RiskProfile,
+      RISK_PROFILE_FIELDS,
+    ),
+  } as CharterBudget;
+}
+
 function sanitizeReforecast(rf: Reforecast): Reforecast {
   const picked = pickKeys(rf, REFORECAST_FIELDS);
   const out: Reforecast = {
@@ -161,6 +190,9 @@ function sanitizeReforecast(rf: Reforecast): Reforecast {
   } as Reforecast;
   if (picked.historicalCosts !== undefined) {
     out.historicalCosts = picked.historicalCosts.map(sanitizeHistoricalCost);
+  }
+  if (picked.charterBudget !== undefined) {
+    out.charterBudget = sanitizeCharterBudget(picked.charterBudget);
   }
   return out;
 }

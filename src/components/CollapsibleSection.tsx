@@ -11,19 +11,41 @@ interface CollapsibleSectionProps {
   count?: number;
   children: React.ReactNode;
   onOpen?: () => void;
+  /**
+   * Controlled open state. When provided (not undefined), the parent owns
+   * open/close and must pass `onOpenChange`. When omitted, the section manages
+   * its own state internally (default — backward compatible).
+   */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function CollapsibleSection({ title, count, children, onOpen }: CollapsibleSectionProps) {
-  const [isOpen, setIsOpen] = useState(false);
+export function CollapsibleSection({
+  title,
+  count,
+  children,
+  onOpen,
+  open,
+  onOpenChange,
+}: CollapsibleSectionProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const controlled = open !== undefined;
+  const isOpen = controlled ? open : internalOpen;
+
+  const toggle = () => {
+    const next = !isOpen;
+    if (controlled) {
+      onOpenChange?.(next);
+    } else {
+      setInternalOpen(next);
+    }
+    if (next && onOpen) onOpen();
+  };
 
   return (
     <div>
       <button
-        onClick={() => {
-          const next = !isOpen;
-          setIsOpen(next);
-          if (next && onOpen) onOpen();
-        }}
+        onClick={toggle}
         className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300"
       >
         <span

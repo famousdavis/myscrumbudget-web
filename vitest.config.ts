@@ -12,6 +12,11 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    // Never glob stale per-session git worktrees under .claude/worktrees/* —
+    // they duplicate the entire suite N× in parallel, and the CPU contention
+    // makes timing-sensitive debounce/waitFor hook tests flake out. (node_modules
+    // and dist are vitest defaults; restated here since we override `exclude`.)
+    exclude: ['**/node_modules/**', '**/dist/**', '**/.claude/**'],
   },
   resolve: {
     alias: {

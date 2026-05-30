@@ -4,6 +4,37 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.32.0] - 2026-05-30
+
+Charter Budget. A new explainable parametric contingency tool that turns the deterministic ETC point estimate into an uncertainty-adjusted charter budget at a chosen confidence percentile and distribution — bringing in-house what was previously done externally in Excel. Every contingency dollar traces to a five-question risk profile. Explicitly a planning heuristic, not a guarantee.
+
+### Added
+
+- **Charter Budget panel** (project detail page, below the allocation grid). The PM completes a five-question risk profile — project type, requirements clarity, team experience, org-change impact, integration complexity — and the model derives a coefficient of variation (CV), then computes a charter budget at a chosen percentile (P60–P95) and distribution (Normal / Lognormal / Beta-PERT), with the live ETC pre-populating as the cost basis. A live CV breakdown table (green favorable / amber unfavorable), results cards (applied CV, σ, P50 median, charter budget), a distribution-specific mini chart, and a two-line "Apply as baseline budget" results breakdown all update reactively. Powered by a greenfield math engine (`src/lib/calc/charterBudget.ts`, `normal.ts`): Acklam inverse-normal, truncated-Normal / mean-anchored-lognormal / symmetric Beta-PERT(3,3) quantiles, with golden-file unit tests pinning every multiplier.
+- **Coefficient-of-variation model.** Base CV by project type (COTS 15% → AI/ML 40%) plus additive favorable/unfavorable factor deltas (deliberate ρ=1 conservative assumption), clamped to [8%, 50%]. The 50% ceiling is surfaced as a governance signal that scope may be too unstable to charter.
+- **Optimism-bias uplift (opt-in).** A direct-percentage adjustment that raises the cost basis *before* contingency, shown as a distinct labeled line so the sponsor sees expected-overrun correction and risk contingency separately. Defaults to 0 (pure spread-only model).
+- **Manual CV override.** A typed 8–50% override that bypasses the governance ceiling (a deliberate user assertion is not a "scope unstable" signal); the floor still binds.
+- **Schedule-source nudge.** A checkbox flagging that the ETC came from a P80+ schedule forecast (e.g., SPERT® Forecaster); when set, the panel recommends targeting P60 to avoid stacking P80 cost on a P80 schedule, and warns if uplift is also active (opposite assumptions).
+- **Charter badge on the Baseline Budget tile** — a compact inline `P{n} · {Distribution}` indicator (with `+N% bias` and `stale` variants) and a Set/Edit affordance.
+- **Staleness detection.** The charter stores the ETC it was calculated against; when live ETC later drifts (as actuals accrue), the badge and panel surface a "stale" indicator (cents-rounded compare, computed once at the page layer so the two never disagree). The charter is a point-in-time artifact — drift is surfaced, not auto-recomputed.
+
+### Data model
+
+- **`charterBudget?` sub-object on each `Reforecast`** (co-located with `baselineBudget`, not on `Project`). This placement makes undo co-write, Firestore document-level atomicity, and cloud round-trip automatic. No schema migration required — absent reads as "not set." Cleared by destructure-rest omission (never `undefined`, which would throw on Firestore). Dropped automatically on reforecast clone (a copy starts uncharted; locking test added).
+- **Import round-trip.** `charterBudget` added to the import sanitize allowlist with a two-stage deep pick (the nested `riskProfile` is picked separately since `pickKeys` is shallow), plus a strict full-shape `validateCharterBudget` (enum membership, percentile ∈ allowed set, uplift and CV-override range checks, finite derived numerics). Verified to survive export→import on both localStorage and Firestore backends.
+
+### Fixed
+
+- **Charter "Apply as baseline budget" now rounds to the nearest whole dollar.** Previously the raw quantile (e.g. `108095.3970112618`) was written verbatim into the baseline budget. The charter amount is rounded at the single panel assembly point; the un-rounded ETC-at-calculation is preserved for the cents-wise staleness compare, and the engine's raw multiples are unchanged (golden tests intact).
+
+### Tooling
+
+- **Vitest no longer globs `.claude/worktrees/*`.** Stale per-session git worktrees were being discovered and run N× in parallel, and the CPU contention flaked timing-sensitive debounce/`waitFor` hook tests. The `test.exclude` config now skips them.
+
+### Tests
+
+1095/1095 passing across 71 test files. New coverage: charter-budget math engine (golden multipliers, Acklam precision to 8 digits, distribution invariants, CV clamp/governance flags, override-bypasses-ceiling); `applyCharterBudget` / `updateBaselineBudget` no-op-guard + charter-clear + apply-then-blur; import sanitize + strict validation accept/reject matrix; clone locking test. Independently re-verified by a five-dimension adversarial pass (math, governance, import round-trip, write paths, staleness) with zero blockers.
+
 ## [0.31.0] - 2026-05-26
 
 Cloud storage remediation. Eight targeted fixes across sign-out cascade, controlled-input echo guards, debounced-save lifecycle, listener error handling, Firestore write contracts, and the import Apply flow.

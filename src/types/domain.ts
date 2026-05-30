@@ -101,6 +101,66 @@ export interface Reforecast {
   actualsThroughDate?: string; // YYYY-MM-DD — ETC excludes costs through this date
   notes?: string; // free-text narrative explaining why this reforecast exists (max 2000 chars)
   historicalCosts?: HistoricalCostEntry[];
+  charterBudget?: CharterBudget; // optional uncertainty-adjusted charter budget; undefined = not set / cleared
+}
+
+/** Distribution choice for the charter budget calculation. */
+export type Distribution = 'normal' | 'lognormal' | 'beta_pert';
+
+/**
+ * Five-question risk profile that drives the charter budget CV.
+ * Single source of truth: the charter engine takes this as a parameter AND
+ * CharterBudget['riskProfile'] references it, so the two cannot drift apart.
+ */
+export interface RiskProfile {
+  projectType: 'vendor' | 'infra' | 'biz' | 'custom' | 'data' | 'ai';
+  requirementsClarity: 'well' | 'partial' | 'expl';
+  teamExperience: 'high' | 'some' | 'new';
+  orgChangeImpact: 'low' | 'mod' | 'high';
+  integrationComplexity: 'solo' | 'mod' | 'high';
+  cvOverride: number | null; // manual CV override as a fraction in [0.08, 0.50] (= CV_FLOOR..CV_CEILING), or null
+  optimismUpliftPct: number; // optimism-bias uplift as a fraction >= 0 (0 = no uplift)
+}
+
+/**
+ * Stored charter budget snapshot on a Reforecast. The derived fields are frozen
+ * at calculatedAt (live ETC may have since moved — see staleness detection); they
+ * are a cache for the badge and are recomputed on panel open for display.
+ */
+export interface CharterBudget {
+  riskProfile: RiskProfile;
+  distribution: Distribution;
+  targetPercentile: number; // 60 | 70 | 75 | 80 | 85 | 90 | 95
+  etcIsP80Schedule: boolean;
+  // ---- derived snapshot, frozen at calculatedAt ----
+  derivedCV: number;
+  derivedSigma: number;
+  etcAtCalculation: number; // raw ETC when computed; drives the staleness check
+  adjustedCostBasis: number; // ETC × (1 + uplift); = ETC when uplift 0
+  charterBudgetAmount: number;
+  medianAmount: number;
+  calculatedAt: string; // ISO-8601 (NOT a Firestore Timestamp)
+}
+
+/**
+ * Return shape of computeCharterBudget(). Intentionally distinct from the stored
+ * CharterBudget — the panel maps this (+ form inputs + calculatedAt) into the
+ * stored object at a single assembly step (mapping lives in one place).
+ */
+export interface CharterBudgetResult {
+  cv: number;
+  sigma: number;
+  center: number;
+  etc: number;
+  upliftAmount: number;
+  charterAmount: number;
+  medianAmount: number;
+  contingencyAmt: number;
+  contingencyPct: number;
+  totalOverEtcPct: number;
+  cvWarn: boolean;
+  ceilingActive: boolean;
+  floorActive: boolean;
 }
 
 // Project

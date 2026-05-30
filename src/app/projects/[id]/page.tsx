@@ -4,7 +4,7 @@
 
 'use client';
 
-import { use, useState, useMemo, useEffect, useRef } from 'react';
+import { use, useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { APP_NAME } from '@/lib/constants';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -15,6 +15,8 @@ import { useTeamPool } from '@/features/team/hooks/useTeamPool';
 import { useTeam } from '@/features/team/hooks/useTeam';
 import { useReforecast } from '@/features/reforecast/hooks/useReforecast';
 import { ProjectSummary } from '@/features/projects/components/ProjectSummary';
+import { CharterBudgetPanel } from '@/features/projects/components/CharterBudgetPanel';
+import type { CharterBudget } from '@/types/domain';
 import { ConfirmDialog } from '@/components/BaseDialog';
 import { AllocationGrid } from '@/features/reforecast/components/AllocationGrid';
 import { ReforecastToolbar } from '@/features/reforecast/components/ReforecastToolbar';
@@ -104,6 +106,7 @@ export default function ProjectDetailPage({
     removeProductivityWindow,
     updateActualCost,
     updateBaselineBudget,
+    applyCharterBudget,
     updateReforecastDate,
     updateActualsThroughDate,
     updateHistoricalCosts,
@@ -120,6 +123,33 @@ export default function ProjectDetailPage({
   const metrics = useProjectMetrics(project, settings, pool);
   const router = useRouter();
   const [showDelete, setShowDelete] = useState(false);
+  const [charterOpen, setCharterOpen] = useState(false);
+  const charterPanelRef = useRef<HTMLDivElement>(null);
+  // Charter staleness: live ETC drifted from the stored charter's
+  // etcAtCalculation. Computed ONCE here and passed to both the summary badge
+  // and the panel so they can't disagree. Cents-rounded compare avoids false
+  // positives from float/summation drift; no allocations (metrics === null)
+  // reads as indeterminate → treated as stale/muted (and never dereferences etc).
+  const charterStale = useMemo(() => {
+    const cb = activeReforecast?.charterBudget;
+    if (!cb) return false;
+    if (!metrics) return true;
+    return Math.round(cb.etcAtCalculation * 100) !== Math.round(metrics.etc * 100);
+  }, [activeReforecast, metrics]);
+  const handleApplyCharter = useCallback(
+    (cb: CharterBudget) => {
+      applyCharterBudget(cb);
+      flush(); // durable before the panel reports success (mirrors undo/redo)
+    },
+    [applyCharterBudget, flush],
+  );
+  const openCharterPanel = useCallback(() => {
+    setCharterOpen(true);
+    // Defer the scroll until the controlled-open render expands the panel.
+    requestAnimationFrame(() =>
+      charterPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+    );
+  }, []);
   const monthlyChartRef = useRef<HTMLDivElement>(null);
   const cumulativeChartRef = useRef<HTMLDivElement>(null);
 
@@ -240,6 +270,21 @@ export default function ProjectDetailPage({
           trafficLightThresholds={settings?.trafficLightThresholds}
           onActualCostChange={updateActualCost}
           onBaselineBudgetChange={updateBaselineBudget}
+          charterBudget={activeReforecast?.charterBudget}
+          charterStale={charterStale}
+          onOpenCharter={openCharterPanel}
+        />
+      </div>
+
+      <div ref={charterPanelRef}>
+        <CharterBudgetPanel
+          key={activeReforecast?.id ?? 'none'}
+          etc={metrics ? metrics.etc : null}
+          existing={activeReforecast?.charterBudget}
+          stale={charterStale}
+          open={charterOpen}
+          onOpenChange={setCharterOpen}
+          onApply={handleApplyCharter}
         />
       </div>
 

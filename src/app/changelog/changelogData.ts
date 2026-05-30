@@ -13,6 +13,47 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.32.0',
+    date: '2026-05-30',
+    sections: [
+      {
+        title: 'Charter Budget',
+        items: [
+          'New Charter Budget panel on the project detail page turns the deterministic ETC into an uncertainty-adjusted charter budget at a chosen confidence percentile (P60–P95) and distribution (Normal / Lognormal / Beta-PERT). Complete a five-question risk profile — project type, requirements clarity, team experience, org-change impact, integration complexity — and the model derives a coefficient of variation and computes the charter budget, with live ETC as the cost basis. An explainable planning heuristic where every contingency dollar traces to a selection — explicitly not a guarantee.',
+          'Live CV breakdown (green favorable / amber unfavorable), results cards (applied CV, σ, P50 median, charter budget), and a distribution-specific mini chart all update as you adjust the profile. Apply writes the charter amount as the reforecast baseline budget.',
+          'Optimism-bias uplift (opt-in): a direct-percentage adjustment that raises the cost basis before contingency, shown as a distinct line so expected-overrun correction and risk contingency are separated for the sponsor. Defaults to off.',
+          'Manual CV override (8–50%) bypasses the governance ceiling — a deliberately-typed value is not a "scope unstable" signal. The CV is otherwise clamped to [8%, 50%], with the 50% ceiling surfaced as a governance signal that scope may be too unstable to charter.',
+          'Schedule-source nudge: flag that the ETC came from a P80+ schedule forecast (e.g. SPERT® Forecaster) and the panel recommends targeting P60 rather than stacking P80 cost on a P80 schedule.',
+        ],
+      },
+      {
+        title: 'Charter badge & staleness',
+        items: [
+          'The Baseline Budget tile shows a compact charter badge (P{n} · distribution, with +N% bias and stale variants) and a Set / Edit charter budget link.',
+          'A charter records the ETC it was calculated against. When live ETC later drifts as actuals accrue, the badge and panel show a "stale" indicator — the charter is a point-in-time artifact, so drift is surfaced rather than auto-recomputed.',
+        ],
+      },
+      {
+        title: 'Bug fixes',
+        items: [
+          'Charter "Apply as baseline budget" now rounds to the nearest whole dollar. Previously the raw computed quantile (e.g. 108095.3970112618) was written verbatim into the baseline budget field.',
+        ],
+      },
+      {
+        title: 'Data & import',
+        items: [
+          'The charter budget is stored per-reforecast (alongside the baseline budget), so each reforecast snapshot carries its own charter. Undo/redo, cloud sync, and JSON export/import all round-trip it. No data migration is required — projects without a charter simply have none. Re-baselining (a manual edit of the Baseline Budget field) clears the charter.',
+        ],
+      },
+      {
+        title: 'Tests',
+        items: [
+          '1095/1095 passing across 71 test files. New coverage for the charter-budget math engine (golden multipliers, inverse-normal precision, distribution invariants, CV clamp and governance flags), the apply / clear / no-op-guard write paths, and the import sanitize + strict validation matrix. Independently re-verified by a five-dimension adversarial pass (math, governance, import round-trip, write paths, staleness) with zero blockers.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.31.0',
     date: '2026-05-26',
     sections: [
