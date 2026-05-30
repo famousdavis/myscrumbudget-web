@@ -14,6 +14,7 @@
 // for the import flow and never claim the input IS the target type.
 import type { Settings, Project, PoolMember } from '@/types/domain';
 import { REFORECAST_NOTES_MAX_LENGTH } from '@/lib/constants';
+import { CV_FLOOR, CV_CEILING, UPLIFT_MAX, ALLOWED_PERCENTILES } from '@/lib/calc/charterBudget';
 
 export interface ValidationResult {
   valid: boolean;
@@ -229,6 +230,80 @@ function validateProductivityWindow(window: unknown, path: string): string[] {
   return errors;
 }
 
+// Charter-budget enum allowlists (the union types are compile-time only, so the
+// strict import validator re-lists the valid runtime values).
+const CHARTER_PROJECT_TYPES = new Set(['vendor', 'infra', 'biz', 'custom', 'data', 'ai']);
+const CHARTER_REQUIREMENTS = new Set(['well', 'partial', 'expl']);
+const CHARTER_EXPERIENCE = new Set(['high', 'some', 'new']);
+const CHARTER_ORGCHANGE = new Set(['low', 'mod', 'high']);
+const CHARTER_INTEGRATION = new Set(['solo', 'mod', 'high']);
+const CHARTER_DISTRIBUTIONS = new Set(['normal', 'lognormal', 'beta_pert']);
+
+function validateRiskProfile(profile: unknown, path: string): string[] {
+  const errors: string[] = [];
+  if (!isObject(profile)) {
+    errors.push(`${path}: expected object`);
+    return errors;
+  }
+  if (!isString(profile.projectType) || !CHARTER_PROJECT_TYPES.has(profile.projectType)) {
+    errors.push(`${path}.projectType: expected one of vendor|infra|biz|custom|data|ai`);
+  }
+  if (!isString(profile.requirementsClarity) || !CHARTER_REQUIREMENTS.has(profile.requirementsClarity)) {
+    errors.push(`${path}.requirementsClarity: expected one of well|partial|expl`);
+  }
+  if (!isString(profile.teamExperience) || !CHARTER_EXPERIENCE.has(profile.teamExperience)) {
+    errors.push(`${path}.teamExperience: expected one of high|some|new`);
+  }
+  if (!isString(profile.orgChangeImpact) || !CHARTER_ORGCHANGE.has(profile.orgChangeImpact)) {
+    errors.push(`${path}.orgChangeImpact: expected one of low|mod|high`);
+  }
+  if (!isString(profile.integrationComplexity) || !CHARTER_INTEGRATION.has(profile.integrationComplexity)) {
+    errors.push(`${path}.integrationComplexity: expected one of solo|mod|high`);
+  }
+  // cvOverride: null OR a fraction within [CV_FLOOR, CV_CEILING] (decision 1a:
+  // the UI/validator floor matches the engine floor, so no silent bump).
+  if (profile.cvOverride !== null) {
+    if (!isNumber(profile.cvOverride) || profile.cvOverride < CV_FLOOR || profile.cvOverride > CV_CEILING) {
+      errors.push(`${path}.cvOverride: expected null or number in [${CV_FLOOR}, ${CV_CEILING}]`);
+    }
+  }
+  // optimismUpliftPct: a fraction in [0, UPLIFT_MAX]. The engine/UI clamp is NOT
+  // a validation gate — a hostile/legacy import of 50 (5000%) must be rejected here.
+  if (!isNumber(profile.optimismUpliftPct) || profile.optimismUpliftPct < 0 || profile.optimismUpliftPct > UPLIFT_MAX) {
+    errors.push(`${path}.optimismUpliftPct: expected number in [0, ${UPLIFT_MAX}]`);
+  }
+  return errors;
+}
+
+function validateCharterBudget(cb: unknown, path: string): string[] {
+  const errors: string[] = [];
+  if (!isObject(cb)) {
+    errors.push(`${path}: expected object`);
+    return errors;
+  }
+  errors.push(...validateRiskProfile(cb.riskProfile, `${path}.riskProfile`));
+  if (!isString(cb.distribution) || !CHARTER_DISTRIBUTIONS.has(cb.distribution)) {
+    errors.push(`${path}.distribution: expected one of normal|lognormal|beta_pert`);
+  }
+  if (
+    typeof cb.targetPercentile !== 'number' ||
+    !(ALLOWED_PERCENTILES as readonly number[]).includes(cb.targetPercentile)
+  ) {
+    errors.push(`${path}.targetPercentile: expected one of ${ALLOWED_PERCENTILES.join('|')}`);
+  }
+  if (typeof cb.etcIsP80Schedule !== 'boolean') {
+    errors.push(`${path}.etcIsP80Schedule: expected boolean`);
+  }
+  if (!isNumber(cb.derivedCV)) errors.push(`${path}.derivedCV: expected finite number`);
+  if (!isNumber(cb.derivedSigma)) errors.push(`${path}.derivedSigma: expected finite number`);
+  if (!isNumber(cb.etcAtCalculation)) errors.push(`${path}.etcAtCalculation: expected finite number`);
+  if (!isNumber(cb.adjustedCostBasis)) errors.push(`${path}.adjustedCostBasis: expected finite number`);
+  if (!isNumber(cb.charterBudgetAmount)) errors.push(`${path}.charterBudgetAmount: expected finite number`);
+  if (!isNumber(cb.medianAmount)) errors.push(`${path}.medianAmount: expected finite number`);
+  if (!isString(cb.calculatedAt)) errors.push(`${path}.calculatedAt: expected string`);
+  return errors;
+}
+
 function validateReforecast(reforecast: unknown, path: string): string[] {
   const errors: string[] = [];
   if (!isObject(reforecast)) {
@@ -285,6 +360,9 @@ function validateReforecast(reforecast: unknown, path: string): string[] {
     } else if (reforecast.notes.length > REFORECAST_NOTES_MAX_LENGTH) {
       errors.push(`${path}.notes: exceeds max length of ${REFORECAST_NOTES_MAX_LENGTH} characters`);
     }
+  }
+  if (reforecast.charterBudget !== undefined) {
+    errors.push(...validateCharterBudget(reforecast.charterBudget, `${path}.charterBudget`));
   }
 
   if (!Array.isArray(reforecast.allocations)) {

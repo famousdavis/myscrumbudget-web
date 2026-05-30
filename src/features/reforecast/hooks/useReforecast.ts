@@ -11,6 +11,7 @@ import type {
   MonthlyAllocation,
   ProductivityWindow,
   HistoricalCostEntry,
+  CharterBudget,
 } from '@/types/domain';
 import { generateId } from '@/lib/utils/id';
 import { sanitizeCurrency } from '@/lib/utils/format';
@@ -252,7 +253,48 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
   const updateBaselineBudget = useCallback(
     (value: number) => {
       const sanitized = sanitizeCurrency(value);
-      updateActiveRf((rf) => ({ ...rf, baselineBudget: sanitized }));
+      // No-op guard BEFORE updateActiveRf (mirrors updateName). Load-bearing:
+      // InlineEditableField.save() fires on blur as well as Enter with no
+      // unchanged-value short-circuit, so tabbing through the Baseline field
+      // would otherwise clear the charter on every blur. Guarding here — not
+      // inside the updater — makes it a TRUE no-op: updateActiveRf always builds
+      // a fresh project via .map, and updateProject has no next===prev guard, so
+      // an inside-the-updater guard would still push a spurious undo snapshot +
+      // redundant persist on every unchanged blur.
+      if (activeReforecast && sanitized === activeReforecast.baselineBudget) return;
+      // A real manual change clears any charter — the new baseline is a typed
+      // value, no longer the charter-derived number. Clear by destructure-rest
+      // OMISSION, never `charterBudget: undefined`: stripUndefined is one-deep
+      // and Firestore has no ignoreUndefinedProperties, so a nested undefined
+      // would throw on setDoc. Mirrors the actualsThroughDate/historicalCosts
+      // clear idiom above.
+      updateActiveRf((rf) => {
+        const { charterBudget: _charterBudget, ...rest } = rf;
+        void _charterBudget;
+        return { ...rest, baselineBudget: sanitized };
+      });
+    },
+    [updateActiveRf, activeReforecast],
+  );
+
+  /**
+   * Apply a fully-assembled charter budget: set baselineBudget to the charter
+   * amount AND store the charter snapshot, in ONE updateProject call (via
+   * updateActiveRf) → a single undo entry and an atomic Firestore doc write.
+   * The panel owns the field mapping (engine result + form inputs + calculatedAt
+   * → CharterBudget) so the hook stays ignorant of the model. A fully-populated
+   * object has no nested undefined, so it serializes cleanly.
+   *
+   * Distinct from updateBaselineBudget on purpose: routing Apply through the
+   * manual-edit path would clear the charter it just set.
+   */
+  const applyCharterBudget = useCallback(
+    (charterBudget: CharterBudget) => {
+      updateActiveRf((rf) => ({
+        ...rf,
+        baselineBudget: charterBudget.charterBudgetAmount,
+        charterBudget,
+      }));
     },
     [updateActiveRf],
   );
@@ -392,6 +434,7 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
     removeProductivityWindow,
     updateActualCost,
     updateBaselineBudget,
+    applyCharterBudget,
     updateReforecastDate,
     updateActualsThroughDate,
     updateHistoricalCosts,

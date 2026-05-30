@@ -286,4 +286,37 @@ describe('createNewReforecast', () => {
     const mar21 = createNewReforecast('Mar 21', { startDate: PROJECT_START, endDate: PROJECT_END }, mar14Bumped);
     expect(mar21.historicalCosts).toEqual([{ month: '2026-03', cost: 10000, hours: 0 }]);
   });
+
+  it('does NOT carry charterBudget onto a clone (locking test — strip is automatic)', () => {
+    const source = sourceBase({
+      baselineBudget: 200000,
+      charterBudget: {
+        riskProfile: {
+          projectType: 'custom',
+          requirementsClarity: 'partial',
+          teamExperience: 'some',
+          orgChangeImpact: 'mod',
+          integrationComplexity: 'mod',
+          cvOverride: null,
+          optimismUpliftPct: 0,
+        },
+        distribution: 'normal',
+        targetPercentile: 80,
+        etcIsP80Schedule: false,
+        derivedCV: 0.25,
+        derivedSigma: 50000,
+        etcAtCalculation: 200000,
+        adjustedCostBasis: 200000,
+        charterBudgetAmount: 242082,
+        medianAmount: 200000,
+        calculatedAt: '2026-05-01T00:00:00.000Z',
+      },
+    });
+    const rf = createNewReforecast('Copy', { startDate: PROJECT_START, endDate: PROJECT_END }, source);
+    // createNewReforecast enumerates fields explicitly (no ...source spread), so
+    // charterBudget is dropped on clone for free — a clone starts uncharted.
+    // Guards against a future ...source refactor silently carrying a stale charter.
+    expect('charterBudget' in rf).toBe(false);
+    expect(rf.charterBudget).toBeUndefined();
+  });
 });

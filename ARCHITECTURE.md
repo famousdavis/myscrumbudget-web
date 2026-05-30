@@ -206,6 +206,7 @@ interface Reforecast {
   actualsThroughDate?: string; // YYYY-MM-DD — ETC excludes costs through this date (v0.17.0)
   notes?: string;           // free-text narrative (v0.20.2)
   historicalCosts?: HistoricalCostEntry[]; // per-month breakdown (v0.22.0)
+  charterBudget?: CharterBudget; // uncertainty-adjusted charter budget snapshot (v0.32.0); undefined = not set
 }
 
 // Project

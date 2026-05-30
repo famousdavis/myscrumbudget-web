@@ -4,9 +4,9 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import Link from 'next/link';
-import type { Project, ProjectMetrics, Reforecast, TrafficLightThresholds } from '@/types/domain';
+import type { Project, ProjectMetrics, Reforecast, TrafficLightThresholds, CharterBudget } from '@/types/domain';
 import { formatCurrency, formatDateMedium } from '@/lib/utils/format';
 import { getTrafficLightStatus, getTrafficLightDisplay, DEFAULT_THRESHOLDS } from '@/lib/calc';
 
@@ -17,6 +17,12 @@ const readonlyClass =
 const inputClass =
   'mt-1 w-full rounded border border-blue-400 px-2 py-1 text-base font-medium focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-blue-600 dark:bg-zinc-900';
 
+const DIST_SHORT: Record<CharterBudget['distribution'], string> = {
+  normal: 'Normal',
+  lognormal: 'Lognormal',
+  beta_pert: 'Beta-PERT',
+};
+
 // --- Reusable inline-editable currency field ---
 
 interface InlineEditableFieldProps {
@@ -24,9 +30,11 @@ interface InlineEditableFieldProps {
   value: number;
   onChange?: (value: number) => void;
   tooltip?: string;
+  /** Optional content rendered below the value (e.g. the charter-budget badge). */
+  badge?: ReactNode;
 }
 
-function InlineEditableField({ label, value, onChange, tooltip }: InlineEditableFieldProps) {
+function InlineEditableField({ label, value, onChange, tooltip, badge }: InlineEditableFieldProps) {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(String(value));
 
@@ -94,6 +102,7 @@ function InlineEditableField({ label, value, onChange, tooltip }: InlineEditable
       ) : (
         <p className="mt-1 text-base font-medium">{formatCurrency(value)}</p>
       )}
+      {!editing && badge}
     </div>
   );
 }
@@ -114,6 +123,12 @@ interface ProjectSummaryProps {
   trafficLightThresholds?: TrafficLightThresholds;
   onActualCostChange?: (value: number) => void;
   onBaselineBudgetChange?: (value: number) => void;
+  /** Stored charter on the active reforecast (drives the Baseline-tile badge). */
+  charterBudget?: CharterBudget;
+  /** Computed once at the page layer (see §7.2) — badge + panel share it. */
+  charterStale?: boolean;
+  /** Opens the charter panel; omit to hide the charter affordance entirely. */
+  onOpenCharter?: () => void;
 }
 
 export function ProjectSummary({
@@ -125,6 +140,9 @@ export function ProjectSummary({
   trafficLightThresholds,
   onActualCostChange,
   onBaselineBudgetChange,
+  charterBudget,
+  charterStale,
+  onOpenCharter,
 }: ProjectSummaryProps) {
   const startDate = activeReforecast?.startDate ?? project.startDate;
   const endDate = activeReforecast?.endDate ?? project.endDate;
@@ -133,6 +151,50 @@ export function ProjectSummary({
         getTrafficLightStatus(metrics, trafficLightThresholds ?? DEFAULT_THRESHOLDS),
       )
     : null;
+
+  // Charter-budget affordance under the Baseline tile. A compact inline badge
+  // (not an extra stacked row) — keeps tile heights even (v0.22.5 lesson).
+  // The button stops propagation so it doesn't trip the tile's click-to-edit.
+  const charterBadge = onOpenCharter ? (
+    charterBudget ? (
+      <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-xs">
+        <span className="text-zinc-500 dark:text-zinc-400">
+          P{charterBudget.targetPercentile} &middot; {DIST_SHORT[charterBudget.distribution]}
+          {charterBudget.riskProfile.optimismUpliftPct > 0 &&
+            ` · +${Math.round(charterBudget.riskProfile.optimismUpliftPct * 100)}% bias`}
+        </span>
+        {charterStale && (
+          <span
+            className="text-amber-600 dark:text-amber-400"
+            title="ETC changed since this charter was set"
+          >
+            &middot; stale
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenCharter?.();
+          }}
+          className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+        >
+          Edit charter budget &rarr;
+        </button>
+      </div>
+    ) : (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpenCharter?.();
+        }}
+        className="mt-1 block text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+      >
+        Set charter budget &rarr;
+      </button>
+    )
+  ) : null;
 
   return (
     <div className="space-y-4">
@@ -147,6 +209,7 @@ export function ProjectSummary({
           label="Baseline Budget"
           value={baselineBudget}
           onChange={onBaselineBudgetChange}
+          badge={charterBadge}
         />
         <InlineEditableField
           label="Actual Cost"
