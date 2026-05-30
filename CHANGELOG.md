@@ -4,6 +4,18 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.32.1] - 2026-05-30
+
+Documentation release. Adds the Charter Budget Reference Guide and refreshes the Quick Reference Guide.
+
+### Added
+
+- **Charter Budget Reference Guide (PDF)** linked from the About page. A companion to the Quick Reference Guide that documents the full statistical model behind the Charter Budget feature: the coefficient-of-variation (CV) calibration by project type, the additive favorable/unfavorable risk-factor adjustments, the three probability distributions (Normal / Lognormal / Beta-PERT), the optional optimism-bias uplift, the P80-schedule integration guidance, and the supporting research basis.
+
+### Changed
+
+- **Quick Reference Guide (PDF) refreshed.** Now covers the Charter Budget panel, pool-member archiving, the conflict-aware per-project import flow, and other features added since the previous edition.
+
 ## [0.32.0] - 2026-05-30
 
 Charter Budget. A new explainable parametric contingency tool that turns the deterministic ETC point estimate into an uncertainty-adjusted charter budget at a chosen confidence percentile and distribution — bringing in-house what was previously done externally in Excel. Every contingency dollar traces to a five-question risk profile. Explicitly a planning heuristic, not a guarantee.
