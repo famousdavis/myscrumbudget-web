@@ -4,6 +4,14 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.33.1] - 2026-06-03
+
+Follow-up polish to the v0.33.0 Dashboard tile action icons.
+
+### Fixed
+
+- **Dashboard tile action-icon layout.** The always-visible color swatch and trash icons were separated by a permanent empty gap because the hover-revealed export/clone icons used `opacity-0`, which still reserves layout space, and were ordered *between* the two always-on icons. Reordered to `export · clone · swatch · trash` and switched the hover pair to collapse fully (`display:none` until hover/focus) so they reserve no idle space. The cluster is right-anchored, so the swatch and trash now sit adjacent at the right edge and the export/clone pair slides in to their left on hover without displacing them. Keyboard access preserved via `group-focus-within`.
+
 ## [0.33.0] - 2026-06-03
 
 Dashboard tile upgrades plus a stale-data fix. Project tiles gain a color tint, a most-recent-reforecast date stamp, and per-tile export/clone actions. Two staleness bugs around editing reforecast dates are fixed.

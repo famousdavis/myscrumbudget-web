@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.33.1',
+    date: '2026-06-03',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'Dashboard tile action icons. The color swatch and trash (both always shown) had an empty gap between them where the hover-revealed export and clone icons sat. Reordered the icons and made the hover pair collapse fully when hidden, so the swatch and trash now sit together at the right edge and export/clone slide in to their left on hover.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.33.0',
     date: '2026-06-03',
     sections: [
