@@ -14,6 +14,7 @@
 // for the import flow and never claim the input IS the target type.
 import type { Settings, Project, PoolMember } from '@/types/domain';
 import { REFORECAST_NOTES_MAX_LENGTH } from '@/lib/constants';
+import { isProjectColor, PROJECT_COLOR_KEYS } from '@/features/projects/lib/projectColors';
 import { CV_FLOOR, CV_CEILING, UPLIFT_MAX, ALLOWED_PERCENTILES } from '@/lib/calc/charterBudget';
 
 export interface ValidationResult {
@@ -422,6 +423,10 @@ function validateProject(project: unknown, path: string): string[] {
   }
   if (!isString(project.activeReforecastId)) {
     errors.push(`${path}.activeReforecastId: expected string`);
+  }
+  // Optional Dashboard tile tint (v0.33.0). When present, must be a known key.
+  if (project.color !== undefined && !isProjectColor(project.color)) {
+    errors.push(`${path}.color: expected one of ${PROJECT_COLOR_KEYS.join('|')}`);
   }
 
   if (!Array.isArray(project.reforecasts)) {

@@ -178,3 +178,39 @@ describe('validateAppState — trafficLightThresholds.violetPercent', () => {
     ).toBe(true);
   });
 });
+
+describe('validateAppState — project color', () => {
+  function makeStateWithColor(color: unknown) {
+    const state = makeState(undefined) as unknown as {
+      projects: { color?: unknown }[];
+    };
+    if (color !== undefined) state.projects[0].color = color;
+    return state;
+  }
+
+  it('accepts a project with no color (absent = no tint)', () => {
+    expect(validateAppState(makeStateWithColor(undefined)).valid).toBe(true);
+  });
+
+  it('accepts a valid palette key', () => {
+    expect(validateAppState(makeStateWithColor('teal')).valid).toBe(true);
+  });
+
+  it('rejects an unknown color key', () => {
+    const result = validateAppState(makeStateWithColor('chartreuse'));
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes('.color'))).toBe(true);
+  });
+
+  it('rejects a status hue (not in the palette)', () => {
+    const result = validateAppState(makeStateWithColor('red'));
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes('.color'))).toBe(true);
+  });
+
+  it('rejects a non-string color', () => {
+    const result = validateAppState(makeStateWithColor(123));
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes('.color'))).toBe(true);
+  });
+});

@@ -13,6 +13,28 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.33.0',
+    date: '2026-06-03',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'Dashboard project tiles showed stale start/finish months. The tile read the frozen project-level dates (creation-time metadata since v0.29.0) instead of the live reforecast window, so editing a reforecast date left the month range stale — even after a refresh. Tiles now show the most-recent reforecast window (both start and finish), consistent with the Budget/EAC already shown.',
+          'The project "Start / Finish" tile showed a stale date after editing and saving it. The edit form saved correctly, but the detail page rendered an out-of-date value until a manual refresh. The underlying save now completes synchronously before navigation, so the returned-to page reads the committed value.',
+        ],
+      },
+      {
+        title: 'Added',
+        items: [
+          'Color tint for Dashboard project tiles. A swatch picker on each tile tints the card with a curated palette (Blue, Teal, Slate, Purple, Pink), chosen to avoid the health-status colors so a tint can never be mistaken for a status. Use it to group projects however is meaningful to you.',
+          'Most-recent reforecast date on each tile. An "as of {date}" stamp shows the latest reforecast date across all of a project’s reforecasts, so you can tell at a glance whether the numbers are recent. It turns amber once that date is more than 30 days old.',
+          'Per-tile JSON export. A hover-revealed export icon downloads just that one project (with the settings and team pool it needs), importable through the usual Dashboard import.',
+          'Per-tile clone. A hover-revealed clone icon duplicates a project, naming the copy "<name> - Copy (1)", "- Copy (2)", and so on.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.32.1',
     date: '2026-05-30',
     sections: [

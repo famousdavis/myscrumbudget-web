@@ -9,7 +9,7 @@ import {
 import { db } from '@/lib/firebase/config';
 import { PROJECTS_COL, SETTINGS_COL } from '@/lib/firebase/collections';
 import type { Repository } from './repository';
-import type { Settings, PoolMember, Project, AppState } from '@/types/domain';
+import type { Settings, PoolMember, Project, ProjectColor, AppState } from '@/types/domain';
 import { DEFAULT_SETTINGS } from './localStorage';
 import { DATA_VERSION } from './migrations';
 import type { ChangeLogEntry } from './fingerprint';
@@ -27,6 +27,8 @@ interface FirestoreProjectDoc {
   endDate: string;
   reforecasts: Project['reforecasts'];
   activeReforecastId: string | null;
+  /** Dashboard tile tint (v0.33.0). null when cleared (so mergeFields can unset). */
+  color: ProjectColor | null;
   owner: string;
   members: Record<string, string>;
   order: number;
@@ -164,10 +166,12 @@ export function createFirestoreRepository(uid: string): Repository {
         endDate: project.endDate,
         reforecasts: project.reforecasts,
         activeReforecastId: project.activeReforecastId,
+        // null (not undefined) when cleared so mergeFields actually unsets it.
+        color: project.color ?? null,
         _teamSnapshot: buildTeamSnapshot(getActiveReforecast(project)?.assignments ?? [], pool),
         updatedAt: now,
       }), { mergeFields: ['name', 'startDate', 'endDate', 'reforecasts',
-                          'activeReforecastId', '_teamSnapshot', 'updatedAt'] });
+                          'activeReforecastId', 'color', '_teamSnapshot', 'updatedAt'] });
     },
 
     /**
@@ -185,6 +189,7 @@ export function createFirestoreRepository(uid: string): Repository {
         endDate: project.endDate,
         reforecasts: project.reforecasts,
         activeReforecastId: project.activeReforecastId,
+        color: project.color ?? null,
         owner: uid,
         members: { [uid]: 'owner' },
         order: projects.length,
@@ -270,6 +275,7 @@ export function createFirestoreRepository(uid: string): Repository {
           endDate: project.endDate,
           reforecasts: project.reforecasts,
           activeReforecastId: project.activeReforecastId,
+          color: project.color ?? null,
           owner: uid,
           members: { [uid]: 'owner' },
           order: i,

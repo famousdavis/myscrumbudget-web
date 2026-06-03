@@ -163,6 +163,12 @@ export interface CharterBudgetResult {
   floorActive: boolean;
 }
 
+// Optional Dashboard tile tint (v0.33.0). A small curated palette of keys that
+// deliberately AVOIDS the traffic-light status hues (red/amber/green/violet) so a
+// user's organizing tint can never be confused with a health indicator. Absence
+// of the field means "no tint".
+export type ProjectColor = 'blue' | 'teal' | 'slate' | 'purple' | 'pink';
+
 // Project
 export interface Project {
   id: string;
@@ -171,6 +177,8 @@ export interface Project {
   endDate: string;
   reforecasts: Reforecast[];
   activeReforecastId: string | null;
+  /** Optional Dashboard tile tint (v0.33.0). Absent = no tint. */
+  color?: ProjectColor;
 }
 
 // Calculated Values

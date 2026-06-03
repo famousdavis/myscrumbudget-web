@@ -4,20 +4,27 @@
 
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import type { Project, Settings, PoolMember } from '@/types/domain';
-import { formatCurrency } from '@/lib/utils/format';
+import type { Project, Settings, PoolMember, ProjectColor } from '@/types/domain';
+import { formatCurrency, formatDateMedium } from '@/lib/utils/format';
 import { formatMonthLabel } from '@/lib/utils/dates';
 import { calculateProjectMetrics, getTrafficLightStatus, getTrafficLightDisplay } from '@/lib/calc';
 import { resolveAssignments, getMostRecentReforecast } from '@/lib/utils/teamResolution';
+import { getProjectTileTint, PROJECT_COLOR_OPTIONS } from '@/features/projects/lib/projectColors';
+import { isReforecastStale } from '@/features/projects/lib/dashboardCard';
 import { TrashIcon } from '@/components/icons/TrashIcon';
+import { ExportIcon } from '@/components/icons/ExportIcon';
+import { CloneIcon } from '@/components/icons/CloneIcon';
 
 interface ProjectCardProps {
   project: Project;
   settings?: Settings | null;
   pool: PoolMember[];
   onDelete: (id: string) => void;
+  onExport?: (id: string) => void;
+  onClone?: (id: string) => void;
+  onColorChange?: (id: string, color: ProjectColor | undefined) => void;
   isShared?: boolean;
   isDragging?: boolean;
   isDragOver?: boolean;
@@ -29,11 +36,24 @@ interface ProjectCardProps {
   onDrop?: (e: React.DragEvent) => void;
 }
 
+// Local-time YYYY-MM-DD for "today" — avoids the UTC drift that toISOString
+// would introduce on evenings west of GMT.
+function todayLocalYmd(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+const actionButtonClass =
+  'rounded p-1 text-zinc-300 hover:bg-zinc-100 hover:text-zinc-600 dark:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300';
+
 export function ProjectCard({
   project,
   settings,
   pool,
   onDelete,
+  onExport,
+  onClone,
+  onColorChange,
   isShared,
   isDragging,
   isDragOver,
@@ -44,14 +64,18 @@ export function ProjectCard({
   onDragLeave,
   onDrop,
 }: ProjectCardProps) {
-  const startLabel = formatMonthLabel(project.startDate);
-  const endLabel = formatMonthLabel(project.endDate);
+  const [colorOpen, setColorOpen] = useState(false);
 
-  // Dashboard uses the most-recent reforecast by date
+  // Dashboard uses the most-recent reforecast by date — its window AND metrics.
+  // (Project-level startDate/endDate are frozen creation-time metadata since
+  // v0.29.0; reading them here would show stale dates after any reforecast edit.)
   const mostRecentRf = useMemo(
     () => getMostRecentReforecast(project),
     [project],
   );
+
+  const startLabel = formatMonthLabel(mostRecentRf?.startDate ?? project.startDate);
+  const endLabel = formatMonthLabel(mostRecentRf?.endDate ?? project.endDate);
 
   const metrics = useMemo(() => {
     if (!settings) return null;
@@ -73,6 +97,12 @@ export function ProjectCard({
     return getTrafficLightDisplay(status);
   }, [metrics, settings]);
 
+  const tint = getProjectTileTint(project.color);
+  const reforecastStale = mostRecentRf
+    ? isReforecastStale(mostRecentRf.reforecastDate, todayLocalYmd())
+    : false;
+  const currentSwatch = PROJECT_COLOR_OPTIONS.find((o) => o.key === project.color)?.swatch;
+
   return (
     <div
       draggable
@@ -82,12 +112,12 @@ export function ProjectCard({
       onDragEnter={onDragEnter}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
-      className={`relative flex rounded-lg border p-5 transition-colors ${
+      className={`group relative flex rounded-lg border p-5 transition-colors ${
         isDragging
           ? 'opacity-40'
           : isDragOver
             ? 'border-blue-400 bg-blue-50/50 dark:border-blue-600 dark:bg-blue-950/30'
-            : 'border-zinc-200 hover:border-zinc-400 dark:border-zinc-800 dark:hover:border-zinc-600'
+            : `border-zinc-200 hover:border-zinc-400 dark:border-zinc-800 dark:hover:border-zinc-600 ${tint}`
       }`}
     >
       {/* Drag handle */}
@@ -108,18 +138,132 @@ export function ProjectCard({
         </div>
       </div>
       <div className="min-w-0 flex-1">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete(project.id);
-          }}
-          title="Delete project"
-          className="absolute right-3 top-3 rounded p-1 text-zinc-300 hover:bg-red-50 hover:text-red-500 dark:text-zinc-600 dark:hover:bg-red-950 dark:hover:text-red-400"
-        >
-          <TrashIcon />
-        </button>
+        {/* Action cluster: swatch + export + clone + trash.
+            Export/clone are hover-revealed to reduce idle clutter. */}
+        <div className="absolute right-2 top-2 z-10 flex items-center gap-0.5">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setColorOpen((o) => !o);
+            }}
+            title="Tile color"
+            aria-label="Set tile color"
+            aria-haspopup="true"
+            aria-expanded={colorOpen}
+            className={actionButtonClass}
+          >
+            <span
+              className={`block h-3.5 w-3.5 rounded-full border ${
+                currentSwatch
+                  ? `${currentSwatch} border-black/10 dark:border-white/20`
+                  : 'border-zinc-400 dark:border-zinc-500'
+              }`}
+            />
+          </button>
+          {onExport && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onExport(project.id);
+              }}
+              title="Export this project (JSON)"
+              aria-label="Export project as JSON"
+              className={`${actionButtonClass} opacity-0 transition-opacity focus:opacity-100 group-hover:opacity-100`}
+            >
+              <ExportIcon className="h-4 w-4" />
+            </button>
+          )}
+          {onClone && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onClone(project.id);
+              }}
+              title="Duplicate this project"
+              aria-label="Clone project"
+              className={`${actionButtonClass} opacity-0 transition-opacity focus:opacity-100 group-hover:opacity-100`}
+            >
+              <CloneIcon className="h-4 w-4" />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onDelete(project.id);
+            }}
+            title="Delete project"
+            aria-label="Delete project"
+            className="rounded p-1 text-zinc-300 hover:bg-red-50 hover:text-red-500 dark:text-zinc-600 dark:hover:bg-red-950 dark:hover:text-red-400"
+          >
+            <TrashIcon />
+          </button>
+        </div>
+
+        {/* Color picker popover */}
+        {colorOpen && (
+          <>
+            <div
+              className="fixed inset-0 z-10"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setColorOpen(false);
+              }}
+              aria-hidden="true"
+            />
+            <div
+              className="absolute right-2 top-11 z-20 rounded-lg border border-zinc-200 bg-white p-2 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+              role="menu"
+            >
+              <div className="flex items-center gap-1.5">
+                {PROJECT_COLOR_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onColorChange?.(project.id, opt.key);
+                      setColorOpen(false);
+                    }}
+                    title={opt.label}
+                    aria-label={opt.label}
+                    className={`h-5 w-5 rounded-full ${opt.swatch} ${
+                      project.color === opt.key
+                        ? 'ring-2 ring-blue-500 ring-offset-1 dark:ring-offset-zinc-900'
+                        : 'border border-black/10 dark:border-white/20'
+                    }`}
+                  />
+                ))}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onColorChange?.(project.id, undefined);
+                    setColorOpen(false);
+                  }}
+                  title="No color"
+                  aria-label="No color"
+                  className="flex h-5 w-5 items-center justify-center rounded-full border border-zinc-300 text-[11px] leading-none text-zinc-500 hover:bg-zinc-100 dark:border-zinc-600 dark:hover:bg-zinc-800"
+                >
+                  &times;
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
         <Link href={`/projects/${project.id}`} className="block">
-          <h3 className="pr-6 text-lg font-semibold">
+          <h3 className="pr-16 text-lg font-semibold">
             {project.name}
             {isShared && (
               <span className="ml-2 inline-block rounded bg-blue-100 px-1.5 py-0.5 align-middle text-xs font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300">
@@ -151,6 +295,18 @@ export function ProjectCard({
               </div>
             )}
           </div>
+          {mostRecentRf && (
+            <p
+              className={`mt-2 text-xs ${
+                reforecastStale
+                  ? 'text-amber-600 dark:text-amber-400'
+                  : 'text-zinc-400 dark:text-zinc-500'
+              }`}
+              title="Date of the most recent reforecast"
+            >
+              as of {formatDateMedium(mostRecentRf.reforecastDate)}
+            </p>
+          )}
         </Link>
       </div>
     </div>

@@ -4,7 +4,7 @@
 
 import type { AppState, PoolMember, ProjectAssignment } from '@/types/domain';
 
-export const DATA_VERSION = '0.14.0';
+export const DATA_VERSION = '0.15.0';
 
 // Local regex-only date validator for migrations. We avoid importing the
 // validator from validation.ts because (a) it's internal there, and (b)
@@ -524,6 +524,17 @@ const MIGRATIONS: Migration[] = [
       );
 
       return { ...data, version: '0.14.0', projects: migratedProjects };
+    },
+  },
+  {
+    version: '0.15.0',
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    migrate: (data: any): AppState => {
+      // Structural no-op: `color` is an optional new field on Project (Dashboard
+      // tile tint, v0.33.0). Existing projects legitimately lack it; "absent"
+      // means "no tint". No backfill is required or desirable.
+      assertArray(data.projects, 'projects', '0.15.0');
+      return { ...data, version: '0.15.0' };
     },
   },
 ];
