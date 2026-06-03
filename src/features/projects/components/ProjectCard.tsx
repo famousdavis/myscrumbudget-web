@@ -138,9 +138,44 @@ export function ProjectCard({
         </div>
       </div>
       <div className="min-w-0 flex-1">
-        {/* Action cluster: swatch + export + clone + trash.
-            Export/clone are hover-revealed to reduce idle clutter. */}
+        {/* Action cluster: export · clone · swatch · trash.
+            Export/clone are hover/focus-revealed and COLLAPSE when hidden
+            (display:none, not opacity-0) so they reserve no idle space. They
+            sit to the LEFT of the always-visible swatch + trash, and the
+            cluster is right-anchored — so the swatch and trash stay put,
+            adjacent, at the right edge, and the hover pair slides in to their
+            left without displacing them or leaving a gap. */}
         <div className="absolute right-2 top-2 z-10 flex items-center gap-0.5">
+          {onExport && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onExport(project.id);
+              }}
+              title="Export this project (JSON)"
+              aria-label="Export project as JSON"
+              className={`${actionButtonClass} hidden group-hover:inline-flex group-focus-within:inline-flex`}
+            >
+              <ExportIcon className="h-4 w-4" />
+            </button>
+          )}
+          {onClone && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onClone(project.id);
+              }}
+              title="Duplicate this project"
+              aria-label="Clone project"
+              className={`${actionButtonClass} hidden group-hover:inline-flex group-focus-within:inline-flex`}
+            >
+              <CloneIcon className="h-4 w-4" />
+            </button>
+          )}
           <button
             type="button"
             onClick={(e) => {
@@ -162,36 +197,6 @@ export function ProjectCard({
               }`}
             />
           </button>
-          {onExport && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onExport(project.id);
-              }}
-              title="Export this project (JSON)"
-              aria-label="Export project as JSON"
-              className={`${actionButtonClass} opacity-0 transition-opacity focus:opacity-100 group-hover:opacity-100`}
-            >
-              <ExportIcon className="h-4 w-4" />
-            </button>
-          )}
-          {onClone && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onClone(project.id);
-              }}
-              title="Duplicate this project"
-              aria-label="Clone project"
-              className={`${actionButtonClass} opacity-0 transition-opacity focus:opacity-100 group-hover:opacity-100`}
-            >
-              <CloneIcon className="h-4 w-4" />
-            </button>
-          )}
           <button
             type="button"
             onClick={(e) => {
