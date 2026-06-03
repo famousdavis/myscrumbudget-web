@@ -4,6 +4,22 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.33.0] - 2026-06-03
+
+Dashboard tile upgrades plus a stale-data fix. Project tiles gain a color tint, a most-recent-reforecast date stamp, and per-tile export/clone actions. Two staleness bugs around editing reforecast dates are fixed.
+
+### Fixed
+
+- **Dashboard tiles showed stale start/finish months.** The card read the frozen project-level `startDate`/`endDate` (creation-time metadata since v0.29.0) instead of the live reforecast window, so any reforecast date edit left the tile's month range stale — even after a hard refresh. The card now sources the range (both start and finish) from the most-recent reforecast, consistent with the Budget/EAC it already shows.
+- **Project detail "Start / Finish" tile was stale after saving an edited date.** The edit form's `await flush()` was effectively a no-op: `useProject.updateProject` called the debounced `persistProject` from *inside* a React state updater, which is deferred — so at the moment `flush()` ran there was nothing queued, and the real write landed ~500ms later via the debounce, after `router.back()` and after the detail page had already re-read. `updateProject` now persists synchronously, so `flush()` reliably writes the latest state before navigation. (Confirmed by browser repro: storage saved correctly, the view showed stale data, a manual refresh fixed it.) The ref-based rewrite also retires the v0.28.1 "impure updater" investigation flag in `useProject`.
+
+### Added
+
+- **Per-tile color tint.** Each Dashboard project tile gets a swatch picker to tint the card with one of a curated palette (Blue, Teal, Slate, Purple, Pink) — deliberately avoiding the red/amber/green/violet health-status hues so a tint can never be misread as a status. Stored as an optional `color` key on the project; data version `0.14.0` → `0.15.0` (additive no-op migration).
+- **Most-recent reforecast stamp.** Tiles show an "as of {date}" line under the metrics, sourced from the latest reforecast date across all of a project's reforecasts. It turns amber once that date is more than 30 days old, as a freshness nudge.
+- **Per-tile JSON export.** A trash-styled export icon (hover-revealed) downloads just that project — a standard dataset-shaped export filtered to the one project, carrying settings, the full team pool, and the workspace reconciliation tokens so it stays importable by the existing Dashboard import flow.
+- **Per-tile clone.** A clone icon (hover-revealed) duplicates a project with a unique `"<name> - Copy (N)"` name (stripping any existing copy suffix so clones don't nest). Internal ids are preserved (project-scoped, no collision; keeps allocation↔assignment linkage), the clone is owned by the cloning user in cloud mode, and the operation is logged to the change log.
+
 ## [0.32.1] - 2026-05-30
 
 Documentation release. Adds the Charter Budget Reference Guide and refreshes the Quick Reference Guide.

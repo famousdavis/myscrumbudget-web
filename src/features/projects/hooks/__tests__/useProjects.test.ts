@@ -9,7 +9,11 @@ import type { Project } from '@/types/domain';
 const mocks = vi.hoisted(() => ({
   cancelByKey: vi.fn(),
   getProjects: vi.fn<[], Promise<Project[]>>().mockResolvedValue([]),
+  getProject: vi.fn().mockResolvedValue(null),
+  saveProject: vi.fn().mockResolvedValue(undefined),
+  createProject: vi.fn().mockResolvedValue(undefined),
   deleteProject: vi.fn<[string], Promise<void>>().mockResolvedValue(undefined),
+  exportAll: vi.fn(),
   appendToChangeLog: vi.fn(),
   ensureOriginRef: vi.fn(),
   addToastGlobal: vi.fn(),
@@ -22,8 +26,11 @@ vi.mock('@/lib/storage/pendingSaveRegistry', () => ({
 vi.mock('@/lib/storage/repo', () => ({
   repo: {
     getProjects: mocks.getProjects,
+    getProject: mocks.getProject,
+    saveProject: mocks.saveProject,
+    createProject: mocks.createProject,
     deleteProject: mocks.deleteProject,
-    createProject: vi.fn().mockResolvedValue(undefined),
+    exportAll: mocks.exportAll,
   },
 }));
 vi.mock('@/lib/storage/fingerprint', () => ({
@@ -54,7 +61,13 @@ describe('useProjects', () => {
   beforeEach(() => {
     mocks.cancelByKey.mockReset();
     mocks.deleteProject.mockReset().mockResolvedValue(undefined);
-    mocks.getProjects.mockResolvedValue([]);
+    mocks.getProjects.mockReset().mockResolvedValue([]);
+    mocks.getProject.mockReset().mockResolvedValue(null);
+    mocks.saveProject.mockReset().mockResolvedValue(undefined);
+    mocks.createProject.mockReset().mockResolvedValue(undefined);
+    mocks.exportAll.mockReset();
+    mocks.appendToChangeLog.mockReset();
+    mocks.ensureOriginRef.mockReset();
     mocks.addToastGlobal.mockReset();
   });
 
@@ -102,6 +115,110 @@ describe('useProjects', () => {
       );
       // Projects must NOT be cleared on generic network errors
       expect(result.current.projects).toHaveLength(1);
+    });
+  });
+
+  describe('setProjectColor', () => {
+    it('sets the color and persists', async () => {
+      mocks.getProject.mockResolvedValue(makeProject('p1'));
+      const { result } = renderHook(() => useProjects());
+      await act(async () => {});
+      await act(async () => { await result.current.setProjectColor('p1', 'teal'); });
+      expect(mocks.saveProject).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'p1', color: 'teal' }),
+      );
+    });
+
+    it('strips the color field when cleared (undefined)', async () => {
+      mocks.getProject.mockResolvedValue({ ...makeProject('p1'), color: 'pink' });
+      const { result } = renderHook(() => useProjects());
+      await act(async () => {});
+      await act(async () => { await result.current.setProjectColor('p1', undefined); });
+      const saved = mocks.saveProject.mock.calls[mocks.saveProject.mock.calls.length - 1][0];
+      expect(saved).not.toHaveProperty('color');
+    });
+
+    it('no-ops when the project does not exist', async () => {
+      mocks.getProject.mockResolvedValue(null);
+      const { result } = renderHook(() => useProjects());
+      await act(async () => {});
+      await act(async () => { await result.current.setProjectColor('missing', 'blue'); });
+      expect(mocks.saveProject).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('cloneProject', () => {
+    it('creates a clone with a fresh id, " - Copy (1)" name, and logs the add', async () => {
+      const source = makeProject('p1'); // name "Project p1"
+      mocks.getProject.mockResolvedValue(source);
+      mocks.getProjects.mockResolvedValue([source]);
+      const { result } = renderHook(() => useProjects());
+      await act(async () => {});
+
+      let clone: Project | null = null;
+      await act(async () => { clone = await result.current.cloneProject('p1'); });
+
+      expect(clone).not.toBeNull();
+      expect(clone!.id).toBe('new-id'); // generateId is mocked
+      expect(clone!.name).toBe('Project p1 - Copy (1)');
+      expect(mocks.createProject).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'new-id', name: 'Project p1 - Copy (1)' }),
+      );
+      expect(mocks.ensureOriginRef).toHaveBeenCalled();
+      expect(mocks.appendToChangeLog).toHaveBeenCalledWith(
+        expect.objectContaining({ op: 'add', entity: 'project', id: 'new-id' }),
+      );
+    });
+
+    it('returns null and does not create when the source is missing', async () => {
+      mocks.getProject.mockResolvedValue(null);
+      const { result } = renderHook(() => useProjects());
+      await act(async () => {});
+      let clone: Project | null = null;
+      await act(async () => { clone = await result.current.cloneProject('missing'); });
+      expect(clone).toBeNull();
+      expect(mocks.createProject).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('exportProject', () => {
+    it('returns a dataset-shaped state filtered to the one project, keeping pool/settings/tokens', async () => {
+      const p1 = makeProject('p1');
+      const p2 = makeProject('p2');
+      mocks.exportAll.mockResolvedValue({
+        version: '0.15.0',
+        msbExportKind: 'dataset',
+        settings: { discountRateAnnual: 0.03, laborRates: [], holidays: [], trafficLightThresholds: {} },
+        teamPool: [{ id: 'pm1', name: 'Alice', role: 'Dev' }],
+        projects: [p1, p2],
+        _originRef: 'origin-1',
+        _storageRef: 'store-1',
+        _changeLog: [],
+      });
+      const { result } = renderHook(() => useProjects());
+      await act(async () => {});
+
+      let data: Awaited<ReturnType<typeof result.current.exportProject>> = null;
+      await act(async () => { data = await result.current.exportProject('p2'); });
+
+      expect(data).not.toBeNull();
+      expect(data!.projects).toEqual([p2]);
+      expect(data!.msbExportKind).toBe('dataset');
+      expect(data!.teamPool).toHaveLength(1); // full pool retained
+      expect(data!._originRef).toBe('origin-1'); // reconciliation tokens retained
+    });
+
+    it('returns null when the project is absent from the export', async () => {
+      mocks.exportAll.mockResolvedValue({
+        version: '0.15.0', msbExportKind: 'dataset',
+        settings: { discountRateAnnual: 0.03, laborRates: [], holidays: [], trafficLightThresholds: {} },
+        teamPool: [], projects: [makeProject('p1')],
+      });
+      const { result } = renderHook(() => useProjects());
+      await act(async () => {});
+      let data: Awaited<ReturnType<typeof result.current.exportProject>> = null;
+      await act(async () => { data = await result.current.exportProject('nope'); });
+      expect(data).toBeNull();
     });
   });
 });

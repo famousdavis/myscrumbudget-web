@@ -5,13 +5,14 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import type { Project } from '@/types/domain';
+import type { AppState, Project, ProjectColor } from '@/types/domain';
 import { repo } from '@/lib/storage/repo';
 import { cloudSyncBus } from '@/lib/firebase/cloudSyncBus';
 import { generateId } from '@/lib/utils/id';
 import { createBaselineReforecast } from '@/lib/utils/reforecast';
 import { ensureOriginRef, appendToChangeLog } from '@/lib/storage/fingerprint';
 import { cancelByKey } from '@/lib/storage/pendingSaveRegistry';
+import { nextCopyName, cloneProjectData } from '@/features/projects/lib/dashboardCard';
 import { addToastGlobal } from '@/components/Toast';
 
 export function useProjects() {
@@ -97,5 +98,77 @@ export function useProjects() {
     []
   );
 
-  return { projects, loading, createProject, deleteProject, reorderProjects };
+  /**
+   * Set (or clear) a project's Dashboard tile tint (v0.33.0). Passing
+   * `undefined` strips the field — keeping the optional-absent semantic so
+   * round-trip exports stay clean. Reads the project fresh from the repo to
+   * avoid clobbering concurrent edits from the detail page. Cosmetic — not
+   * logged to the change log.
+   */
+  const setProjectColor = useCallback(
+    async (id: string, color: ProjectColor | undefined) => {
+      const target = await repo.getProject(id);
+      if (!target) return;
+      const next: Project = { ...target };
+      if (color) {
+        next.color = color;
+      } else {
+        delete next.color;
+      }
+      await repo.saveProject(next);
+      await reload();
+    },
+    [reload]
+  );
+
+  /**
+   * Clone a project (v0.33.0). Deep-copies the source, assigns a fresh project
+   * id and a unique "<base> - Copy (N)" name, and persists via createProject so
+   * the clone is owned by the current user in cloud mode. Internal ids are
+   * preserved (project-scoped → no collision; keeps allocation linkage intact).
+   * Structural op → logged to the change log.
+   */
+  const cloneProject = useCallback(
+    async (id: string): Promise<Project | null> => {
+      const source = await repo.getProject(id);
+      if (!source) return null;
+      const all = await repo.getProjects();
+      const newName = nextCopyName(source.name, all.map((p) => p.name));
+      const clone = cloneProjectData(source, newName);
+      await repo.createProject(clone);
+      ensureOriginRef();
+      appendToChangeLog({ op: 'add', entity: 'project', id: clone.id });
+      await reload();
+      return clone;
+    },
+    [reload]
+  );
+
+  /**
+   * Build a single-project export (v0.33.0): the standard `dataset` export shape
+   * with `projects` filtered to one. Reuses `exportAll` so the file carries
+   * settings, the full team pool (so the project is fully resolvable on import),
+   * and the workspace reconciliation tokens — and stays importable by the
+   * existing Dashboard import flow. Returns null if the project is absent.
+   */
+  const exportProject = useCallback(
+    async (id: string): Promise<AppState | null> => {
+      const data = await repo.exportAll();
+      const one = data.projects.find((p) => p.id === id);
+      if (!one) return null;
+      return { ...data, projects: [one] };
+    },
+    []
+  );
+
+  return {
+    projects,
+    loading,
+    createProject,
+    deleteProject,
+    reorderProjects,
+    setProjectColor,
+    cloneProject,
+    exportProject,
+  };
 }

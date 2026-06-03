@@ -273,6 +273,34 @@ describe('useProject — undo/redo', () => {
     saveSpy.mockRestore();
   });
 
+  it('flush() persists the latest value after sequential updateProject calls (regression: edit-save before navigate)', async () => {
+    const { result } = await loadHook();
+    const saveSpy = vi.spyOn(repo, 'saveProject');
+
+    await act(async () => {
+      // Mimics the Edit page's applyAll(): several updateProject calls, then an
+      // awaited flush() before router.back().
+      result.current.updateProject((prev) => ({ ...prev, name: 'Step1' }));
+      result.current.updateProject((prev) => ({ ...prev, name: 'Step2' }));
+      saveSpy.mockClear();
+      await result.current.flush();
+    });
+
+    // flush() must have written the LATEST value synchronously. The pre-v0.33.0
+    // persist-inside-updater pattern left flush() with nothing queued, so the
+    // new value only landed ~500ms later via the debounce — after navigation,
+    // leaving the detail page showing stale data.
+    expect(saveSpy).toHaveBeenCalled();
+    const lastArg = saveSpy.mock.calls[saveSpy.mock.calls.length - 1][0];
+    expect(lastArg.name).toBe('Step2');
+
+    // And the repo actually holds Step2.
+    const persisted = await repo.getProject('p-undo');
+    expect(persisted?.name).toBe('Step2');
+
+    saveSpy.mockRestore();
+  });
+
   it('cloudSyncBus reload does NOT push to undo stack', async () => {
     const { result } = await loadHook();
 

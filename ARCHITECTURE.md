@@ -219,8 +219,11 @@ interface Project {
   // assignments removed in v0.24.0 (data version 0.11.0) — now lives in Reforecast
   reforecasts: Reforecast[];
   activeReforecastId: string | null;
+  color?: ProjectColor; // optional Dashboard tile tint (v0.33.0, data version 0.15.0); absent = no tint
 }
 ```
+
+> **ProjectColor** (`'blue' | 'teal' | 'slate' | 'purple' | 'pink'`) is a curated Dashboard-tile tint palette that deliberately avoids the traffic-light status hues (red/amber/green/violet) so a user's organizing tint can never be mistaken for a health indicator. Palette class mappings live in `src/features/projects/lib/projectColors.ts`.
 
 > **Per-reforecast windows (v0.29.0):** Each `Reforecast` now owns its `startDate` and
 > `endDate` (both YYYY-MM-DD). These fields drive the allocation grid columns, the calc

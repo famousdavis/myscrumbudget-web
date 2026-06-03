@@ -22,20 +22,48 @@ function pushBounded(stack: Project[], snapshot: Project): Project[] {
 export function useProject(id: string) {
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
-  // Session-scoped undo/redo. Snapshots are stored by reference — every
-  // mutation produces a new Project tree via spread updates, so the live
-  // tree can never mutate a snapshot in place. Do NOT introduce in-place
-  // array mutation in mutators without revisiting this assumption.
-  const [undoStack, setUndoStack] = useState<Project[]>([]);
-  const [redoStack, setRedoStack] = useState<Project[]>([]);
+
+  // The live project is mirrored into a ref so mutators can read the latest
+  // value and persist SYNCHRONOUSLY (see updateProject). This is load-bearing:
+  // the Edit page builds several updateProject calls then `await flush()` before
+  // navigating away. React defers setState updater functions, so persisting from
+  // inside an updater (the pre-v0.33.0 pattern) left `flush()` with nothing
+  // queued — the real write landed ~500ms later via the debounce, AFTER
+  // navigation, and the detail page re-read stale data (the v0.29.2 "await
+  // flush" fix could not work). Persisting from the ref, synchronously, fixes it.
+  const projectRef = useRef<Project | null>(null);
+
+  // Session-scoped undo/redo held in refs (so updateProject can read fresh
+  // values without stale closures) with boolean state mirrors that drive the
+  // toolbar buttons. Snapshots are stored by reference — every mutation produces
+  // a new Project tree via spread updates, so the live tree can never mutate a
+  // snapshot in place. Do NOT introduce in-place array mutation in mutators
+  // without revisiting this assumption.
+  const undoRef = useRef<Project[]>([]);
+  const redoRef = useRef<Project[]>([]);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
   // useRef (not useState) — flipping the group flag must NOT trigger renders.
   const undoGroupActiveRef = useRef<boolean>(false);
 
+  const syncStackFlags = useCallback(() => {
+    setCanUndo(undoRef.current.length > 0);
+    setCanRedo(redoRef.current.length > 0);
+  }, []);
+
+  // Apply an externally-sourced project (initial load / cloud sync) WITHOUT
+  // touching the undo stacks — another user's write must not enter this user's
+  // undo history.
+  const applyProject = useCallback((p: Project | null) => {
+    projectRef.current = p;
+    setProject(p);
+  }, []);
+
   const reload = useCallback(async () => {
     const p = await repo.getProject(id);
-    setProject(p);
+    applyProject(p);
     setLoading(false);
-  }, [id]);
+  }, [id, applyProject]);
 
   // Fetch-on-mount + cloudSyncBus subscription — externally driven, not cascading.
   useEffect(() => {
@@ -65,37 +93,39 @@ export function useProject(id: string) {
 
   const updateProject = useCallback(
     (updater: (prev: Project) => Project) => {
-      setProject((prev) => {
-        if (!prev) return prev;
-        const updated = updater(prev);
+      const prev = projectRef.current;
+      if (!prev) return;
+      const updated = updater(prev);
 
-        // Snapshot the PRE-update project onto the undo stack. Skipped during
-        // a notes edit session so the entire focus → blur span collapses to
-        // a single undo entry (the one captured at focus / first keystroke).
-        if (!undoGroupActiveRef.current) {
-          setUndoStack((stack) => pushBounded(stack, prev));
-          // Any new user mutation invalidates the redo branch.
-          setRedoStack((stack) => (stack.length === 0 ? stack : []));
-        }
+      // Snapshot the PRE-update project onto the undo stack. Skipped during
+      // a notes edit session so the entire focus → blur span collapses to
+      // a single undo entry (the one captured at focus / first keystroke).
+      if (!undoGroupActiveRef.current) {
+        undoRef.current = pushBounded(undoRef.current, prev);
+        // Any new user mutation invalidates the redo branch.
+        redoRef.current = [];
+      }
 
-        persistProject(updated);
-        return updated;
-      });
+      projectRef.current = updated;
+      setProject(updated);
+      // Persist SYNCHRONOUSLY (not inside a deferred setState updater) so a
+      // subsequent flush() reliably captures this value before navigation.
+      persistProject(updated);
+      syncStackFlags();
     },
-    [persistProject]
+    [persistProject, syncStackFlags]
   );
 
   const beginUndoGroup = useCallback(() => {
     if (undoGroupActiveRef.current) return; // idempotent — keystrokes 2..N
-    setProject((prev) => {
-      if (!prev) return prev;
-      // Push pre-edit snapshot exactly once for the entire focus session.
-      setUndoStack((stack) => pushBounded(stack, prev));
-      setRedoStack((stack) => (stack.length === 0 ? stack : []));
-      return prev; // no state change
-    });
+    const prev = projectRef.current;
+    if (!prev) return;
+    // Push pre-edit snapshot exactly once for the entire focus session.
+    undoRef.current = pushBounded(undoRef.current, prev);
+    redoRef.current = [];
     undoGroupActiveRef.current = true;
-  }, []);
+    syncStackFlags();
+  }, [syncStackFlags]);
 
   const endUndoGroup = useCallback(() => {
     undoGroupActiveRef.current = false;
@@ -109,27 +139,21 @@ export function useProject(id: string) {
     // early-returns on every keystroke, and the new typing is unrecoverable.
     undoGroupActiveRef.current = false;
 
-    // INVESTIGATION FLAG (v0.28.1): the nested setRedoStack/setProject inside
-    // setUndoStack's updater technically violates React's "updaters are pure"
-    // contract. Tolerated by current React; revisit before any React major
-    // upgrade or strict-mode tightening — preferred refactor is to read both
-    // stacks and project via refs before issuing top-level setState calls.
-    setUndoStack((stack) => {
-      if (stack.length === 0) return stack;
-      const snapshot = stack[stack.length - 1];
-      setProject((current) => {
-        if (!current) return current;
-        setRedoStack((rs) => pushBounded(rs, current));
-        // Persist immediately, bypassing the 500ms debounce. persistProject
-        // queues into the debounce; flush() then writes synchronously and
-        // cancels the pending timer so a stale in-flight save can't clobber.
-        persistProject(snapshot);
-        flush();
-        return snapshot;
-      });
-      return stack.slice(0, -1);
-    });
-  }, [persistProject, flush]);
+    if (undoRef.current.length === 0) return;
+    const snapshot = undoRef.current[undoRef.current.length - 1];
+    undoRef.current = undoRef.current.slice(0, -1);
+    const current = projectRef.current;
+    if (current) redoRef.current = pushBounded(redoRef.current, current);
+
+    projectRef.current = snapshot;
+    setProject(snapshot);
+    // Persist immediately, bypassing the 500ms debounce. persistProject queues
+    // into the debounce; flush() then writes synchronously and cancels the
+    // pending timer so a stale in-flight save can't clobber.
+    persistProject(snapshot);
+    flush();
+    syncStackFlags();
+  }, [persistProject, flush, syncStackFlags]);
 
   const redo = useCallback(() => {
     // Same reason as undo() — clear the group flag first so a continuing
@@ -137,22 +161,18 @@ export function useProject(id: string) {
     // next keystroke.
     undoGroupActiveRef.current = false;
 
-    setRedoStack((stack) => {
-      if (stack.length === 0) return stack;
-      const snapshot = stack[stack.length - 1];
-      setProject((current) => {
-        if (!current) return current;
-        setUndoStack((us) => pushBounded(us, current));
-        persistProject(snapshot);
-        flush();
-        return snapshot;
-      });
-      return stack.slice(0, -1);
-    });
-  }, [persistProject, flush]);
+    if (redoRef.current.length === 0) return;
+    const snapshot = redoRef.current[redoRef.current.length - 1];
+    redoRef.current = redoRef.current.slice(0, -1);
+    const current = projectRef.current;
+    if (current) undoRef.current = pushBounded(undoRef.current, current);
 
-  const canUndo = undoStack.length > 0;
-  const canRedo = redoStack.length > 0;
+    projectRef.current = snapshot;
+    setProject(snapshot);
+    persistProject(snapshot);
+    flush();
+    syncStackFlags();
+  }, [persistProject, flush, syncStackFlags]);
 
   return {
     project,

@@ -23,7 +23,15 @@ import {
 } from '@/features/projects/components/ImportPreviewSection';
 
 export default function DashboardPage() {
-  const { projects, loading, deleteProject, reorderProjects } = useProjects();
+  const {
+    projects,
+    loading,
+    deleteProject,
+    reorderProjects,
+    setProjectColor,
+    cloneProject,
+    exportProject,
+  } = useProjects();
   const { settings } = useSettings();
   const { pool } = useTeamPool();
   const { addToast } = useToast();
@@ -55,17 +63,42 @@ export default function DashboardPage() {
   // No useEffect for auto-reload: applyImportMerge calls cloudSyncBus.emit('projects'),
   // which useProjects subscribes to. Dashboard re-fetches automatically.
 
-  const handleExportAll = async () => {
-    const data = await repo.exportAll();
+  const downloadJson = (data: unknown, filename: string) => {
     const json = JSON.stringify(data, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `myscrumbudget-export-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleExportAll = async () => {
+    const data = await repo.exportAll();
+    downloadJson(data, `myscrumbudget-export-${new Date().toISOString().slice(0, 10)}.json`);
     addToast('Export complete', 'success');
+  };
+
+  const handleExportProject = async (id: string) => {
+    const data = await exportProject(id);
+    if (!data) {
+      addToast('Project not found.', 'error');
+      return;
+    }
+    const name = projects.find((p) => p.id === id)?.name ?? 'project';
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'project';
+    downloadJson(data, `myscrumbudget-${slug}-${new Date().toISOString().slice(0, 10)}.json`);
+    addToast(`Exported "${name}"`, 'success');
+  };
+
+  const handleCloneProject = async (id: string) => {
+    const clone = await cloneProject(id);
+    if (clone) addToast(`Created "${clone.name}"`, 'success');
+  };
+
+  const handleColorChange = (id: string, color: Parameters<typeof setProjectColor>[1]) => {
+    void setProjectColor(id, color);
   };
 
   return (
@@ -219,6 +252,9 @@ export default function DashboardPage() {
                 const p = projects.find((pr) => pr.id === id);
                 if (p) setDeleteTarget({ id, name: p.name });
               }}
+              onExport={handleExportProject}
+              onClone={handleCloneProject}
+              onColorChange={handleColorChange}
               isDragging={drag.isDragging(project.id)}
               isDragOver={drag.isDragOver(project.id)}
               {...drag.handlersFor(project.id)}

@@ -3,6 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import type { Project, ProjectAssignment, PoolMember } from '@/types/domain';
+import { isProjectColor } from '@/features/projects/lib/projectColors';
 
 /**
  * Build a team snapshot mapping poolMemberIds to their name/role.
@@ -54,7 +55,7 @@ export function docToProject(id: string, data: Record<string, unknown>): Project
       ? (rf.assignments as ProjectAssignment[])
       : (legacyAssignments ?? []).map((a) => ({ ...a })),
   })) as unknown as Project['reforecasts'];
-  return {
+  const project: Project = {
     id,
     name: (data.name as string) ?? '',
     startDate: (data.startDate as string) ?? '',
@@ -62,4 +63,8 @@ export function docToProject(id: string, data: Record<string, unknown>): Project
     reforecasts,
     activeReforecastId: (data.activeReforecastId as string | null) ?? null,
   };
+  // Optional Dashboard tile tint (v0.33.0). Stored as null when cleared; only
+  // a known key hydrates onto the domain object.
+  if (isProjectColor(data.color)) project.color = data.color;
+  return project;
 }
