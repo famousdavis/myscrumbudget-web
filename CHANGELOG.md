@@ -4,6 +4,20 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.33.2] - 2026-06-19
+
+Targeted dependency security update closing vite and vitest advisories flagged by the suite-wide audit. Build and test tooling only — no application code, data-model, or runtime behavior changes.
+
+### Security
+
+- **vitest 4.0.18 → 4.1.4**, closing a Critical advisory in the Vitest UI server (arbitrary file read and execute, GHSA-5xrq-8626-4rwp).
+- **vite pinned to 7.3.2** (a transitive dev/build dependency, never shipped to users — pinned via a package.json `overrides` entry, not added as a direct dependency), closing three advisories: arbitrary file read via the dev-server WebSocket (GHSA-p9ff-h696-f583, High), `server.fs.deny` bypass via crafted queries (GHSA-v2wj-q39q-566r, High), and path traversal in optimized-dependency source maps (GHSA-4w7w-66w2-5vf9, Moderate).
+- Two Windows-only vite advisories (GHSA-fx2h-pf6j-xcff, GHSA-v6wh-96g9-6wx3) remain **deferred** — their fix ships in vite 7.3.5, which has not yet cleared the 60-day version-adoption window; follow-up is scheduled for around 2026-07-31.
+
+### Fixed
+
+- **Stabilized three date-sensitive migration tests.** Tests for the v0.3.0→v0.4.0 and v0.4.0→v0.5.0 reforecast-date migrations asserted a value that only held while the system clock was before the fixtures' 2026-06-15 project start; once the calendar passed that date the v0.14.0 reforecastDate clamp legitimately rewrote the value and the assertions began failing. They now pin a fixed clock so they pass regardless of when the suite runs. This was a pre-existing latent issue, independent of the dependency bump (reproduced on the prior vite/vitest versions before changing them).
+
 ## [0.33.1] - 2026-06-03
 
 Follow-up polish to the v0.33.0 Dashboard tile action icons.

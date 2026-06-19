@@ -13,6 +13,26 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.33.2',
+    date: '2026-06-19',
+    sections: [
+      {
+        title: 'Security',
+        items: [
+          'Updated vitest 4.0.18 → 4.1.4, closing a Critical advisory in the Vitest UI server (arbitrary file read and execute, GHSA-5xrq-8626-4rwp).',
+          'Pinned vite to 7.3.2 — a transitive build/test dependency that is never shipped to users — closing three advisories: arbitrary file read via the dev-server WebSocket (High), a server.fs.deny bypass via crafted queries (High), and path traversal in optimized-dependency source maps (Moderate).',
+          'Two Windows-only vite advisories remain deferred until their fix (vite 7.3.5) clears the 60-day version-adoption window; follow-up is scheduled for around 2026-07-31.',
+        ],
+      },
+      {
+        title: 'Fixed',
+        items: [
+          'Stabilized three date-sensitive data-migration tests that started failing once the calendar passed a fixture date (June 15, 2026); they now pin a fixed clock so results no longer depend on the day the test suite runs. Internal test-only change with no effect on the app, and unrelated to the dependency updates.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.33.1',
     date: '2026-06-03',
     sections: [
