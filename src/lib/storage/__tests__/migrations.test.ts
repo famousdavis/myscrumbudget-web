@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { runMigrations, DATA_VERSION } from '../migrations';
 import type { AppState } from '@/types/domain';
 
@@ -22,6 +22,16 @@ function makeAppState(overrides: Partial<AppState> = {}): AppState {
 }
 
 describe('Migrations', () => {
+  // Some fixtures below assert the pre-clamp reforecastDate (derived purely from
+  // createdAt). The v0.14.0 migration clamps reforecastDate forward to a
+  // reforecast's start once that start is on/before `today` (migrations.ts:498),
+  // so those assertions are only stable when "today" precedes the fixture's
+  // project start. Affected tests pin the clock; this restores real timers after
+  // each test (a harmless no-op when a test never faked them).
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('returns data unchanged when already at current version', () => {
     const data = makeAppState();
     const result = runMigrations(data, DATA_VERSION);
@@ -202,6 +212,9 @@ describe('Migrations', () => {
   });
 
   it('migrates v0.3.0 to v0.4.0 (moves actualCost into existing reforecasts)', () => {
+    // Pin "today" before this fixture's 2026-06-15 project start (see afterEach).
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-06-01T00:00:00Z'));
     const v3Data = {
       version: '0.3.0',
       settings: {
@@ -408,6 +421,9 @@ describe('Migrations', () => {
   });
 
   it('migrates v0.4.0 to v0.5.0 (moves baselineBudget into reforecasts, adds reforecastDate)', () => {
+    // Pin "today" before this fixture's 2026-06-15 project start (see afterEach).
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-06-01T00:00:00Z'));
     const v4Data = {
       version: '0.4.0',
       settings: {
@@ -466,6 +482,9 @@ describe('Migrations', () => {
   });
 
   it('migrates v0.4.0 to v0.5.0 with missing/undefined baselineBudget (defaults to 0)', () => {
+    // Pin "today" before this fixture's 2026-06-15 project start (see afterEach).
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-06-01T00:00:00Z'));
     const v4Data = {
       version: '0.4.0',
       settings: {
