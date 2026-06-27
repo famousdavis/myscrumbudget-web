@@ -59,15 +59,12 @@ export function ThresholdSettings({ amberPercent, redPercent, violetPercent, onU
   });
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (focusedFieldRef.current !== 'amberPercent') setLocalAmber(String(amberPercent));
   }, [amberPercent]);
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (focusedFieldRef.current !== 'redPercent') setLocalRed(String(redPercent));
   }, [redPercent]);
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (focusedFieldRef.current !== 'violetPercent') setLocalViolet(String(violetPercent));
   }, [violetPercent]);
 

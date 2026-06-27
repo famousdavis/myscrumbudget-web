@@ -59,7 +59,6 @@ export function ReforecastNotes({ value, onChange, onBeginEdit, onEndEdit }: Ref
   const [localValue, setLocalValue] = useState(value);
   const isFocusedRef = useRef(false);
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!isFocusedRef.current) setLocalValue(value);
   }, [value]);
   // ─────────────────────────────────────────────────────────────────────────
