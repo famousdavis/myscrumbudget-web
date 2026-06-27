@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.33.4',
+    date: '2026-06-27',
+    sections: [
+      {
+        title: 'Changed',
+        items: [
+          'TypeScript ^5 → 6.0.3 (5.9.3 → 6.0.3). A dev/build-time-only major-version bump; the production bundle is unchanged. TypeScript 6.0 tightened side-effect import checking, so a one-line ambient declaration (src/types/css.d.ts: declare module "*.css") was added so the build type-check gate accepts the globals.css side-effect import. No deprecated-option migrations were needed (target ES2017 is unaffected); all 1136 tests pass.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.33.3',
     date: '2026-06-27',
     sections: [
