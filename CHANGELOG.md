@@ -4,6 +4,14 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.33.4] - 2026-06-27
+
+Tooling update: TypeScript major-version bump (dev/build-time only). No application code, data-model, or runtime change.
+
+### Changed
+
+- **TypeScript ^5 → 6.0.3** (5.9.3 → 6.0.3). Dev/build-time only; the production bundle is unchanged. TypeScript 6.0 tightened side-effect import checking, so a one-line ambient declaration (`src/types/css.d.ts`: `declare module '*.css';`) was added so the build's type-check gate accepts `import './globals.css'`. No deprecated-option migrations were needed (`target: ES2017` is unaffected); all 1136 tests pass.
+
 ## [0.33.3] - 2026-06-27
 
 Security and tooling update: closes a soaked Next.js advisory (and, via the soak-eligible dependency refresh, a large batch of transitive advisories) and adopts Node 24 LTS. No application code, data-model, or runtime behavior changes.
