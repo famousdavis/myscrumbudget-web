@@ -41,6 +41,7 @@ export function useProjects() {
 
   // Fetch-on-mount + cloudSyncBus subscription — externally driven, not cascading.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     reload();
   }, [reload]);
 

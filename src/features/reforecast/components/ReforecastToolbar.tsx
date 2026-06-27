@@ -120,11 +120,9 @@ export function ReforecastToolbar({
   const actualsFocusedRef = useRef(false);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!rfDateFocusedRef.current) setLocalRfDate(reforecastDate);
   }, [reforecastDate]);
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (!actualsFocusedRef.current) setLocalActualsDate(actualsThroughDate ?? '');
   }, [actualsThroughDate]);
   // ─────────────────────────────────────────────────────────────────────────

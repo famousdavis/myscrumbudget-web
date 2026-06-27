@@ -4,6 +4,24 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.33.3] - 2026-06-27
+
+Security and tooling update: closes a soaked Next.js advisory (and, via the soak-eligible dependency refresh, a large batch of transitive advisories) and adopts Node 24 LTS. No application code, data-model, or runtime behavior changes.
+
+### Security
+
+- **next 16.1.6 → 16.1.7**, closing **HTTP request smuggling in rewrites** (GHSA-ggv3-7p47-pfv8, Moderate) plus four further advisories that 16.1.7 also resolves: unbounded `next/image` disk-cache growth, unbounded postponed-resume buffering DoS, and two null-origin CSRF bypasses (Server Actions and dev HMR websocket). ~14 other Next.js advisories (version ranges below 16.2.x) remain in `npm audit` and are deferred until a 16.2.x release clears the 60-day adoption window.
+- **Transitive advisories cleared by the dependency refresh.** The firebase, next, and vitest updates pulled in fixed transitives that cleared a large batch of advisories — the entire protobuf.js code-execution / denial-of-service chain (previously the only Critical), seven undici advisories, and @grpc/grpc-js, tmp, js-yaml, picomatch, brace-expansion, flatted, and @babel/core. `npm audit` drops from 18 vulnerable packages to 9.
+- **vite stays at 7.3.2 this release.** The two Windows-only, dev/build-only vite advisories (GHSA-v6wh-96g9-6wx3, GHSA-fx2h-pf6j-xcff; fixed in vite 7.3.5) remain deferred to a follow-up after 2026-07-31, when 7.3.5 clears the 60-day adoption window — avoiding a soak bypass for a fix that never reaches the production bundle.
+- **esbuild (GHSA-g7r4-m6w7-qqqr, Low):** a dev-server-only, Windows-only path-traversal advisory that now matches the refreshed esbuild 0.27.7 (a transitive build/test dependency, never in the production bundle; this app never runs esbuild's dev server). Accepted; expected to clear when vite advances in the deferred follow-up.
+- **exceljs → uuid (GHSA-w5hq-g745-h8pq):** known non-exploitable transitive advisory (the vulnerable uuid v3/v5/v6 + caller-buffer path is unreachable; exceljs uses uuid v4 only). Accepted; no fix attempted.
+
+### Changed
+
+- Dependency refresh (all soak-eligible): firebase 12.10.0 → 12.12.1; react / react-dom 19.2.4 → 19.2.5; tailwindcss & @tailwindcss/postcss 4.1.18 → 4.2.4; vitest 4.1.4 → 4.1.5; jsdom 28.1.0 → 29.1.0; @types/node 22.x → 24.x (24.12.2); @vitejs/plugin-react 5.1.4 → 5.2.0; eslint 9.39.2 → 9.39.4.
+- **Node 24 LTS adopted:** `engines.node` 22.x → 24.x; `.nvmrc` 22 → 24.
+- Realigned `eslint-disable` directives after `eslint-config-next` 16.1.7 bundled a newer react-hooks plugin that changed which `set-state-in-effect` patterns it flags (comment-only; no runtime or behavioral change).
+
 ## [0.33.2] - 2026-06-19
 
 Targeted dependency security update closing vite and vitest advisories flagged by the suite-wide audit. Build and test tooling only — no application code, data-model, or runtime behavior changes.

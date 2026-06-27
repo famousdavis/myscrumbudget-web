@@ -40,6 +40,7 @@ function InlineEditableField({ label, value, onChange, tooltip, badge }: InlineE
 
   // Sync when prop changes (e.g., reforecast switch)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setEditValue(String(value));
   }, [value]);
 
