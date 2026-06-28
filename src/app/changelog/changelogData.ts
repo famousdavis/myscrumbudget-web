@@ -13,6 +13,25 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.33.6',
+    date: '2026-06-28',
+    sections: [
+      {
+        title: 'Security',
+        items: [
+          'Added a postcss ^8.5.10 override to close GHSA-qx2v-qp2m-jg93 (PostCSS cross-site scripting via an unescaped </style> in its CSS stringify output; Moderate, CVSS 6.1, affects postcss < 8.5.10). next 16.2.9 pins postcss 8.4.31; because Tailwind v4 had already pulled a newer postcss 8.5.x to the top level, the copy Next pins could not dedupe and survived as a vulnerable nested node_modules/next/node_modules/postcss 8.4.31. npm audit attributed it to next via the postcss dependency path — a phantom next 16.2.9 → 16.2.9 advisory — which is why the deferred audit in v0.33.5 did not surface it. The override collapses the tree to a single hoisted postcss 8.5.16 and removes the nested copy.',
+          'The flaw is in the PostCSS CSS stringifier and is not exercised at runtime by this app (PostCSS runs at build time only), but the line is cleared for a clean audit and suite parity. Taken as a security-driven soak bypass, consistent with the rest of the SPERT suite. Verified this release with live npm audit (zero occurrences of GHSA-qx2v-qp2m-jg93) plus a green production build and all 1136 tests on Node 24.',
+        ],
+      },
+      {
+        title: 'Changed',
+        items: [
+          'No application source changes. The single hoisted postcss floats 8.5.15 → 8.5.16 (current 8.5.x patch) and Next nested 8.4.31 is removed; all other dependencies unchanged (the vite 7.3.2 override is retained). DATA_VERSION stays 0.15.0; 1136 tests across 74 files pass unchanged.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.33.5',
     date: '2026-06-28',
     sections: [
