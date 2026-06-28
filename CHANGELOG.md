@@ -4,6 +4,21 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.33.5] - 2026-06-28
+
+Security update: adopts the Next.js 16.2.x line to close the advisory cluster that was deferred in v0.33.3. No application code, data-model, or runtime behavior changes.
+
+### Security
+
+- **next 16.1.7 → 16.2.9**, closing the ~14 Next.js advisories deferred in v0.33.3 (their fix ranges all fall at or below 16.2.6). The cluster includes eight High-severity advisories — Denial of Service via Server Components, Denial of Service via connection exhaustion in Cache Components, server-side request forgery via WebSocket upgrades, and four Middleware / Proxy bypasses (segment-prefetch routes, dynamic route parameter injection, and Pages Router i18n) — plus moderate cross-site scripting (CSP nonces, `beforeInteractive` scripts) and an Image Optimization DoS, and two low-severity cache-poisoning advisories. Several of the Middleware/Proxy and Image advisories are not reachable in this app (no `middleware.ts`, no rewrites/redirects, no i18n, no `next/image` usage), but the line is adopted in full for a clean audit and parity with the rest of the suite.
+- **Soak bypass (security-driven), consistent with the rest of the SPERT suite.** next 16.2.9 (published 2026-06-09) has not cleared the 60-day adoption window; the bump is taken as a CVE bypass because the High cluster requires 16.2.6 or newer and the routine-soak path cannot reach a clean state until 16.2.6 clears (~2026-07-06). The other suite apps already adopted 16.2.9 the same way. Live `npm audit` was deferred to CI for this release (local network flakiness); advisory closure is proven by version range.
+- Deferred items unchanged: vite 7.3.5 (Windows-only, dev/build-only; follow-up after 2026-07-31) and the accepted esbuild (GHSA-g7r4-m6w7-qqqr) and exceljs → uuid (GHSA-w5hq-g745-h8pq) transitive advisories.
+
+### Changed
+
+- **eslint-config-next 16.1.7 → 16.2.9** (co-bumped in lockstep with `next`). This floats the bundled `eslint-plugin-react-hooks` 7.0.x → 7.1.1; the code lints clean with no remediation needed (`--max-warnings=0`). `eslint` stays on `^9` (eslint-config-next 16.2.9 caps its bundled plugins at eslint 9).
+- No other dependencies moved (float guard verified): react / react-dom 19.2.5, typescript 6.0.3, vitest 4.1.5, jsdom 29.1.0, @types/node 24.12.2, firebase 12.12.1, tailwindcss 4.2.4, @vitejs/plugin-react 5.2.0, eslint 9.39.4, and the vite 7.3.2 override all unchanged. DATA_VERSION stays 0.15.0; 1136 tests across 74 files pass unchanged.
+
 ## [0.33.4] - 2026-06-27
 
 Tooling update: TypeScript major-version bump (dev/build-time only). No application code, data-model, or runtime change.
