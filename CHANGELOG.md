@@ -4,6 +4,36 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.34.0] - 2026-07-16
+
+Project archiving: hide a project from the Dashboard without deleting it. Adds an optional `Project.archived` flag, a "Show archived" toggle, and per-tile archive/unarchive actions. Also fixes a pre-existing bug where the JSON import sanitizer silently stripped a project's tile color.
+
+### Added
+
+- **Archive / Unarchive projects.** `Project` gains an optional `archived?: boolean` flag: undefined or false means active, true hides the project from the Dashboard grid by default. Archiving is not deletion — reforecasts, allocations, and all project data are untouched and remain fully editable if you open an archived project directly. On a shared project, archiving hides it for every member, not just yours — it acts on the project itself, the same way any other editor-level change does. Unlike deleting a shared project (owner-only, behind a confirmation dialog), archiving can be done by any editor and takes effect immediately.
+- **"Show archived (N)" checkbox** on the Dashboard, visible only when the workspace has at least one archived project. Checking it reveals archived projects in the grid, dimmed with a small "Archived" badge.
+- **Archive / Unarchive action on each project card.** Archive is a hover-revealed action alongside Export and Clone; Unarchive is always visible on an archived card, so there is a reliable way back even on touch devices.
+- **Archived status is preserved through JSON export/import,** including in the Dashboard's import-preview list, which now labels an incoming archived project — and flags when an existing project it conflicts with is itself archived — so neither case looks like data silently vanished.
+
+### Changed
+
+- **Cloning a project never carries over its archived state** — the clone is always active.
+- **The Dashboard's empty state now distinguishes "no projects at all"** (Getting Started checklist) from "every project is archived" (a plain message pointing at the toggle) — previously the checklist could incorrectly reappear for a user who archived their only project.
+
+### Fixed
+
+- **The JSON import sanitizer was silently stripping a project's tile color on import.** `color` was never added to the import field allowlist when it shipped in v0.33.0, so any project's tint was dropped on round-trip. Fixed alongside the archiving work since it touches the same allowlist.
+
+### Storage
+
+- **DATA_VERSION bumped to `0.16.0`.** New structural no-op migration entry mirrors the shape of the existing `color` migration (absent `archived` = active; no backfill).
+- **Firestore:** `FirestoreProjectDoc.archived` is stored as `boolean | null` (Firestore rejects `undefined`); `docToProject` only hydrates the field when `true`. The projects-collection field allowlist in the shared SPERT Firestore rules was updated to include both `archived` and `color`, deployed ahead of this release. Cloud-mode project creation was never broken by the missing `color` entry: a new project writes `color: null`, and a null-valued field is not counted by the rules' `keys().hasOnly()` check (unlike a non-null value). The archive toggle writes a non-null `archived: true`, so the allowlist entry is added to keep that path safe.
+- **The strict import validator now type-checks the optional `archived` field.** The lenient localStorage guard is intentionally unchanged.
+
+### Tests
+
+- 1136 → 1159 across 74 files (+23): archiving coverage across migrations (v0.15.0→0.16.0 no-op + idempotency), validation, sanitizeImport, useProjects (archive/unarchive), ProjectCard (badge/buttons/dimming), dashboardCard (clone-drops-archived + getDashboardEmptyState), firestoreUtils (archived hydration), localStorage (reorderProjects data-loss guard), and importUtils (conflict labeling).
+
 ## [0.33.6] - 2026-06-28
 
 Security update: closes a moderate PostCSS cross-site-scripting advisory that surfaced through a vulnerable transitive copy of PostCSS nested under Next.js. No application code, data-model, or runtime behavior changes.

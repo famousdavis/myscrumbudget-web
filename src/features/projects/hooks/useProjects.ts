@@ -123,6 +123,45 @@ export function useProjects() {
   );
 
   /**
+   * Archive a project (v0.34.0) — a visibility flag, not deletion. Reads fresh
+   * from the repo (matching setProjectColor) so a concurrent detail-page edit
+   * isn't clobbered, then persists archived: true. Logged to the change log
+   * (unlike the cosmetic color flag) because archiving changes what's visible
+   * and exportable by default. Does NOT call ensureOriginRef — it mutates an
+   * existing project rather than creating new identity (same category as
+   * deleteProject).
+   */
+  const archiveProject = useCallback(
+    async (id: string) => {
+      const target = await repo.getProject(id);
+      if (!target) return;
+      await repo.saveProject({ ...target, archived: true });
+      appendToChangeLog({ op: 'archive', entity: 'project', id });
+      await reload();
+    },
+    [reload]
+  );
+
+  /**
+   * Unarchive a project (v0.34.0). Strips the archived field (rather than
+   * setting false) so round-trip exports stay clean — mirrors the PoolMember
+   * unarchive idiom. Same re-fetch + change-log + no-ensureOriginRef shape as
+   * archiveProject.
+   */
+  const unarchiveProject = useCallback(
+    async (id: string) => {
+      const target = await repo.getProject(id);
+      if (!target) return;
+      const next: Project = { ...target };
+      delete next.archived;
+      await repo.saveProject(next);
+      appendToChangeLog({ op: 'unarchive', entity: 'project', id });
+      await reload();
+    },
+    [reload]
+  );
+
+  /**
    * Clone a project (v0.33.0). Deep-copies the source, assigns a fresh project
    * id and a unique "<base> - Copy (N)" name, and persists via createProject so
    * the clone is owned by the current user in cloud mode. Internal ids are
@@ -171,5 +210,7 @@ export function useProjects() {
     setProjectColor,
     cloneProject,
     exportProject,
+    archiveProject,
+    unarchiveProject,
   };
 }

@@ -14,7 +14,7 @@ import type {
 import { buildBannerText } from '@/lib/utils/importUtils';
 
 interface PerProjectRowProps {
-  project: { id: string; name: string };
+  project: { id: string; name: string; archived?: boolean };
   decision: ImportDecision;
   conflictLabel: string | null;
   onDecision: (d: ImportDecision) => void;
@@ -29,7 +29,14 @@ function PerProjectRow({
   return (
     <div className="flex items-center justify-between gap-3 rounded border border-zinc-200 px-3 py-2 dark:border-zinc-700">
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{project.name}</p>
+        <div className="flex items-center gap-2">
+          <p className="truncate text-sm font-medium">{project.name}</p>
+          {project.archived && (
+            <span className="shrink-0 rounded bg-zinc-100 px-1.5 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+              Archived
+            </span>
+          )}
+        </div>
         {conflictLabel && (
           <p className="text-xs text-amber-600 dark:text-amber-400">{conflictLabel}</p>
         )}
@@ -156,9 +163,7 @@ export function ImportPreviewSection({
         {incomingState.projects.map((project) => {
           const conflict = conflicts[project.id];
           const conflictLabel = conflict
-            ? conflict.type === 'id'
-              ? `ID conflict with "${conflict.existingName}"`
-              : `Name conflict with "${conflict.existingName}"`
+            ? `${conflict.type === 'id' ? 'ID' : 'Name'} conflict with "${conflict.existingName}"${conflict.existingArchived ? ' (archived)' : ''}`
             : null;
           return (
             <PerProjectRow

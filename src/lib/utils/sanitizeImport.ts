@@ -94,7 +94,7 @@ const REFORECAST_FIELDS: ReadonlyArray<keyof Reforecast> = [
 
 const PROJECT_FIELDS: ReadonlyArray<keyof Project> = [
   'id', 'name', 'startDate', 'endDate',
-  'reforecasts', 'activeReforecastId',
+  'reforecasts', 'activeReforecastId', 'color', 'archived',
 ];
 
 const APP_STATE_FIELDS: ReadonlyArray<keyof AppState> = [

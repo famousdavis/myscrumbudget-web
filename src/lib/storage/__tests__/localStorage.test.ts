@@ -124,12 +124,30 @@ describe('LocalStorage Repository', () => {
     });
   });
 
+  describe('reorderProjects', () => {
+    it('drops a stored project whose id is omitted from orderedIds (data-loss guard)', async () => {
+      // Documents WHY the Dashboard must pass the FULL project list to
+      // useDragReorder, never a filtered (e.g. archived-hidden) subset:
+      // reorderProjects rebuilds storage from exactly the ids it is handed.
+      await repo.saveProject(makeProject({ id: 'a' }));
+      await repo.saveProject(makeProject({ id: 'b' }));
+      await repo.saveProject(makeProject({ id: 'c' }));
+
+      // Omit 'b' (as a filtered drag would) — it is permanently dropped.
+      await repo.reorderProjects(['c', 'a']);
+
+      const remaining = (await repo.getProjects()).map((p) => p.id);
+      expect(remaining).toEqual(['c', 'a']);
+      expect(remaining).not.toContain('b');
+    });
+  });
+
   describe('Export / Import', () => {
     it('exports all data', async () => {
       const project = makeProject();
       await repo.saveProject(project);
       const exported = await repo.exportAll();
-      expect(exported.version).toBe('0.15.0');
+      expect(exported.version).toBe('0.16.0');
       expect(exported.settings).toEqual(DEFAULT_SETTINGS);
       expect(exported.teamPool).toEqual([]);
       expect(exported.projects).toEqual([project]);
@@ -258,7 +276,7 @@ describe('LocalStorage Repository', () => {
   describe('Version', () => {
     it('returns current version when none stored', async () => {
       const version = await repo.getVersion();
-      expect(version).toBe('0.15.0');
+      expect(version).toBe('0.16.0');
     });
   });
 

@@ -428,6 +428,10 @@ function validateProject(project: unknown, path: string): string[] {
   if (project.color !== undefined && !isProjectColor(project.color)) {
     errors.push(`${path}.color: expected one of ${PROJECT_COLOR_KEYS.join('|')}`);
   }
+  // Optional archiving flag (v0.34.0). When present, must be boolean.
+  if (project.archived !== undefined && typeof project.archived !== 'boolean') {
+    errors.push(`${path}.archived: expected boolean`);
+  }
 
   if (!Array.isArray(project.reforecasts)) {
     errors.push(`${path}.reforecasts: expected array`);

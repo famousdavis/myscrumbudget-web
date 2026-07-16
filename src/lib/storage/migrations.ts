@@ -4,7 +4,7 @@
 
 import type { AppState, PoolMember, ProjectAssignment } from '@/types/domain';
 
-export const DATA_VERSION = '0.15.0';
+export const DATA_VERSION = '0.16.0';
 
 // Local regex-only date validator for migrations. We avoid importing the
 // validator from validation.ts because (a) it's internal there, and (b)
@@ -535,6 +535,20 @@ const MIGRATIONS: Migration[] = [
       // means "no tint". No backfill is required or desirable.
       assertArray(data.projects, 'projects', '0.15.0');
       return { ...data, version: '0.15.0' };
+    },
+  },
+  {
+    version: '0.16.0',
+    migrate: (data): AppState => {
+      // Structural no-op: `archived` is an optional new field on Project
+      // (project-archiving visibility flag, v0.34.0). Existing projects
+      // legitimately lack it; "absent" means "active". No backfill is
+      // required or desirable — mirrors PoolMember.archived and the v0.15.0
+      // color migration above. (Unannotated `data` param — the Migration
+      // type already types migrate as taking `any`, so no eslint-disable is
+      // needed; matches the v0.2.0 entry.)
+      assertArray(data.projects, 'projects', '0.16.0');
+      return { ...data, version: '0.16.0' };
     },
   },
 ];

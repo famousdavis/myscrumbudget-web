@@ -13,6 +13,48 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.34.0',
+    date: '2026-07-16',
+    sections: [
+      {
+        title: 'Added',
+        items: [
+          'Archive / Unarchive projects. Project gains an optional archived flag: undefined or false means active, true hides the project from the Dashboard grid by default. Archiving is not deletion — reforecasts, allocations, and all project data are untouched and remain fully editable if you open an archived project directly. On a shared project, archiving hides it for every member (it acts on the project itself); unlike deleting a shared project (owner-only, confirmation dialog), archiving can be done by any editor and takes effect immediately.',
+          '"Show archived (N)" checkbox on the Dashboard, visible only when the workspace has at least one archived project. Checking it reveals archived projects in the grid, dimmed with a small "Archived" badge.',
+          'Archive / Unarchive action on each project card. Archive is a hover-revealed action alongside Export and Clone; Unarchive is always visible on an archived card, so there is a reliable way back even on touch devices.',
+          'Archived status is preserved through JSON export/import, including in the Dashboard import-preview list, which now labels an incoming archived project — and flags when an existing project it conflicts with is itself archived — so neither case looks like data silently vanished.',
+        ],
+      },
+      {
+        title: 'Changed',
+        items: [
+          'Cloning a project never carries over its archived state — the clone is always active.',
+          'The Dashboard empty state now distinguishes "no projects at all" (Getting Started checklist) from "every project is archived" (a plain message pointing at the toggle) — previously the checklist could incorrectly reappear for a user who archived their only project.',
+        ],
+      },
+      {
+        title: 'Fixed',
+        items: [
+          'The JSON import sanitizer was silently stripping a project tile color on import. color was never added to the import field allowlist when it shipped in v0.33.0, so any project tint was dropped on round-trip. Fixed alongside the archiving work since it touches the same allowlist.',
+        ],
+      },
+      {
+        title: 'Storage',
+        items: [
+          'DATA_VERSION bumped to 0.16.0. New structural no-op migration entry mirrors the shape of the existing color migration (absent archived = active; no backfill).',
+          'Firestore: FirestoreProjectDoc.archived is stored as boolean | null (Firestore rejects undefined); docToProject only hydrates the field when true. The projects-collection field allowlist in the shared SPERT Firestore rules was updated to include both archived and color, deployed ahead of this release. Cloud-mode project creation was never broken by the missing color entry — a new project writes color: null, and a null-valued field is not counted by the rules keys().hasOnly() check (unlike a non-null value). The archive toggle writes a non-null archived: true, so the allowlist entry keeps that path safe.',
+          'The strict import validator now type-checks the optional archived field. The lenient localStorage guard is intentionally unchanged.',
+        ],
+      },
+      {
+        title: 'Tests',
+        items: [
+          '1136 → 1159 across 74 files (+23): archiving coverage across migrations (v0.15.0 to 0.16.0 no-op + idempotency), validation, sanitizeImport, useProjects (archive/unarchive), ProjectCard (badge/buttons/dimming), dashboardCard (clone-drops-archived + getDashboardEmptyState), firestoreUtils (archived hydration), localStorage (reorderProjects data-loss guard), and importUtils (conflict labeling).',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.33.6',
     date: '2026-06-28',
     sections: [

@@ -17,6 +17,7 @@ import { SkeletonProjectCard } from '@/components/Skeleton';
 import { STORAGE_KEYS } from '@/types/storage';
 import { repo } from '@/lib/storage/repo';
 import { useImportState } from '@/features/projects/hooks/useImportState';
+import { getDashboardEmptyState } from '@/features/projects/lib/dashboardCard';
 import {
   ImportPreviewSection,
   ImportBanner,
@@ -31,11 +32,14 @@ export default function DashboardPage() {
     setProjectColor,
     cloneProject,
     exportProject,
+    archiveProject,
+    unarchiveProject,
   } = useProjects();
   const { settings } = useSettings();
   const { pool } = useTeamPool();
   const { addToast } = useToast();
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
   // Lazy initializer reads localStorage once on mount; SSR-safe via the
   // typeof window guard (returns false on the server, correct value on the client).
   const [ratesReviewed] = useState(() => {
@@ -47,6 +51,13 @@ export default function DashboardPage() {
     }
   });
   const drag = useDragReorder(projects, 'id', reorderProjects);
+  // Archived is a visibility filter only. `drag` above stays bound to the FULL
+  // `projects` list (never these filtered subsets): localStorage reorderProjects
+  // rebuilds storage from exactly the ids it is handed, so a filtered list would
+  // permanently delete hidden archived projects on the first reorder.
+  const archivedProjects = projects.filter((p) => p.archived);
+  const visibleProjects = showArchived ? projects : projects.filter((p) => !p.archived);
+  const emptyState = getDashboardEmptyState(projects.length, visibleProjects.length);
 
   const importFileRef = useRef<HTMLInputElement>(null);
   const {
@@ -137,6 +148,22 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {archivedProjects.length > 0 && (
+        <div className="mt-4 flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="showArchivedProjects"
+            name="showArchivedProjects"
+            checked={showArchived}
+            onChange={(e) => setShowArchived(e.target.checked)}
+            className="rounded border-zinc-300 dark:border-zinc-600"
+          />
+          <label htmlFor="showArchivedProjects" className="text-sm text-zinc-600 dark:text-zinc-400">
+            Show archived ({archivedProjects.length})
+          </label>
+        </div>
+      )}
+
       {importPhase.phase === 'preview' && (
         <ImportPreviewSection
           preview={importPhase.preview}
@@ -185,7 +212,7 @@ export default function DashboardPage() {
             <SkeletonProjectCard key={i} />
           ))}
         </div>
-      ) : projects.length === 0 ? (
+      ) : emptyState === 'onboarding' ? (
         <div className="mx-auto mt-12 max-w-lg rounded-lg border border-dashed border-zinc-300 p-8 dark:border-zinc-700">
           <h2 className="text-center text-lg font-semibold">Getting Started</h2>
           <p className="mt-1 text-center text-sm text-zinc-500 dark:text-zinc-400">
@@ -239,9 +266,16 @@ export default function DashboardPage() {
             </li>
           </ol>
         </div>
+      ) : emptyState === 'no-visible-projects' ? (
+        <div className="py-12 text-center">
+          <p className="text-lg text-zinc-400 dark:text-zinc-500">All projects are archived.</p>
+          <p className="mt-1 text-sm text-zinc-400 dark:text-zinc-500">
+            Check &ldquo;Show archived&rdquo; above to view them.
+          </p>
+        </div>
       ) : (
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {projects.map((project) => (
+          {visibleProjects.map((project) => (
             <ProjectCard
               key={project.id}
               project={project}
@@ -254,6 +288,8 @@ export default function DashboardPage() {
               }}
               onExport={handleExportProject}
               onClone={handleCloneProject}
+              onArchive={archiveProject}
+              onUnarchive={unarchiveProject}
               onColorChange={handleColorChange}
               isDragging={drag.isDragging(project.id)}
               isDragOver={drag.isDragOver(project.id)}

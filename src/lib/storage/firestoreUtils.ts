@@ -66,5 +66,8 @@ export function docToProject(id: string, data: Record<string, unknown>): Project
   // Optional Dashboard tile tint (v0.33.0). Stored as null when cleared; only
   // a known key hydrates onto the domain object.
   if (isProjectColor(data.color)) project.color = data.color;
+  // Optional archiving flag (v0.34.0). Stored as null when cleared; only `true`
+  // hydrates — null/false/missing all collapse back to "absent" (active) on read.
+  if (data.archived === true) project.archived = true;
   return project;
 }

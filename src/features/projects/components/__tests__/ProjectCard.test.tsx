@@ -120,3 +120,71 @@ describe('ProjectCard — actions', () => {
     expect(onColorChange).toHaveBeenCalledWith('p1', undefined);
   });
 });
+
+describe('ProjectCard — archiving', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('renders the Archived badge only when archived, after the Shared badge when both present', () => {
+    const { rerender, container } = render(
+      <ProjectCard project={makeProject()} {...noopProps} />,
+    );
+    expect(screen.queryByText('Archived')).toBeNull();
+
+    rerender(
+      <ProjectCard project={makeProject({ archived: true })} {...noopProps} isShared />,
+    );
+    const h3 = container.querySelector('h3');
+    const txt = h3?.textContent ?? '';
+    expect(txt).toContain('Shared');
+    expect(txt).toContain('Archived');
+    expect(txt.indexOf('Archived')).toBeGreaterThan(txt.indexOf('Shared'));
+  });
+
+  it('shows a hover-revealed Archive button on an active card and calls onArchive', () => {
+    const onArchive = vi.fn();
+    const onUnarchive = vi.fn();
+    render(
+      <ProjectCard
+        project={makeProject()}
+        {...noopProps}
+        onArchive={onArchive}
+        onUnarchive={onUnarchive}
+      />,
+    );
+    const archiveBtn = screen.getByLabelText('Archive project');
+    // Active-card archive follows the hover-reveal rule (collapses when idle).
+    expect(archiveBtn.className).toContain('group-hover:inline-flex');
+    expect(screen.queryByLabelText('Unarchive project')).toBeNull();
+    fireEvent.click(archiveBtn);
+    expect(onArchive).toHaveBeenCalledWith('p1');
+    expect(onUnarchive).not.toHaveBeenCalled();
+  });
+
+  it('shows an always-visible Unarchive button on an archived card and calls onUnarchive', () => {
+    const onArchive = vi.fn();
+    const onUnarchive = vi.fn();
+    render(
+      <ProjectCard
+        project={makeProject({ archived: true })}
+        {...noopProps}
+        onArchive={onArchive}
+        onUnarchive={onUnarchive}
+      />,
+    );
+    const unarchiveBtn = screen.getByLabelText('Unarchive project');
+    // Unarchive is always visible — NOT hover-revealed (the only way back on touch).
+    expect(unarchiveBtn.className).not.toContain('group-hover:inline-flex');
+    expect(screen.queryByLabelText('Archive project')).toBeNull();
+    fireEvent.click(unarchiveBtn);
+    expect(onUnarchive).toHaveBeenCalledWith('p1');
+    expect(onArchive).not.toHaveBeenCalled();
+  });
+
+  it('applies the dimmed class to an archived card', () => {
+    const { container } = render(
+      <ProjectCard project={makeProject({ archived: true })} {...noopProps} />,
+    );
+    const card = container.firstElementChild as HTMLElement;
+    expect(card.className).toContain('opacity-60');
+  });
+});

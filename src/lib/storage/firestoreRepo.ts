@@ -29,6 +29,8 @@ interface FirestoreProjectDoc {
   activeReforecastId: string | null;
   /** Dashboard tile tint (v0.33.0). null when cleared (so mergeFields can unset). */
   color: ProjectColor | null;
+  /** Project-archiving flag (v0.34.0). null when cleared (so mergeFields can unset). */
+  archived: boolean | null;
   owner: string;
   members: Record<string, string>;
   order: number;
@@ -126,14 +128,15 @@ export function createFirestoreRepository(uid: string): Repository {
     },
 
     /**
-     * Save mutable project fields to Firestore with merge: true.
+     * Save mutable project fields to Firestore via explicit mergeFields (v0.31.0 C1).
      *
      * Fields WRITTEN every save (regenerated from current state):
      *   name, startDate, endDate, reforecasts, activeReforecastId,
-     *   _teamSnapshot (regenerated from the calling user's current team pool),
-     *   updatedAt
+     *   color, archived (both coalesced to null when absent so mergeFields
+     *   unsets them), _teamSnapshot (regenerated from the calling user's
+     *   current team pool), updatedAt
      *
-     * Fields INTENTIONALLY EXCLUDED (merge: true preserves existing Firestore values):
+     * Fields INTENTIONALLY EXCLUDED (mergeFields omits them; existing Firestore values kept):
      *   owner, members, order, createdAt, _originRef, _changeLog, schemaVersion
      *   (These live on FirestoreProjectDoc, not on the Project domain type.)
      *
@@ -166,12 +169,13 @@ export function createFirestoreRepository(uid: string): Repository {
         endDate: project.endDate,
         reforecasts: project.reforecasts,
         activeReforecastId: project.activeReforecastId,
-        // null (not undefined) when cleared so mergeFields actually unsets it.
+        // null (not undefined) when cleared so mergeFields actually unsets them.
         color: project.color ?? null,
+        archived: project.archived ?? null,
         _teamSnapshot: buildTeamSnapshot(getActiveReforecast(project)?.assignments ?? [], pool),
         updatedAt: now,
       }), { mergeFields: ['name', 'startDate', 'endDate', 'reforecasts',
-                          'activeReforecastId', 'color', '_teamSnapshot', 'updatedAt'] });
+                          'activeReforecastId', 'color', 'archived', '_teamSnapshot', 'updatedAt'] });
     },
 
     /**
@@ -190,6 +194,7 @@ export function createFirestoreRepository(uid: string): Repository {
         reforecasts: project.reforecasts,
         activeReforecastId: project.activeReforecastId,
         color: project.color ?? null,
+        archived: project.archived ?? null,
         owner: uid,
         members: { [uid]: 'owner' },
         order: projects.length,
@@ -276,6 +281,7 @@ export function createFirestoreRepository(uid: string): Repository {
           reforecasts: project.reforecasts,
           activeReforecastId: project.activeReforecastId,
           color: project.color ?? null,
+          archived: project.archived ?? null,
           owner: uid,
           members: { [uid]: 'owner' },
           order: i,
