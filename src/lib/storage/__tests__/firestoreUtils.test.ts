@@ -139,6 +139,16 @@ describe('docToProject', () => {
     expect(project.id).toBe('my-id');
   });
 
+  it('hydrates archived only when data.archived === true', () => {
+    expect(docToProject('p', { name: 'X', archived: true }).archived).toBe(true);
+  });
+
+  it('leaves archived absent for false / null / missing (all collapse to active)', () => {
+    expect(docToProject('p', { name: 'X', archived: false }).archived).toBeUndefined();
+    expect(docToProject('p', { name: 'X', archived: null }).archived).toBeUndefined();
+    expect(docToProject('p', { name: 'X' }).archived).toBeUndefined();
+  });
+
   describe('backward compat (legacy schemaVersion 1 docs)', () => {
     it('hydrates legacy top-level assignments into reforecasts that lack their own', () => {
       const legacy = {

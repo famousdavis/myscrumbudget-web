@@ -179,6 +179,12 @@ export interface Project {
   activeReforecastId: string | null;
   /** Optional Dashboard tile tint (v0.33.0). Absent = no tint. */
   color?: ProjectColor;
+  /**
+   * Optional project-archiving flag (v0.34.0). undefined or false = active;
+   * true = hidden from the Dashboard grid by default. Never backfilled;
+   * stripped back to undefined on unarchive (mirrors PoolMember.archived).
+   */
+  archived?: boolean;
 }
 
 // Calculated Values

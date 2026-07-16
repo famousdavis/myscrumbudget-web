@@ -147,6 +147,48 @@ describe('useProjects', () => {
     });
   });
 
+  describe('archiveProject / unarchiveProject', () => {
+    it('archiveProject persists archived: true, logs it, and does NOT call ensureOriginRef', async () => {
+      mocks.getProject.mockResolvedValue(makeProject('p1'));
+      const { result } = renderHook(() => useProjects());
+      await act(async () => {});
+      await act(async () => { await result.current.archiveProject('p1'); });
+      expect(mocks.saveProject).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'p1', archived: true }),
+      );
+      expect(mocks.appendToChangeLog).toHaveBeenCalledWith(
+        expect.objectContaining({ op: 'archive', entity: 'project', id: 'p1' }),
+      );
+      // Mutates an existing project — not new identity (same category as delete).
+      expect(mocks.ensureOriginRef).not.toHaveBeenCalled();
+    });
+
+    it('unarchiveProject strips archived (not archived:false), logs it, no ensureOriginRef', async () => {
+      mocks.getProject.mockResolvedValue({ ...makeProject('p1'), archived: true });
+      const { result } = renderHook(() => useProjects());
+      await act(async () => {});
+      await act(async () => { await result.current.unarchiveProject('p1'); });
+      const saved = mocks.saveProject.mock.calls[mocks.saveProject.mock.calls.length - 1][0];
+      expect(saved).not.toHaveProperty('archived');
+      expect(mocks.appendToChangeLog).toHaveBeenCalledWith(
+        expect.objectContaining({ op: 'unarchive', entity: 'project', id: 'p1' }),
+      );
+      expect(mocks.ensureOriginRef).not.toHaveBeenCalled();
+    });
+
+    it('both no-op when the project does not exist', async () => {
+      mocks.getProject.mockResolvedValue(null);
+      const { result } = renderHook(() => useProjects());
+      await act(async () => {});
+      await act(async () => {
+        await result.current.archiveProject('missing');
+        await result.current.unarchiveProject('missing');
+      });
+      expect(mocks.saveProject).not.toHaveBeenCalled();
+      expect(mocks.appendToChangeLog).not.toHaveBeenCalled();
+    });
+  });
+
   describe('cloneProject', () => {
     it('creates a clone with a fresh id, " - Copy (1)" name, and logs the add', async () => {
       const source = makeProject('p1'); // name "Project p1"

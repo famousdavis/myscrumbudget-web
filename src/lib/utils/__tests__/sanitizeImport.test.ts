@@ -50,6 +50,30 @@ describe('sanitizeAppState', () => {
     expect(out).toEqual(clean);
   });
 
+  it('preserves project color and archived through the strip pass, dropping unknown siblings', () => {
+    const state = baseState();
+    const tampered = {
+      ...state,
+      projects: [
+        {
+          ...state.projects[0],
+          color: 'teal',
+          archived: true,
+          bogus: 'x',
+        } as typeof state.projects[number] & { color: string; archived: boolean; bogus: unknown },
+      ],
+    } as unknown as AppState;
+    const out = sanitizeAppState(tampered);
+    const project = out.projects[0] as typeof out.projects[number] & {
+      color?: unknown;
+      archived?: unknown;
+      bogus?: unknown;
+    };
+    expect(project.color).toBe('teal');
+    expect(project.archived).toBe(true);
+    expect(project.bogus).toBeUndefined();
+  });
+
   it('strips unknown top-level fields (e.g. attacker-injected metadata)', () => {
     const dirty = { ...baseState(), _admin: true, secret: 'xxx' } as unknown as AppState;
     const out = sanitizeAppState(dirty) as AppState & { _admin?: unknown; secret?: unknown };

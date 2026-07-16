@@ -17,6 +17,12 @@ export interface ConflictReason {
   type: 'id' | 'name';
   existingId: string;
   existingName: string;
+  /**
+   * Whether the EXISTING (conflicting) project is itself archived. Surfaced in
+   * the import preview so a "conflict with X" where X is hidden from the grid
+   * doesn't read as data silently vanishing (v0.34.0).
+   */
+  existingArchived?: boolean;
 }
 
 export interface MergePreview {
@@ -93,6 +99,7 @@ export function detectConflicts(
         type: 'id',
         existingId: idMatch.id,
         existingName: idMatch.name,
+        existingArchived: idMatch.archived,
       };
       continue;
     }
@@ -107,6 +114,7 @@ export function detectConflicts(
         type: 'name',
         existingId: nameMatch.id,
         existingName: nameMatch.name,
+        existingArchived: nameMatch.archived,
       };
       continue;
     }

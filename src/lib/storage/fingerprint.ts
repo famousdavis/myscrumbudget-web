@@ -10,7 +10,7 @@ export const CHANGELOG_MAX_ENTRIES = 500;
 
 export interface ChangeLogEntry {
   t: number;       // Unix timestamp (seconds)
-  op: string;      // 'add' | 'delete' | 'import'
+  op: string;      // 'add' | 'delete' | 'import' | 'archive' | 'unarchive'
   entity: string;  // 'project' | 'pool-member' | 'reforecast' | 'productivity-window' | 'dataset'
   id?: string;
   count?: number;

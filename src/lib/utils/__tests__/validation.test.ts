@@ -214,3 +214,31 @@ describe('validateAppState — project color', () => {
     expect(result.errors.some((e) => e.includes('.color'))).toBe(true);
   });
 });
+
+describe('validateAppState — project archived', () => {
+  function makeStateWithArchived(archived: unknown) {
+    const state = makeState(undefined) as unknown as {
+      projects: { archived?: unknown }[];
+    };
+    if (archived !== undefined) state.projects[0].archived = archived;
+    return state;
+  }
+
+  it('accepts a project with no archived field (absent = active)', () => {
+    expect(validateAppState(makeStateWithArchived(undefined)).valid).toBe(true);
+  });
+
+  it('accepts archived: true', () => {
+    expect(validateAppState(makeStateWithArchived(true)).valid).toBe(true);
+  });
+
+  it('accepts archived: false', () => {
+    expect(validateAppState(makeStateWithArchived(false)).valid).toBe(true);
+  });
+
+  it('rejects a non-boolean archived', () => {
+    const result = validateAppState(makeStateWithArchived('yes'));
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes('.archived') && e.includes('boolean'))).toBe(true);
+  });
+});

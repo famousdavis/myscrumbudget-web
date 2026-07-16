@@ -16,6 +16,7 @@ import { isReforecastStale } from '@/features/projects/lib/dashboardCard';
 import { TrashIcon } from '@/components/icons/TrashIcon';
 import { ExportIcon } from '@/components/icons/ExportIcon';
 import { CloneIcon } from '@/components/icons/CloneIcon';
+import { ArchiveIcon } from '@/components/icons/ArchiveIcon';
 
 interface ProjectCardProps {
   project: Project;
@@ -24,6 +25,8 @@ interface ProjectCardProps {
   onDelete: (id: string) => void;
   onExport?: (id: string) => void;
   onClone?: (id: string) => void;
+  onArchive?: (id: string) => void;
+  onUnarchive?: (id: string) => void;
   onColorChange?: (id: string, color: ProjectColor | undefined) => void;
   isShared?: boolean;
   isDragging?: boolean;
@@ -53,6 +56,8 @@ export function ProjectCard({
   onDelete,
   onExport,
   onClone,
+  onArchive,
+  onUnarchive,
   onColorChange,
   isShared,
   isDragging,
@@ -117,7 +122,7 @@ export function ProjectCard({
           ? 'opacity-40'
           : isDragOver
             ? 'border-blue-400 bg-blue-50/50 dark:border-blue-600 dark:bg-blue-950/30'
-            : `border-zinc-200 hover:border-zinc-400 dark:border-zinc-800 dark:hover:border-zinc-600 ${tint}`
+            : `border-zinc-200 hover:border-zinc-400 dark:border-zinc-800 dark:hover:border-zinc-600 ${tint} ${project.archived ? 'opacity-60 hover:opacity-100' : ''}`
       }`}
     >
       {/* Drag handle */}
@@ -138,13 +143,20 @@ export function ProjectCard({
         </div>
       </div>
       <div className="min-w-0 flex-1">
-        {/* Action cluster: export · clone · swatch · trash.
+        {/* Action cluster: export · clone · archive/unarchive · swatch · trash.
             Export/clone are hover/focus-revealed and COLLAPSE when hidden
             (display:none, not opacity-0) so they reserve no idle space. They
             sit to the LEFT of the always-visible swatch + trash, and the
             cluster is right-anchored — so the swatch and trash stay put,
             adjacent, at the right edge, and the hover pair slides in to their
-            left without displacing them or leaving a gap. */}
+            left without displacing them or leaving a gap. Archive follows the
+            same hover-reveal rule as export/clone on an ACTIVE card. Unarchive
+            is the exception: on an ARCHIVED card it's always visible, joining
+            swatch + trash as a third always-on control, because it's the only
+            way back for a touch-device user (no hover state to reveal it).
+            Colored-hover buttons (archive/unarchive/trash) write standalone
+            class strings — NOT actionButtonClass + hover:text-* — so a single
+            hover:text color wins cleanly (no double hover:text-* to order). */}
         <div className="absolute right-2 top-2 z-10 flex items-center gap-0.5">
           {onExport && (
             <button
@@ -176,6 +188,37 @@ export function ProjectCard({
               <CloneIcon className="h-4 w-4" />
             </button>
           )}
+          {project.archived
+            ? onUnarchive && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onUnarchive(project.id);
+                  }}
+                  title="Unarchive this project"
+                  aria-label="Unarchive project"
+                  className="inline-flex rounded p-1 text-zinc-300 hover:bg-zinc-100 hover:text-blue-500 dark:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-blue-400"
+                >
+                  <ArchiveIcon className="h-4 w-4" />
+                </button>
+              )
+            : onArchive && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onArchive(project.id);
+                  }}
+                  title="Archive this project"
+                  aria-label="Archive project"
+                  className="hidden rounded p-1 text-zinc-300 hover:bg-zinc-100 hover:text-amber-500 group-hover:inline-flex group-focus-within:inline-flex dark:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-amber-400"
+                >
+                  <ArchiveIcon className="h-4 w-4" />
+                </button>
+              )}
           <button
             type="button"
             onClick={(e) => {
@@ -268,11 +311,16 @@ export function ProjectCard({
         )}
 
         <Link href={`/projects/${project.id}`} className="block">
-          <h3 className="pr-16 text-lg font-semibold">
+          <h3 className="pr-24 text-lg font-semibold">
             {project.name}
             {isShared && (
               <span className="ml-2 inline-block rounded bg-blue-100 px-1.5 py-0.5 align-middle text-xs font-medium text-blue-700 dark:bg-blue-900 dark:text-blue-300">
                 Shared
+              </span>
+            )}
+            {project.archived && (
+              <span className="ml-2 inline-block rounded bg-zinc-100 px-1.5 py-0.5 align-middle text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+                Archived
               </span>
             )}
           </h3>

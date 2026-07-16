@@ -3,7 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import { describe, it, expect } from 'vitest';
-import { nextCopyName, cloneProjectData, isReforecastStale } from '../dashboardCard';
+import { nextCopyName, cloneProjectData, isReforecastStale, getDashboardEmptyState } from '../dashboardCard';
 import type { Project } from '@/types/domain';
 
 function makeProject(overrides: Partial<Project> = {}): Project {
@@ -84,6 +84,13 @@ describe('cloneProjectData', () => {
     const src = makeProject({ color: 'purple' });
     expect(cloneProjectData(src, 'Copy').color).toBe('purple');
   });
+
+  it('drops archived — a clone is always born active, source untouched', () => {
+    const src = makeProject({ archived: true });
+    const clone = cloneProjectData(src, 'Copy');
+    expect(clone.archived).toBeUndefined();
+    expect(src.archived).toBe(true);
+  });
 });
 
 describe('isReforecastStale', () => {
@@ -111,5 +118,19 @@ describe('isReforecastStale', () => {
   it('defaults to a 30-day threshold', () => {
     expect(isReforecastStale('2026-05-01', '2026-05-31')).toBe(false);
     expect(isReforecastStale('2026-05-01', '2026-06-05')).toBe(true);
+  });
+});
+
+describe('getDashboardEmptyState', () => {
+  it('returns onboarding when there are no projects at all', () => {
+    expect(getDashboardEmptyState(0, 0)).toBe('onboarding');
+  });
+
+  it('returns no-visible-projects when projects exist but none are visible', () => {
+    expect(getDashboardEmptyState(1, 0)).toBe('no-visible-projects');
+  });
+
+  it('returns has-projects when at least one project is visible', () => {
+    expect(getDashboardEmptyState(1, 1)).toBe('has-projects');
   });
 });

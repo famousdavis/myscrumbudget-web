@@ -40,13 +40,16 @@ export function nextCopyName(sourceName: string, existingNames: string[]): strin
  * window ids) are INTENTIONALLY preserved: they are project-scoped, so duplicating
  * them in a separate project causes no collision, and keeping them preserves the
  * allocation ↔ assignment linkage (allocations key on assignment id) without any
- * re-keying gymnastics. The optional `color` is carried over. Pure — uses a JSON
- * round-trip for the deep copy (Project is plain JSON: no Dates/functions/Maps).
+ * re-keying gymnastics. The optional `color` is carried over. `archived` is
+ * INTENTIONALLY dropped — a clone of an archived project is always born active;
+ * the source project is left untouched. Pure — uses a JSON round-trip for the
+ * deep copy (Project is plain JSON: no Dates/functions/Maps).
  */
 export function cloneProjectData(source: Project, newName: string): Project {
   const deep = JSON.parse(JSON.stringify(source)) as Project;
   deep.id = generateId();
   deep.name = newName;
+  delete deep.archived;
   return deep;
 }
 
@@ -66,4 +69,23 @@ export function isReforecastStale(
   if (Number.isNaN(rf) || Number.isNaN(now)) return false;
   const days = Math.floor((now - rf) / 86_400_000);
   return days > thresholdDays;
+}
+
+/**
+ * Which empty-state branch the Dashboard should render. Pure — no I/O.
+ * Separated from the component so the branching logic is unit-testable
+ * without mounting the page or mocking its data hooks.
+ *
+ * - 'onboarding'          → no projects at all (Getting Started checklist)
+ * - 'no-visible-projects' → projects exist but all are filtered out (every
+ *                           project archived while "Show archived" is off)
+ * - 'has-projects'        → render the grid
+ */
+export function getDashboardEmptyState(
+  totalCount: number,
+  visibleCount: number,
+): 'onboarding' | 'no-visible-projects' | 'has-projects' {
+  if (totalCount === 0) return 'onboarding';
+  if (visibleCount === 0) return 'no-visible-projects';
+  return 'has-projects';
 }

@@ -150,6 +150,21 @@ describe('detectConflicts', () => {
     expect(decisions['b']).toBe('skip');
     expect(decisions['c_new']).toBe('skip');
   });
+
+  it('carries existingArchived when the conflicting existing project is archived', () => {
+    const incoming = [makeProject({ id: 'p_new', name: 'Shared Name' })];
+    const existing = [makeProject({ id: 'p_old', name: 'Shared Name', archived: true })];
+    const { conflicts } = detectConflicts(incoming, existing);
+    expect(conflicts['p_new'].type).toBe('name');
+    expect(conflicts['p_new'].existingArchived).toBe(true);
+  });
+
+  it('leaves existingArchived undefined for an active conflicting project', () => {
+    const incoming = [makeProject({ id: 'p1', name: 'X' })];
+    const existing = [makeProject({ id: 'p1', name: 'X' })];
+    const { conflicts } = detectConflicts(incoming, existing);
+    expect(conflicts['p1'].existingArchived).toBeUndefined();
+  });
 });
 
 // ── buildMergePreview ──────────────────────────────────────────────────
