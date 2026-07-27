@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.34.1',
+    date: '2026-07-26',
+    sections: [
+      {
+        title: 'Changed',
+        items: [
+          'Internal repository maintenance only. No functional, data, or interface changes — MyScrumBudget behaves identically to v0.34.0. Housekeeping removed two files from the source repository that described how Firestore security rules are deployed; those rules live in the Firebase Console and are unchanged, and neither file was ever part of the app you run.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.34.0',
     date: '2026-07-16',
     sections: [

@@ -4,6 +4,15 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.34.1] - 2026-07-26
+
+Internal repository maintenance only. No functional, data, or interface changes — the app behaves identically to v0.34.0.
+
+### Removed
+
+- **Local `firestore.rules` copy.** Firestore security rules are deployed from the Firebase Console and mirrored in the SPERT® Suite landing-page repository, which is their single source of truth. The copy kept here was never deployed from and could only drift out of date. It was never bundled into the app, so cloud behaviour is unchanged.
+- **`firebase.json`.** Its only content was a pointer to the `firestore.rules` file removed above, so it no longer described anything deployable from this repository.
+
 ## [0.34.0] - 2026-07-16
 
 Project archiving: hide a project from the Dashboard without deleting it. Adds an optional `Project.archived` flag, a "Show archived" toggle, and per-tile archive/unarchive actions. Also fixes a pre-existing bug where the JSON import sanitizer silently stripped a project's tile color.
