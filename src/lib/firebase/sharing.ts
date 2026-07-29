@@ -4,7 +4,7 @@
 
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from './config';
-import { PROJECTS_COL, PROFILES_COL } from './collections';
+import { PROJECTS_COL, PROFILES_COL, SUITE_PROFILES_COL } from './collections';
 
 export type MemberRole = 'owner' | 'editor' | 'viewer';
 
@@ -46,11 +46,40 @@ export async function getProjectMembers(projectId: string): Promise<ProjectMembe
     entries.map(([uid]) => getDoc(doc(db!, PROFILES_COL, uid))),
   );
 
+  // Second pass — suite-wide fallback. PROFILES_COL is written by AuthProvider
+  // on THIS app's sign-in, but the cross-app invitation Cloud Function resolves
+  // an invitee BY their spertsuite_profiles doc and then writes only
+  // members.{uid}; it never seeds a per-app profile. A member who has used
+  // another SPERT app but never opened MyScrumBudget therefore has no
+  // PROFILES_COL doc, and BulkSharingSection would render a raw Auth UID.
+  // Only the uids that actually missed are re-fetched, and they are fetched
+  // together, so wall-time stays O(1) rather than O(N).
+  const misses = entries.flatMap(([uid], i) =>
+    settled[i].status === 'fulfilled' &&
+    !(settled[i] as PromiseFulfilledResult<Awaited<ReturnType<typeof getDoc>>>).value.exists()
+      ? [{ uid, i }]
+      : [],
+  );
+
+  const fallbackByIndex = new Map<number, Record<string, unknown>>();
+  if (misses.length > 0) {
+    const suiteSettled = await Promise.allSettled(
+      misses.map(({ uid }) => getDoc(doc(db!, SUITE_PROFILES_COL, uid))),
+    );
+    suiteSettled.forEach((r, k) => {
+      if (r.status === 'fulfilled' && r.value.exists()) {
+        fallbackByIndex.set(misses[k].i, r.value.data());
+      }
+    });
+  }
+
   return entries.map(([uid, role], i) => {
     const result = settled[i];
     if (result.status === 'fulfilled') {
       const snap = result.value;
-      const profile = snap.exists() ? snap.data() : {};
+      const profile = snap.exists()
+        ? snap.data()
+        : (fallbackByIndex.get(i) ?? {});
       return {
         uid,
         email: (profile.email as string) ?? '',
