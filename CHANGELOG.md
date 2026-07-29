@@ -4,6 +4,20 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.34.3] - 2026-07-29
+
+Licensing only. No functional, data, or interface changes — the app behaves identically to v0.34.2.
+
+The `LICENSE` file now **reserves the SPERT® brand explicitly**. It has always required that the original author attribution be preserved, but it said nothing at all about the brand, which left room to read the GNU GPL v3's redistribute-and-modify freedom as carrying the *name* along with the code. That was never the intent. Two new clauses in the ADDITIONAL TERMS section close the gap: a **Trademark Reservation** under GPL v3 §7(e), naming "SPERT", "Statistical PERT" and "Estimation Made Easy" as trademarks registered with the USPTO and "GanttApp" and "MyScrumBudget" as unregistered common-law marks, and granting no right to use any of them — whether alone, in combination with other words such as "SPERT Suite", or as a logo — and a **Marking of Modified Versions** clause under GPL v3 §7(c), requiring any fork to adopt a name that cannot be confused with those marks.
+
+Together the two draw the line the license always meant to draw: the code is free to take, change and redistribute, the author attribution has to travel with it, and the brand stays behind. Both clauses fall inside the categories GPL v3 Section 7 permits, which matters — Section 7's closing paragraph lets a recipient strip any additional term that falls *outside* that list, as a "further restriction". The section header and its opening sentence now cite Section 7 rather than Section 7(b), because the terms draw on 7(b) for attribution, 7(c) for renaming modified versions and 7(e) for the trademark reservation.
+
+This file is now a byte-for-byte copy of the canonical license in the SPERT® Suite landing-page repository, which is its single source of truth, differing only in the project repository URL on line 4. Of the nine suite repositories audited, **MyScrumBudget was the only one already an exact copy** — so this release adds the two clauses and changes nothing else. The GNU GPL v3 text itself is untouched, verified byte-for-byte against the previous release.
+
+### Changed
+
+- **`LICENSE`** — added clause `c)` Trademark Reservation and clause `d)` Marking of Modified Versions to the ADDITIONAL TERMS section, and broadened that section's citation from Section 7(b) to Section 7. Clause `a)` Attribution Preservation and clause `b)` UI Notice Preservation are unchanged. Lines 1–685, which are the GNU GPL v3 text, are byte-identical to v0.34.2.
+
 ## [0.34.2] - 2026-07-29
 
 Bug fix. The project sharing list showed a raw internal account ID instead of a person's name or email address.
