@@ -13,6 +13,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.34.3',
+    date: '2026-07-29',
+    sections: [
+      {
+        title: 'Changed',
+        items: [
+          'The license file now reserves the SPERT\u00ae brand. It has always required that the original author be credited, but it said nothing about the brand name itself \u2014 which left room to read the licence\u2019s freedom to copy and modify the code as carrying the name along with it. That was never the intent.',
+          'Two clauses were added to cover it. The first names "SPERT", "Statistical PERT" and "Estimation Made Easy" as registered trademarks and "GanttApp" and "MyScrumBudget" as common-law trademarks, and grants no right to use any of them. The second requires anyone who modifies the app to release it under a different name.',
+          'The effect is that the code is still free to take, change and share, credit to the original author still has to travel with it, and the brand does not. The GNU GPL v3 text itself is unchanged.',
+          'MyScrumBudget was the only one of the nine SPERT\u00ae Suite repositories whose license file was already an exact copy of the suite-wide original, so this release adds the two new clauses and changes nothing else. Nothing in the app itself changed.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.34.2',
     date: '2026-07-29',
     sections: [
