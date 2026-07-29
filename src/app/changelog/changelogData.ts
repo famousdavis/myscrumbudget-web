@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.34.2',
+    date: '2026-07-29',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'Shared project members showed a raw internal account ID instead of a name or email address. This affected anyone added through an emailed invitation who had used another SPERT\u00ae Suite app but had never personally signed into MyScrumBudget.',
+          'The member list now falls back to the shared suite-wide profile, so the name or email appears immediately \u2014 including for members added before this release. Nothing needs to be re-invited and no action is required.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.34.1',
     date: '2026-07-26',
     sections: [

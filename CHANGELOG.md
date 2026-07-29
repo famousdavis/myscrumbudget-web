@@ -4,6 +4,17 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.34.2] - 2026-07-29
+
+Bug fix. The project sharing list showed a raw internal account ID instead of a person's name or email address.
+
+### Fixed
+
+- **Member list rendered a raw Auth UID.** `getProjectMembers` resolved profiles against `myscrumbudget_profiles` only. That document is written by `AuthProvider` on *this* app's sign-in, whereas the cross-app invitation Cloud Function resolves an invitee **by** their `spertsuite_profiles` document and then writes only `members.{uid}` — it never seeds a per-app profile. Anyone who had used another SPERT® app but never opened MyScrumBudget therefore had no per-app profile, and `BulkSharingSection` fell through to `m.uid`.
+- The lookup now falls back to `spertsuite_profiles/{uid}` when the per-app document is absent. Both carry the same `displayName`/`email` payload, and `firestore.rules` already permits `get` on the suite mirror for any authenticated user, so no rules change and no data backfill were required — affected members render correctly on next load.
+- The fallback re-fetches **only** the uids that actually missed, and fetches them together, so the parallel `Promise.allSettled` fan-out keeps its O(1) wall-time rather than degrading to O(N).
+- Guarded by four new cases in `src/lib/firebase/__tests__/sharing.test.ts`; three fail with the fix reverted. Suite-wide defect rather than a MyScrumBudget quirk — first found in SPERT Story Map v0.49.3.
+
 ## [0.34.1] - 2026-07-26
 
 Internal repository maintenance only. No functional, data, or interface changes — the app behaves identically to v0.34.0.
