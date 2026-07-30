@@ -4,6 +4,27 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.34.4] - 2026-07-30
+
+Release-process hardening, and a class of type error that had been invisible. No functional, data, or interface changes — the app behaves identically to v0.34.3.
+
+`next build` type-checks the production build graph, but **not test files**. Running `tsc --noEmit` across the whole repository — which nothing had ever done here — surfaced 33 errors sitting in five `__tests__` files. All of them traced to six `vi.fn<Args, Return>()` call sites: Vitest 4 replaced that two-type-argument form with a single function type, and under the old form the mocks silently resolved to `never`. Those tests were not type-checking their own mock usage at all, and every argument passed to a mock was being accepted regardless of type. The six call sites are corrected and a `typecheck` script now runs in the gate, separately from `build`, so the gap cannot reopen. All 1,163 tests pass unchanged — types are erased at runtime, so this corrects the checking, not the behaviour.
+
+This release also adds the SPERT® Suite ship gate: `npm run shipgate` locally, and the same script in CI on every pull request and push to `main`. It is the first continuous integration this repository has ever had; until now a green check meant Vercel had built a preview, not that the tests had run, because nothing ran them.
+
+One note on the `LICENSE` guard below. Of the nine repositories audited on 2026-07-29, this one was the **only** copy already byte-identical to the canonical file. It is guarded anyway: being correct once is not a mechanism, and every other repository in the suite was correct at some point too.
+
+### Added
+- **`npm run shipgate` — the release gate.** Verifies that `package.json`, both version fields in `package-lock.json`, `APP_VERSION` and the newest `CHANGELOG.md` entry agree, checks `CLAUDE.md` for a stale version claim, then runs lint, the type check, the tests and a production build. It reports every disagreement in one run rather than stopping at the first.
+- **Continuous integration** (`.github/workflows/shipgate.yml`), running the same `npm run shipgate` on every pull request and push to `main`, so the local gate and the automated one cannot drift apart. It installs with `npm ci`, which refuses to run if the lockfile and `package.json` disagree.
+- **`npm run typecheck`** — `tsc --noEmit` across the whole repository, including tests.
+- **A guard that the two changelog surfaces agree.** `CHANGELOG.md` is missing 21 versions that `changelogData.ts` has always rendered; that backlog is now recorded explicitly and guarded in both directions, so no new gap can open and a backfilled version must be removed from the record. The guard also asserts that no entry or section renders empty — the failure that left two SPERT Forecaster entries blank in-app for weeks.
+- **A guard that `LICENSE` matches the canonical suite licence** — one SHA-256 of the licence body, normalised for the repository URL on line 4.
+- **A guard that every static asset linked from source exists in `public/`** — the Quick Reference Guide and Charter Budget Guide PDFs, and the favicons.
+
+### Fixed
+- **Six `vi.fn<Args, Return>()` mock declarations were silently typed `never`.** Vitest 4 takes a single function type instead of the old two-argument form, so `vi.fn<[], Promise<Project[]>>()` produced a mock that accepted anything. Corrected to `vi.fn<() => Promise<Project[]>>()` and equivalents in `useProjects`, `tabCloseFlush`, `signOutCleanup`, `ThresholdSettings` and `pendingSaveRegistry` tests.
+
 ## [0.34.3] - 2026-07-29
 
 Licensing only. No functional, data, or interface changes — the app behaves identically to v0.34.2.

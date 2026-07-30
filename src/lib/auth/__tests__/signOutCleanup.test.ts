@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({
   switchRepoImpl: vi.fn(),
   createLocalStorageRepository: vi.fn(() => ({ __local: true })),
   setStorageMode: vi.fn(),
-  getStorageMode: vi.fn<[], 'local' | 'cloud'>(() => 'local'),
+  getStorageMode: vi.fn<() => 'local' | 'cloud'>(() => 'local'),
 }));
 
 vi.mock('firebase/auth', () => ({ signOut: mocks.firebaseSignOut }));

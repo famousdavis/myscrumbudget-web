@@ -5,9 +5,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  flushAll: vi.fn<[], Promise<void>>().mockResolvedValue(undefined),
+  flushAll: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
   cancelAll: vi.fn(),
-  getStorageMode: vi.fn<[], 'local' | 'cloud'>(() => 'local'),
+  getStorageMode: vi.fn<() => 'local' | 'cloud'>(() => 'local'),
   auth: { currentUser: null as { uid: string } | null },
 }));
 

@@ -13,6 +13,27 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.34.4',
+    date: '2026-07-30',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'A group of tests were not actually checking what they claimed to. Six mock declarations used a form that a recent testing-library upgrade had replaced, and under the old form those mocks quietly accepted any value at all — so the checks around them were passing regardless of what was passed in. The declarations are corrected and every test still passes; this changes what is verified, not how the app behaves.',
+        ],
+      },
+      {
+        title: 'Changed',
+        items: [
+          'Release-process work only. Nothing in the app itself changed — it behaves identically to v0.34.3.',
+          'Every proposed change is now checked automatically before it can be merged: the full test suite, the linter, a type check, a production build, and a check that the version number agrees everywhere it appears. This is the first automated checking this project has ever had — previously a green checkmark meant only that a preview had been built, not that the 1,163 tests had been run, because nothing ran them.',
+          'The type check runs separately from the build on purpose, because the build only checks the code that ships and skips test files. That gap is exactly where the mock problem above had been hiding.',
+          'Added automatic checks that this changelog stays consistent with the copy kept in the repository, that the license file still matches the canonical copy shared across the suite, and that every file the app links to actually exists.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.34.3',
     date: '2026-07-29',
     sections: [
