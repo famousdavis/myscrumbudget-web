@@ -1,0 +1,30 @@
+{
+  "repo": "MyScrumBudget",
+
+  "versionConstant": {
+    "file": "src/lib/constants.ts",
+    "export": "APP_VERSION"
+  },
+
+  "changelog": {
+    "file": "CHANGELOG.md",
+    "headingPattern": "^## \\[(\\d+\\.\\d+\\.\\d+)\\]"
+  },
+
+  "claudeMdVersionPatterns": [
+    "Live facts: APP_VERSION (\\d+\\.\\d+\\.\\d+)"
+  ],
+
+  "_claudeMdNote": "CLAUDE.md is gitignored, so the release checklist's consistency grep could never see version drift inside it — this file's 'Live facts' line claimed APP_VERSION 0.34.0 and 1159 tests across 74 files against an actual 0.34.2 / 1163 / 75. Only APP_VERSION is machine-checked; the test and file counts on the same line cannot be checked against package.json and must be updated by hand. Skipped in CI, where the file is never checked out.",
+
+  "commands": [
+    { "name": "lint", "run": "npm run lint" },
+    {
+      "name": "typecheck",
+      "run": "npm run typecheck",
+      "_note": "Deliberately separate from `build`. `next build` typechecks the production build graph but NOT test files, so 33 type errors sat undetected in five __tests__ files — all of them Vitest 3→4 `vi.fn<Args, Return>` generics that silently typed the mocks as `never`, meaning those tests were not type-checking their own mock usage at all. Fixed in v0.34.4; this step is what keeps them fixed. cfd and GanttApp were verified clean including tests, so they do not carry this step."
+    },
+    { "name": "test", "run": "npm test" },
+    { "name": "build (next build)", "run": "npm run build" }
+  ]
+}

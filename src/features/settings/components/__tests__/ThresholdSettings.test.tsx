@@ -18,7 +18,7 @@ const defaultProps = {
   amberPercent: 5,
   redPercent: 15,
   violetPercent: 20,
-  onUpdate: vi.fn<[(prev: Settings) => Settings], void>(),
+  onUpdate: vi.fn<(updater: (prev: Settings) => Settings) => void>(),
 };
 
 function expand() {

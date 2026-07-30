@@ -8,11 +8,11 @@ import type { Project } from '@/types/domain';
 
 const mocks = vi.hoisted(() => ({
   cancelByKey: vi.fn(),
-  getProjects: vi.fn<[], Promise<Project[]>>().mockResolvedValue([]),
+  getProjects: vi.fn<() => Promise<Project[]>>().mockResolvedValue([]),
   getProject: vi.fn().mockResolvedValue(null),
   saveProject: vi.fn().mockResolvedValue(undefined),
   createProject: vi.fn().mockResolvedValue(undefined),
-  deleteProject: vi.fn<[string], Promise<void>>().mockResolvedValue(undefined),
+  deleteProject: vi.fn<(id: string) => Promise<void>>().mockResolvedValue(undefined),
   exportAll: vi.fn(),
   appendToChangeLog: vi.fn(),
   ensureOriginRef: vi.fn(),

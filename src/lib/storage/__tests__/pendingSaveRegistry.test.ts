@@ -10,7 +10,7 @@ import {
 
 function makeInstance() {
   const cancel = vi.fn();
-  const flush = vi.fn<[], Promise<void>>().mockResolvedValue(undefined);
+  const flush = vi.fn<() => Promise<void>>().mockResolvedValue(undefined);
   const unregister = register(cancel, flush);
   return { cancel, flush, unregister };
 }
