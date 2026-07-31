@@ -13,14 +13,16 @@ import { CHANGELOG } from '../../app/changelog/changelogData';
  * The changelog lives in two places and nothing has ever held them together:
  *
  *   - `src/app/changelog/changelogData.ts` — what the app renders. This is the
- *     authoritative, complete history (81 entries).
- *   - `CHANGELOG.md` — the record in the repository (60 entries).
+ *     authoritative, complete history (82 entries).
+ *   - `CHANGELOG.md` — the record in the repository (77 entries).
  *
- * `CHANGELOG.md` is missing 21 versions the app has always rendered; see
- * KNOWN_MISSING_FROM_MARKDOWN below. That backlog predates this guard and is
- * recorded rather than fixed, so no NEW gap can open while the decision to
- * backfill stays open. The same defect exists across the suite: SPERT AHP was
- * missing one version, GanttApp 17, SPERT Scheduler 34.
+ * `CHANGELOG.md` was missing 21 versions the app has always rendered. Sixteen of
+ * them — 0.6.0 through 0.16.3, one contiguous run between 0.17.0 and 0.5.0 —
+ * were transcribed from the data file in v0.34.5, leaving the five in
+ * KNOWN_MISSING_FROM_MARKDOWN below. The remainder are scattered rather than
+ * contiguous, so they insert at three separate anchors. The same defect exists
+ * across the suite: SPERT AHP was missing one version, GanttApp 17, SPERT
+ * Scheduler 33.
  *
  * The second failure mode is an entry that renders as a bare heading. An entry
  * with no sections, or a section with no items, produces exactly that — and the
@@ -31,11 +33,18 @@ import { CHANGELOG } from '../../app/changelog/changelogData';
 
 /**
  * Versions present in `changelogData.ts` but absent from `CHANGELOG.md`, as
- * measured on 2026-07-30.
+ * measured on 2026-07-31.
  *
  * DO NOT add to this list to make a failing test pass. A new name here means a
  * release was written into the app and never into the repository's changelog.
  * Removing a name after backfilling is the intended direction.
+ *
+ * Note for whoever closes the rest: a backfilled entry whose heading does not
+ * match `## [X.Y.Z] - YYYY-MM-DD` exactly is invisible to the regex below, and
+ * on its own that failure is SILENT — the entry sits in the file, uncounted,
+ * and every assertion here still passes. What catches it is removing the
+ * version from this list in the same commit, which turns the miss into a
+ * "never written into CHANGELOG.md" failure. Do both halves together, always.
  */
 const KNOWN_MISSING_FROM_MARKDOWN = [
   '0.28.0',
@@ -43,22 +52,6 @@ const KNOWN_MISSING_FROM_MARKDOWN = [
   '0.18.8',
   '0.18.7',
   '0.18.6',
-  '0.16.3',
-  '0.16.2',
-  '0.16.1',
-  '0.16.0',
-  '0.15.2',
-  '0.15.1',
-  '0.15.0',
-  '0.14.0',
-  '0.13.0',
-  '0.12.0',
-  '0.11.0',
-  '0.10.0',
-  '0.9.0',
-  '0.8.0',
-  '0.7.0',
-  '0.6.0',
 ];
 
 describe('changelog surfaces agree', () => {
