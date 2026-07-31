@@ -6,7 +6,17 @@
   },
   "changelog": {
     "file": "CHANGELOG.md",
-    "headingPattern": "^## \\[(\\d+\\.\\d+\\.\\d+)\\]"
+    "headingPattern": "^## \\[(\\d+\\.\\d+\\.\\d+)\\]",
+
+    "_extraSurfacesNote": "There is no public/CHANGELOG.md here — the in-app data file is the only other surface. This check is deliberately REDUNDANT with the KNOWN_MISSING_FROM_MARKDOWN ratchet in the test suite, which asserts every version in changelogData.ts also appears in CHANGELOG.md. The ratchet is the stronger guard (it checks all 84 versions, not just the newest); this one fails faster and names the fix. Keep both.",
+
+    "extraSurfaces": [
+      {
+        "file": "src/app/changelog/changelogData.ts",
+        "match": "firstVersion",
+        "note": "In-app changelog. Sections use `title`, not `heading` — the landing page uses the other key."
+      }
+    ]
   },
   "claudeMdVersionPatterns": [
     "Live facts: APP_VERSION (\\d+\\.\\d+\\.\\d+)",

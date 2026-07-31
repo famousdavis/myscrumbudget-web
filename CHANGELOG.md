@@ -4,6 +4,16 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.34.8] - 2026-07-31
+
+Tooling only — no functional, data, or interface changes. The app behaves identically to v0.34.7.
+
+The release checks could only ever be told about one changelog file, so any other copy a project kept was invisible to them. Six of the nine SPERT® Suite repositories keep the same history in two or three places at once. They can now be told about all of them, checked either as an exact copy or as an in-app version history whose newest entry must match the release being shipped.
+
+This project keeps two: this file and the version history built into the app. The new check on the second one is deliberately redundant — the test suite already refuses a release where any of the 84 versions is missing from one side or the other. That remains the stronger guard, because it checks every version rather than only the newest. The new check simply fails sooner and says which file to fix. Both are kept.
+
+Each new check was deliberately broken before being trusted: a copy was altered, an entry was removed, and a file was deleted, and the checks were confirmed to fail in each case.
+
 ## [0.34.7] - 2026-07-31
 
 Tooling only — no functional, data, or interface changes. The app behaves identically to v0.34.6.
