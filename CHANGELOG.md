@@ -4,6 +4,14 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.34.7] - 2026-07-31
+
+Tooling only — no functional, data, or interface changes. The app behaves identically to v0.34.6.
+
+The automated release checks were told to run on "Node 24", written directly into the workflow file. That is not the same as the version this repository pins: it resolves to whichever 24.x release the build service happens to have on hand, and the pin recorded alongside the source was never read. The workflow now reads that file, so the version is stated in exactly one place.
+
+The version actually selected is unchanged, because the pin here names a major line rather than an exact release — deliberately, so each build picks up the newest secure patch in that line. What changes is that a companion repository which holds back from the newest Node release on purpose, to avoid a fault that breaks server-rendered pages, will have that instruction honoured once it gains the same checks rather than silently overridden.
+
 ## [0.34.6] - 2026-07-31
 
 Record-keeping only — no functional, data, or interface changes. The app behaves identically to v0.34.5.
