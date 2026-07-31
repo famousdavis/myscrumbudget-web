@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.34.8',
+    date: '2026-07-31',
+    sections: [
+      {
+        title: 'Changed',
+        items: [
+          'Tooling only. Nothing in the app itself changed — it behaves identically to v0.34.7.',
+          'The release checks can now be told about every copy of a changelog a project keeps, rather than just one. This project keeps two: the file alongside the source, and this version history inside the app. The new check on this one is deliberately redundant with the existing test that refuses a release where any version is missing from either side — that test remains the stronger guard, and both are kept.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.34.7',
     date: '2026-07-31',
     sections: [
