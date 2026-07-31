@@ -13,16 +13,19 @@ import { CHANGELOG } from '../../app/changelog/changelogData';
  * The changelog lives in two places and nothing has ever held them together:
  *
  *   - `src/app/changelog/changelogData.ts` — what the app renders. This is the
- *     authoritative, complete history (82 entries).
- *   - `CHANGELOG.md` — the record in the repository (77 entries).
+ *     authoritative, complete history.
+ *   - `CHANGELOG.md` — the record in the repository.
  *
- * `CHANGELOG.md` was missing 21 versions the app has always rendered. Sixteen of
- * them — 0.6.0 through 0.16.3, one contiguous run between 0.17.0 and 0.5.0 —
- * were transcribed from the data file in v0.34.5, leaving the five in
- * KNOWN_MISSING_FROM_MARKDOWN below. The remainder are scattered rather than
- * contiguous, so they insert at three separate anchors. The same defect exists
- * across the suite: SPERT AHP was missing one version, GanttApp 17, SPERT
- * Scheduler 33.
+ * The two now hold the same 83 versions, and this is the first point at which
+ * that has ever been true. `CHANGELOG.md` was missing 21 versions the app had
+ * always rendered: 0.6.0 through 0.16.3 were transcribed in v0.34.5, and the
+ * last five — 0.18.6, 0.18.7, 0.18.8, 0.20.0 and 0.28.0, scattered across three
+ * separate anchors — in v0.34.6. KNOWN_MISSING_FROM_MARKDOWN is deliberately
+ * kept at zero length rather than deleted; see the note on it below.
+ *
+ * The same defect is still open elsewhere in the suite: SPERT Scheduler is
+ * missing 33 versions and GanttApp 17, each recorded and ratcheted the same way.
+ * SPERT AHP was missing one and closed it in v0.18.16.
  *
  * The second failure mode is an entry that renders as a bare heading. An entry
  * with no sections, or a section with no items, produces exactly that — and the
@@ -32,27 +35,31 @@ import { CHANGELOG } from '../../app/changelog/changelogData';
  */
 
 /**
- * Versions present in `changelogData.ts` but absent from `CHANGELOG.md`, as
- * measured on 2026-07-31.
+ * Versions present in `changelogData.ts` but absent from `CHANGELOG.md`. Empty
+ * as of 2026-07-31, and it should stay that way.
  *
- * DO NOT add to this list to make a failing test pass. A new name here means a
+ * This is kept at zero length on purpose rather than deleted, and the two tests
+ * that read it are kept with it. Emptied, they assert something stronger than
+ * they did while it had names in it: the "no NEW gap" test becomes a plain
+ * every-version-is-in-both check with no exemptions, and the ratchet below it
+ * becomes a guard against anyone reintroducing an exemption. Deleting the list
+ * would mean deleting both, and the next release that forgot a changelog entry
+ * would land unnoticed — which is the exact defect that took 21 versions to
+ * accumulate here. Both directions were re-verified by mutation once the list
+ * was emptied, not assumed.
+ *
+ * DO NOT add a name here to make a failing test pass. A name here means a
  * release was written into the app and never into the repository's changelog.
- * Removing a name after backfilling is the intended direction.
+ * Write the entry instead; that is a two-minute job and this list is not.
  *
- * Note for whoever closes the rest: a backfilled entry whose heading does not
- * match `## [X.Y.Z] - YYYY-MM-DD` exactly is invisible to the regex below, and
- * on its own that failure is SILENT — the entry sits in the file, uncounted,
- * and every assertion here still passes. What catches it is removing the
- * version from this list in the same commit, which turns the miss into a
- * "never written into CHANGELOG.md" failure. Do both halves together, always.
+ * One trap, learned closing this out: an entry whose heading does not match
+ * `## [X.Y.Z] - YYYY-MM-DD` exactly is invisible to the regex below, and while
+ * a version sits on this list that failure is SILENT — the entry is in the
+ * file, uncounted, and every assertion here still passes. With the list empty
+ * that hole is closed, because there is nothing left to exempt a malformed
+ * entry from the "no NEW gap" check.
  */
-const KNOWN_MISSING_FROM_MARKDOWN = [
-  '0.28.0',
-  '0.20.0',
-  '0.18.8',
-  '0.18.7',
-  '0.18.6',
-];
+const KNOWN_MISSING_FROM_MARKDOWN: string[] = [];
 
 describe('changelog surfaces agree', () => {
   const markdown = readFileSync(join(process.cwd(), 'CHANGELOG.md'), 'utf-8');

@@ -4,6 +4,22 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.34.6] - 2026-07-31
+
+Record-keeping only — no functional, data, or interface changes. The app behaves identically to v0.34.5.
+
+**This file and the in-app changelog now hold the same 84 versions, which has never been true before.** v0.34.5 transcribed the sixteen-version run between v0.17.0 and v0.5.0; this release closes the remaining five — v0.18.6, v0.18.7, v0.18.8, v0.20.0 and v0.28.0 — which are scattered rather than contiguous and insert at three separate anchors. 12 sections and 44 bullets, transcribed from `src/app/changelog/changelogData.ts` and verified character-for-character against it, nothing paraphrased.
+
+`KNOWN_MISSING_FROM_MARKDOWN` goes to zero. **It is kept at zero length rather than deleted, along with the two tests that read it**, because emptied they assert something strictly stronger than they did while it held names: "opens no NEW gap" becomes a plain every-version-is-in-both check with no exemptions available, and the ratchet beside it becomes a guard against anyone reintroducing one. Deleting the list would mean deleting both, and the next release that forgot an entry would land unnoticed — which is precisely how 21 versions accumulated here in the first place. Both directions were re-verified by mutation after emptying, rather than assumed: a version added to the app without a `CHANGELOG.md` entry fails, and a name added back to the list fails.
+
+That also closes the silent-heading hole recorded in v0.34.5. A malformed heading was invisible *because* the version could sit on the exemption list; with nothing left to exempt, a mis-formatted entry now fails the no-gap check outright.
+
+Two of the nine suite repositories still carry this defect: SPERT Scheduler is missing 33 versions and GanttApp 17, both recorded and ratcheted the same way. MyScrumBudget is the first to reach zero.
+
+### Changed
+- Backfilled v0.18.6, v0.18.7, v0.18.8, v0.20.0 and v0.28.0 into `CHANGELOG.md`, transcribed verbatim from the in-app changelog data.
+- Emptied `KNOWN_MISSING_FROM_MARKDOWN` in `src/lib/__tests__/changelog-surfaces.test.ts`, keeping the list and both ratchet tests in place, and typed it `string[]` so the empty literal does not infer `never[]`.
+
 ## [0.34.5] - 2026-07-31
 
 Record-keeping only — no functional, data, or interface changes. The app behaves identically to v0.34.4.
@@ -440,6 +456,35 @@ Security audit release. Twelve findings closed across the canonical Firestore ru
 
 ---
 
+## [0.28.0] - 2026-05-08
+
+### Added
+- Feature flag enabled — bulk invitations live in production as of 2026-05-08.
+- Bulk project invitations. Project owners can invite collaborators by email from the project Sharing section: paste a list of emails (separated by commas, spaces, or newlines), pick a role (Editor or Viewer), and send. Existing SPERT Suite users are auto-added as members; new users receive a one-click join link via email.
+- Pending invitations list: each pending row shows the invitee email, role, and resend counter (N/5). Owners can Resend (capped at 5 per invitation) or Revoke (with a ConfirmDialog). Resend success shows an inline "Invitation re-sent." confirmation that auto-clears after ~3 seconds.
+- Result chips render after each send: green Added (auto-added existing user), blue Invited (new user, email sent), red Failed (CF rejected — rate limit, malformed, etc.), amber Invalid (client-side EMAIL_RE rejection — these never hit the CF, so the textarea retains its content for correction).
+- New /?invite=<token> URL handler: when a user lands on MyScrumBudget via an invite email link, an InvitationBanner appears as a centered card above the page content. Pre-auth state shows Sign in with Google / Microsoft buttons (powered by the new shared useSignInWithTosGate hook). After sign-in, the banner transitions through Verifying → "You now have access to: <project name>" or a 30-second-grace timeout to a "didn't match your account" failure message.
+- Backed by four Firebase Functions in the shared spert-suite project (us-central1): sendInvitationEmail, claimPendingInvitations, revokeInvite, resendInvite. The daily expireInvitations scheduled function (03:00 UTC) sweeps stale pending invitations to expired across all SPERT apps automatically.
+
+### Changed (flag-independent — ships in all v0.28.0 builds)
+- User profiles dual-written to spertsuite_profiles on every auth resolution. The new cross-app collection enables email→uid lookup for the invitation system. Writes are fire-and-forget; failures are warned to the console but do not block sign-in. Privacy-relevant: every signed-in MSB user now has a doc in this shared collection (displayName normalized via getFirstName, email lowercased, photoURL).
+- myscrumbudget_profiles write moved from auth.ts ensureProfile() into AuthProvider.onAuthStateChanged. Previously the profile write only happened at explicit signInWithPopup resolve; it now runs on every auth resolution including page reloads. Returning users' lastLogin timestamp updates on every page load. Body preserved verbatim from ensureProfile (no normalizeDisplayName, "" email fallback, conditional createdAt) — this is a move, not a refactor.
+- AuthProvider callback ordering fixed: setLoading(false) now fires BEFORE setUser(user) inside subscribeToAuth's callback. React 18 batches the two synchronous state updates, but the order matters for downstream effects with deps [user] or [loading] — they now see a clean (loading=false, user=X) transition in a single render instead of an intermediate (loading=true, user=X) state.
+- TOS-gated sign-in logic deduplicated. The pendingProvider/showTosModal/handleSignIn/handleTosAccepted pattern previously inlined separately in CloudStorageModal.tsx and CloudStorageSection.tsx is now in a shared useSignInWithTosGate hook. Behavior identical: auth/popup-closed-by-user and auth/cancelled-popup-request silent-return; auth/popup-blocked surfaces an inline "Pop-up was blocked..." message; all other errors flow through sanitizeFirebaseError. Both consumers refactored to use the hook.
+- Cloud-flip helpers extracted to src/lib/storage/cloudFlipHelpers.ts. setHasUploaded and getHasUploaded were duplicated as private functions in both cloud storage components; they are now shared exports so the new useInvitationLanding hook can flip storage mode on invite arrival without re-implementing the same localStorage protocol.
+- New shared invitation modules: src/lib/firebase/profileWrites.ts (writeSpertsuiteProfile and writeMyscrumbudgetProfile, each with intentional asymmetry comments), src/lib/firebase/claimPendingInvitations.ts (claimPendingInvitationsAndNotify with emailVerified/db/functions guards and Lesson 27 payload gate before dispatching spert:models-changed), src/lib/firebase/invitations.ts (listPendingInvites filtering on (inviterUid, modelId) per Lesson 52, removeCollaborator with three-guard runTransaction per Lesson 50, async callable wrappers with requireFunctions() null-check, mapInvitationError with context discriminator per Lesson 13).
+- src/hooks/useInvitationLanding.ts: state machine driving the InvitationBanner (idle → pre_auth → claiming → claimed | failed). Module-level captureInviteTokenFromUrl() captures ?invite= synchronously at import time before MigrationGuard's null-render can block the banner from mounting. SESSION_KEY consumed on claimed transition, on auto-fail timer, and on dismiss — page reload after any of these does NOT re-show the banner. Effect 5 filters claimed[] to MSB-only (cross-app claims still happen server-side; only the MSB banner display is per-app).
+
+### Performance
+- Parallelized getProjectMembers profile lookups. The legacy serial for-of loop with await getDoc inside scaled wall-time as O(N) round-trips. Now uses Promise.allSettled across all member uids — wall-time drops to O(1) round-trips. A rejected per-uid lookup is logged to console.warn and the member is still surfaced with empty displayName/email (matches prior per-uid try/catch fallback). The existing SharingSection benefits from this immediately; BulkSharingSection inherits it.
+
+### Security
+- CSP connect-src expanded to include https://*.run.app. Firebase Functions v2 callables may resolve to either *.cloudfunctions.net or *.run.app at runtime; without *.run.app, Cloud Run-backed callables would be blocked in production only (localhost cannot detect this). Slated for narrowing to a more specific pattern (likely *.uc.a.run.app for us-central1 v2) in a follow-up commit before the feature flag flips.
+- New runTransaction-based removeCollaborator in src/lib/firebase/invitations.ts replaces the legacy updateDoc-based removeProjectMember (which only had Guard 3, owner-target). The new function adds Guard 1 (self-removal pre-check, before transaction) and Guard 2 (caller-must-be-owner, defense-in-depth inside the transaction read). UI is owner-gated, so Guard 2 should never fire in normal use; it logs a console.warn if it does ("non-owner attempted remove — UI gating bypass?"). First use of runTransaction in the MSB codebase.
+
+### Tests
+- 899 passing across 58 test files (was 863 across 53). New: parseBulkEmails (10 cases — delimiter variants, dedup, empty input, mixed valid/invalid), invitations.ts (10 cases — three guards × two failure paths × happy path × null-functions guard × Lesson 13 mapInvitationError context discriminator), claimPendingInvitations (4 cases — emailVerified guard, payload gate, success dispatch, console.error on CF failure), profileWrites (7 cases — null email skip, lowercased email, normalized displayName, no uid field, serverTimestamp after spread, conditional createdAt, "" fallback for legacy compatibility), captureInviteTokenFromUrl (5 cases — happy path, enabled=false no-op, no-?invite= no-op, idempotency, fragment preservation). vi.hoisted profileWrites mock template documented but skipped — Step 0c audit found zero AuthProvider tests render <AuthProvider>.
+
 ## [0.27.1] - 2026-05-06
 
 ### Fixed
@@ -822,6 +867,32 @@ This release is a targeted security audit of the v0.22.0 Historical Costs Breakd
 - `CloudStorageSection` split `confirmUpload` (main local→cloud migration, reads via delegating repo) from `confirmReupload` (re-upload stragglers, reads a fresh `LocalStorageRepository` — signposted as the only place this is safe)
 - Added 22 new tests: 5 for `pendingSaveRegistry`, 10 for `getFirstName`, 7 for `signOutCleanup` (including the try/finally reload-on-reject guard). Total: 648 tests
 
+## [0.20.0] - 2026-04-19
+
+### Security
+- Hardened sign-out against cross-user data leakage. A centralized performSignOutCleanup() now cancels pending debounced saves before revoking Firebase credentials, clears per-user localStorage keys (msb:projects, msb:settings, msb:teamPool, msb:changeLog, msb:originRef, msb:exportAttribution, msb:ratesReviewed, msb:hasUploadedToCloud), resets storage mode to local, swaps the delegating repo to localStorage, calls firebaseSignOut inside a try/finally, and reloads the page
+- try/finally guarantees the page reload fires even if firebaseSignOut rejects (network failure, revoked token), so the user is never left in a partially-cleaned-up state
+- Local→Cloud migration now reads from the in-memory delegating repo (not a freshly-constructed LocalStorageRepository), closing a cross-user vector where a prior user's localStorage residue could be uploaded to a new user's Firestore account
+- Sign-out preserves device-scoped keys: msb-workspace-id, spert_tos_accepted_version, msb:suppressLocalStorageWarning, msb:theme, msb:version, spert_firstRun_seen (documented inline in signOutCleanup.ts)
+- AuthProvider.signOut now delegates to performSignOutCleanup; CloudStorageSection.handleSignOut and StorageStatusPill.handleSignOut are thin wrappers — no parallel cleanup drift
+- Debounced saves are now cancellable in bulk via a module-level pendingSaveRegistry (each useDebouncedSave instance self-registers on mount)
+- Debounced save errors are now caught and logged to console.error instead of becoming unhandled promise rejections
+
+### UX
+- Auth chip now renders four distinct states. Previously, a signed-in user in local mode saw the same "Sign in" chip as a signed-out user — an already-authenticated user staring at a Sign-in button. New signed-in-local state shows avatar + first name + lock icon, with a popover offering "Switch to Cloud Storage" (navigates to /settings#cloud-storage) and "Sign Out"
+- Clicking "Switch to Cloud Storage" in the chip popover does NOT auto-switch mode; it navigates to the Cloud Storage section where the user explicitly confirms via the existing radio toggle (respects the upload-or-cancel prompt)
+- First-name extraction (Microsoft "Last, First" vs. Google "First Last") extracted to a shared getFirstName utility — no more duplicated logic across chip branches
+- Popup sign-in cancellations no longer surface red error banners. Closing the OAuth popup (auth/popup-closed-by-user) or double-clicking the sign-in button (auth/cancelled-popup-request) is now a silent no-op. Blocked popups show an actionable "Pop-up was blocked. Allow pop-ups for this site and try again." message
+- Cloud Storage section has an id="cloud-storage" anchor for deep-linking from the chip popover
+
+### Technical
+- New src/lib/storage/pendingSaveRegistry.ts — module-level cancel registry for useDebouncedSave instances
+- New src/lib/auth/signOutCleanup.ts — zero-argument performSignOutCleanup() with load-bearing execution order documented inline
+- New src/lib/utils/getFirstName.ts — shared "Last, First" / "First Last" display-name parser
+- StorageStatusPill re-reads storage mode on user changes (not just pathname changes) so sign-in without navigation correctly flips to the new signed-in-local chip branch
+- CloudStorageSection split confirmUpload (main local→cloud migration, reads via delegating repo) from confirmReupload (re-upload stragglers, reads a fresh LocalStorageRepository — signposted as the only place this is safe)
+- Added 22 new tests: 5 for pendingSaveRegistry, 10 for getFirstName, 7 for signOutCleanup (including the try/finally reload-on-reject guard). Total: 648 tests
+
 ## [0.19.1] - 2026-04-09
 
 ### UX
@@ -846,6 +917,29 @@ This release is a targeted security audit of the v0.22.0 Historical Costs Breakd
 - Signed-in state now shows 26px avatar circle with first initial, first name only (not full name), vertical divider, and cloud icon linking to Settings
 - Local/signed-out state shows lock icon with "Local only" label, vertical divider, and "Sign in" link to Settings
 - Suite-standard blue (#0070f3) used for avatar, cloud icon, and sign-in label regardless of app accent color
+
+## [0.18.8] - 2026-04-04
+
+### UX
+- Added persistent top bar to all pages — shows storage mode (Local/Cloud) and signed-in user in the upper-right corner, consistent with other SPERT Suite apps
+- StorageStatusPill: gray "Local" pill when using local storage; blue pill with user initial and display name when signed into cloud; amber "Sign in" pill when cloud mode is selected but not authenticated — all states link to Settings
+- Moved theme toggle (Light/Dark/System) from sidebar bottom to top bar for consistent placement across SPERT Suite apps
+
+### New Components
+- StorageStatusPill (src/components/StorageStatusPill.tsx) — three-state storage/auth indicator with reactive mode detection on navigation
+- TopBar (src/components/TopBar.tsx) — right-aligned utility bar housing ThemeToggle and StorageStatusPill
+
+## [0.18.7] - 2026-04-03
+
+### UX
+- Allocation grid row delete buttons (✕) are now gray by default and turn red on hover, reducing visual clutter
+
+## [0.18.6] - 2026-04-02
+
+### Features
+- Added "Export All Projects" button to Dashboard header for quick JSON export without navigating to Settings
+- Added localStorage warning banner — amber caution banner on every app load when data is stored locally, session-dismissable via "Got it"
+- Added Notifications section in Settings with toggle to permanently suppress the localStorage warning banner
 
 ## [0.18.5] - 2026-03-31
 
