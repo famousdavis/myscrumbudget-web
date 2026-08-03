@@ -4,6 +4,18 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.34.9] - 2026-08-02
+
+Licensing only — no functional, data, or interface changes. The app behaves identically to v0.34.8.
+
+`LICENSE` remains a byte-for-byte copy of the canonical file in the SPERT® Suite landing-page repository, differing only in the project repository URL on line 4. It goes from 726 lines to 756. What the licence permits is unchanged: anyone may still use, study, modify and share this software freely. What changed is the set of conditions attached to it, which now number six rather than four, and each now follows the wording of the standard licence itself rather than paraphrasing it. That matters more than it sounds — the standard licence lets whoever receives the software delete any added condition that strays outside the short list it allows, so a condition worded too ambitiously protects nothing at all.
+
+Two conditions are new. The first says the author's name may not be used to endorse or promote a product built from this software without permission. Nothing else in the licence covered this: the project's trademarks are protected whether the licence mentions them or not, but a personal name has no such protection, and another condition requires that name to stay in the source code. The second applies to anyone who resells this software with a warranty or support contract of their own — if those promises create a liability that lands on the original author, the reseller has to cover it.
+
+One condition was rewritten. The one covering on-screen credit used to require any modified version with a user interface to display a notice. The standard licence permits requiring that existing notices be preserved, not that new ones be created, and it says elsewhere in as many words that a modified work need not add such notices where the original had none. The condition now requires that where a modified version already shows legal notices, the original author's name is kept among them.
+
+Two smaller changes: a modified version may no longer misrepresent where this software came from, and the trademark condition now says plainly that naming this project in order to describe honestly what a fork was derived from is not itself prohibited, provided it does not suggest this project endorses the result.
+
 ## [0.34.8] - 2026-07-31
 
 Tooling only — no functional, data, or interface changes. The app behaves identically to v0.34.7.
