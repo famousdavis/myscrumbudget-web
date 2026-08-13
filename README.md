@@ -68,7 +68,7 @@ See `ARCHITECTURE.md` for the complete technical specification, including domain
 
 ## Legal
 
-The `/legal/` directory contains reference copies of `TOS.pdf` and `PRIVACY.pdf`. The canonical runtime URLs are hosted on the SPERT® Landing Page at Vercel (`https://spert-landing.vercel.app/`).
+The `/legal/` directory contains reference copies of `TOS.pdf` and `PRIVACY.pdf`. The canonical versions used by the app at runtime are https://spertsuite.com/TOS.pdf and https://spertsuite.com/PRIVACY.pdf.
 
 ## License
 
