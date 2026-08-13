@@ -4,6 +4,18 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.35.0] - 2026-08-13
+
+Tooling only — no functional, data, or interface changes. The app behaves identically to v0.34.9.
+
+The release checks now measure how hard each function in the code is to follow, and refuse a release that makes it harder.
+
+The measure is cognitive complexity: roughly, how much you have to hold in your head at once to be sure what a piece of code does. Every branch, loop and nested condition adds to it, and code nested inside other code counts for more than the same logic laid out flat. Fourteen functions currently score above the limit of fifteen. That number is recorded as the accepted starting point — a baseline, not a list of faults. None of those functions changed in this release, and the goal is not to drive the count to zero. Some of them are complicated because the thing they do is complicated, and simplifying them for the sake of the number would be a poor trade.
+
+What the check buys is that the number cannot drift unnoticed. A release that introduces a fifteenth is refused. So is a release where the count falls to thirteen without the recorded baseline being updated in the same change — otherwise a function that was quietly relocated rather than genuinely simplified would read as progress. Both directions were deliberately triggered and confirmed to fail before the check was trusted.
+
+A new command reports the score for every function in a file rather than only those over the limit, and can estimate what a block of code would score if it were lifted out into a function of its own. That second mode exists so that a decision to split something up — or to leave it alone — can be made before any code moves.
+
 ## [0.34.9] - 2026-08-02
 
 Licensing only — no functional, data, or interface changes. The app behaves identically to v0.34.8.
