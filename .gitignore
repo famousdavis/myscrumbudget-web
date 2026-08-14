@@ -96,3 +96,7 @@ next-env.d.ts
 !/SECURITY.md
 !/CONTRIBUTING.md
 !/CODE_OF_CONDUCT.md
+
+# Mutation testing (Stryker) — reports and sandboxes are build output
+reports/
+.stryker-tmp/

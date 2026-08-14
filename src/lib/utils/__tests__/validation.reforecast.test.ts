@@ -370,6 +370,15 @@ describe('validateAllocation — reached through reforecast.allocations', () => 
     expect(result.errors).toContain(`${at}.month: expected YYYY-MM month string`);
   });
 
+  it('rejects a month string with a leading prefix — the pattern is anchored', () => {
+    // Added because mutation testing found the `^` anchor in isValidMonthString
+    // could be deleted with no test noticing: every other month case here fails
+    // the unanchored pattern too, so none of them pinned the anchor.
+    const result = check({ allocations: [{ ...VALID_ALLOCATION, month: 'xx2026-07' }] });
+    expect(result.valid).toBe(false);
+    expect(result.errors).toContain(`${at}.month: expected YYYY-MM month string`);
+  });
+
   it('rejects a non-numeric allocation', () => {
     const result = check({ allocations: [{ ...VALID_ALLOCATION, allocation: '0.5' }] });
     expect(result.valid).toBe(false);
