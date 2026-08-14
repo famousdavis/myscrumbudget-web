@@ -4,6 +4,20 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.36.2] - 2026-08-14
+
+Bug fix. No data or interface changes.
+
+The first-visit notice about the Terms of Service was causing an error on every page load, for every visitor who had not yet dismissed it.
+
+The error was invisible in the sense that mattered least and visible in the sense that mattered most: nothing looked wrong on screen, because the browser silently recovered by discarding the page it had received from the server and rebuilding it. But it was a genuine error, reported on every load, and the rebuild it forced is wasted work on the very first impression of the app.
+
+The cause was a notice that decided whether to show itself by reading the browser's stored settings while the page was first being assembled. The server has no access to those settings and concluded the notice should be hidden; the browser read them and concluded it should be shown. The two disagreeing about what the page contains is precisely the condition browsers report as an error. The notice now starts hidden everywhere and decides whether to appear immediately afterwards, once the page is settled — which is how its sibling notice, the one about data living only in this browser, has worked since v0.21.6.
+
+That sibling is the reason this is worth explaining. It had exactly the same bug, fixed fifteen releases ago. This one was missed because the comment sitting above the faulty code asserted that it was safe — so every subsequent reader, including the one who fixed the sibling, had been told there was nothing to look at. The comment has been corrected to say what the sibling's says, and now records why the pattern is unsafe rather than claiming it is fine.
+
+Every other place in the app that reads stored settings this way was then checked rather than assumed. All of them sit inside a part of the app that does not render until the page has settled, so none of them can produce this error. One of those — the Dashboard's check for whether labor rates have been reviewed — is safe only because of where it sits rather than how it is written, and now says so, along with what would make it unsafe again.
+
 ## [0.36.1] - 2026-08-14
 
 Tests only — no functional, data, or interface changes. The app behaves identically to v0.36.0.

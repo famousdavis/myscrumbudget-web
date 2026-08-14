@@ -11,17 +11,38 @@ import { isTosAccepted } from '@/lib/tos/tosHelpers';
 const FIRST_RUN_KEY = 'spert_firstRun_seen';
 
 export function FirstRunBanner() {
-  // Lazy initializer reads localStorage once on mount; SSR-safe via the
-  // typeof window guard (returns false on the server, actual value on the client).
-  const [visible, setVisible] = useState(() => {
-    if (typeof window === 'undefined') return false;
+  // Always false on the first render — on the server AND on the client. Real
+  // visibility is computed in the effect below, which only runs after hydration.
+  //
+  // ⚠️ Do NOT "simplify" this into a lazy useState initializer with a
+  // `typeof window === 'undefined'` guard. That guard looks SSR-safe and is the
+  // opposite: the server returns false, the client's FIRST render returns the
+  // real localStorage value, and those two disagreeing IS the hydration
+  // mismatch. This component shipped that exact construct — with a comment
+  // claiming it was safe — and produced a React #418 on every page load for
+  // every visitor who had not dismissed this banner. `LocalStorageWarningBanner`
+  // had the same bug fixed in v0.21.6; this one was missed for 15 releases
+  // because its comment asserted the pattern was fine.
+  //
+  // The pattern is only harmless in a component that cannot render during
+  // hydration. Every other lazy-initializer site in this app sits inside
+  // `MigrationGuard`, which returns null on the server and on the client's first
+  // render. This banner and its sibling are rendered OUTSIDE it, which is
+  // precisely why they were the two exposed.
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
     try {
-      const dismissed = localStorage.getItem(FIRST_RUN_KEY) === 'true';
-      return !dismissed && !isTosAccepted();
+      if (localStorage.getItem(FIRST_RUN_KEY) === 'true') return;
+      if (isTosAccepted()) return;
+      // Deliberate: defer until after hydration. Reading these values at
+      // useState init would re-introduce the hydration mismatch.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setVisible(true);
     } catch {
-      return false;
+      // localStorage unavailable — leave hidden
     }
-  });
+  }, []);
 
   // Re-check visibility when storage changes (e.g., after ToS acceptance in modal)
   useEffect(() => {
