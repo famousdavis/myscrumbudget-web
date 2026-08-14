@@ -13,6 +13,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.36.3',
+    date: '2026-08-14',
+    sections: [
+      {
+        title: 'Changed',
+        items: [
+          'Internal record-keeping only. Nothing in the app itself changed — it behaves identically to v0.36.2.',
+          'A decision NOT to restructure the spreadsheet import, and the measurement behind it. The function that reads an uploaded resource-plan spreadsheet is the most intricate single piece of code in the project by some distance, and an obvious candidate for being broken into smaller parts. This release deliberately does not do that — because the tests around it turned out not to be strong enough to make the move safely.',
+          'The distinction matters: a test can run a line of code without checking that the line is right. Measuring the second thing rather than the first showed that around a third of deliberate changes to this function go unnoticed by the tests, despite nearly ninety per cent of its branches being exercised. Restructuring code whose tests do not pin down its behaviour is how a rewrite quietly changes what the software does, so the order has been reversed: strengthen the tests first, then revisit the structure.',
+          'The standard the decision was measured against was written down before the measurement was taken, rather than chosen afterwards to fit it. That reasoning now sits alongside the code, with the specific gaps to close and the shape the restructuring should take once it is safe — including that the obvious split would create a new piece almost as intricate as the problem it solves.',
+          'One gap found along the way is worth naming: the limits on how long a name or role may be in an imported spreadsheet, added as a security measure, have never been exercised by any test.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.36.2',
     date: '2026-08-14',
     sections: [

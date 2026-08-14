@@ -75,6 +75,42 @@ const REQUIRED_META_KEYS: (keyof SourceMeta)[] = [
  * Returns aggregated hard errors (E1–E9) on failure, or rows + soft
  * warnings (W1–W4) on success. Errors are aggregated, not short-circuit —
  * the user sees every issue at once.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * Cognitive complexity 55, against a threshold of 15. DECLINED to decompose,
+ * v0.36.3 — and the reason is not that decomposition is hard. It is that this
+ * function is not yet netted well enough for it to be safe.
+ *
+ * Measured before deciding, with the pass condition written down first:
+ * decompose only if the mutation score clears 70%. It scores 68.10%
+ * (111 killed, 32 survived, 20 no-coverage), or 69.85% counting its nested
+ * callbacks — below the line under either attribution.
+ *
+ * ⚠️ Its 87.34% BRANCH COVERAGE does not contradict that; it is simply not
+ * evidence about it. Coverage says which lines ran, mutation says whether
+ * anything would object if they were wrong, and above the floor the two carry
+ * no relation: elsewhere in this repo costs.ts pairs 93.75% coverage with
+ * 69.57% mutation, while charterBudget.ts pairs LOWER coverage (76.92%) with a
+ * HIGHER score (84.31%). Do not read the coverage figure here as reassurance.
+ *
+ * Restructuring code whose tests do not pin its behaviour is how a refactor
+ * ships a silent change, so the order is: cover first, then revisit this.
+ * What to cover, already identified so the next session need not re-derive it:
+ *   - 15 ConditionalExpression + 8 EqualityOperator survivors — real logic
+ *     mutants, not message-string noise. The tests reach these branches
+ *     without distinguishing their conditions.
+ *   - 20 no-coverage mutants, at the E5 "Role" header check, the all-blank-row
+ *     helper, the W3 "(Unknown)" fallback, and — worth singling out — the E10
+ *     name/role length caps. Those caps are SECURITY hardening added in
+ *     v0.28.2 and they have never executed once, which is the same shape as
+ *     validateHistoricalCostEntry before v0.35.2 netted it.
+ *
+ * When it is netted, the shape is already priced (npm run cc region mode):
+ * meta/E3 cc 9 · header/E5 cc 3 · row parsing cc 17 · W1/W2 cc 14 · W3 cc 7 ·
+ * W4 cc 1, leaving this function around 10. Note that lift creates ONE new
+ * over-threshold function (row parsing at 17), so it trades a finding rather
+ * than removing one and must be justified on readability, not on the count.
+ * ─────────────────────────────────────────────────────────────────────────
  */
 export async function parseResourcePlanWorkbook(
   file: File,
