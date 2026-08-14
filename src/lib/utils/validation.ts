@@ -305,6 +305,24 @@ function validateCharterBudget(cb: unknown, path: string): string[] {
   return errors;
 }
 
+// Cognitive complexity 35, against a threshold of 15. Accepted deliberately, not
+// overlooked — this is a decline, and it was measured before it was made.
+//
+// The natural extraction is the three array blocks below (allocations,
+// productivityWindows, assignments); lifted standalone they price at cc 6, which
+// leaves this function around 29 and still well over the line. Getting under 15
+// would mean breaking a flat checklist of independent field guards into
+// single-caller pass-through helpers — that relocates the complexity into more
+// places to look rather than reducing it, and makes "is every field of Reforecast
+// checked?" harder to answer, which is the one question this function exists to
+// answer. Every other validator in this file sits under the threshold (next
+// highest is 14); this one is long because Reforecast has 15 fields, two
+// cross-field invariants and four child collections, not because it is tangled.
+//
+// What was done instead — the part that actually reduces risk — is netting it:
+// every branch of this function and of the four child validators it reaches is
+// now exercised by validation.reforecast.test.ts. Before that, 20 of the 23
+// rejection paths here had never once executed.
 function validateReforecast(reforecast: unknown, path: string): string[] {
   const errors: string[] = [];
   if (!isObject(reforecast)) {

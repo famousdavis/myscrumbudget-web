@@ -13,6 +13,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.35.2',
+    date: '2026-08-14',
+    sections: [
+      {
+        title: 'Changed',
+        items: [
+          'Internal safeguards only. Nothing in the app itself changed — it behaves identically to v0.35.1.',
+          'Two protections around importing a project file, both covering the same weakness: checks that existed but had never been shown to work.',
+          'When a file is imported, every field of every reforecast is checked — dates are real dates, costs are not negative, an end date is not before its start date. Those checks were written, but almost none had ever been observed rejecting anything: of the twenty-three ways a reforecast can be refused, twenty had never once been triggered in testing. Four further checks — covering staffing assignments, monthly allocations, productivity windows and recorded historical costs — had never run at all, because every test file happened to leave those lists empty.',
+          'A check that has never rejected anything is indistinguishable from one that cannot. Sixty-three tests now drive each one, starting from the rejection rather than the acceptance, so a check that stopped working would be noticed.',
+          'The second protection covers a mistake that has already happened once. Imported files are rebuilt field by field from a list of permitted fields, so nothing unexpected can be smuggled in — but if a new field is added to the app and nobody adds it to that list, the field is silently discarded on every import. That is what happened to project tile colour, quietly dropped from every imported file for seven releases across six weeks. The list is now derived from the field names themselves, so leaving one out stops the build and names the missing field instead of failing silently. Both failure modes were deliberately triggered to confirm the protection fires before it was relied on.',
+          'One function here is more intricate than the project’s complexity limit allows. It was measured rather than assumed, and deliberately left alone: the obvious way to break it up would scatter a single readable checklist across several places without making it simpler. The reasoning is recorded alongside the code, and the function is fully covered by the new tests instead.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.35.1',
     date: '2026-08-13',
     sections: [
