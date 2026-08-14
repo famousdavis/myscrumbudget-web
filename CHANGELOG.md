@@ -4,6 +4,18 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.36.1] - 2026-08-14
+
+Tests only — no functional, data, or interface changes. The app behaves identically to v0.36.0.
+
+The Dashboard now has tests. It did not have any.
+
+That was the largest untested surface in the project, and the one most often changed: the Dashboard screen has been edited seventeen times, more than any comparable piece of the code, while nothing checked that any of those edits left it working. The whole page-level layer of the app — the screens themselves, as opposed to the pieces they are assembled from — had no tests at all.
+
+The most valuable of the new tests protects against silent data loss. Archived projects are hidden from the Dashboard, and dragging a project card to reorder it rewrites the saved list of projects. If the reordering were ever wired to the visible cards rather than to every project, dragging one card would permanently delete every hidden archived project — no error, nothing on screen, the projects simply gone at the next save. That risk was previously guarded only by a written warning in the code. It is now guarded by a test, which was confirmed to fail when the mistake is deliberately introduced.
+
+The remaining tests pin the behaviours a future change is most likely to break by accident: archived projects stay hidden until asked for, archiving your last project shows an "all projects are archived" message rather than resurrecting the first-run setup guide, and deleting a project asks first and does nothing if you decline.
+
 ## [0.36.0] - 2026-08-14
 
 Testing tools only — no functional, data, or interface changes. The app behaves identically to v0.35.2.
