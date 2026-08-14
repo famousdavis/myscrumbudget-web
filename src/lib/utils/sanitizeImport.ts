@@ -36,72 +36,114 @@ import type {
 } from '@/types/domain';
 
 // Per-entity allowlists. Keep alphabetical-within-group for review ease.
+//
+// ⚠️ Each allowlist is DERIVED from a `Record<keyof T, true>` literal rather
+// than written as a bare array, and that is load-bearing — do not "simplify" it
+// back. A bare `ReadonlyArray<keyof T>` annotation ERASES the literal union, so
+// nothing in the type system notices a missing entry: `Exclude<keyof Project,
+// typeof PROJECT_FIELDS[number]>` evaluates to `never` whatever the array
+// actually contains. `Record<keyof T, true>` inverts that — every key of the
+// interface is REQUIRED, so omitting one is a compile error (TS2741, naming the
+// field) caught by the `typecheck` step of the ship gate.
+//
+// This is not hypothetical. `color` was added to `Project` in v0.33.0 and not to
+// PROJECT_FIELDS, so tile colour was silently stripped from every JSON import
+// round-trip for 7 releases across 43 days, until v0.34.0 noticed by accident.
+// The `Object.keys` call preserves insertion order for these (non-numeric
+// string) keys, so the derived arrays are element-for-element what they were.
 
-const LABOR_RATE_FIELDS: ReadonlyArray<keyof LaborRate> = [
-  'role', 'hourlyRate',
-];
+const LABOR_RATE_FIELD_SET: Record<keyof LaborRate, true> = {
+  role: true, hourlyRate: true,
+};
+const LABOR_RATE_FIELDS = Object.keys(LABOR_RATE_FIELD_SET) as ReadonlyArray<keyof LaborRate>;
 
-const HOLIDAY_FIELDS: ReadonlyArray<keyof Holiday> = [
-  'id', 'name', 'startDate', 'endDate',
-];
+const HOLIDAY_FIELD_SET: Record<keyof Holiday, true> = {
+  id: true, name: true, startDate: true, endDate: true,
+};
+const HOLIDAY_FIELDS = Object.keys(HOLIDAY_FIELD_SET) as ReadonlyArray<keyof Holiday>;
 
-const TRAFFIC_LIGHT_FIELDS: ReadonlyArray<keyof TrafficLightThresholds> = [
-  'amberPercent', 'redPercent', 'violetPercent',
-];
+const TRAFFIC_LIGHT_FIELD_SET: Record<keyof TrafficLightThresholds, true> = {
+  amberPercent: true, redPercent: true, violetPercent: true,
+};
+const TRAFFIC_LIGHT_FIELDS = Object.keys(
+  TRAFFIC_LIGHT_FIELD_SET,
+) as ReadonlyArray<keyof TrafficLightThresholds>;
 
-const SETTINGS_FIELDS: ReadonlyArray<keyof Settings> = [
-  'discountRateAnnual', 'laborRates', 'holidays', 'trafficLightThresholds',
-];
+const SETTINGS_FIELD_SET: Record<keyof Settings, true> = {
+  discountRateAnnual: true, laborRates: true, holidays: true, trafficLightThresholds: true,
+};
+const SETTINGS_FIELDS = Object.keys(SETTINGS_FIELD_SET) as ReadonlyArray<keyof Settings>;
 
-const POOL_MEMBER_FIELDS: ReadonlyArray<keyof PoolMember> = [
-  'id', 'name', 'role', 'archived',
-];
+const POOL_MEMBER_FIELD_SET: Record<keyof PoolMember, true> = {
+  id: true, name: true, role: true, archived: true,
+};
+const POOL_MEMBER_FIELDS = Object.keys(POOL_MEMBER_FIELD_SET) as ReadonlyArray<keyof PoolMember>;
 
-const ASSIGNMENT_FIELDS: ReadonlyArray<keyof ProjectAssignment> = [
-  'id', 'poolMemberId',
-];
+const ASSIGNMENT_FIELD_SET: Record<keyof ProjectAssignment, true> = {
+  id: true, poolMemberId: true,
+};
+const ASSIGNMENT_FIELDS = Object.keys(
+  ASSIGNMENT_FIELD_SET,
+) as ReadonlyArray<keyof ProjectAssignment>;
 
-const ALLOCATION_FIELDS: ReadonlyArray<keyof MonthlyAllocation> = [
-  'memberId', 'month', 'allocation',
-];
+const ALLOCATION_FIELD_SET: Record<keyof MonthlyAllocation, true> = {
+  memberId: true, month: true, allocation: true,
+};
+const ALLOCATION_FIELDS = Object.keys(
+  ALLOCATION_FIELD_SET,
+) as ReadonlyArray<keyof MonthlyAllocation>;
 
-const PRODUCTIVITY_WINDOW_FIELDS: ReadonlyArray<keyof ProductivityWindow> = [
-  'id', 'startDate', 'endDate', 'factor',
-];
+const PRODUCTIVITY_WINDOW_FIELD_SET: Record<keyof ProductivityWindow, true> = {
+  id: true, startDate: true, endDate: true, factor: true,
+};
+const PRODUCTIVITY_WINDOW_FIELDS = Object.keys(
+  PRODUCTIVITY_WINDOW_FIELD_SET,
+) as ReadonlyArray<keyof ProductivityWindow>;
 
-const HISTORICAL_COST_FIELDS: ReadonlyArray<keyof HistoricalCostEntry> = [
-  'month', 'cost', 'hours',
-];
+const HISTORICAL_COST_FIELD_SET: Record<keyof HistoricalCostEntry, true> = {
+  month: true, cost: true, hours: true,
+};
+const HISTORICAL_COST_FIELDS = Object.keys(
+  HISTORICAL_COST_FIELD_SET,
+) as ReadonlyArray<keyof HistoricalCostEntry>;
 
-const RISK_PROFILE_FIELDS: ReadonlyArray<keyof RiskProfile> = [
-  'projectType', 'requirementsClarity', 'teamExperience',
-  'orgChangeImpact', 'integrationComplexity', 'cvOverride', 'optimismUpliftPct',
-];
+const RISK_PROFILE_FIELD_SET: Record<keyof RiskProfile, true> = {
+  projectType: true, requirementsClarity: true, teamExperience: true,
+  orgChangeImpact: true, integrationComplexity: true, cvOverride: true,
+  optimismUpliftPct: true,
+};
+const RISK_PROFILE_FIELDS = Object.keys(RISK_PROFILE_FIELD_SET) as ReadonlyArray<keyof RiskProfile>;
 
-const CHARTER_BUDGET_FIELDS: ReadonlyArray<keyof CharterBudget> = [
-  'riskProfile', 'distribution', 'targetPercentile', 'etcIsP80Schedule',
-  'derivedCV', 'derivedSigma', 'etcAtCalculation', 'adjustedCostBasis',
-  'charterBudgetAmount', 'medianAmount', 'calculatedAt',
-];
+const CHARTER_BUDGET_FIELD_SET: Record<keyof CharterBudget, true> = {
+  riskProfile: true, distribution: true, targetPercentile: true, etcIsP80Schedule: true,
+  derivedCV: true, derivedSigma: true, etcAtCalculation: true, adjustedCostBasis: true,
+  charterBudgetAmount: true, medianAmount: true, calculatedAt: true,
+};
+const CHARTER_BUDGET_FIELDS = Object.keys(
+  CHARTER_BUDGET_FIELD_SET,
+) as ReadonlyArray<keyof CharterBudget>;
 
-const REFORECAST_FIELDS: ReadonlyArray<keyof Reforecast> = [
-  'id', 'name', 'createdAt',
-  'startDate', 'endDate', 'reforecastDate',
-  'allocations', 'assignments', 'productivityWindows',
-  'actualCost', 'baselineBudget',
-  'actualsThroughDate', 'notes', 'historicalCosts', 'charterBudget',
-];
+const REFORECAST_FIELD_SET: Record<keyof Reforecast, true> = {
+  id: true, name: true, createdAt: true,
+  startDate: true, endDate: true, reforecastDate: true,
+  allocations: true, assignments: true, productivityWindows: true,
+  actualCost: true, baselineBudget: true,
+  actualsThroughDate: true, notes: true, historicalCosts: true, charterBudget: true,
+};
+const REFORECAST_FIELDS = Object.keys(REFORECAST_FIELD_SET) as ReadonlyArray<keyof Reforecast>;
 
-const PROJECT_FIELDS: ReadonlyArray<keyof Project> = [
-  'id', 'name', 'startDate', 'endDate',
-  'reforecasts', 'activeReforecastId', 'color', 'archived',
-];
+const PROJECT_FIELD_SET: Record<keyof Project, true> = {
+  id: true, name: true, startDate: true, endDate: true,
+  reforecasts: true, activeReforecastId: true, color: true, archived: true,
+};
+const PROJECT_FIELDS = Object.keys(PROJECT_FIELD_SET) as ReadonlyArray<keyof Project>;
 
-const APP_STATE_FIELDS: ReadonlyArray<keyof AppState> = [
-  'version', 'msbExportKind', 'settings', 'teamPool', 'projects',
-  '_originRef', '_storageRef', '_changeLog',
-  '_exportedBy', '_exportedById',
-];
+const APP_STATE_FIELD_SET: Record<keyof AppState, true> = {
+  version: true, msbExportKind: true, settings: true, teamPool: true, projects: true,
+  _originRef: true, _storageRef: true, _changeLog: true,
+  _exportedBy: true, _exportedById: true,
+};
+const APP_STATE_FIELDS = Object.keys(APP_STATE_FIELD_SET) as ReadonlyArray<keyof AppState>;
 
 /**
  * Construct a clean copy of `src` containing only the keys in `allowlist`.
