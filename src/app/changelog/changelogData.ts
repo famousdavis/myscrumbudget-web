@@ -13,6 +13,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.35.1',
+    date: '2026-08-13',
+    sections: [
+      {
+        title: 'Changed',
+        items: [
+          'Tooling only. Nothing in the app itself changed — it behaves identically to v0.35.0.',
+          'The tool that measures how much of the code the tests actually run is now declared as part of the project. It had been in use without ever being written down: the measurements it produced were real, but they relied on a package that happened to be sitting on one machine and was recorded nowhere.',
+          'A fresh copy of this project would not have had it, and a routine clean reinstall would have quietly removed it. A measurement nobody else can repeat is not much better than no measurement at all — and this one was being used to decide which parts of the code to work on next.',
+          'Declaring it fixes that: a clean copy now installs the tool along with everything else, so the coverage figures can be checked rather than taken on trust. Verified the only way worth trusting — by deleting every installed package, reinstalling from the recorded list alone, and confirming the measurement came back identical.',
+          'The package is version-matched to the test runner already in use and has been published for 113 days, comfortably clear of this project’s 60-day waiting period before a new dependency is adopted. Nothing else moved: eleven supporting packages were added, none removed, and no existing package changed version.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.35.0',
     date: '2026-08-13',
     sections: [
