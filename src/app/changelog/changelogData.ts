@@ -13,6 +13,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.36.2',
+    date: '2026-08-14',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'The first-visit notice about the Terms of Service was causing an error on every page load, for every visitor who had not yet dismissed it. Nothing looked wrong on screen — the browser recovered silently by discarding the page it received from the server and rebuilding it — but it was a genuine error on every load, and that rebuild is wasted work on the very first impression of the app.',
+          'The cause: the notice decided whether to show itself by reading this browser’s stored settings while the page was still being assembled. The server has no access to those settings and concluded the notice should be hidden; the browser read them and concluded it should be shown. The two disagreeing about what the page contains is exactly the condition browsers report as an error. The notice now starts hidden everywhere and decides whether to appear immediately afterwards, once the page has settled — which is how its sibling notice, the one about data living only in this browser, has worked since v0.21.6.',
+          'That sibling is why this is worth explaining. It had the identical bug, fixed fifteen releases ago. This one was missed because the comment above the faulty code asserted it was safe, so every later reader — including whoever fixed the sibling — had been told there was nothing to look at. The comment now records why the pattern is unsafe instead of claiming it is fine.',
+          'Every other place in the app that reads stored settings this way was then checked rather than assumed. All of them sit inside a part of the app that does not render until the page has settled, so none can produce this error. One — the Dashboard’s check for whether labor rates have been reviewed — is safe because of where it sits rather than how it is written, and now says so, along with what would make it unsafe again.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.36.1',
     date: '2026-08-14',
     sections: [

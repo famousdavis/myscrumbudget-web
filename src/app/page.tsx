@@ -40,8 +40,19 @@ export default function DashboardPage() {
   const { addToast } = useToast();
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [showArchived, setShowArchived] = useState(false);
-  // Lazy initializer reads localStorage once on mount; SSR-safe via the
-  // typeof window guard (returns false on the server, correct value on the client).
+  // ⚠️ DISPOSITION (v0.36.2): this is the same lazy-initializer-with-typeof-window
+  // construct that caused a production hydration error in FirstRunBanner, and the
+  // comment that used to sit here made the same false claim that it is "SSR-safe".
+  // It is NOT safe in general. It is harmless HERE, and only by accident of nesting:
+  // DashboardPage renders inside MigrationGuard, which returns null on the server and
+  // on the client's first render, so this page never participates in hydration at all
+  // and the two renders can never be compared. Verified in production build with
+  // msb:ratesReviewed='1' and the onboarding guide visible — no hydration error.
+  //
+  // Left as-is deliberately rather than "fixed": moving it to useEffect would add a
+  // render for no behavioural gain. But it is safe for a reason OUTSIDE this file.
+  // If MigrationGuard is ever changed to render its children during SSR, this becomes
+  // a live bug — convert it to useState(false) + useEffect, as FirstRunBanner now is.
   const [ratesReviewed] = useState(() => {
     if (typeof window === 'undefined') return false;
     try {
