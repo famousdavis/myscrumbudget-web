@@ -30,6 +30,20 @@ export function useCloudSync(): void {
   const { user } = useAuth();
   const unsubscribersRef = useRef<Unsubscribe[]>([]);
 
+  // ⚠️ DISPOSITION (v0.37.0): this effect's dependency array is [user], but the
+  // storage mode is read IMPERATIVELY on the line below. A mode flip that does
+  // not also change the user identity therefore does NOT re-run this effect, so
+  // switching local → cloud in place would leave no listeners attached.
+  //
+  // That is safe TODAY, but by circumstance rather than by construction: every
+  // mode switch forces a full page reload (see the Cloud Storage section), which
+  // remounts everything. Nothing in THIS file enforces that, and nothing fails
+  // if the reload is removed — the listeners would simply never attach, silently.
+  //
+  // If the forced reload is ever dropped, this becomes live: add the mode to the
+  // dependency array (it must then come from state, not a localStorage read) or
+  // subscribe to mode changes. Same shape, and the same reason for recording it,
+  // as the ratesReviewed note in src/app/page.tsx.
   useEffect(() => {
     const isCloud = getStorageMode() === 'cloud';
     if (!isCloud || !user || !db) return;
