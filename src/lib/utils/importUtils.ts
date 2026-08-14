@@ -249,6 +249,50 @@ export function buildBannerText(result: ImportMergeResult): string {
  * consistent with how firestoreRepo.importAll handles it — the per-document
  * Firestore _changeLog is separate and not updated here.
  */
+/*
+ * ───────────────────────────────────────────────────────────────────────────
+ * Cognitive complexity 69 — the highest in the repo, against a threshold of 15.
+ * DECOMPOSITION DECLINED, v0.36.6. Note this declines for the OPPOSITE reason to
+ * parseResourcePlanWorkbook: that one is not netted well enough to restructure
+ * safely, whereas this one IS. Here it is the decomposition itself that does not
+ * pay.
+ *
+ * Evidence, measured at v0.36.6 (`npm run mutate -- --mutate
+ * 'src/lib/utils/importUtils.ts'`, then survivors classified by enclosing
+ * function): mutation score 85.15%, 86 killed / 15 survived / 0 no-coverage,
+ * against a pass condition fixed beforehand of ≥85% netted · 70–84% cover first
+ * · <70% not netted. So restructuring would be SAFE — the tests would object to a
+ * behaviour change made while moving code.
+ *
+ * ⚠️ That verdict sits one mutant above its own bar (a single further survivor
+ * gives 84.31%). It does not matter here, because the decision is made by the
+ * second gate, not the first — but do not quote 85.15% as comfortable.
+ *
+ * The second gate is what declines it: a decomposition is only worth adopting if
+ * it reduces the number of over-threshold functions. Every available shape fails
+ * that (`npm run cc <file> <start>-<end>`, regions named rather than numbered
+ * because line numbers move):
+ *
+ *   team-pool block   cc 12     settings block   cc  6     fresh-read block cc 0
+ *   PROJECTS LOOP     cc 48     changelog block  cc  1     notify block     cc 2
+ *
+ * Lifting all six leaves this function near zero and creates a cc 48 function —
+ * one finding replaced by one barely-smaller finding. Going inside the loop does
+ * not rescue it either: the target-resolution section alone prices at cc 18, and
+ * is still over.
+ *
+ * ⚠️ And the loop is not a pure move in any case. It uses FIVE `continue`
+ * statements to mean "fall back to add", so any extraction has to re-encode that
+ * control flow as a return value — a behaviour-preserving rewrite, not a lift.
+ * That is precisely the kind of change the 85.15% makes safe to attempt and the
+ * cc numbers say is not worth attempting.
+ *
+ * Worth covering before any future revisit — the survivors are concentrated, not
+ * scattered: 6 ConditionalExpression (the decision and conflict-type branches at
+ * the top of the loop), the `p.name.trim().length > 0` filter guarding the
+ * name index, and the changelog gate's `addedCount + replacedCount > 0`.
+ * ───────────────────────────────────────────────────────────────────────────
+ */
 export async function applyImportMerge(
   preview: MergePreview,
 ): Promise<ImportMergeResult> {
