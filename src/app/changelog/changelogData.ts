@@ -13,6 +13,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.36.5',
+    date: '2026-08-14',
+    sections: [
+      {
+        title: 'Changed',
+        items: [
+          'Tests only. Nothing in the app itself changed — it behaves identically to v0.36.4.',
+          'The part of the app that receives changes from the cloud now has tests. It had none at all. When Cloud Storage is switched on, the app listens for changes made elsewhere — another tab, another machine, or someone the project is shared with — and reloads the affected data. That layer had never been exercised by a single test, despite being where several past defects have lived.',
+          'Four behaviours are now pinned. Changes the app itself just made are recognised as its own and ignored, rather than treated as news from elsewhere and reloaded in a loop. A change to settings reloads both settings and the team pool, because the two are stored together. When access to a project is withdrawn — a share revoked, or a sign-out elsewhere — the affected data is dropped from view deliberately and without an error message, since the person concerned generally caused it. And a genuine connection failure produces exactly one warning rather than two, even though there are two listeners that can fail at once.',
+          'Two of the checks pinned here come from an earlier security review: when a listener fails, the message written to the browser’s developer console contains only an error code, never the underlying details, which can carry project identifiers. That was previously guaranteed by nothing but the code itself.',
+          'Also recorded, without changing behaviour: the listening layer is set up when the signed-in user changes, and reads the storage mode at that moment. Switching between local and cloud storage without signing in or out therefore relies on the app reloading the page to reattach the listeners — which it does today. The code now says so, and says what would need to change if that reload ever went away.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.36.4',
     date: '2026-08-14',
     sections: [
