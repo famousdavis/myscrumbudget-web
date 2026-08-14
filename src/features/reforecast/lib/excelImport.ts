@@ -82,9 +82,13 @@ const REQUIRED_META_KEYS: (keyof SourceMeta)[] = [
  * function is not yet netted well enough for it to be safe.
  *
  * Measured before deciding, with the pass condition written down first:
- * decompose only if the mutation score clears 70%. It scores 68.10%
- * (111 killed, 32 survived, 20 no-coverage), or 69.85% counting its nested
- * callbacks — below the line under either attribution.
+ * ≥85% decompose · 70–84% decline and cover first · <70% decline, not netted.
+ *
+ * v0.36.3 measured 68.10% (111 killed, 32 survived, 20 no-coverage) — the
+ * bottom band. v0.36.4 netted the E10 caps below, which moved it to 73.01%
+ * (154 killed, 44 survived, 16 no-coverage): still a DECLINE, now for the
+ * milder reason. The verdict did not change; the number did, and this comment
+ * is updated rather than left asserting a figure that is no longer true.
  *
  * ⚠️ Its 87.34% BRANCH COVERAGE does not contradict that; it is simply not
  * evidence about it. Coverage says which lines ran, mutation says whether
@@ -99,11 +103,11 @@ const REQUIRED_META_KEYS: (keyof SourceMeta)[] = [
  *   - 15 ConditionalExpression + 8 EqualityOperator survivors — real logic
  *     mutants, not message-string noise. The tests reach these branches
  *     without distinguishing their conditions.
- *   - 20 no-coverage mutants, at the E5 "Role" header check, the all-blank-row
- *     helper, the W3 "(Unknown)" fallback, and — worth singling out — the E10
- *     name/role length caps. Those caps are SECURITY hardening added in
- *     v0.28.2 and they have never executed once, which is the same shape as
- *     validateHistoricalCostEntry before v0.35.2 netted it.
+ *   - 16 no-coverage mutants, at the E5 "Role" header check, the all-blank-row
+ *     helper, and the W3 "(Unknown)" fallback. (The E10 length caps were the
+ *     fourth site here until v0.36.4: security hardening from v0.28.2 that had
+ *     been REACHED 20 times and never once taken, so line coverage showed it
+ *     as covered while the guard had never done anything. Now netted.)
  *
  * When it is netted, the shape is already priced (npm run cc region mode):
  * meta/E3 cc 9 · header/E5 cc 3 · row parsing cc 17 · W1/W2 cc 14 · W3 cc 7 ·

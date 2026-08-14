@@ -116,6 +116,47 @@ describe('useDebouncedSave', () => {
     consoleSpy.mockRestore();
   });
 
+  /* ── L9: the debounced save's failure log must not carry the payload ──
+   *
+   * v0.28.2 added this guarantee and, until v0.36.4, the line it guards had
+   * never executed: the surrounding debounce ran 149 times in the suite while
+   * this catch ran zero times — in a file reporting 84.8% coverage. The file's
+   * own number argued that something had checked it. Nothing had.
+   *
+   * The assertion is deliberately about ABSENCE of the payload rather than the
+   * exact call shape. The property worth protecting is "a Project / Settings /
+   * TeamPool payload containing member emails or UIDs never reaches the
+   * console", not "console.error was called with two arguments".
+   */
+  it('save failure logs the error WITHOUT the payload (no PII in console)', async () => {
+    vi.useRealTimers();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const saveFn = vi.fn().mockRejectedValue(new Error('firestore unavailable'));
+    const { result } = renderHook(() =>
+      useDebouncedSave<{ email: string }>(saveFn),
+    );
+
+    // A payload carrying exactly the kind of value the guard exists to keep out.
+    const SECRET = 'member@example.com';
+    act(() => result.current.save({ email: SECRET }));
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 600));
+    });
+
+    expect(saveFn).toHaveBeenCalledWith({ email: SECRET });
+    expect(consoleSpy).toHaveBeenCalled();
+
+    // No logged argument, at any depth, may contain the payload.
+    const logged = consoleSpy.mock.calls.flat();
+    const serialised = logged
+      .map((a) => (a instanceof Error ? a.message : JSON.stringify(a) ?? String(a)))
+      .join(' ');
+    expect(serialised).not.toContain(SECRET);
+    expect(serialised).toContain('firestore unavailable');
+
+    consoleSpy.mockRestore();
+  });
+
   describe('registry integration', () => {
     it('flush registered with registry is called by flushAll()', async () => {
       vi.useRealTimers();

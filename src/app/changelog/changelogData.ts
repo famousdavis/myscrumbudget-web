@@ -13,6 +13,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.36.4',
+    date: '2026-08-14',
+    sections: [
+      {
+        title: 'Changed',
+        items: [
+          'Tests only. Nothing in the app itself changed — it behaves identically to v0.36.3.',
+          'Two safety checks that had never been tried are now tried. An audit several releases ago added a set of defensive checks across the app; a review of all seventeen found that eleven had never actually run. Two of those were worth fixing immediately, for opposite reasons.',
+          'The first limits how long a name or role may be in an imported spreadsheet, so a deliberately malformed file is rejected cleanly at import rather than failing later with an unhelpful message. It is consulted on every row of every import — twenty times over in the tests alone — and had never once rejected anything, because no test supplied an over-long value. Being consulted constantly is what made it invisible: by the usual measure the code looked thoroughly tested.',
+          'The second keeps the contents of a failed save out of the browser console, so a project’s team details cannot end up in a log. The line carrying that guarantee had never executed, because no test had ever made a save fail — in a file where the usual measure reported most of the code as exercised.',
+          'Both are now covered, including the exact boundary cases, so a future change that weakens either would be caught. Neither check was altered; only tested. Nine of the eleven remain unexercised and are recorded for later — most sit in two parts of the app with no tests at all, which is a larger piece of work than this one.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.36.3',
     date: '2026-08-14',
     sections: [

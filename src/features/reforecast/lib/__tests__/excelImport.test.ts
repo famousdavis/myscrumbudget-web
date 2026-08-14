@@ -524,6 +524,99 @@ describe('parseResourcePlanWorkbook — data row validation', () => {
     expect(result.errors.some((e) => e.startsWith('E9'))).toBe(true);
   });
 
+  /* ── E10: name / role length caps (v0.28.2 security hardening) ──────
+   *
+   * These caps shipped in v0.28.2 and, until v0.36.4, had never fired once.
+   * The `if` conditions around them ran 20 times in the suite while the
+   * rejections inside them ran zero times — so line coverage reported this
+   * code as covered and only branch-level measurement showed the guard had
+   * never actually done anything. A guard that is reached constantly and
+   * never taken is indistinguishable from one that does not work.
+   *
+   * The exact-length cases are not padding: without them the comparison could
+   * be changed from `>` to `>=` and nothing would object.
+   */
+  it('E10: rejects a name longer than 200 characters', async () => {
+    const file = await buildWithRows((sheet) => {
+      sheet.getCell(5, 1).value = 'A'.repeat(201);
+      sheet.getCell(5, 2).value = 'Developer';
+      sheet.getCell(5, 3).value = 0.5;
+    });
+    const result = await parseResourcePlanWorkbook(
+      file,
+      makeProject(),
+      makeReforecast(),
+      [],
+      SETTINGS,
+      MONTHS,
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors).toContain('E10: row 5 name exceeds 200 characters');
+  });
+
+  it('E10: rejects a role longer than 100 characters', async () => {
+    const file = await buildWithRows((sheet) => {
+      sheet.getCell(5, 1).value = 'Alice';
+      sheet.getCell(5, 2).value = 'R'.repeat(101);
+      sheet.getCell(5, 3).value = 0.5;
+    });
+    const result = await parseResourcePlanWorkbook(
+      file,
+      makeProject(),
+      makeReforecast(),
+      [],
+      SETTINGS,
+      MONTHS,
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors).toContain('E10: row 5 role exceeds 100 characters');
+  });
+
+  it('E10: accepts a name of exactly 200 and a role of exactly 100 (the cap is exclusive)', async () => {
+    const file = await buildWithRows((sheet) => {
+      sheet.getCell(5, 1).value = 'A'.repeat(200);
+      sheet.getCell(5, 2).value = 'R'.repeat(100);
+      sheet.getCell(5, 3).value = 0.5;
+    });
+    const result = await parseResourcePlanWorkbook(
+      file,
+      makeProject(),
+      makeReforecast(),
+      [],
+      SETTINGS,
+      MONTHS,
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].name).toHaveLength(200);
+  });
+
+  it('E10: skips the offending row rather than aborting the whole parse', async () => {
+    // The guard `continue`s, so a later valid row must still be reported —
+    // and the row number in the message must identify the right row.
+    const file = await buildWithRows((sheet) => {
+      sheet.getCell(5, 1).value = 'A'.repeat(201);
+      sheet.getCell(5, 2).value = 'Developer';
+      sheet.getCell(6, 1).value = 'Bob';
+      sheet.getCell(6, 2).value = 'QA';
+    });
+    const result = await parseResourcePlanWorkbook(
+      file,
+      makeProject(),
+      makeReforecast(),
+      [],
+      SETTINGS,
+      MONTHS,
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.errors).toContain('E10: row 5 name exceeds 200 characters');
+    expect(result.errors.filter((e) => e.startsWith('E10'))).toHaveLength(1);
+  });
+
   it('allocation interpretation: 0.5 → 0.5, 75 → 0.75, 100 → 1, 100.0001 → E8', async () => {
     const file = await buildWithRows((sheet) => {
       sheet.getCell(5, 1).value = 'Alice';
