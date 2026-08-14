@@ -1,6 +1,6 @@
 {
   "name": "my-scrum-budget",
-  "version": "0.35.2",
+  "version": "0.36.0",
   "private": true,
   "engines": {
     "node": "24.x"
@@ -14,7 +14,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "cc": "node scripts/measure-complexity.mjs",
-    "shipgate": "node scripts/shipgate.mjs"
+    "shipgate": "node scripts/shipgate.mjs",
+    "mutate": "node scripts/mutation-guard.mjs"
   },
   "dependencies": {
     "exceljs": "^4.4.0",
@@ -25,6 +26,9 @@
     "react-dom": "19.2.5"
   },
   "devDependencies": {
+    "@stryker-mutator/core": "9.6.1",
+    "@stryker-mutator/typescript-checker": "9.6.1",
+    "@stryker-mutator/vitest-runner": "9.6.1",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",

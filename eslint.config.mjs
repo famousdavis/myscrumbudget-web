@@ -8,7 +8,11 @@ import nextTs from "eslint-config-next/typescript";
 import sonarjs from "eslint-plugin-sonarjs";
 
 const eslintConfig = defineConfig([
-  { ignores: [".claude/**"] },
+  // .stryker-tmp holds Stryker's sandbox COPIES of the whole project — including,
+  // mid-run, deliberately mutated source. Linting them reported 522 problems
+  // against an accepted baseline of 14, all of them from duplicated files.
+  // reports/ is Stryker's generated output. Both are build artifacts.
+  { ignores: [".claude/**", ".stryker-tmp/**", "reports/**"] },
   // Cognitive complexity only — NOT sonarjs.configs.recommended. The plugin is
   // here to answer "where is this code hard to change safely?", which is the one
   // question scripts/measure-complexity.mjs needs it present for. Threshold 15

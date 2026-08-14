@@ -13,6 +13,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.36.0',
+    date: '2026-08-14',
+    sections: [
+      {
+        title: 'Added',
+        items: [
+          'Testing tools only. Nothing in the app itself changed — it behaves identically to v0.35.2.',
+          'The project can now check whether its tests would actually notice a mistake. Test coverage answers a narrower question than it appears to: it reports which lines ran, not whether anything checked the result. A test that calls a function and inspects nothing counts exactly the same as one that verifies every number it returns.',
+          'Mutation testing asks the harder question directly — it makes small deliberate changes to the code, one at a time, and re-runs the tests. Any change the tests fail to complain about is a change that could be made by accident and shipped unnoticed.',
+          'That distinction mattered immediately: the file computing project metrics has every line and branch covered, and still failed to notice when the sort was removed from the list of active months. The tests checked which months came back, never in what order.',
+          'The calculation engine now has a recorded baseline of 88.8%. Two files with complete line coverage were found to be leaking, and one — the statistical helpers behind the Charter Budget — had no tests of its own at all, so both of its extreme-value branches had never once run. It has proper tests now, which is what moved the engine’s figure up from 73.6%.',
+          'The same tooling was pointed once at the import checks tightened in the previous release, to confirm that work was real rather than merely present. All two hundred deliberate changes to that area were caught, after one gap was found and closed: a check on month formats could be loosened to accept text in front of the date, and nothing objected.',
+          'This is deliberately a recorded measurement rather than a release requirement — it takes minutes to run and is not part of the release checks. The runner refuses to report a result when a run fails to start, because a run that never starts finds no problems and looks exactly like a run where nothing is wrong.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.35.2',
     date: '2026-08-14',
     sections: [
