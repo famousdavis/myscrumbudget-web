@@ -4,6 +4,20 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.36.3] - 2026-08-14
+
+Internal record-keeping only — no functional, data, or interface changes. The app behaves identically to v0.36.2.
+
+A decision not to restructure the spreadsheet import, and the measurement behind it.
+
+The function that reads an uploaded resource-plan spreadsheet is the most intricate single piece of code in the project by some distance. It is an obvious candidate for being broken into smaller parts, and this release deliberately does not do that — because the tests around it turned out not to be strong enough to make the move safely.
+
+The distinction matters. A test can run a line of code without checking that the line is right. Measuring the second thing rather than the first showed that around a third of deliberate changes to this function go unnoticed by the tests, despite nearly ninety per cent of its branches being exercised by them. Restructuring code whose tests do not pin down its behaviour is how a rewrite quietly changes what the software does, so the order has been reversed: strengthen the tests first, then revisit the structure.
+
+The standard the decision was measured against was written down before the measurement was taken, rather than chosen afterwards to fit it. That reasoning now sits alongside the code, together with the specific gaps to close and the shape the restructuring should take once it is safe — including the observation that the obvious split would create a new piece almost as intricate as the problem it solves.
+
+One gap found along the way is worth naming: the limits on how long a name or role may be in an imported spreadsheet, added as a security measure, have never been exercised by any test.
+
 ## [0.36.2] - 2026-08-14
 
 Bug fix. No data or interface changes.
