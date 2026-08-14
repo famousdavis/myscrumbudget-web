@@ -4,6 +4,18 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.35.1] - 2026-08-13
+
+Tooling only — no functional, data, or interface changes. The app behaves identically to v0.35.0.
+
+The tool that measures how much of the code the tests actually run is now declared as part of the project.
+
+It had been in use without ever being written down. The measurements it produced were real, but they relied on a package that happened to be sitting on one machine and was recorded nowhere. A fresh copy of this project would not have had it, and a routine clean reinstall would have quietly removed it. A measurement nobody else can repeat is not much better than no measurement at all, and this one was being used to decide which parts of the code to work on next.
+
+Declaring it fixes that. A clean copy of the project now installs the tool along with everything else, so the coverage figures can be checked rather than taken on trust. This was verified the only way worth trusting: by deleting every installed package, reinstalling from the recorded list alone, and confirming the measurement came back identical — 152 files, 44.89% of branches.
+
+The package is version-matched to the test runner already in use, and has been published for 113 days, comfortably clear of this project's 60-day waiting period before a new dependency is adopted. Nothing else moved: eleven supporting packages were added, none removed, and no existing package changed version.
+
 ## [0.35.0] - 2026-08-13
 
 Tooling only — no functional, data, or interface changes. The app behaves identically to v0.34.9.
