@@ -4,6 +4,20 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.36.6] - 2026-08-14
+
+Tests only — no functional, data, or interface changes. The app behaves identically to v0.36.5.
+
+The step that merges an imported file into your existing data is now fully covered by tests.
+
+This is the code that decides, project by project, whether an import adds something new, replaces something you already have, or leaves it alone — and being wrong there means silently losing or overwriting work. It was the most intricate single function in the project and the least completely tested of the ones that matter.
+
+The largest gap was that every existing test ran against local browser storage. The cloud path was untested end to end, including the step that assigns a fresh identifier to each imported project before saving. That step exists because an imported project may carry an identifier that already belongs to someone else's project in the cloud; reusing it would collide. Both modes are now tested, and tested against each other, so the difference between them is pinned rather than assumed.
+
+Also newly covered: what happens when the project an import means to replace has been deleted or renamed by someone else in the meantime, when a different project has since taken the name, when saving the team pool or settings fails, and when a failure arrives in an unexpected form. Several of these paths end in a deliberate decision to add rather than replace — protecting an unrelated project from being overwritten — and none of them had been exercised.
+
+A decision was also recorded not to split this function into smaller pieces. The tests are now strong enough that restructuring it would be safe, which was the open question; the reason for leaving it alone is that every way of splitting it produces a new piece nearly as complicated as the original. That reasoning, and the measurements behind it, now sit alongside the code.
+
 ## [0.36.5] - 2026-08-14
 
 Tests only — no functional, data, or interface changes. The app behaves identically to v0.36.4.

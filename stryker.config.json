@@ -13,7 +13,8 @@
   "mutate": [
     "src/lib/calc/**/*.ts",
     "!src/lib/calc/**/__tests__/**",
-    "src/features/reforecast/lib/excelImport.ts"
+    "src/features/reforecast/lib/excelImport.ts",
+    "src/lib/utils/importUtils.ts"
   ],
   "reporters": [
     "json",

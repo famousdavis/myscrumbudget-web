@@ -489,4 +489,246 @@ describe('applyImportMerge', () => {
     const stored = await repo.getProjects();
     expect(stored.find((p) => p.id === 'gone')).toBeDefined();
   });
+
+  /* ── Cloud mode ────────────────────────────────────────────────────────
+   *
+   * Every applyImportMerge test above runs in the DEFAULT 'local' mode, so
+   * until v0.36.6 the `mode === 'cloud'` arm of all five ternaries in this
+   * function was dead. That is the branch that regenerates Project.id before
+   * writing: in cloud mode an incoming id may already name a Firestore
+   * document belonging to someone else, and reusing it would either collide
+   * or write into a doc this user does not own. Local mode deliberately keeps
+   * the original id for round-trip fidelity — so the two modes must be
+   * asserted to differ, not merely to work.
+   */
+  describe('cloud mode regenerates Project.id on every add path', () => {
+    it('add: writes under a NEW id, not the incoming one', async () => {
+      const incoming = makeProject({ id: 'incoming-id', name: 'From Cloud' });
+      const result = await applyImportMerge(
+        makePreview({ 'incoming-id': 'add' }, [incoming], { mode: 'cloud' }),
+      );
+      expect(result.addedCount).toBe(1);
+
+      const stored = await repo.getProjects();
+      expect(stored).toHaveLength(1);
+      expect(stored[0].id).not.toBe('incoming-id');
+      expect(stored[0].name).toBe('From Cloud');
+    });
+
+    it('local mode KEEPS the incoming id — the two modes genuinely differ', async () => {
+      const incoming = makeProject({ id: 'incoming-id', name: 'From Local' });
+      await applyImportMerge(
+        makePreview({ 'incoming-id': 'add' }, [incoming], { mode: 'local' }),
+      );
+      const stored = await repo.getProjects();
+      expect(stored[0].id).toBe('incoming-id');
+    });
+
+    it('name-conflict target vanished: falls back to add under a new id', async () => {
+      const incoming = makeProject({ id: 'inc', name: 'Ghost Name' });
+      const result = await applyImportMerge(
+        makePreview({ inc: 'replace' }, [incoming], {
+          mode: 'cloud',
+          // Layer 1 saw a name conflict; Layer 2 finds no project with that name.
+          conflicts: {
+            inc: { type: 'name', existingId: 'other', existingName: 'Ghost Name' },
+          },
+        }),
+      );
+      expect(result.addedCount).toBe(1);
+      expect(result.replacedCount).toBe(0);
+      const stored = await repo.getProjects();
+      expect(stored[0].id).not.toBe('inc');
+    });
+
+    it('name now held by a DIFFERENT project: falls back to add rather than clobbering it', async () => {
+      // C3 guard in cloud mode: the original target was renamed/deleted and an
+      // unrelated project took the name. Replacing it would destroy that project.
+      await repo.createProject(makeProject({ id: 'usurper', name: 'Contested' }));
+      const incoming = makeProject({ id: 'inc', name: 'Contested' });
+
+      const result = await applyImportMerge(
+        makePreview({ inc: 'replace' }, [incoming], {
+          mode: 'cloud',
+          conflicts: {
+            inc: { type: 'name', existingId: 'original-target', existingName: 'Contested' },
+          },
+        }),
+      );
+
+      expect(result.addedCount).toBe(1);
+      expect(result.replacedCount).toBe(0);
+      const stored = await repo.getProjects();
+      // The unrelated project is untouched, and the import landed alongside it.
+      expect(stored.find((p) => p.id === 'usurper')).toBeDefined();
+      expect(stored).toHaveLength(2);
+    });
+
+    it('target deleted between layers: cloud gets a NEW id, local reuses the existing one', async () => {
+      const incoming = makeProject({ id: 'gone', name: 'Ghost' });
+      const preview = () =>
+        makePreview({ gone: 'replace' }, [incoming], {
+          mode: 'cloud',
+          conflicts: { gone: { type: 'id', existingId: 'gone', existingName: 'Old' } },
+        });
+
+      await applyImportMerge(preview());
+      const cloudStored = await repo.getProjects();
+      expect(cloudStored[0].id).not.toBe('gone');
+    });
+  });
+
+  describe('name-conflict replace — the path that actually replaces', () => {
+    it('same project still holds the name: replaces it in place, keeping the existing id', async () => {
+      // The false arm of the C3 guard, and the normal case: Layer 2 finds the
+      // very project Layer 1 flagged, so replacing is safe.
+      await repo.createProject(makeProject({ id: 'existing', name: 'Shared Name' }));
+      const incoming = makeProject({ id: 'inc', name: 'Shared Name' });
+
+      const result = await applyImportMerge(
+        makePreview({ inc: 'replace' }, [incoming], {
+          conflicts: {
+            inc: { type: 'name', existingId: 'existing', existingName: 'Shared Name' },
+          },
+        }),
+      );
+
+      expect(result.replacedCount).toBe(1);
+      expect(result.addedCount).toBe(0);
+      const stored = await repo.getProjects();
+      expect(stored).toHaveLength(1);
+      expect(stored[0].id).toBe('existing');
+    });
+
+    it('local mode, name-conflict target vanished: falls back to add keeping the incoming id', async () => {
+      const incoming = makeProject({ id: 'inc', name: 'Ghost Name' });
+      const result = await applyImportMerge(
+        makePreview({ inc: 'replace' }, [incoming], {
+          mode: 'local',
+          conflicts: {
+            inc: { type: 'name', existingId: 'other', existingName: 'Ghost Name' },
+          },
+        }),
+      );
+      expect(result.addedCount).toBe(1);
+      const stored = await repo.getProjects();
+      expect(stored[0].id).toBe('inc');
+    });
+  });
+
+  describe('defensive fallbacks', () => {
+    it("cloud mode: 'replace' with no recorded conflict adds under a new id", async () => {
+      const incoming = makeProject({ id: 'orphan', name: 'Orphan Cloud' });
+      const result = await applyImportMerge(
+        makePreview({ orphan: 'replace' }, [incoming], { mode: 'cloud', conflicts: {} }),
+      );
+      expect(result.addedCount).toBe(1);
+      const stored = await repo.getProjects();
+      expect(stored[0].id).not.toBe('orphan');
+    });
+
+    it("'replace' with no recorded conflict is treated as an add", async () => {
+      // Defensive arm: decisions say replace but conflicts has no entry, so
+      // there is no target to replace. Adding is the safe interpretation.
+      const incoming = makeProject({ id: 'orphan', name: 'Orphan' });
+      const result = await applyImportMerge(
+        makePreview({ orphan: 'replace' }, [incoming], { conflicts: {} }),
+      );
+      expect(result.addedCount).toBe(1);
+      expect(result.replacedCount).toBe(0);
+    });
+
+    it('a project with no decision entry defaults to skip', async () => {
+      // `decisions[project.id] ?? 'skip'` — nothing may be written for a project
+      // the user was never asked about.
+      const incoming = makeProject({ id: 'unasked', name: 'Unasked' });
+      const result = await applyImportMerge(makePreview({}, [incoming]));
+      expect(result.skippedCount).toBe(1);
+      expect(result.addedCount).toBe(0);
+      expect(await repo.getProjects()).toHaveLength(0);
+    });
+  });
+
+  describe('write failures are reported, not swallowed', () => {
+    it('teamPool MERGE failure is counted and named', async () => {
+      const throwing: Repository = {
+        ...createLocalStorageRepository(),
+        saveTeamPool: async () => { throw new Error('pool down'); },
+      };
+      switchRepoImpl(throwing);
+
+      const result = await applyImportMerge(
+        makePreview({}, [], { teamPoolDecision: 'merge' }),
+      );
+      expect(result.errorCount).toBe(1);
+      expect(result.errorMessages[0]).toContain('Team pool merge');
+      expect(result.errorMessages[0]).toContain('pool down');
+    });
+
+    it('teamPool REPLACE failure is counted and named', async () => {
+      const throwing: Repository = {
+        ...createLocalStorageRepository(),
+        saveTeamPool: async () => { throw new Error('pool gone'); },
+      };
+      switchRepoImpl(throwing);
+
+      const result = await applyImportMerge(
+        makePreview({}, [], { teamPoolDecision: 'replace' }),
+      );
+      expect(result.errorCount).toBe(1);
+      expect(result.errorMessages[0]).toContain('Team pool:');
+    });
+
+    it('teamPool REPLACE with a non-Error throw uses the Unknown error fallback', async () => {
+      const throwing: Repository = {
+        ...createLocalStorageRepository(),
+        saveTeamPool: async () => { throw 'a bare string'; },
+      };
+      switchRepoImpl(throwing);
+
+      const result = await applyImportMerge(
+        makePreview({}, [], { teamPoolDecision: 'replace' }),
+      );
+      expect(result.errorMessages[0]).toBe('Team pool: Unknown error');
+    });
+
+    it('settings failure is counted and named', async () => {
+      const throwing: Repository = {
+        ...createLocalStorageRepository(),
+        saveSettings: async () => { throw new Error('settings down'); },
+      };
+      switchRepoImpl(throwing);
+
+      const result = await applyImportMerge(
+        makePreview({}, [], { settingsDecision: 'replace' }),
+      );
+      expect(result.errorCount).toBe(1);
+      expect(result.errorMessages[0]).toContain('Settings:');
+    });
+
+    it('a non-Error throw still produces a message, via the Unknown error fallback', async () => {
+      // Every catch here is `err instanceof Error ? err.message : 'Unknown error'`.
+      // A rejected string took the second arm at no site until now, so nothing
+      // proved the fallback existed rather than the message being undefined.
+      const throwing: Repository = {
+        ...createLocalStorageRepository(),
+        createProject: async () => { throw 'a bare string'; },
+        saveSettings: async () => { throw 'a bare string'; },
+        saveTeamPool: async () => { throw 'a bare string'; },
+      };
+      switchRepoImpl(throwing);
+
+      const result = await applyImportMerge(
+        makePreview({ p1: 'add' }, [makeProject({ id: 'p1' })], {
+          settingsDecision: 'replace',
+          teamPoolDecision: 'merge',
+        }),
+      );
+
+      expect(result.errorCount).toBe(3);
+      for (const msg of result.errorMessages) {
+        expect(msg).toContain('Unknown error');
+      }
+    });
+  });
 });
