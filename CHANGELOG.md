@@ -4,6 +4,22 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.36.8] - 2026-08-15
+
+Tests only — no functional, data, or interface changes. The app behaves identically to v0.36.7.
+
+Two checks that run on every file you import turned out never to have been tested. Both are now.
+
+The first concerns the Charter Budget. When you import a file, the app verifies that the five risk-profile answers it carries — project type, requirements clarity, team experience, organisational change, integration complexity — along with the chosen distribution, are all values it recognises. There are twenty-one such values, and only six had ever appeared in a test. If any of the other fifteen had been lost or mistyped, a perfectly valid saved file would have been rejected on import and the charter budget inside it silently dropped. All twenty-one are now checked, and the full list is written out so that adding a new option without a matching check fails immediately.
+
+Worth noting why the tests take the shape they do: a test that confirms a *bad* value is rejected still passes if a *good* value has gone missing from the list. Only a test that confirms each good value is accepted can catch that, so there is now one per value.
+
+The second concerns holidays. The check that validates each holiday entry in an imported file had never run at all — not once, in any test. Every existing test happened to supply a file with an empty holiday list, so the check was reachable but never reached. It is now tested one branch at a time, including a name made only of spaces, a date that looks right but does not exist on the calendar, and a faulty entry sitting second in the list rather than first.
+
+Each new test was verified by deliberately breaking the corresponding check and confirming the right test — and only the right test — failed.
+
+No production code changed in this release. The file containing both validators is byte-for-byte identical to v0.36.7.
+
 ## [0.36.7] - 2026-08-14
 
 Internal restructuring and tests — no functional, data, or interface changes. The chart it concerns draws exactly as before.
