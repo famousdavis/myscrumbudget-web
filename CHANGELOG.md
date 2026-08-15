@@ -4,6 +4,22 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.36.7] - 2026-08-14
+
+Internal restructuring and tests — no functional, data, or interface changes. The chart it concerns draws exactly as before.
+
+The small distribution chart in the Charter Budget panel had no tests, and could not have had useful ones in the form it was in.
+
+It is drawn onto a canvas, and the drawing code returns nothing — there is no result to inspect. The testing environment used here cannot produce a canvas at all, so a test that simply called the drawing function would have run three lines, stopped, passed, and reported the file as better tested than before while checking nothing whatsoever. That kind of test is worse than none, because it removes the appearance of a gap without removing the gap.
+
+The fix was to separate the decisions from the drawing. Two pieces were lifted out: the one that works out how wide the chart's horizontal axis must be, and the one that computes the curve's height at a given point. Those are ordinary calculations with inputs and outputs, and they are where the judgement calls live — how far past the expected cost to extend the axis for each distribution shape, how to handle a spread wide enough that the curve would otherwise run into negative money, and how much room to leave so the confidence-level marker is never flush against the edge.
+
+Twenty-three tests now cover those decisions. They check properties rather than specific numbers — where the curve peaks, whether it is symmetric, which regions are exactly zero — because the curve is drawn for its shape and its absolute height is deliberately arbitrary. Checking specific heights would have failed against perfectly correct code.
+
+The restructuring was verified to change nothing: the complete sequence of drawing instructions was recorded before and after, across five different chart configurations, and compared instruction by instruction. All 2,014 were identical.
+
+One side effect worth noting: the drawing function is no longer flagged as too complicated to follow, so the project's accepted count of such functions falls from fourteen to thirteen.
+
 ## [0.36.6] - 2026-08-14
 
 Tests only — no functional, data, or interface changes. The app behaves identically to v0.36.5.

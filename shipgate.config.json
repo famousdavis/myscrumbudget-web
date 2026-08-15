@@ -27,8 +27,8 @@
     {
       "name": "lint",
       "run": "npm run lint",
-      "expectProblems": 14,
-      "_note": "eslint exits NON-ZERO here and that is correct — gate on the NUMBER not moving, never on the exit code. `expectProblems` is the single source of truth for the accepted baseline; it is deliberately the only place the count is written, so there is no second copy to go stale. Re-derive it from `npm run lint` immediately before each commit and set it in the same commit. All 14 are sonarjs/cognitive-complexity @ 15, all in production source, zero in test files — derived, not guessed, in the install commit (v0.35.0). William accepted this baseline from three measured options (14 narrow / 77 on sonarjs.configs.recommended / decline); do NOT refactor those functions merely to satisfy the threshold. The ratchet fails in BOTH directions — if problems are resolved, lower it. At true zero, DELETE this key: eslint emits no `✖ N problems` line and the gate would fail."
+      "expectProblems": 13,
+      "_note": "eslint exits NON-ZERO here and that is correct — gate on the NUMBER not moving, never on the exit code. `expectProblems` is the single source of truth for the accepted baseline; it is deliberately the only place the count is written, so there is no second copy to go stale. Re-derive it from `npm run lint` immediately before each commit and set it in the same commit. All 13 are sonarjs/cognitive-complexity @ 15, all in production source, zero in test files — derived, not guessed, in the install commit (v0.35.0). William accepted this baseline from three measured options (14 narrow / 77 on sonarjs.configs.recommended / decline); do NOT refactor those functions merely to satisfy the threshold. The ratchet fails in BOTH directions — if problems are resolved, lower it. At true zero, DELETE this key: eslint emits no `✖ N problems` line and the gate would fail."
     },
     {
       "name": "typecheck",

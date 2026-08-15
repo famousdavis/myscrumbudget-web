@@ -13,6 +13,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.36.7',
+    date: '2026-08-14',
+    sections: [
+      {
+        title: 'Changed',
+        items: [
+          'Internal restructuring and tests. Nothing in the app itself changed — the chart concerned draws exactly as before.',
+          'The small distribution chart in the Charter Budget panel had no tests, and could not have had useful ones in the form it was in. It is drawn onto a canvas and the drawing code returns nothing, so there is no result to inspect; the testing environment used here cannot produce a canvas at all. A test that simply called the drawing function would have run three lines, stopped, passed, and reported the file as better tested while checking nothing. That is worse than no test, because it removes the appearance of a gap without removing the gap.',
+          'The fix was to separate the decisions from the drawing. Two pieces were lifted out: the one that works out how wide the chart’s horizontal axis must be, and the one that computes the curve’s height at a given point. Those are where the judgement calls live — how far past the expected cost to extend the axis for each distribution shape, how to handle a spread wide enough that the curve would otherwise run into negative money, and how much room to leave so the confidence-level marker is never flush against the edge.',
+          'Twenty-three tests now cover those decisions. They check properties rather than specific numbers — where the curve peaks, whether it is symmetric, which regions are exactly zero — because the curve is drawn for its shape and its absolute height is deliberately arbitrary. Checking specific heights would have failed against perfectly correct code.',
+          'The restructuring was verified to change nothing: the complete sequence of drawing instructions was recorded before and after, across five chart configurations, and compared instruction by instruction. All 2,014 were identical.',
+          'One side effect: the drawing function is no longer flagged as too complicated to follow, so the project’s accepted count of such functions falls from fourteen to thirteen.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.36.6',
     date: '2026-08-14',
     sections: [
