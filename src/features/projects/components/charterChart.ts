@@ -48,6 +48,60 @@ function betaPertDensity(x: number, O: number, Pb: number): number {
   return t * t * (1 - t) * (1 - t);
 }
 
+/**
+ * The x-domain the chart is drawn over, and the β-PERT support that goes with it.
+ *
+ * Extracted from drawCharterChart (v0.37.0) because this is where the chart's
+ * decisions live — the three kernels above are two-line `exp` shapes with nothing
+ * to get wrong, while everything here is a judgement that changes what the reader
+ * sees. It is also the only part testable at all: drawCharterChart is void-returning
+ * Canvas 2D, and this repo's jsdom returns null from getContext('2d').
+ */
+export interface ChartDomain {
+  /** Upper end of the x-axis. The domain always starts at 0. */
+  upper: number;
+  /** β-PERT support lower bound; 0 for the other distributions. */
+  betaO: number;
+  /** β-PERT support upper bound; 0 for the other distributions. */
+  betaPb: number;
+}
+
+export function computeChartDomain(p: CharterChartParams): ChartDomain {
+  const sqrt7 = Math.sqrt(7);
+  let curveMax: number;
+  let betaO = 0;
+  let betaPb = 0;
+  if (p.distribution === 'beta_pert') {
+    betaO = p.center - sqrt7 * p.sigma;
+    betaPb = p.center + sqrt7 * p.sigma;
+    if (betaO < 0) {
+      // A symmetric window would put mass below zero, which is meaningless for a
+      // cost. Anchor at 0 and mirror the width about the centre instead.
+      betaO = 0;
+      betaPb = 2 * p.center;
+    }
+    curveMax = betaPb;
+  } else if (p.distribution === 'lognormal') {
+    curveMax = p.center + 5 * p.sigma;
+  } else {
+    curveMax = p.center + 4 * p.sigma;
+  }
+  // The axis must contain the curve AND both vertical markers, with headroom so
+  // the Pₙ line and its label are never flush against the right edge.
+  const upper = Math.max(curveMax, p.charterAmount * 1.08, p.center * 1.05);
+  return { upper, betaO, betaPb };
+}
+
+/**
+ * Un-normalized density at `x` for the selected distribution — shape only.
+ * Values are meaningful relative to each other, never as probabilities.
+ */
+export function densityAt(x: number, p: CharterChartParams, d: ChartDomain): number {
+  if (p.distribution === 'lognormal') return lognormalDensity(x, p.center, p.sigma);
+  if (p.distribution === 'beta_pert') return betaPertDensity(x, d.betaO, d.betaPb);
+  return x < 0 ? 0 : normalDensity(x, p.center, p.sigma); // truncated at 0
+}
+
 export function drawCharterChart(
   canvas: HTMLCanvasElement,
   p: CharterChartParams,
@@ -73,30 +127,10 @@ export function drawCharterChart(
   const baseY = padTop + plotH;
 
   // ---- x-domain: always start at 0; upper bound covers the curve + Pₙ line ----
-  const sqrt7 = Math.sqrt(7);
-  let curveMax: number;
-  let betaO = 0;
-  let betaPb = 0;
-  if (p.distribution === 'beta_pert') {
-    betaO = p.center - sqrt7 * p.sigma;
-    betaPb = p.center + sqrt7 * p.sigma;
-    if (betaO < 0) {
-      betaO = 0;
-      betaPb = 2 * p.center;
-    }
-    curveMax = betaPb;
-  } else if (p.distribution === 'lognormal') {
-    curveMax = p.center + 5 * p.sigma;
-  } else {
-    curveMax = p.center + 4 * p.sigma;
-  }
-  const upper = Math.max(curveMax, p.charterAmount * 1.08, p.center * 1.05);
+  const domain = computeChartDomain(p);
+  const { upper } = domain;
 
-  const density = (x: number): number => {
-    if (p.distribution === 'lognormal') return lognormalDensity(x, p.center, p.sigma);
-    if (p.distribution === 'beta_pert') return betaPertDensity(x, betaO, betaPb);
-    return x < 0 ? 0 : normalDensity(x, p.center, p.sigma); // truncated at 0
-  };
+  const density = (x: number): number => densityAt(x, p, domain);
 
   const xToPx = (v: number) => padX + (v / upper) * plotW;
 
