@@ -13,6 +13,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.36.9',
+    date: '2026-08-15',
+    sections: [
+      {
+        title: 'Changed',
+        items: [
+          'Tests only. Nothing in the app itself changed — it behaves identically to v0.36.8.',
+          'A large group of tests that appeared to cover the reforecast logic were testing copies of it instead. Fifty-eight tests carried the name of the code that creates, switches, deletes and edits reforecasts; four of them actually ran that code. The other fifty-four ran hand-written imitations kept inside the test files, and passed whether or not the real code worked.',
+          'The more serious problem is that the imitations had fallen out of date. When you copy a reforecast, it takes its start and finish dates from the reforecast you copied — true since v0.29.1. The imitation still took them from the project, the way the app worked ten releases earlier, and it also failed to carry across the actuals cutoff date and the month-by-month cost breakdown. Those tests were not merely silent about the real behaviour; they quietly insisted on behaviour the app had abandoned, and anyone reconciling the code to them would have undone the newer, correct version.',
+          'One test file was headed "B1 regression coverage" and pinned a named, already-fixed bug against a copy of the very code that had contained the bug. Removing the fix from the real code did not fail it.',
+          'All thirteen imitations across three files are gone, replaced by tests that drive the real code. Removing that fix now does fail the regression test, and rewiring the team logic so it edits every reforecast instead of the active one now fails three tests — neither of which was possible before.',
+          'A further set of operations that had never been tested at all is now covered: the allocation grid’s write path, the two timeline-commit paths, and both halves of the actuals-cutoff behaviour. The reforecast test file is 109 lines shorter than it was — the imitations leaving.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.36.8',
     date: '2026-08-15',
     sections: [
