@@ -13,6 +13,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.36.13',
+    date: '2026-08-16',
+    sections: [
+      {
+        title: 'Changed',
+        items: [
+          'Mostly tests, plus three lines of dead code removed \u2014 so not tests-only, though nothing you can see behaves differently.',
+          'The project Sharing panel \u2014 where you invite collaborators by email, see who has access, and resend or revoke pending invitations \u2014 had no tests at all. It is the largest untested file left in the project, and it now has seventeen.',
+          'Some of what those tests hold in place: only the project owner sees the panel; a failed load shows an error message rather than silently hiding it; the collaborator list excludes the owner from its Remove controls; a pending invitation resent five times shows its Resend button disabled; and removing or revoking always asks for confirmation first.',
+          'A correction to what v0.36.11 told you. That release said an over-length email address is shown as Invalid and \u201cthe box keeps its contents so you can correct it\u201d. That is true only when nothing else in the box was valid. If you paste one over-length address alongside several good ones, the good ones are sent and the box is cleared \u2014 the over-length address remains visible as an amber Invalid chip, but its text is gone from the box. Both behaviours are now tested; the earlier entry is left as written, since shipped release notes are annotated rather than rewritten.',
+          'The dead code: a leftover import and an unreachable line, along with a comment referring to a file deleted back in v0.28.2.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.36.12',
     date: '2026-08-16',
     sections: [
