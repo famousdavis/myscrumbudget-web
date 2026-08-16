@@ -4,6 +4,20 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.36.10] - 2026-08-16
+
+Compile-time safeguards only — no runtime behaviour change, no data-model change. The app does exactly what it did in v0.36.9, and the cloud sync path was verified to produce byte-identical results before and after.
+
+This is the first release in this maintenance run to touch code the app actually runs, so it is worth being precise about what changed: three checks were added that the TypeScript compiler evaluates before the app is ever built. Nothing was added to the running program.
+
+The project record the app stores in the cloud is described in a second place, by hand, separately from the project record the app uses internally. Nothing connected the two descriptions, so adding a field to a project could leave the cloud copy quietly short — and every place that writes to the cloud would still compile, because each is checked against the hand-written copy rather than against the real thing. That is not hypothetical: the tile colour added in v0.33.0 went missing from imports for seven releases before anyone noticed.
+
+Adding a field already produced one compiler error, in the import sanitiser, naming the field. What that error does not do is mention the cloud, so it is possible to satisfy it and stop. There are now three errors instead of one, at three different layers, each naming the missing field: the internal-to-cloud mapping, the list of fields a save writes, and — the one nothing on the writing side could ever catch — the step that reads a cloud record back into the app. A field can be written correctly by every save and still never appear on screen, and no test that runs without the cloud would notice.
+
+Two other ways of writing the first check were measured and rejected. One produced an error that never named the missing field. The other was silent: it looked like the stronger form and quietly accepted exactly the case the check exists to catch.
+
+Equivalence was proven rather than reasoned about — the order of fields sent on a save, and a fully populated cloud record read back including the cleared-value cases, were captured before and after the change and compared. Identical.
+
 ## [0.36.9] - 2026-08-15
 
 Tests only — no functional, data, or interface changes. The app behaves identically to v0.36.8.
