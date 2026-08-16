@@ -4,6 +4,20 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.36.11] - 2026-08-16
+
+**Behaviour change, and a low-severity performance guard, on the bulk-invite email box.**
+
+**What changes for you.** When you paste a list of addresses into the project Sharing box, any single address longer than 320 characters is now shown as **Invalid** (the amber chip) instead of being accepted. It is not discarded — it stays visible with the rest, and the box keeps its contents so you can correct it. Previously such an address was accepted and sent onward.
+
+320 is deliberately generous. The email standard caps a whole address at 254 characters; 320 is the loosest figure the standard can be read to allow, so nothing a mail system would consider legal is rejected. **What happens to an over-length address once it leaves this app was not verifiable from this codebase** — the sending step runs in a separate service — so this release makes no claim about that, only that such an address is beyond the standard's maximum and you now see the problem when you paste rather than after you send.
+
+**The performance part, severity LOW.** The pattern used to check an address had a worst case that took about a second on a single 64 KB pasted token, which would briefly freeze the tab. It is low severity and not a vulnerability fix: the input is your own paste, it stays in your own browser tab, and there is no remote or cross-user path to it. The length check bounds it — at the cap the worst case is around a thirty-thousandth of that.
+
+Also corrected: a comment in that file referred to a companion pattern that was deleted in v0.28.2.
+
+Two similar-looking patterns used to build filenames for exports were examined and left alone, with the reasoning recorded next to them. They are safe because of the order the replacements run in, not because the pattern is inherently safe — a note worth having, since reusing that pattern elsewhere would not be.
+
 ## [0.36.10] - 2026-08-16
 
 Compile-time safeguards only — no runtime behaviour change, no data-model change. The app does exactly what it did in v0.36.9, and the cloud sync path was verified to produce byte-identical results before and after.
