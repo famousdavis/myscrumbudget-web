@@ -45,6 +45,10 @@ const existingDocs = new Map<string, Record<string, unknown>>();
 let getDocThrows = false;
 /** Documents the mocked getDocs query will return, as [id, data] pairs. */
 const queryDocs = new Map<string, Record<string, unknown>>();
+/** Every writeBatch operation, in order. */
+const batchOps: { op: 'update' | 'delete' | 'set'; id: string; data?: unknown }[] = [];
+/** Every deleteDoc call, by id. */
+const deletedIds: string[] = [];
 
 vi.mock('@/lib/firebase/config', () => ({ db: {} }));
 
@@ -58,17 +62,22 @@ vi.mock('firebase/firestore', () => ({
   setDoc: async (ref: SetDocCall['ref'], data: Record<string, unknown>, options?: SetDocCall['options']) => {
     setDocCalls.push({ ref, data, options });
   },
-  deleteDoc: async () => {},
+  deleteDoc: async (ref: { id: string }) => { deletedIds.push(ref.id); },
   collection: (_db: unknown, col: string) => ({ col }),
   query: (...args: unknown[]) => ({ args }),
   where: (...args: unknown[]) => ({ args }),
   getDocs: async () => {
     // getProjects uses snap.forEach, not snap.docs — a `{ docs: [] }` mock
     // would throw rather than return an empty result.
-    const entries = [...queryDocs.entries()].map(([id, data]) => ({ id, data: () => data }));
+    const entries = [...queryDocs.entries()].map(([id, data]) => ({ id, data: () => data, ref: { col: 'myscrumbudget_projects', id } }));
     return { forEach: (fn: (d: { id: string; data: () => Record<string, unknown> }) => void) => entries.forEach(fn), docs: entries };
   },
-  writeBatch: () => ({ set: () => {}, update: () => {}, delete: () => {}, commit: async () => {} }),
+  writeBatch: () => ({
+    set: (ref: { id: string }, data: unknown) => { batchOps.push({ op: 'set', id: ref.id, data }); },
+    update: (ref: { id: string }, data: unknown) => { batchOps.push({ op: 'update', id: ref.id, data }); },
+    delete: (ref: { id: string }) => { batchOps.push({ op: 'delete', id: ref.id }); },
+    commit: async () => {},
+  }),
 }));
 
 const { createFirestoreRepository } = await import('../firestoreRepo');
@@ -105,6 +114,8 @@ beforeEach(() => {
   setDocCalls.length = 0;
   existingDocs.clear();
   queryDocs.clear();
+  batchOps.length = 0;
+  deletedIds.length = 0;
   getDocThrows = false;
 });
 
@@ -457,5 +468,74 @@ describe('importAll — RECORDED TECH DEBT, characterised and deliberately not f
     }));
 
     expect(projectWrites().map((c) => c.data.order)).toEqual([0, 1, 2]);
+  });
+});
+
+/**
+ * The remaining operations. Not in the charter's named-contract list — added
+ * because D exists on the premise that this file is un-instrumented, and
+ * stopping at the named contracts would leave 8 of 21 functions unexecuted.
+ * Declared as scope, not presented as contract yield.
+ */
+describe('the remaining repository operations', () => {
+  it('deleteProject deletes exactly the requested document', async () => {
+    const repo = createFirestoreRepository(UID);
+    await repo.deleteProject('p_gone');
+    expect(deletedIds).toEqual(['p_gone']);
+  });
+
+  it('reorderProjects writes the array INDEX as order, not the id order alone', async () => {
+    // The dashboard persists drag-to-reorder through this. Asserting the
+    // index values (not just that N updates happened) is what pins it.
+    const repo = createFirestoreRepository(UID);
+    await repo.reorderProjects(['pC', 'pA', 'pB']);
+
+    expect(batchOps).toEqual([
+      { op: 'update', id: 'pC', data: { order: 0 } },
+      { op: 'update', id: 'pA', data: { order: 1 } },
+      { op: 'update', id: 'pB', data: { order: 2 } },
+    ]);
+  });
+
+  it('exportAll stamps the dataset discriminant and both provenance refs', async () => {
+    queryDocs.set('p1', {
+      name: 'Project One', startDate: '2026-01-01', endDate: '2026-12-31',
+      reforecasts: [], activeReforecastId: null, members: { [UID]: 'owner' }, order: 0,
+    });
+    const repo = createFirestoreRepository(UID);
+    const data = await repo.exportAll();
+
+    // msbExportKind is the v0.30.0 boundary gate: a payload without it is
+    // rejected at import, so an export that forgets it is unimportable.
+    expect(data.msbExportKind).toBe('dataset');
+    expect(data._originRef).toBe(UID);
+    expect(data._storageRef).toBe(UID);
+    expect(data.projects.map((p) => p.name)).toEqual(['Project One']);
+    expect(data.version).toBeTypeOf('string');
+  });
+
+  it('clear deletes every OWNED project and the settings document', async () => {
+    queryDocs.set('p1', { name: 'A', owner: UID });
+    queryDocs.set('p2', { name: 'B', owner: UID });
+
+    const repo = createFirestoreRepository(UID);
+    await repo.clear();
+
+    expect(batchOps).toEqual([
+      { op: 'delete', id: 'p1' },
+      { op: 'delete', id: 'p2' },
+    ]);
+    // The settings doc is keyed on the uid and deleted outside the batch.
+    expect(deletedIds).toEqual([UID]);
+  });
+
+  it('getVersion reports the current data version and migrateIfNeeded is a no-op', async () => {
+    // Cloud data is always current — migrations run at the app layer before
+    // anything reaches Firestore. Pinned so the no-op stays deliberate.
+    const repo = createFirestoreRepository(UID);
+    expect(await repo.getVersion()).toBeTypeOf('string');
+    await expect(repo.migrateIfNeeded()).resolves.toBeUndefined();
+    expect(setDocCalls).toHaveLength(0);
+    expect(batchOps).toHaveLength(0);
   });
 });
