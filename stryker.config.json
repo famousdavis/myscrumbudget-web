@@ -14,7 +14,8 @@
     "src/lib/calc/**/*.ts",
     "!src/lib/calc/**/__tests__/**",
     "src/features/reforecast/lib/excelImport.ts",
-    "src/lib/utils/importUtils.ts"
+    "src/lib/utils/importUtils.ts",
+    "src/features/reforecast/hooks/useReforecast.ts"
   ],
   "reporters": [
     "json",
@@ -33,5 +34,5 @@
     "low": 70,
     "break": null
   },
-  "_mutateNote": "excelImport.ts was added to this list BEFORE parseResourcePlanWorkbook was touched, per the campaign rule that a refactor target is scored first. Scoring a function after restructuring it measures the new tests, not whether the restructuring preserved behaviour."
+  "_mutateNote": "excelImport.ts was added to this list BEFORE parseResourcePlanWorkbook was touched, per the campaign rule that a refactor target is scored first. Scoring a function after restructuring it measures the new tests, not whether the restructuring preserved behaviour. useReforecast.ts was added the same way, BEFORE the v0.36.9 simulation-family conversion, and for a sharper reason: that item's coverage gates (>=45/54 fns, >=80% st) were PROVEN satisfiable by a probe asserting nothing, so coverage there is necessary and not sufficient. No threshold is set — there is no prior useReforecast score, so any number would be invented. The BEFORE/AFTER DELTA is the evidence: a genuine conversion moves it, a re-skinned one cannot, because mutants survive assertions that merely re-state the implementation."
 }
