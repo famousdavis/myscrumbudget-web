@@ -22,7 +22,6 @@ import {
   callResendInvite,
   mapInvitationError,
 } from '@/lib/firebase/invitations';
-import { sanitizeFirebaseError } from '@/lib/firebase/errors';
 import { parseBulkEmails } from '@/lib/utils/parseBulkEmails';
 import type {
   PendingInvite,
@@ -409,10 +408,6 @@ export function BulkSharingSection({ projectId }: BulkSharingSectionProps) {
       )}
     </CollapsibleSection>
   );
-
-  // sanitizeFirebaseError unused here today (kept imported for parity with
-  // SharingSection in case future code paths need it directly).
-  void sanitizeFirebaseError;
 }
 
 function ResultChip({ chip }: { chip: InviteResultChip }) {
