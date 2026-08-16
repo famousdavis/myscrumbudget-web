@@ -3,11 +3,44 @@
 // See LICENSE file in the project root for full license text.
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { renderHook, act } from '@testing-library/react';
 import { createLocalStorageRepository } from '@/lib/storage/localStorage';
 import type { Project, PoolMember, ProjectAssignment, Reforecast } from '@/types/domain';
 import { resolveAssignments, getActiveReforecast } from '@/lib/utils/teamResolution';
+import { useTeam } from '../hooks/useTeam';
 
 const repo = createLocalStorageRepository();
+
+/**
+ * Renders the REAL useTeam with an updateProject that actually applies the
+ * updater, so the hook's own reducers run rather than a copy of them.
+ *
+ * This file previously hand-wrote useTeam's withActiveReforecast map inline and
+ * asserted against that copy — so the v0.24.0 per-reforecast invariant it named
+ * was pinned to the test's own arithmetic, not to the hook. useTeam.ts measured
+ * 0/38 statements while a test bearing its name passed.
+ */
+function teamHarness(initial: Project, members: PoolMember[] = pool) {
+  const box = { current: initial };
+  const view = renderHook(
+    ({ p }) =>
+      useTeam({
+        project: p,
+        updateProject: (u) => {
+          box.current = u(box.current);
+        },
+        pool: members,
+      }),
+    { initialProps: { p: box.current } },
+  );
+  const run = (fn: (api: ReturnType<typeof useTeam>) => void) => {
+    act(() => {
+      fn(view.result.current);
+    });
+    view.rerender({ p: box.current });
+  };
+  return { box, view, run };
+}
 
 function makeBaselineReforecast(overrides: Partial<Reforecast> = {}): Reforecast {
   return {
@@ -185,21 +218,9 @@ describe('Per-reforecast roster independence', () => {
   }
 
   it('removes a member from the active reforecast only — sibling reforecast retains them', async () => {
-    const project = projectWithTwoReforecasts();
-    // Simulate useTeam.removeAssignment scoped to the active rf
-    const updated: Project = {
-      ...project,
-      reforecasts: project.reforecasts.map((rf) =>
-        rf.id !== project.activeReforecastId
-          ? rf
-          : {
-              ...rf,
-              assignments: rf.assignments.filter((a) => a.id !== 'a2'),
-              allocations: rf.allocations.filter((a) => a.memberId !== 'a2'),
-            },
-      ),
-    };
-    await repo.saveProject(updated);
+    const team = teamHarness(projectWithTwoReforecasts());
+    team.run((t) => t.removeAssignment('a2'));
+    await repo.saveProject(team.box.current);
 
     const retrieved = (await repo.getProject('multi-rf'))!;
     const oldRf = retrieved.reforecasts.find((r) => r.id === 'rf-old')!;
@@ -336,5 +357,127 @@ describe('resolveAssignments edge cases', () => {
     expect(members).toHaveLength(1);
     expect(members[0].name).toBe('(Unknown)');
     warnSpy.mockRestore();
+  });
+});
+
+/**
+ * Characterisation of the remaining useTeam surface, driven through the real
+ * hook. The file's only previous useTeam test simulated the hook's reducer, so
+ * every operation below was at zero — addAssignment, reorderAssignments and
+ * sortAssignments had never executed once.
+ *
+ * Expected values are literals or built independently of the hook's own
+ * expression shape: an expectation computed the way the reducer computes it
+ * would pass against any reducer, including a broken one.
+ */
+describe('useTeam — the real hook', () => {
+  /** Two reforecasts, both holding a1+a2; 'rf-new' is active. */
+  function twoRfProject(): Project {
+    return {
+      id: 'multi-rf',
+      name: 'Multi RF Project',
+      startDate: '2025-01-01',
+      endDate: '2025-12-31',
+      reforecasts: [
+        makeBaselineReforecast({
+          id: 'rf-old',
+          assignments: [
+            { id: 'a1', poolMemberId: 'pm1' },
+            { id: 'a2', poolMemberId: 'pm2' },
+          ],
+        }),
+        makeBaselineReforecast({
+          id: 'rf-new',
+          assignments: [
+            { id: 'a1', poolMemberId: 'pm1' },
+            { id: 'a2', poolMemberId: 'pm2' },
+          ],
+        }),
+      ],
+      activeReforecastId: 'rf-new',
+    };
+  }
+
+  it('members resolves the ACTIVE reforecast roster against the pool', () => {
+    const team = teamHarness(makeProject({}, [{ id: 'a1', poolMemberId: 'pm2' }]));
+    expect(team.view.result.current.members).toEqual([
+      { id: 'a1', name: 'Bob', role: 'IT-SoftEng' },
+    ]);
+  });
+
+  it('members and assignments are empty for a null project', () => {
+    const view = renderHook(() =>
+      useTeam({ project: null, updateProject: () => {}, pool }),
+    );
+    expect(view.result.current.members).toEqual([]);
+    expect(view.result.current.assignments).toEqual([]);
+  });
+
+  it('addAssignment appends to the active reforecast only, and returns the new id', () => {
+    const team = teamHarness(twoRfProject());
+    let returned = '';
+    act(() => {
+      returned = team.view.result.current.addAssignment('pm3');
+    });
+    team.view.rerender({ p: team.box.current });
+
+    const active = team.box.current.reforecasts.find((r) => r.id === 'rf-new')!;
+    const sibling = team.box.current.reforecasts.find((r) => r.id === 'rf-old')!;
+    expect(active.assignments).toHaveLength(3);
+    expect(active.assignments[2].poolMemberId).toBe('pm3');
+    // The id the caller gets back is the id actually stored — the grid keys
+    // allocations on it, so a mismatch would silently orphan every new row.
+    expect(returned).toBe(active.assignments[2].id);
+    expect(returned).not.toBe('');
+    expect(sibling.assignments).toHaveLength(2);
+  });
+
+  it('removeAssignment cascades to allocations in the active reforecast only', () => {
+    const team = teamHarness({
+      ...twoRfProject(),
+      reforecasts: twoRfProject().reforecasts.map((rf) => ({
+        ...rf,
+        allocations: [
+          { memberId: 'a1', month: '2025-01', allocation: 0.5 },
+          { memberId: 'a2', month: '2025-01', allocation: 0.75 },
+        ],
+      })),
+    });
+    team.run((t) => t.removeAssignment('a2'));
+
+    const active = team.box.current.reforecasts.find((r) => r.id === 'rf-new')!;
+    const sibling = team.box.current.reforecasts.find((r) => r.id === 'rf-old')!;
+    expect(active.assignments.map((a) => a.id)).toEqual(['a1']);
+    expect(active.allocations.map((a) => a.memberId)).toEqual(['a1']);
+    expect(sibling.assignments.map((a) => a.id)).toEqual(['a1', 'a2']);
+    expect(sibling.allocations.map((a) => a.memberId)).toEqual(['a1', 'a2']);
+  });
+
+  it('reorderAssignments applies the given order and drops unknown ids', () => {
+    const team = teamHarness(twoRfProject());
+    team.run((t) => t.reorderAssignments(['a2', 'ghost', 'a1']));
+    const active = team.box.current.reforecasts.find((r) => r.id === 'rf-new')!;
+    expect(active.assignments.map((a) => a.id)).toEqual(['a2', 'a1']);
+  });
+
+  it('sortAssignments distinguishes name from role-name ordering', () => {
+    // Deliberately a pool where the two modes DISAGREE. With the default pool
+    // (Alice/BA, Bob/IT-SoftEng, Charlie/PMO) both orders are identical, so the
+    // test would pass with the mode argument ignored entirely.
+    const skewed: PoolMember[] = [
+      { id: 'pm1', name: 'Zoe', role: 'BA' },
+      { id: 'pm2', name: 'Alice', role: 'PMO' },
+    ];
+    const byName = teamHarness(twoRfProject(), skewed);
+    byName.run((t) => t.sortAssignments('name'));
+    expect(
+      byName.box.current.reforecasts.find((r) => r.id === 'rf-new')!.assignments.map((a) => a.id),
+    ).toEqual(['a2', 'a1']); // Alice, Zoe
+
+    const byRole = teamHarness(twoRfProject(), skewed);
+    byRole.run((t) => t.sortAssignments('role-name'));
+    expect(
+      byRole.box.current.reforecasts.find((r) => r.id === 'rf-new')!.assignments.map((a) => a.id),
+    ).toEqual(['a1', 'a2']); // BA before PMO
   });
 });
