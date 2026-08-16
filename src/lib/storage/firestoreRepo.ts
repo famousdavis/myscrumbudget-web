@@ -42,6 +42,88 @@ interface FirestoreProjectDoc {
   schemaVersion: number;
 }
 
+/**
+ * Compile-time edge from `Project` to `FirestoreProjectDoc`.
+ *
+ * `FirestoreProjectDoc` is a hand-maintained duplicate of `Project` plus cloud
+ * metadata; nothing in the type system linked the two. Adding a field to
+ * `Project` therefore left this doc silently short, and the three write literals
+ * still compiled, because they are checked against the duplicate rather than
+ * against `Project`.
+ *
+ * ⚠️ This is a SECOND gate, not the only one. Adding `Project.foo?` already fails
+ * `npm run typecheck` at `sanitizeImport.ts`'s `PROJECT_FIELD_SET` (TS2741,
+ * naming the field) — measured 2026-08-16. What that error does NOT do is
+ * mention Firestore, so a developer can satisfy it and stop, leaving the cloud
+ * doc short. This closes that satisfy-and-stop path.
+ *
+ * ⚠️ THE SHAPE IS LOAD-BEARING; two plausible alternatives were measured and
+ * rejected (2026-08-16, by adding `Project.foo?` and reading the diagnostic):
+ *
+ *   1. `Omit<Project,'id'> & { color: …|null; … }` — the obvious derivation.
+ *      Fires TS2322 with a truncated type dump that NEVER NAMES the field.
+ *      Also wrong on its own terms: intersecting `color?: ProjectColor` with
+ *      `color: ProjectColor|null` yields a required `ProjectColor`, so
+ *      `?? null` stops typechecking.
+ *   2. The same mapped type WITHOUT `-?`. A mapped type is homomorphic and
+ *      PRESERVES OPTIONALITY, so a new OPTIONAL field stays optional here and
+ *      omitting it is legal — SILENT. That is a permanent false green for
+ *      exactly the case this guard exists for, and it looks stronger than the
+ *      form below. Same family as the `ReadonlyArray<keyof T>` trap recorded in
+ *      `sanitizeImport.ts`: plausible, and silently weaker.
+ *
+ * `-?` strips the optionality so every Project field is required here, and
+ * mapping each key to ITSELF (`K extends keyof FirestoreProjectDoc ? K : never`)
+ * means a new field cannot be waved through with some other valid doc key —
+ * `foo: 'name'` is TS2322 `not assignable to type 'never'`. Verbose by design;
+ * v0.35.2 took the same trade after rejecting a generic `fieldsOf<T>()` helper
+ * that needed an `as unknown as` double cast.
+ */
+type ProjectKeyCoverage = {
+  [K in keyof Omit<Project, 'id'>]-?: K extends keyof FirestoreProjectDoc ? K : never;
+};
+const _projectKeyCoverage: ProjectKeyCoverage = {
+  name: 'name',
+  startDate: 'startDate',
+  endDate: 'endDate',
+  reforecasts: 'reforecasts',
+  activeReforecastId: 'activeReforecastId',
+  color: 'color',
+  archived: 'archived',
+};
+void _projectKeyCoverage;
+
+/**
+ * The fields `saveProject` writes on every save, as a `satisfies`-checked set.
+ *
+ * Previously an inline `string[]` on the `setDoc` call: unconstrained, so an
+ * invalid or stale key was accepted and the field simply never merged.
+ * `satisfies` checks every entry against `FirestoreProjectDoc` while keeping the
+ * literal key types.
+ *
+ * ⚠️ `Partial` is deliberate and it bounds what this catches: it rejects a key
+ * that is NOT a doc field, and it does NOT require completeness. It cannot,
+ * because ownership/identity fields — owner, members, order, createdAt,
+ * _originRef, _changeLog, schemaVersion — are excluded ON PURPOSE so existing
+ * Firestore values survive a save, which is load-bearing for the v0.30.0 import
+ * `replace` path. A newly added Project field is caught by
+ * `_projectKeyCoverage` above, which is the prompt to decide whether it also
+ * belongs here.
+ */
+const SAVE_PROJECT_MERGE_SET = {
+  name: true,
+  startDate: true,
+  endDate: true,
+  reforecasts: true,
+  activeReforecastId: true,
+  color: true,
+  archived: true,
+  _teamSnapshot: true,
+  updatedAt: true,
+} satisfies Partial<Record<keyof FirestoreProjectDoc, true>>;
+
+const SAVE_PROJECT_MERGE_FIELDS = Object.keys(SAVE_PROJECT_MERGE_SET);
+
 export function createFirestoreRepository(uid: string): Repository {
   if (!db) throw new Error('Firestore is not initialized');
 
@@ -174,8 +256,7 @@ export function createFirestoreRepository(uid: string): Repository {
         archived: project.archived ?? null,
         _teamSnapshot: buildTeamSnapshot(getActiveReforecast(project)?.assignments ?? [], pool),
         updatedAt: now,
-      }), { mergeFields: ['name', 'startDate', 'endDate', 'reforecasts',
-                          'activeReforecastId', 'color', 'archived', '_teamSnapshot', 'updatedAt'] });
+      }), { mergeFields: SAVE_PROJECT_MERGE_FIELDS });
     },
 
     /**

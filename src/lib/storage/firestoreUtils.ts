@@ -46,6 +46,35 @@ export function stripUndefined<T extends object>(obj: T): T {
  * value (deep-cloned). When reforecasts already carry their own
  * assignments, those win — the legacy field is ignored.
  */
+/**
+ * Compile-time completeness guard for the READ path.
+ *
+ * Every write site can be correct and a field still never reach the app, because
+ * `docToProject` builds a `Project` by hand: a field written to Firestore by all
+ * three write literals but never hydrated here is present in the document,
+ * invisible in the UI, and GREEN IN EVERY LOCAL-MODE TEST — nothing on the write
+ * side can detect it. `color` shipped that way in v0.33.0 for 7 releases.
+ *
+ * Each key maps to how `docToProject` populates it: 'required' for a field set
+ * in the base literal, 'conditional' for one hydrated behind a type check (only
+ * a valid value materialises; null/false/missing stay absent). Adding a field to
+ * `Project` makes this a TS2741 naming the field, which is the prompt to decide
+ * which of the two it is — and `id` is included because it comes from the doc
+ * ID rather than the payload, which is exactly the kind of thing a reader needs
+ * told.
+ */
+const _docToProjectCoverage: { [K in keyof Project]-?: 'required' | 'conditional' } = {
+  id: 'required',
+  name: 'required',
+  startDate: 'required',
+  endDate: 'required',
+  reforecasts: 'required',
+  activeReforecastId: 'required',
+  color: 'conditional',
+  archived: 'conditional',
+};
+void _docToProjectCoverage;
+
 export function docToProject(id: string, data: Record<string, unknown>): Project {
   const rawReforecasts = (data.reforecasts as Record<string, unknown>[]) ?? [];
   const legacyAssignments = (data.assignments as ProjectAssignment[]) ?? null;
