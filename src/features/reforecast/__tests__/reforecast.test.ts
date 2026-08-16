@@ -3,13 +3,30 @@
 // See LICENSE file in the project root for full license text.
 
 import { describe, it, expect } from 'vitest';
+import { renderHook, act } from '@testing-library/react';
 import type { Project, Reforecast } from '@/types/domain';
 import { REFORECAST_NOTES_MAX_LENGTH } from '@/lib/constants';
+import { useReforecast } from '../hooks/useReforecast';
 
 /**
- * Tests for reforecast data transformations.
- * These test the pure logic that the useReforecast hook applies
- * via updateProject updater functions.
+ * Tests for the useReforecast hook, driven through the real hook.
+ *
+ * This file previously carried eleven hand-written copies of the hook's
+ * updaters and asserted against those — 54 of the 58 tests bearing the hook's
+ * name exercised a re-implementation, while useReforecast.ts itself measured
+ * 29.87% of statements and 13 of 54 functions.
+ *
+ * The copies were not merely separate, they had DRIFTED. The old
+ * createReforecastUpdater took its window from the PROJECT (`prev.startDate`),
+ * which the real hook stopped doing at v0.29.1 — a copy now inherits the
+ * SOURCE reforecast's window — and it copied neither `actualsThroughDate` nor
+ * `historicalCosts`, both of which the real one carries forward. Tests written
+ * against it pinned behaviour the shipped app has not had for ten releases.
+ *
+ * Expected values here are literals or built independently of the hook's own
+ * expression shape. Where an old assertion encoded a simulator artefact — the
+ * hard-coded id 'rf_new', for instance — the intent is kept and the value is
+ * rewritten against the real output.
  */
 
 function makeProject(overrides: Partial<Project> = {}): Project {
@@ -50,78 +67,61 @@ function makeReforecast(overrides: Partial<Reforecast> = {}): Reforecast {
   };
 }
 
-// Simulate the createReforecast updater logic from useReforecast
-function createReforecastUpdater(
-  name: string,
-  copyFromId?: string,
-) {
-  return (prev: Project): Project => {
-    const sourceReforecast = copyFromId
-      ? prev.reforecasts.find((r) => r.id === copyFromId)
-      : null;
-
-    const newRf: Reforecast = {
-      id: 'rf_new',
-      name,
-      createdAt: new Date().toISOString(),
-      startDate: prev.startDate,
-      endDate: prev.endDate,
-      reforecastDate: new Date().toISOString().slice(0, 10),
-      assignments: sourceReforecast
-        ? sourceReforecast.assignments.map((a) => ({ ...a }))
-        : [],
-      allocations: sourceReforecast
-        ? sourceReforecast.allocations.map((a) => ({ ...a }))
-        : [],
-      productivityWindows: sourceReforecast
-        ? sourceReforecast.productivityWindows.map((w) => ({
-            ...w,
-            id: `pw_new_${w.id}`,
-          }))
-        : [],
-      actualCost: sourceReforecast ? sourceReforecast.actualCost : 0,
-      baselineBudget: sourceReforecast ? sourceReforecast.baselineBudget : 0,
-    };
-
-    return {
-      ...prev,
-      reforecasts: [...prev.reforecasts, newRf],
-      activeReforecastId: newRf.id,
-    };
+/**
+ * Renders the REAL useReforecast with an updateProject that actually applies
+ * the updater, so the hook's own reducers run. `box.current` is the project
+ * after each operation; `run` re-renders so the next call sees fresh state
+ * (several operations read `activeReforecast` from the render closure).
+ */
+function hook(initial: Project) {
+  const box = { current: initial };
+  const view = renderHook(
+    ({ p }) =>
+      useReforecast({
+        project: p,
+        updateProject: (u) => {
+          box.current = u(box.current);
+        },
+      }),
+    { initialProps: { p: box.current } },
+  );
+  const run = (fn: (api: ReturnType<typeof useReforecast>) => void) => {
+    act(() => {
+      fn(view.result.current);
+    });
+    view.rerender({ p: box.current });
   };
+  return { box, view, run };
 }
 
-// Simulate switchReforecast logic
-function switchReforecastUpdater(reforecastId: string) {
-  return (prev: Project): Project => {
-    const exists = prev.reforecasts.some((r) => r.id === reforecastId);
-    if (!exists) return prev;
-    return { ...prev, activeReforecastId: reforecastId };
-  };
+/** The reforecast added by the operation under test (the last one appended). */
+function newest(p: Project): Reforecast {
+  return p.reforecasts[p.reforecasts.length - 1];
 }
 
 describe('Reforecast Management', () => {
   describe('createReforecast', () => {
     it('creates an empty reforecast', () => {
-      const project = makeProject();
-      const updated = createReforecastUpdater('Q3 Reforecast')(project);
+      const h = hook(makeProject());
+      h.run((a) => a.createReforecast('Q3 Reforecast'));
+      const updated = h.box.current;
 
       expect(updated.reforecasts).toHaveLength(1);
       expect(updated.reforecasts[0].name).toBe('Q3 Reforecast');
       expect(updated.reforecasts[0].allocations).toEqual([]);
       expect(updated.reforecasts[0].productivityWindows).toEqual([]);
       expect(updated.reforecasts[0].actualCost).toBe(0);
-      expect(updated.activeReforecastId).toBe('rf_new');
+      // Was `toBe('rf_new')` — the old simulator hard-coded that id. The real
+      // hook generates one, so the intent ("the new reforecast becomes active")
+      // is asserted against the reforecast actually stored.
+      expect(updated.activeReforecastId).toBe(updated.reforecasts[0].id);
     });
 
     it('copies allocations from an existing reforecast', () => {
       const rf = makeReforecast();
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-
-      const updated = createReforecastUpdater('Copy', rf.id)(project);
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id }));
+      h.run((a) => a.createReforecast('Copy', rf.id));
+      const updated = h.box.current;
 
       expect(updated.reforecasts).toHaveLength(2);
       const newRf = updated.reforecasts[1];
@@ -136,12 +136,9 @@ describe('Reforecast Management', () => {
 
     it('deep-clones allocations (mutations do not affect source)', () => {
       const rf = makeReforecast();
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-
-      const updated = createReforecastUpdater('Copy', rf.id)(project);
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id }));
+      h.run((a) => a.createReforecast('Copy', rf.id));
+      const updated = h.box.current;
       const newRf = updated.reforecasts[1];
 
       // Mutate the copy
@@ -153,13 +150,9 @@ describe('Reforecast Management', () => {
 
     it('copies productivity windows with new IDs', () => {
       const rf = makeReforecast();
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-
-      const updated = createReforecastUpdater('Copy', rf.id)(project);
-      const newRf = updated.reforecasts[1];
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id }));
+      h.run((a) => a.createReforecast('Copy', rf.id));
+      const newRf = h.box.current.reforecasts[1];
 
       expect(newRf.productivityWindows).toHaveLength(1);
       expect(newRf.productivityWindows[0].factor).toBe(0.5);
@@ -168,13 +161,9 @@ describe('Reforecast Management', () => {
 
     it('creates empty reforecast if copyFromId does not match', () => {
       const rf = makeReforecast();
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-
-      const updated = createReforecastUpdater('New', 'nonexistent')(project);
-      const newRf = updated.reforecasts[1];
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id }));
+      h.run((a) => a.createReforecast('New', 'nonexistent'));
+      const newRf = h.box.current.reforecasts[1];
 
       expect(newRf.allocations).toEqual([]);
       expect(newRf.productivityWindows).toEqual([]);
@@ -182,40 +171,62 @@ describe('Reforecast Management', () => {
 
     it('clones assignments from source preserving IDs', () => {
       const rf = makeReforecast();
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-      const updated = createReforecastUpdater('Copy', rf.id)(project);
-      const newRf = updated.reforecasts[1];
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id }));
+      h.run((a) => a.createReforecast('Copy', rf.id));
+      const newRf = h.box.current.reforecasts[1];
       expect(newRf.assignments).toHaveLength(2);
       expect(newRf.assignments.map((a) => a.id)).toEqual(['a_1', 'a_2']);
-      // Allocations key on assignment.id and must continue to resolve
-      expect(newRf.allocations.every((a) => newRf.assignments.some((as) => as.id === a.memberId))).toBe(true);
+      // Allocations key on assignment.id and must continue to resolve. Asserted
+      // as the literal id set rather than a cross-check between the two arrays:
+      // an `every/some` over the copy's own fields holds even if BOTH were
+      // regenerated together, which is the exact bug this test exists to catch.
+      expect(newRf.allocations.map((a) => a.memberId)).toEqual(['a_1', 'a_1', 'a_2']);
     });
 
     it('mutating cloned assignments does not affect source', () => {
       const rf = makeReforecast();
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-      const updated = createReforecastUpdater('Copy', rf.id)(project);
-      const newRf = updated.reforecasts[1];
-      newRf.assignments.push({ id: 'a_3', poolMemberId: 'pm_3' });
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id }));
+      h.run((a) => a.createReforecast('Copy', rf.id));
+      const updated = h.box.current;
+      updated.reforecasts[1].assignments.push({ id: 'a_3', poolMemberId: 'pm_3' });
       expect(updated.reforecasts[0].assignments).toHaveLength(2);
     });
 
     it('sets the new reforecast as active', () => {
       const rf = makeReforecast();
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id }));
+      h.run((a) => a.createReforecast('New'));
+      const updated = h.box.current;
 
-      const updated = createReforecastUpdater('New')(project);
+      // Was `toBe('rf_new')` (simulator artefact). Same intent, real id.
+      expect(updated.activeReforecastId).toBe(newest(updated).id);
+      expect(updated.activeReforecastId).not.toBe(rf.id);
+    });
 
-      expect(updated.activeReforecastId).toBe('rf_new');
+    it('a copy inherits the SOURCE window, not the project window (v0.29.1)', () => {
+      // Not in the old file, and it could not have been: the simulator took the
+      // window from `prev.startDate`/`prev.endDate`, so this assertion would
+      // have failed against it. It is the drift that motivated the conversion.
+      const rf = makeReforecast({ startDate: '2026-08-01', endDate: '2026-09-30' });
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id }));
+      h.run((a) => a.createReforecast('Copy', rf.id));
+      const newRf = h.box.current.reforecasts[1];
+
+      expect(newRf.startDate).toBe('2026-08-01');
+      expect(newRf.endDate).toBe('2026-09-30');
+      // The project's own window is deliberately NOT what a copy inherits.
+      expect(newRf.startDate).not.toBe('2026-06-15');
+    });
+
+    it('a blank reforecast inherits the Baseline reforecast window (v0.29.1)', () => {
+      const base = makeReforecast({ id: 'rf_base', name: 'Baseline', startDate: '2026-08-01', endDate: '2026-09-30' });
+      const h = hook(makeProject({ reforecasts: [base], activeReforecastId: 'rf_base' }));
+      h.run((a) => a.createReforecast('Blank'));
+      const newRf = newest(h.box.current);
+
+      expect(newRf.startDate).toBe('2026-08-01');
+      expect(newRf.endDate).toBe('2026-09-30');
+      expect(newRf.allocations).toEqual([]);
     });
   });
 
@@ -223,53 +234,28 @@ describe('Reforecast Management', () => {
     it('switches to an existing reforecast', () => {
       const rf1 = makeReforecast({ id: 'rf_1' });
       const rf2 = makeReforecast({ id: 'rf_2', name: 'Q3' });
-      const project = makeProject({
-        reforecasts: [rf1, rf2],
-        activeReforecastId: 'rf_1',
-      });
+      const h = hook(makeProject({ reforecasts: [rf1, rf2], activeReforecastId: 'rf_1' }));
 
-      const updated = switchReforecastUpdater('rf_2')(project);
-      expect(updated.activeReforecastId).toBe('rf_2');
+      h.run((a) => a.switchReforecast('rf_2'));
+      expect(h.box.current.activeReforecastId).toBe('rf_2');
     });
 
     it('no-ops if reforecast ID does not exist', () => {
       const rf = makeReforecast();
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id }));
 
-      const updated = switchReforecastUpdater('nonexistent')(project);
-      expect(updated.activeReforecastId).toBe(rf.id);
+      h.run((a) => a.switchReforecast('nonexistent'));
+      expect(h.box.current.activeReforecastId).toBe(rf.id);
     });
   });
 
   describe('deleteReforecast', () => {
-    // Simulate deleteReforecast logic from useReforecast (with guard)
-    function deleteReforecastUpdater(reforecastId: string) {
-      return (prev: Project): Project => {
-        if (prev.reforecasts.length <= 1) return prev;
-        const remaining = prev.reforecasts.filter((r) => r.id !== reforecastId);
-        const wasActive = prev.activeReforecastId === reforecastId;
-        return {
-          ...prev,
-          reforecasts: remaining,
-          activeReforecastId: wasActive
-            ? (remaining.length > 0 ? remaining[0].id : null)
-            : prev.activeReforecastId,
-        };
-      };
-    }
-
     it('removes the specified reforecast', () => {
       const rf1 = makeReforecast({ id: 'rf_1' });
       const rf2 = makeReforecast({ id: 'rf_2', name: 'Q3' });
-      const project = makeProject({
-        reforecasts: [rf1, rf2],
-        activeReforecastId: 'rf_1',
-      });
-
-      const updated = deleteReforecastUpdater('rf_2')(project);
+      const h = hook(makeProject({ reforecasts: [rf1, rf2], activeReforecastId: 'rf_1' }));
+      h.run((a) => a.deleteReforecast('rf_2'));
+      const updated = h.box.current;
       expect(updated.reforecasts).toHaveLength(1);
       expect(updated.reforecasts[0].id).toBe('rf_1');
     });
@@ -277,24 +263,18 @@ describe('Reforecast Management', () => {
     it('switches active to first remaining when active is deleted', () => {
       const rf1 = makeReforecast({ id: 'rf_1' });
       const rf2 = makeReforecast({ id: 'rf_2', name: 'Q3' });
-      const project = makeProject({
-        reforecasts: [rf1, rf2],
-        activeReforecastId: 'rf_1',
-      });
-
-      const updated = deleteReforecastUpdater('rf_1')(project);
+      const h = hook(makeProject({ reforecasts: [rf1, rf2], activeReforecastId: 'rf_1' }));
+      h.run((a) => a.deleteReforecast('rf_1'));
+      const updated = h.box.current;
       expect(updated.reforecasts).toHaveLength(1);
       expect(updated.activeReforecastId).toBe('rf_2');
     });
 
     it('does not delete the last reforecast (guard)', () => {
       const rf = makeReforecast();
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-
-      const updated = deleteReforecastUpdater(rf.id)(project);
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id }));
+      h.run((a) => a.deleteReforecast(rf.id));
+      const updated = h.box.current;
       expect(updated.reforecasts).toHaveLength(1);
       expect(updated.activeReforecastId).toBe(rf.id);
     });
@@ -302,12 +282,9 @@ describe('Reforecast Management', () => {
     it('preserves activeReforecastId when non-active is deleted', () => {
       const rf1 = makeReforecast({ id: 'rf_1' });
       const rf2 = makeReforecast({ id: 'rf_2', name: 'Q3' });
-      const project = makeProject({
-        reforecasts: [rf1, rf2],
-        activeReforecastId: 'rf_1',
-      });
-
-      const updated = deleteReforecastUpdater('rf_2')(project);
+      const h = hook(makeProject({ reforecasts: [rf1, rf2], activeReforecastId: 'rf_1' }));
+      h.run((a) => a.deleteReforecast('rf_2'));
+      const updated = h.box.current;
       expect(updated.activeReforecastId).toBe('rf_1');
     });
   });
@@ -315,26 +292,9 @@ describe('Reforecast Management', () => {
   describe('productivity window CRUD', () => {
     it('adds a productivity window to active reforecast', () => {
       const rf = makeReforecast({ productivityWindows: [] });
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-
-      // Simulate addProductivityWindow logic
-      const updated: Project = {
-        ...project,
-        reforecasts: project.reforecasts.map((r) =>
-          r.id === rf.id
-            ? {
-                ...r,
-                productivityWindows: [
-                  ...r.productivityWindows,
-                  { id: 'pw_new', startDate: '2026-12-01', endDate: '2026-12-31', factor: 0.5 },
-                ],
-              }
-            : r,
-        ),
-      };
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id }));
+      h.run((a) => a.addProductivityWindow('2026-12-01', '2026-12-31', 0.5));
+      const updated = h.box.current;
 
       expect(updated.reforecasts[0].productivityWindows).toHaveLength(1);
       expect(updated.reforecasts[0].productivityWindows[0].factor).toBe(0.5);
@@ -342,50 +302,18 @@ describe('Reforecast Management', () => {
 
     it('updates a productivity window', () => {
       const rf = makeReforecast();
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-
-      // Simulate updateProductivityWindow logic
-      const updated: Project = {
-        ...project,
-        reforecasts: project.reforecasts.map((r) =>
-          r.id === rf.id
-            ? {
-                ...r,
-                productivityWindows: r.productivityWindows.map((w) =>
-                  w.id === 'pw_1' ? { ...w, factor: 0.75 } : w,
-                ),
-              }
-            : r,
-        ),
-      };
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id }));
+      h.run((a) => a.updateProductivityWindow('pw_1', { factor: 0.75 }));
+      const updated = h.box.current;
 
       expect(updated.reforecasts[0].productivityWindows[0].factor).toBe(0.75);
     });
 
     it('removes a productivity window', () => {
       const rf = makeReforecast();
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-
-      // Simulate removeProductivityWindow logic
-      const updated: Project = {
-        ...project,
-        reforecasts: project.reforecasts.map((r) =>
-          r.id === rf.id
-            ? {
-                ...r,
-                productivityWindows: r.productivityWindows.filter(
-                  (w) => w.id !== 'pw_1',
-                ),
-              }
-            : r,
-        ),
-      };
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id }));
+      h.run((a) => a.removeProductivityWindow('pw_1'));
+      const updated = h.box.current;
 
       expect(updated.reforecasts[0].productivityWindows).toHaveLength(0);
     });
@@ -404,25 +332,9 @@ describe('Reforecast Management', () => {
           { id: 'pw_2', startDate: '2027-01-01', endDate: '2027-01-31', factor: 0.75 },
         ],
       });
-      const project = makeProject({
-        reforecasts: [rf1, rf2],
-        activeReforecastId: 'rf_1',
-      });
-
-      // Remove from rf_1 only
-      const updated: Project = {
-        ...project,
-        reforecasts: project.reforecasts.map((r) =>
-          r.id === 'rf_1'
-            ? {
-                ...r,
-                productivityWindows: r.productivityWindows.filter(
-                  (w) => w.id !== 'pw_1',
-                ),
-              }
-            : r,
-        ),
-      };
+      const h = hook(makeProject({ reforecasts: [rf1, rf2], activeReforecastId: 'rf_1' }));
+      h.run((a) => a.removeProductivityWindow('pw_1'));
+      const updated = h.box.current;
 
       expect(updated.reforecasts[0].productivityWindows).toHaveLength(0);
       expect(updated.reforecasts[1].productivityWindows).toHaveLength(1);
@@ -432,29 +344,24 @@ describe('Reforecast Management', () => {
   describe('actualCost per reforecast', () => {
     it('copies actualCost when creating from source reforecast', () => {
       const rf = makeReforecast({ actualCost: 50000 });
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-
-      const updated = createReforecastUpdater('Copy', rf.id)(project);
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id }));
+      h.run((a) => a.createReforecast('Copy', rf.id));
+      const updated = h.box.current;
       expect(updated.reforecasts[1].actualCost).toBe(50000);
     });
 
     it('defaults actualCost to 0 when starting fresh', () => {
-      const project = makeProject();
-      const updated = createReforecastUpdater('New')(project);
+      const h = hook(makeProject());
+      h.run((a) => a.createReforecast('New'));
+      const updated = h.box.current;
       expect(updated.reforecasts[0].actualCost).toBe(0);
     });
 
     it('defaults actualCost to 0 when copyFromId does not match', () => {
       const rf = makeReforecast({ actualCost: 50000 });
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-
-      const updated = createReforecastUpdater('New', 'nonexistent')(project);
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id }));
+      h.run((a) => a.createReforecast('New', 'nonexistent'));
+      const updated = h.box.current;
       expect(updated.reforecasts[1].actualCost).toBe(0);
     });
 
@@ -471,7 +378,9 @@ describe('Reforecast Management', () => {
       expect(project.reforecasts[1].actualCost).toBe(75000);
 
       // Switching active reforecast doesn't change either value
-      const switched = switchReforecastUpdater('rf_2')(project);
+      const sh = hook(project);
+      sh.run((a) => a.switchReforecast('rf_2'));
+      const switched = sh.box.current;
       expect(switched.reforecasts[0].actualCost).toBe(50000);
       expect(switched.reforecasts[1].actualCost).toBe(75000);
     });
@@ -565,30 +474,12 @@ describe('Reforecast Management', () => {
   });
 
   describe('deleteReforecast and actualCost', () => {
-    function deleteReforecastUpdater(reforecastId: string) {
-      return (prev: Project): Project => {
-        if (prev.reforecasts.length <= 1) return prev;
-        const remaining = prev.reforecasts.filter((r) => r.id !== reforecastId);
-        const wasActive = prev.activeReforecastId === reforecastId;
-        return {
-          ...prev,
-          reforecasts: remaining,
-          activeReforecastId: wasActive
-            ? (remaining.length > 0 ? remaining[0].id : null)
-            : prev.activeReforecastId,
-        };
-      };
-    }
-
     it('preserves actualCost of remaining reforecasts after deletion', () => {
       const rf1 = makeReforecast({ id: 'rf_1', actualCost: 10000 });
       const rf2 = makeReforecast({ id: 'rf_2', name: 'Q3', actualCost: 25000 });
-      const project = makeProject({
-        reforecasts: [rf1, rf2],
-        activeReforecastId: 'rf_1',
-      });
-
-      const updated = deleteReforecastUpdater('rf_1')(project);
+      const h = hook(makeProject({ reforecasts: [rf1, rf2], activeReforecastId: 'rf_1' }));
+      h.run((a) => a.deleteReforecast('rf_1'));
+      const updated = h.box.current;
       expect(updated.reforecasts).toHaveLength(1);
       expect(updated.reforecasts[0].actualCost).toBe(25000);
       expect(updated.activeReforecastId).toBe('rf_2');
@@ -657,29 +548,24 @@ describe('Reforecast Management', () => {
   describe('baselineBudget per reforecast', () => {
     it('copies baselineBudget when creating from source reforecast', () => {
       const rf = makeReforecast({ baselineBudget: 500000 });
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-
-      const updated = createReforecastUpdater('Copy', rf.id)(project);
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id }));
+      h.run((a) => a.createReforecast('Copy', rf.id));
+      const updated = h.box.current;
       expect(updated.reforecasts[1].baselineBudget).toBe(500000);
     });
 
     it('defaults baselineBudget to 0 when starting fresh', () => {
-      const project = makeProject();
-      const updated = createReforecastUpdater('New')(project);
+      const h = hook(makeProject());
+      h.run((a) => a.createReforecast('New'));
+      const updated = h.box.current;
       expect(updated.reforecasts[0].baselineBudget).toBe(0);
     });
 
     it('defaults baselineBudget to 0 when copyFromId does not match', () => {
       const rf = makeReforecast({ baselineBudget: 500000 });
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-
-      const updated = createReforecastUpdater('New', 'nonexistent')(project);
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id }));
+      h.run((a) => a.createReforecast('New', 'nonexistent'));
+      const updated = h.box.current;
       expect(updated.reforecasts[1].baselineBudget).toBe(0);
     });
 
@@ -694,7 +580,9 @@ describe('Reforecast Management', () => {
       expect(project.reforecasts[0].baselineBudget).toBe(500000);
       expect(project.reforecasts[1].baselineBudget).toBe(750000);
 
-      const switched = switchReforecastUpdater('rf_2')(project);
+      const sh = hook(project);
+      sh.run((a) => a.switchReforecast('rf_2'));
+      const switched = sh.box.current;
       expect(switched.reforecasts[0].baselineBudget).toBe(500000);
       expect(switched.reforecasts[1].baselineBudget).toBe(750000);
     });
@@ -858,7 +746,9 @@ describe('Reforecast Management', () => {
         activeReforecastId: 'rf_1',
       });
 
-      const switched = switchReforecastUpdater('rf_2')(project);
+      const sh = hook(project);
+      sh.run((a) => a.switchReforecast('rf_2'));
+      const switched = sh.box.current;
       expect(switched.reforecasts[0].notes).toBe('baseline context');
       expect(switched.reforecasts[1].notes).toBe('Q3 scope change');
     });
