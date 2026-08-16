@@ -4,6 +4,23 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.36.12] - 2026-08-16
+
+Tests only — no functional, data, or interface changes. The app behaves identically to v0.36.11.
+
+The code that reads and writes your data when cloud storage is switched on had no tests at all. It has thirty now.
+
+This is the layer that saves a project to the cloud, reads it back, creates a new one, imports a whole workspace, and deletes things. Every one of its twenty-one functions had never been executed by a test — while also being simple enough, function by function, that the project's complexity checker had nothing to say about it. It was invisible to both of the automated checks this project runs, which is a large part of why it needed doing by hand.
+
+Some of what is now pinned down:
+
+- A save writes exactly nine fields and deliberately leaves seven others alone — ownership, creation date, ordering and similar. That omission is what lets the import feature replace a project's contents without stealing its ownership, and nothing was checking it.
+- Clearing a project's colour or un-archiving it has to write an explicit "empty" rather than simply omitting the field, or the old value survives in the cloud. Now tested in both directions.
+- Reading a project back drops the cloud-only bookkeeping and restores cleared values as genuinely absent rather than as empty ones.
+- A settings record saved before v0.27.0 is missing the violet threshold. It gets filled in from defaults while keeping whatever you had customised — this was a real bug fixed in v0.27.0 and it now has a test. The three neighbouring fields that look like they have the same bug do not, for a reason now written down, so nobody "fixes" them into a genuine one.
+
+One known rough edge is now documented rather than repaired: importing a whole workspace into the cloud resets each project's creation date and ordering. That was already on the tech-debt list. The test asserts the current behaviour in a form that will fail — correctly — on the day someone fixes it, rather than in a form that would have to be rewritten.
+
 ## [0.36.11] - 2026-08-16
 
 **Behaviour change, and a low-severity performance guard, on the bulk-invite email box.**

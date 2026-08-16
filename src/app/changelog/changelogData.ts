@@ -13,6 +13,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.36.12',
+    date: '2026-08-16',
+    sections: [
+      {
+        title: 'Changed',
+        items: [
+          'Tests only. Nothing in the app itself changed \u2014 it behaves identically to v0.36.11.',
+          'The code that reads and writes your data when cloud storage is switched on had no tests at all. It has thirty now. This is the layer that saves a project to the cloud, reads it back, creates a new one, imports a whole workspace, and deletes things. Every one of its twenty-one functions had never been executed by a test \u2014 while also being simple enough, function by function, that the project\u2019s complexity checker had nothing to say about it. It was invisible to both automated checks, which is a large part of why it needed doing by hand.',
+          'A save writes exactly nine fields and deliberately leaves seven others alone \u2014 ownership, creation date, ordering and similar. That omission is what lets the import feature replace a project\u2019s contents without stealing its ownership, and nothing was checking it.',
+          'Clearing a project\u2019s colour or un-archiving it has to write an explicit \u201cempty\u201d rather than simply omitting the field, or the old value survives in the cloud. Now tested in both directions. Reading a project back drops the cloud-only bookkeeping and restores cleared values as genuinely absent rather than as empty ones.',
+          'A settings record saved before v0.27.0 is missing the violet threshold. It gets filled in from defaults while keeping whatever you had customised \u2014 a real bug fixed in v0.27.0 that now has a test. The three neighbouring fields that look like they have the same bug do not, for a reason now written down, so nobody \u201cfixes\u201d them into a genuine one.',
+          'One known rough edge is now documented rather than repaired: importing a whole workspace into the cloud resets each project\u2019s creation date and ordering. That was already on the tech-debt list. The test asserts the current behaviour in a form that will fail \u2014 correctly \u2014 on the day someone fixes it, rather than in a form that would have to be rewritten.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.36.11',
     date: '2026-08-16',
     sections: [
