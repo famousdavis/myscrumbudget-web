@@ -33,6 +33,41 @@ export const INVITE_SESSION_KEY = 'msb:invite-session';
  * Module-load auto-call uses the real flag value; tests pass true/false
  * explicitly to avoid ES module binding fragility.
  */
+/**
+ * COVERAGE DISPOSITION — DECLINED, and this is a FINISHED ITEM, not a TODO.
+ *
+ * DECISION: characterising this hook was measured, scoped, and declined by the
+ * owner on 2026-08-16. It was closed on measured grounds, not abandoned for
+ * time. Zero was never the target: an informed decline is a permitted outcome
+ * for any individual site, and this is one. Do not re-open it as outstanding
+ * work without a NEW reason — a changed figure, a shipped defect, or a change
+ * of scope. Re-deriving the numbers below and finding them unchanged is not a
+ * new reason.
+ *
+ * BAND: effectively greenfield. This hook is NOT partially covered in any
+ * useful sense — the single covered function is the sibling exported helper
+ * `captureInviteTokenFromUrl` below; the hook itself and all of its internal
+ * callbacks are at zero. Characterising it is from-scratch construction, not a
+ * top-up, and it needs the invitation Cloud-Function surface stood up in a
+ * mock. The band is what matters here; the exact percentage is not.
+ *
+ * MEASURED 2026-08-16 at df648a2:
+ *   npx vitest run --coverage --coverage.include='src/**\/*.{ts,tsx}' \
+ *     --coverage.reporter=json-summary
+ *   useInvitationLanding.ts   13/90 statements (77 uncovered) · 6/45 branches ·
+ *                             1/16 functions
+ *   Together with AuthProvider.tsx: 119 uncovered statements, 88% of the size
+ *   of the BulkSharingSection work that shipped in v0.36.13.
+ *
+ * ⚠️ Those figures re-derived UNCHANGED from the 2026-08-15 scoping measurement,
+ * so they are stable rather than freshly volatile. The trigger for re-measuring
+ * is a change to this file (2 commits at the time of writing), not the passage
+ * of time.
+ *
+ * ⚠️ This file is NOT in the never-loaded set and never was — it is imported and
+ * its module scope runs, which is why it reads 13 statements rather than 0.
+ * Covering it would not move that census figure (51 of 152 at df648a2).
+ */
 export function captureInviteTokenFromUrl(enabled: boolean = INVITATIONS_ENABLED): void {
   if (!enabled) return;                       // gate — no poison pill during flag-off
   if (typeof window === 'undefined') return;  // SSR/edge

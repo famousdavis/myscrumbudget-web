@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.36.14',
+    date: '2026-08-16',
+    sections: [
+      {
+        title: 'Changed',
+        items: [
+          'Comments only \u2014 nothing about the app changed, and no code runs differently.',
+          'Two files that handle signing in and accepting a project invitation now carry a written note explaining that they were deliberately left without tests, what was measured before that decision was taken, and on what date. The note is there so the next person to look does not have to re-measure to find out whether it was a considered choice or an oversight. It was a considered choice.',
+          'This closes the maintenance run that began at v0.35.1 \u2014 a stretch of releases spent on tests, measurement and internal safeguards rather than features. Across it the app gained no new capability and changed no stored data. What it gained is roughly three hundred additional tests, checks the compiler now performs before a build can succeed, and a written record beside several decisions that were previously only implicit. Normal feature work resumes after this.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.36.13',
     date: '2026-08-16',
     sections: [

@@ -29,6 +29,36 @@ interface AuthContextType {
   signOut: () => Promise<void>;
 }
 
+/**
+ * COVERAGE DISPOSITION — DECLINED, and this is a FINISHED ITEM, not a TODO.
+ *
+ * DECISION: characterising this provider was measured, scoped, and declined by
+ * the owner on 2026-08-16, on measured grounds rather than for lack of time.
+ * Zero was never the target. Do not re-open it as outstanding work without a
+ * NEW reason; re-deriving the figures below and finding them unchanged is not
+ * one. Paired with the disposition in `useInvitationLanding.ts` — the two were
+ * scoped and declined together.
+ *
+ * BAND: effectively greenfield, and more so than the raw percentage suggests.
+ * The ONE covered statement is the module-scope `createContext` on the line
+ * below; ZERO functions have ever executed, including the provider component
+ * itself. Nothing here is partially tested.
+ *
+ * MEASURED 2026-08-16 at df648a2:
+ *   npx vitest run --coverage --coverage.include='src/**\/*.{ts,tsx}' \
+ *     --coverage.reporter=json-summary
+ *   AuthProvider.tsx   1/43 statements (42 uncovered) · 0/20 branches ·
+ *                      0/10 functions
+ *
+ * ⚠️ Standing in the way is an auth-state surface, not a coverage gap: driving
+ * this would mean mocking `onAuthStateChanged`, the profile writes, and the
+ * pending-invitation claim path. That is construction work whose cost is close
+ * to standing up the boundary rather than to writing assertions.
+ *
+ * ⚠️ Figures re-derived UNCHANGED from the 2026-08-15 scoping measurement. The
+ * re-measure trigger is a change to this file (6 commits at the time of
+ * writing), not elapsed time.
+ */
 const AuthContext = createContext<AuthContextType | null>(null);
 
 /**
