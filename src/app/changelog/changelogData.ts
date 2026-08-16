@@ -13,6 +13,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.36.10',
+    date: '2026-08-16',
+    sections: [
+      {
+        title: 'Changed',
+        items: [
+          'Compile-time safeguards only — no runtime behaviour change and no data-model change. The app does exactly what it did in v0.36.9, and the cloud sync path was verified to produce byte-identical results before and after.',
+          'This is the first release in this maintenance run to touch code the app actually runs, so it is worth being precise: three checks were added that the TypeScript compiler evaluates before the app is ever built. Nothing was added to the running program.',
+          'The project record stored in the cloud is described a second time, by hand, separately from the one the app uses internally. Nothing connected the two, so adding a field to a project could leave the cloud copy quietly short — and every place that writes to the cloud would still compile, because each is checked against the hand-written copy rather than the real thing. Not hypothetical: the tile colour added in v0.33.0 went missing from imports for seven releases before anyone noticed.',
+          'Adding a field already produced one compiler error, in the import sanitiser, naming the field. What it did not do is mention the cloud, so it was possible to satisfy it and stop. There are now three errors at three layers, each naming the missing field: the internal-to-cloud mapping, the list of fields a save writes, and — the one nothing on the writing side could ever catch — the step that reads a cloud record back into the app. A field can be written correctly by every save and still never appear on screen, and no test that runs without the cloud would notice.',
+          'Two other ways of writing the first check were measured and rejected. One produced an error that never named the missing field. The other was silent: it looked like the stronger form and quietly accepted exactly the case the check exists to catch.',
+          'Equivalence was proven rather than reasoned about — the order of fields sent on a save, and a fully populated cloud record read back including the cleared-value cases, were captured before and after and compared. Identical.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.36.9',
     date: '2026-08-15',
     sections: [
