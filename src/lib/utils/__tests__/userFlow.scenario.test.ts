@@ -15,17 +15,24 @@
  *   - Apr bucket = $5,000 (read-only)
  *   - Total = $25,000
  *
- * This test exercises the EXACT same pure functions the React hook calls,
- * with no mocking — proving (or disproving) the fix end-to-end.
+ * The workflow block below exercises the EXACT same pure functions the React
+ * hook calls, with no mocking — proving (or disproving) the fix end-to-end.
+ *
+ * That was also the stated justification for re-implementing the hook's own
+ * decision branch in the B1 block further down. It no longer applies there:
+ * those tests now render the real `useReforecast`. Calling the same pure
+ * functions is not the same as calling the code that calls them.
  */
 
 import { describe, it, expect } from 'vitest';
+import { renderHook, act } from '@testing-library/react';
 import { createNewReforecast } from '../reforecast';
+import { useReforecast } from '@/features/reforecast/hooks/useReforecast';
 import {
   buildHistoricalCostsView,
   materializeBucketOnAdvance,
 } from '../historicalCostsView';
-import type { Reforecast } from '@/types/domain';
+import type { Project, Reforecast } from '@/types/domain';
 
 describe('User workflow: March → April reforecast with cutoff advance', () => {
   it('preserves March $20k and assigns $5k delta to April', () => {
@@ -186,32 +193,38 @@ describe('User workflow: March → April reforecast with cutoff advance', () => 
 /**
  * B1 regression coverage — these scenarios pin the contract that
  * `useReforecast.updateActualsThroughDate` implements when
- * `materializeBucketOnAdvance` returns an empty array. The hook treats the
- * return as authoritative: if non-empty, set; if empty AND a stale field
+ * `materializeBucketOnAdvance` returns an empty array: the hook treats the
+ * return as authoritative — if non-empty, set; if empty AND a stale field
  * exists, strip it via `delete`.
  *
- * The tests inline-simulate the hook's three-line decision branch to cover
- * the contract end-to-end without React infrastructure.
+ * These now drive the REAL hook. They previously called a local
+ * `applyCutoffAdvance` that re-implemented the hook's three-line decision
+ * branch, which meant a test file headed "B1 regression coverage" pinned a
+ * named, shipped regression against a copy of the code that regressed —
+ * the hook could have lost the `delete` and every test here would still pass.
  */
-function applyCutoffAdvance(
-  rf: Reforecast,
-  newCutoff: string,
-  projectStartDate: string,
-): Reforecast {
-  const nextHistorical = materializeBucketOnAdvance(
-    rf.historicalCosts,
-    rf.actualCost,
-    rf.actualsThroughDate,
-    newCutoff,
-    projectStartDate,
+function advanceCutoff(rf: Reforecast, newCutoff: string): Reforecast {
+  const project: Project = {
+    id: 'p_b1',
+    name: 'B1',
+    startDate: rf.startDate,
+    endDate: rf.endDate,
+    reforecasts: [rf],
+    activeReforecastId: rf.id,
+  };
+  const box = { current: project };
+  const view = renderHook(() =>
+    useReforecast({
+      project: box.current,
+      updateProject: (u) => {
+        box.current = u(box.current);
+      },
+    }),
   );
-  const next: Reforecast = { ...rf, actualsThroughDate: newCutoff };
-  if (nextHistorical.length > 0) {
-    next.historicalCosts = nextHistorical;
-  } else if (rf.historicalCosts !== undefined) {
-    delete next.historicalCosts;
-  }
-  return next;
+  act(() => {
+    view.result.current.updateActualsThroughDate(newCutoff);
+  });
+  return box.current.reforecasts[0];
 }
 
 describe('B1 regression: stale historicalCosts after cutoff advance', () => {
@@ -250,7 +263,7 @@ describe('B1 regression: stale historicalCosts after cutoff advance', () => {
     // Apply the hook's update logic. The stale field MUST be deleted, not
     // inherited via spread. Use 'in' check (not undefined check) to prove
     // the key is actually absent.
-    const next = applyCutoffAdvance(rf, '2026-04-15', projectStartDate);
+    const next = advanceCutoff(rf, '2026-04-15');
     expect('historicalCosts' in next).toBe(false);
     expect(next.actualsThroughDate).toBe('2026-04-15');
   });
@@ -277,7 +290,7 @@ describe('B1 regression: stale historicalCosts after cutoff advance', () => {
     // Advance the cutoff. materialize returns [] (nothing to preserve), and
     // the hook's else-if guard MUST short-circuit — `delete` should not run
     // on a key that was never present.
-    const next = applyCutoffAdvance(rf, '2026-04-15', projectStartDate);
+    const next = advanceCutoff(rf, '2026-04-15');
     expect('historicalCosts' in next).toBe(false);
     expect(next.actualsThroughDate).toBe('2026-04-15');
   });

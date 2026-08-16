@@ -387,87 +387,53 @@ describe('Reforecast Management', () => {
   });
 
   describe('updateActualCost sanitization', () => {
-    // Simulate the updateActualCost updater logic from useReforecast
-    function updateActualCostUpdater(value: number) {
-      return (prev: Project): Project => {
-        if (prev.reforecasts.length === 0) return prev;
-        const reforecastId = prev.activeReforecastId ?? prev.reforecasts[0].id;
-        const sanitized = Number.isFinite(value) ? Math.max(0, value) : 0;
-        return {
-          ...prev,
-          reforecasts: prev.reforecasts.map((rf) =>
-            rf.id === reforecastId
-              ? { ...rf, actualCost: sanitized }
-              : rf,
-          ),
-        };
-      };
-    }
 
     it('sets a valid positive value', () => {
       const rf = makeReforecast({ actualCost: 0 });
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-
-      const updated = updateActualCostUpdater(50000)(project);
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id, }));
+      h.run((a) => a.updateActualCost(50000));
+      const updated = h.box.current;
       expect(updated.reforecasts[0].actualCost).toBe(50000);
     });
 
     it('clamps NaN to 0', () => {
       const rf = makeReforecast({ actualCost: 10000 });
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-
-      const updated = updateActualCostUpdater(NaN)(project);
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id, }));
+      h.run((a) => a.updateActualCost(NaN));
+      const updated = h.box.current;
       expect(updated.reforecasts[0].actualCost).toBe(0);
     });
 
     it('clamps Infinity to 0', () => {
       const rf = makeReforecast({ actualCost: 10000 });
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-
-      const updated = updateActualCostUpdater(Infinity)(project);
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id, }));
+      h.run((a) => a.updateActualCost(Infinity));
+      const updated = h.box.current;
       expect(updated.reforecasts[0].actualCost).toBe(0);
     });
 
     it('clamps -Infinity to 0', () => {
       const rf = makeReforecast({ actualCost: 10000 });
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-
-      const updated = updateActualCostUpdater(-Infinity)(project);
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id, }));
+      h.run((a) => a.updateActualCost(-Infinity));
+      const updated = h.box.current;
       expect(updated.reforecasts[0].actualCost).toBe(0);
     });
 
     it('clamps negative values to 0', () => {
       const rf = makeReforecast({ actualCost: 10000 });
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-
-      const updated = updateActualCostUpdater(-500)(project);
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id, }));
+      h.run((a) => a.updateActualCost(-500));
+      const updated = h.box.current;
       expect(updated.reforecasts[0].actualCost).toBe(0);
     });
 
     it('only updates the active reforecast', () => {
       const rf1 = makeReforecast({ id: 'rf_1', actualCost: 10000 });
       const rf2 = makeReforecast({ id: 'rf_2', name: 'Q3', actualCost: 20000 });
-      const project = makeProject({
-        reforecasts: [rf1, rf2],
-        activeReforecastId: 'rf_1',
-      });
-
-      const updated = updateActualCostUpdater(99000)(project);
+      const h = hook(makeProject({ reforecasts: [rf1, rf2], activeReforecastId: 'rf_1', }));
+      h.run((a) => a.updateActualCost(99000));
+      const updated = h.box.current;
       expect(updated.reforecasts[0].actualCost).toBe(99000);
       expect(updated.reforecasts[1].actualCost).toBe(20000);
     });
@@ -487,61 +453,44 @@ describe('Reforecast Management', () => {
   });
 
   describe('updateReforecastDate', () => {
-    // Simulate the updateReforecastDate updater logic from useReforecast
-    function updateReforecastDateUpdater(date: string) {
-      return (prev: Project): Project => {
-        if (prev.reforecasts.length === 0) return prev;
-        const reforecastId = prev.activeReforecastId ?? prev.reforecasts[0].id;
-        return {
-          ...prev,
-          reforecasts: prev.reforecasts.map((rf) =>
-            rf.id === reforecastId
-              ? { ...rf, reforecastDate: date }
-              : rf,
-          ),
-        };
-      };
-    }
 
     it('sets a valid date string', () => {
       const rf = makeReforecast({ reforecastDate: '2026-06-01' });
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-
-      const updated = updateReforecastDateUpdater('2026-09-15')(project);
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id, }));
+      h.run((a) => a.updateReforecastDate('2026-09-15'));
+      const updated = h.box.current;
       expect(updated.reforecasts[0].reforecastDate).toBe('2026-09-15');
     });
 
     it('only updates the active reforecast', () => {
       const rf1 = makeReforecast({ id: 'rf_1', reforecastDate: '2026-06-01' });
       const rf2 = makeReforecast({ id: 'rf_2', name: 'Q3', reforecastDate: '2026-09-01' });
-      const project = makeProject({
-        reforecasts: [rf1, rf2],
-        activeReforecastId: 'rf_1',
-      });
-
-      const updated = updateReforecastDateUpdater('2026-12-01')(project);
+      const h = hook(makeProject({ reforecasts: [rf1, rf2], activeReforecastId: 'rf_1', }));
+      h.run((a) => a.updateReforecastDate('2026-12-01'));
+      const updated = h.box.current;
       expect(updated.reforecasts[0].reforecastDate).toBe('2026-12-01');
       expect(updated.reforecasts[1].reforecastDate).toBe('2026-09-01');
     });
 
     it('handles empty string (cleared date input)', () => {
       const rf = makeReforecast({ reforecastDate: '2026-06-01' });
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-
-      const updated = updateReforecastDateUpdater('')(project);
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id, }));
+      h.run((a) => a.updateReforecastDate(''));
+      const updated = h.box.current;
       expect(updated.reforecasts[0].reforecastDate).toBe('');
     });
 
-    it('no-ops when there are no reforecasts', () => {
-      const project = makeProject({ reforecasts: [] });
-      const updated = updateReforecastDateUpdater('2026-09-15')(project);
-      expect(updated.reforecasts).toHaveLength(0);
+    it('creates a Baseline reforecast when there are none, then dates it', () => {
+      // The old simulator no-opped on an empty list. The real hook routes
+      // through ensureReforecast, which CREATES a Baseline first — a defensive
+      // invariant the copy never modelled. Characterised, not asserted away.
+      const h = hook(makeProject({ reforecasts: [] }));
+      h.run((a) => a.updateReforecastDate('2026-09-15'));
+      const updated = h.box.current;
+      expect(updated.reforecasts).toHaveLength(1);
+      expect(updated.reforecasts[0].name).toBe('Baseline');
+      expect(updated.reforecasts[0].reforecastDate).toBe('2026-09-15');
+      expect(updated.activeReforecastId).toBe(updated.reforecasts[0].id);
     });
   });
 
@@ -589,151 +538,90 @@ describe('Reforecast Management', () => {
   });
 
   describe('updateBaselineBudget sanitization', () => {
-    // Simulate the updateBaselineBudget updater logic (same pattern as actualCost)
-    function updateBaselineBudgetUpdater(value: number) {
-      return (prev: Project): Project => {
-        if (prev.reforecasts.length === 0) return prev;
-        const reforecastId = prev.activeReforecastId ?? prev.reforecasts[0].id;
-        const sanitized = Number.isFinite(value) ? Math.max(0, value) : 0;
-        return {
-          ...prev,
-          reforecasts: prev.reforecasts.map((rf) =>
-            rf.id === reforecastId
-              ? { ...rf, baselineBudget: sanitized }
-              : rf,
-          ),
-        };
-      };
-    }
 
     it('sets a valid positive value', () => {
       const rf = makeReforecast({ baselineBudget: 0 });
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-
-      const updated = updateBaselineBudgetUpdater(750000)(project);
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id, }));
+      h.run((a) => a.updateBaselineBudget(750000));
+      const updated = h.box.current;
       expect(updated.reforecasts[0].baselineBudget).toBe(750000);
     });
 
     it('clamps NaN to 0', () => {
       const rf = makeReforecast({ baselineBudget: 500000 });
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-
-      const updated = updateBaselineBudgetUpdater(NaN)(project);
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id, }));
+      h.run((a) => a.updateBaselineBudget(NaN));
+      const updated = h.box.current;
       expect(updated.reforecasts[0].baselineBudget).toBe(0);
     });
 
     it('clamps Infinity to 0', () => {
       const rf = makeReforecast({ baselineBudget: 500000 });
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-
-      const updated = updateBaselineBudgetUpdater(Infinity)(project);
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id, }));
+      h.run((a) => a.updateBaselineBudget(Infinity));
+      const updated = h.box.current;
       expect(updated.reforecasts[0].baselineBudget).toBe(0);
     });
 
     it('clamps -Infinity to 0', () => {
       const rf = makeReforecast({ baselineBudget: 500000 });
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-
-      const updated = updateBaselineBudgetUpdater(-Infinity)(project);
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id, }));
+      h.run((a) => a.updateBaselineBudget(-Infinity));
+      const updated = h.box.current;
       expect(updated.reforecasts[0].baselineBudget).toBe(0);
     });
 
     it('clamps negative values to 0', () => {
       const rf = makeReforecast({ baselineBudget: 500000 });
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-
-      const updated = updateBaselineBudgetUpdater(-1000)(project);
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id, }));
+      h.run((a) => a.updateBaselineBudget(-1000));
+      const updated = h.box.current;
       expect(updated.reforecasts[0].baselineBudget).toBe(0);
     });
 
     it('only updates the active reforecast', () => {
       const rf1 = makeReforecast({ id: 'rf_1', baselineBudget: 500000 });
       const rf2 = makeReforecast({ id: 'rf_2', name: 'Q3', baselineBudget: 750000 });
-      const project = makeProject({
-        reforecasts: [rf1, rf2],
-        activeReforecastId: 'rf_1',
-      });
-
-      const updated = updateBaselineBudgetUpdater(999000)(project);
+      const h = hook(makeProject({ reforecasts: [rf1, rf2], activeReforecastId: 'rf_1', }));
+      h.run((a) => a.updateBaselineBudget(999000));
+      const updated = h.box.current;
       expect(updated.reforecasts[0].baselineBudget).toBe(999000);
       expect(updated.reforecasts[1].baselineBudget).toBe(750000);
     });
   });
 
   describe('updateNotes', () => {
-    // Simulate the updateNotes updater logic from useReforecast
-    function updateNotesUpdater(value: string) {
-      return (prev: Project): Project => {
-        if (prev.reforecasts.length === 0) return prev;
-        const reforecastId = prev.activeReforecastId ?? prev.reforecasts[0].id;
-        const trimmed = value.slice(0, REFORECAST_NOTES_MAX_LENGTH);
-        return {
-          ...prev,
-          reforecasts: prev.reforecasts.map((rf) =>
-            rf.id === reforecastId ? { ...rf, notes: trimmed } : rf,
-          ),
-        };
-      };
-    }
 
     it('sets notes on the active reforecast', () => {
       const rf = makeReforecast();
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-
-      const updated = updateNotesUpdater('Scope expanded to include API work.')(project);
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id, }));
+      h.run((a) => a.updateNotes('Scope expanded to include API work.'));
+      const updated = h.box.current;
       expect(updated.reforecasts[0].notes).toBe('Scope expanded to include API work.');
     });
 
     it('truncates input over the max length', () => {
       const rf = makeReforecast();
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-
-      const longInput = 'x'.repeat(REFORECAST_NOTES_MAX_LENGTH + 500);
-      const updated = updateNotesUpdater(longInput)(project);
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id }));
+      h.run((a) => a.updateNotes('x'.repeat(REFORECAST_NOTES_MAX_LENGTH + 500)));
+      const updated = h.box.current;
       expect(updated.reforecasts[0].notes?.length).toBe(REFORECAST_NOTES_MAX_LENGTH);
     });
 
     it('allows empty string (clearing)', () => {
       const rf = makeReforecast({ notes: 'previous content' });
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-
-      const updated = updateNotesUpdater('')(project);
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id, }));
+      h.run((a) => a.updateNotes(''));
+      const updated = h.box.current;
       expect(updated.reforecasts[0].notes).toBe('');
     });
 
     it('only updates the active reforecast', () => {
       const rf1 = makeReforecast({ id: 'rf_1', notes: 'first' });
       const rf2 = makeReforecast({ id: 'rf_2', name: 'Q3', notes: 'second' });
-      const project = makeProject({
-        reforecasts: [rf1, rf2],
-        activeReforecastId: 'rf_1',
-      });
-
-      const updated = updateNotesUpdater('first — updated')(project);
+      const h = hook(makeProject({ reforecasts: [rf1, rf2], activeReforecastId: 'rf_1', }));
+      h.run((a) => a.updateNotes('first — updated'));
+      const updated = h.box.current;
       expect(updated.reforecasts[0].notes).toBe('first — updated');
       expect(updated.reforecasts[1].notes).toBe('second');
     });
@@ -755,88 +643,201 @@ describe('Reforecast Management', () => {
   });
 
   describe('updateName', () => {
-    // Simulate the updateName logic from useReforecast: trim, 50-char clamp,
-    // reject empty, no-op on equal, only mutate active reforecast.
-    function updateNameUpdater(value: string) {
-      return (prev: Project): Project => {
-        if (prev.reforecasts.length === 0) return prev;
-        const reforecastId = prev.activeReforecastId ?? prev.reforecasts[0].id;
-        const active = prev.reforecasts.find((r) => r.id === reforecastId);
-        if (!active) return prev;
-        const trimmed = value.trim().slice(0, 50);
-        if (trimmed.length === 0) return prev;
-        if (trimmed === active.name) return prev;
-        return {
-          ...prev,
-          reforecasts: prev.reforecasts.map((rf) =>
-            rf.id === reforecastId ? { ...rf, name: trimmed } : rf,
-          ),
-        };
-      };
-    }
 
     it('sets the name on the active reforecast (trimmed)', () => {
       const rf = makeReforecast({ name: 'Baseline' });
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-      const updated = updateNameUpdater('  Q3 final  ')(project);
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id, }));
+      h.run((a) => a.updateName('  Q3 final  '));
+      const updated = h.box.current;
       expect(updated.reforecasts[0].name).toBe('Q3 final');
     });
 
     it('clamps input over 50 chars', () => {
       const rf = makeReforecast({ name: 'Baseline' });
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-      const longInput = 'x'.repeat(75);
-      const updated = updateNameUpdater(longInput)(project);
-      expect(updated.reforecasts[0].name.length).toBe(50);
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id }));
+      h.run((a) => a.updateName('x'.repeat(75)));
+      const updated = h.box.current;
+      // The literal clamped VALUE, not `.length <= 50`: a length assertion
+      // passes whether the clamp is at 50 or at 30.
+      expect(updated.reforecasts[0].name).toBe('x'.repeat(50));
     });
 
     it('rejects empty string — name unchanged', () => {
       const rf = makeReforecast({ name: 'Baseline' });
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-      const updated = updateNameUpdater('')(project);
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id, }));
+      h.run((a) => a.updateName(''));
+      const updated = h.box.current;
       expect(updated.reforecasts[0].name).toBe('Baseline');
     });
 
     it('rejects whitespace-only input — name unchanged', () => {
       const rf = makeReforecast({ name: 'Baseline' });
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-      const updated = updateNameUpdater('   \t\n  ')(project);
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id, }));
+      h.run((a) => a.updateName('   \t\n  '));
+      const updated = h.box.current;
       expect(updated.reforecasts[0].name).toBe('Baseline');
     });
 
     it('no-op when typed value equals current name (after trim)', () => {
       const rf = makeReforecast({ name: 'Baseline' });
-      const project = makeProject({
-        reforecasts: [rf],
-        activeReforecastId: rf.id,
-      });
-      const updated = updateNameUpdater('  Baseline  ')(project);
-      // Same project reference returned (no mutation triggered)
-      expect(updated).toBe(project);
+      const initial = makeProject({ reforecasts: [rf], activeReforecastId: rf.id });
+      const h = hook(initial);
+      h.run((a) => a.updateName('  Baseline  '));
+      // Reference identity: the guard returns BEFORE updateActiveRf, so no new
+      // project object is ever built. This is load-bearing — updateActiveRf
+      // always rebuilds via .map, so an inside-the-updater guard would still
+      // push an undo snapshot and a redundant save on every unchanged blur.
+      expect(h.box.current).toBe(initial);
     });
 
     it('only updates the active reforecast', () => {
       const rf1 = makeReforecast({ id: 'rf_1', name: 'Baseline' });
       const rf2 = makeReforecast({ id: 'rf_2', name: 'Q2 Reforecast' });
-      const project = makeProject({
-        reforecasts: [rf1, rf2],
-        activeReforecastId: 'rf_2',
-      });
-      const updated = updateNameUpdater('Q3 final')(project);
+      const h = hook(makeProject({ reforecasts: [rf1, rf2], activeReforecastId: 'rf_2', }));
+      h.run((a) => a.updateName('Q3 final'));
+      const updated = h.box.current;
       expect(updated.reforecasts[0].name).toBe('Baseline');
       expect(updated.reforecasts[1].name).toBe('Q3 final');
+    });
+  });
+});
+
+/**
+ * Operations the old file never touched at all — not simulations, simply
+ * untested. onAllocationChange is the allocation grid's write path and the
+ * most-exercised mutation in the app; the two timeline commits and
+ * updateHistoricalCosts are the data-integrity paths behind the Timeline
+ * Change dialog and the historical-costs table.
+ */
+describe('useReforecast — operations with no prior coverage', () => {
+  describe('onAllocationChange', () => {
+    it('appends a new allocation', () => {
+      const rf = makeReforecast({ allocations: [] });
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id }));
+      h.run((a) => a.onAllocationChange('a_1', '2026-08', 0.6));
+      expect(h.box.current.reforecasts[0].allocations).toEqual([
+        { memberId: 'a_1', month: '2026-08', allocation: 0.6 },
+      ]);
+    });
+
+    it('replaces the value of an existing allocation in place', () => {
+      const rf = makeReforecast();
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id }));
+      h.run((a) => a.onAllocationChange('a_1', '2026-06', 0.9));
+      const allocs = h.box.current.reforecasts[0].allocations;
+      // Order preserved and no duplicate added — the whole array asserted.
+      expect(allocs).toEqual([
+        { memberId: 'a_1', month: '2026-06', allocation: 0.9 },
+        { memberId: 'a_1', month: '2026-07', allocation: 0.5 },
+        { memberId: 'a_2', month: '2026-06', allocation: 0.4 },
+      ]);
+    });
+
+    it('removes the entry when the value is 0 rather than storing a zero', () => {
+      const rf = makeReforecast();
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id }));
+      h.run((a) => a.onAllocationChange('a_1', '2026-06', 0));
+      expect(h.box.current.reforecasts[0].allocations).toEqual([
+        { memberId: 'a_1', month: '2026-07', allocation: 0.5 },
+        { memberId: 'a_2', month: '2026-06', allocation: 0.4 },
+      ]);
+    });
+
+    it('touches the active reforecast only', () => {
+      const rf1 = makeReforecast({ id: 'rf_1' });
+      const rf2 = makeReforecast({ id: 'rf_2', name: 'Q3' });
+      const h = hook(makeProject({ reforecasts: [rf1, rf2], activeReforecastId: 'rf_2' }));
+      h.run((a) => a.onAllocationChange('a_1', '2026-06', 0));
+      expect(h.box.current.reforecasts[0].allocations).toHaveLength(3);
+      expect(h.box.current.reforecasts[1].allocations).toHaveLength(2);
+    });
+  });
+
+  describe('timeline commits', () => {
+    it('commitReforecastStartDate drops out-of-window allocations and clamps reforecastDate', () => {
+      const rf = makeReforecast({ reforecastDate: '2026-06-01' });
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id }));
+      h.run((a) => a.commitReforecastStartDate('2026-07-01', '2026-08-01'));
+      const next = h.box.current.reforecasts[0];
+
+      expect(next.startDate).toBe('2026-07-01');
+      // 2026-06 allocations fall outside the new window; 2026-07 survives.
+      expect(next.allocations).toEqual([
+        { memberId: 'a_1', month: '2026-07', allocation: 0.5 },
+      ]);
+      // reforecastDate was before the new start, and the new start is not in
+      // the future, so it clamps forward to the new start (not to today).
+      expect(next.reforecastDate).toBe('2026-07-01');
+    });
+
+    it('commitReforecastEndDate trims the window but leaves reforecastDate alone', () => {
+      const rf = makeReforecast({ reforecastDate: '2026-06-01' });
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id }));
+      h.run((a) => a.commitReforecastEndDate('2026-06-30'));
+      const next = h.box.current.reforecasts[0];
+
+      expect(next.endDate).toBe('2026-06-30');
+      expect(next.allocations).toEqual([
+        { memberId: 'a_1', month: '2026-06', allocation: 0.25 },
+        { memberId: 'a_2', month: '2026-06', allocation: 0.4 },
+      ]);
+      // Deliberately untouched: a reforecast dated after its own end is
+      // permitted (you can document a December forecast for a June project).
+      expect(next.reforecastDate).toBe('2026-06-01');
+    });
+  });
+
+  describe('updateHistoricalCosts', () => {
+    it('stores entries, then STRIPS the key when handed an empty array', () => {
+      const rf = makeReforecast();
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id }));
+
+      h.run((a) => a.updateHistoricalCosts([{ month: '2026-06', cost: 1000, hours: 8 }]));
+      expect(h.box.current.reforecasts[0].historicalCosts).toEqual([
+        { month: '2026-06', cost: 1000, hours: 8 },
+      ]);
+
+      h.run((a) => a.updateHistoricalCosts([]));
+      // `in`, not `=== undefined`: the field must be ABSENT, so the optional
+      // round-trips cleanly rather than serialising an empty array.
+      expect('historicalCosts' in h.box.current.reforecasts[0]).toBe(false);
+    });
+  });
+
+  describe('updateActualsThroughDate', () => {
+    it('carries the prior bucket forward when the cutoff advances', () => {
+      // The non-empty half of the B1 contract. userFlow.scenario.test.ts pins
+      // the empty half (strip); this is the branch that PRESERVES the
+      // previously-derived total so advancing the cutoff does not lose it.
+      const rf = makeReforecast({ actualCost: 20000, actualsThroughDate: '2026-06-20' });
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id }));
+      h.run((a) => a.updateActualsThroughDate('2026-07-20'));
+      const next = h.box.current.reforecasts[0];
+
+      expect(next.actualsThroughDate).toBe('2026-07-20');
+      expect(next.historicalCosts).toEqual([{ month: '2026-06', cost: 20000, hours: 0 }]);
+    });
+
+    it('strips the cutoff entirely when cleared', () => {
+      const rf = makeReforecast({ actualsThroughDate: '2026-06-20' });
+      const h = hook(makeProject({ reforecasts: [rf], activeReforecastId: rf.id }));
+      h.run((a) => a.updateActualsThroughDate(undefined));
+      // Absent, not undefined — the optional must round-trip cleanly.
+      expect('actualsThroughDate' in h.box.current.reforecasts[0]).toBe(false);
+    });
+  });
+
+  describe('createReforecast baseline resolution', () => {
+    it('falls back to the EARLIEST reforecast when none is named Baseline', () => {
+      const later = makeReforecast({ id: 'rf_b', name: 'Beta', createdAt: '2026-03-01T00:00:00Z', startDate: '2026-03-01', endDate: '2026-03-31' });
+      const earlier = makeReforecast({ id: 'rf_a', name: 'Alpha', createdAt: '2026-01-01T00:00:00Z', startDate: '2026-01-01', endDate: '2026-01-31' });
+      const h = hook(makeProject({ reforecasts: [later, earlier], activeReforecastId: 'rf_b' }));
+      h.run((a) => a.createReforecast('Blank'));
+
+      // Earliest by createdAt wins — NOT array order, which is reversed here
+      // on purpose so the two cannot be confused.
+      expect(newest(h.box.current).startDate).toBe('2026-01-01');
+      expect(newest(h.box.current).endDate).toBe('2026-01-31');
     });
   });
 });
