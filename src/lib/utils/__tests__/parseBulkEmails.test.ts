@@ -55,3 +55,57 @@ describe('parseBulkEmails', () => {
     expect(r.invalid).toEqual([]);
   });
 });
+
+describe('parseBulkEmails — token length cap', () => {
+  // The cap exists to bound a quadratic in EMAIL_RE. These pin the BEHAVIOUR it
+  // implies, which is a real partition change: a structurally-valid token longer
+  // than the cap used to be returned as VALID.
+  const MAX = 320;
+
+  it('accepts an address at the RFC 5321 maximum (254 chars)', () => {
+    // Positive control. 64-char local part + @ + 189-char domain = 254.
+    const local = 'a'.repeat(64);
+    const domain = `${'b'.repeat(61)}.${'c'.repeat(61)}.${'d'.repeat(61)}.com`;
+    const addr = `${local}@${domain}`;
+    expect(addr).toHaveLength(254);
+    const { valid, invalid } = parseBulkEmails(addr);
+    expect(valid).toEqual([addr]);
+    expect(invalid).toEqual([]);
+  });
+
+  it('accepts a token at exactly the cap and rejects one character more', () => {
+    // Exact-boundary twins: without these, `>` could become `>=` unnoticed.
+    const at = `${'a'.repeat(MAX - 12)}@example.com`;
+    const over = `${'a'.repeat(MAX - 11)}@example.com`;
+    expect(at).toHaveLength(MAX);
+    expect(over).toHaveLength(MAX + 1);
+    expect(parseBulkEmails(at).valid).toEqual([at]);
+    expect(parseBulkEmails(over).valid).toEqual([]);
+    expect(parseBulkEmails(over).invalid).toEqual([over]);
+  });
+
+  it('routes an over-cap token to invalid rather than DROPPING it', () => {
+    // The load-bearing half. On a paste-a-list surface a silently discarded
+    // address is a collaborator who is never invited, with nothing on screen.
+    const over = `${'a'.repeat(400)}@example.com`;
+    const { valid, invalid } = parseBulkEmails(`good@example.com, ${over}, other@example.com`);
+    expect(valid).toEqual(['good@example.com', 'other@example.com']);
+    expect(invalid).toEqual([over]);
+    // Nothing vanishes: every input token is accounted for in one partition.
+    expect(valid.length + invalid.length).toBe(3);
+  });
+
+  it('rejects the adversarial shape without paying for it', () => {
+    // 'a@' + 'a.'xN + '@' — a dot-rich run with a TRAILING @. Unbounded this is
+    // ~1.1 s at 64 KB; the cap rejects it on length before EMAIL_RE ever runs.
+    const attack = `a@${'a.'.repeat(32000)}@`;
+    const started = performance.now();
+    const { valid, invalid } = parseBulkEmails(attack);
+    const elapsed = performance.now() - started;
+    expect(valid).toEqual([]);
+    expect(invalid).toEqual([attack]);
+    // Generous bound: the point is orders of magnitude, not a stopwatch.
+    expect(elapsed).toBeLessThan(100);
+  });
+});
+
