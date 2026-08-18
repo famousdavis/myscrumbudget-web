@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.36.15',
+    date: '2026-08-17',
+    sections: [
+      {
+        title: 'Changed',
+        items: [
+          'Comments only \u2014 nothing about the app changed, and no code runs differently.',
+          'A note in this project\u2019s build-check configuration stated that two sibling projects had been verified as free of type errors, including in their test files, and so did not need the extra check this project carries. That was tested and holds for only one of the two: the check the claim rested on cannot see test files at all, so it reported success without ever examining them. The note now records what was measured, where, on what date, and with which command.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.36.14',
     date: '2026-08-16',
     sections: [

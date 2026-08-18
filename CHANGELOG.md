@@ -4,6 +4,12 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.36.15] - 2026-08-17
+
+Comments only — nothing about the app changed, and no code runs differently.
+
+A note in this project's build-check configuration stated that two sibling projects had been verified as free of type errors, including in their test files, and so did not need the extra check this project carries. That was tested and holds for only one of the two. The check the claim rested on cannot see test files at all, so it reported success without ever examining them — and one sibling has in fact carried three such errors, undetected, since July. The note now records what was measured, where, on what date, and with which command.
+
 ## [0.36.14] - 2026-08-16
 
 Comments only — nothing about the app changed, and no code runs differently.
