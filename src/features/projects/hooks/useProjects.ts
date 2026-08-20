@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { AppState, Project, ProjectColor } from '@/types/domain';
-import { repo } from '@/lib/storage/repo';
+import { useRepository } from '@/components/RepositoryProvider';
 import { cloudSyncBus } from '@/lib/firebase/cloudSyncBus';
 import { generateId } from '@/lib/utils/id';
 import { createBaselineReforecast } from '@/lib/utils/reforecast';
@@ -16,12 +16,13 @@ import { nextCopyName, cloneProjectData } from '@/features/projects/lib/dashboar
 import { addToastGlobal } from '@/components/Toast';
 
 export function useProjects() {
+  const { repository } = useRepository();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {
     try {
-      const all = await repo.getProjects();
+      const all = await repository.getProjects();
       setProjects(all);
     } catch (err) {
       const code = (err as { code?: string })?.code;
@@ -37,7 +38,7 @@ export function useProjects() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [repository]);
 
   // Fetch-on-mount + cloudSyncBus subscription — externally driven, not cascading.
   useEffect(() => {
@@ -62,13 +63,13 @@ export function useProjects() {
         reforecasts: [baseline],
         activeReforecastId: baseline.id,
       };
-      await repo.createProject(project);
+      await repository.createProject(project);
       ensureOriginRef();
       appendToChangeLog({ op: 'add', entity: 'project', id: project.id });
       await reload();
       return project;
     },
-    [reload]
+    [reload, repository]
   );
 
   const deleteProject = useCallback(
@@ -78,11 +79,11 @@ export function useProjects() {
       // setDoc(merge:true). Limitation: cancels the timer only; a setDoc
       // already in-flight over the network is not aborted (~200ms residual).
       cancelByKey(id);
-      await repo.deleteProject(id);
+      await repository.deleteProject(id);
       appendToChangeLog({ op: 'delete', entity: 'project', id });
       await reload();
     },
-    [reload]
+    [reload, repository]
   );
 
   const reorderProjects = useCallback(
@@ -94,9 +95,9 @@ export function useProjects() {
           .map((id) => byId.get(id))
           .filter((p): p is Project => p !== undefined);
       });
-      await repo.reorderProjects(orderedIds);
+      await repository.reorderProjects(orderedIds);
     },
-    []
+    [repository]
   );
 
   /**
@@ -108,7 +109,7 @@ export function useProjects() {
    */
   const setProjectColor = useCallback(
     async (id: string, color: ProjectColor | undefined) => {
-      const target = await repo.getProject(id);
+      const target = await repository.getProject(id);
       if (!target) return;
       const next: Project = { ...target };
       if (color) {
@@ -116,10 +117,10 @@ export function useProjects() {
       } else {
         delete next.color;
       }
-      await repo.saveProject(next);
+      await repository.saveProject(next);
       await reload();
     },
-    [reload]
+    [reload, repository]
   );
 
   /**
@@ -133,13 +134,13 @@ export function useProjects() {
    */
   const archiveProject = useCallback(
     async (id: string) => {
-      const target = await repo.getProject(id);
+      const target = await repository.getProject(id);
       if (!target) return;
-      await repo.saveProject({ ...target, archived: true });
+      await repository.saveProject({ ...target, archived: true });
       appendToChangeLog({ op: 'archive', entity: 'project', id });
       await reload();
     },
-    [reload]
+    [reload, repository]
   );
 
   /**
@@ -150,15 +151,15 @@ export function useProjects() {
    */
   const unarchiveProject = useCallback(
     async (id: string) => {
-      const target = await repo.getProject(id);
+      const target = await repository.getProject(id);
       if (!target) return;
       const next: Project = { ...target };
       delete next.archived;
-      await repo.saveProject(next);
+      await repository.saveProject(next);
       appendToChangeLog({ op: 'unarchive', entity: 'project', id });
       await reload();
     },
-    [reload]
+    [reload, repository]
   );
 
   /**
@@ -170,18 +171,18 @@ export function useProjects() {
    */
   const cloneProject = useCallback(
     async (id: string): Promise<Project | null> => {
-      const source = await repo.getProject(id);
+      const source = await repository.getProject(id);
       if (!source) return null;
-      const all = await repo.getProjects();
+      const all = await repository.getProjects();
       const newName = nextCopyName(source.name, all.map((p) => p.name));
       const clone = cloneProjectData(source, newName);
-      await repo.createProject(clone);
+      await repository.createProject(clone);
       ensureOriginRef();
       appendToChangeLog({ op: 'add', entity: 'project', id: clone.id });
       await reload();
       return clone;
     },
-    [reload]
+    [reload, repository]
   );
 
   /**
@@ -193,12 +194,12 @@ export function useProjects() {
    */
   const exportProject = useCallback(
     async (id: string): Promise<AppState | null> => {
-      const data = await repo.exportAll();
+      const data = await repository.exportAll();
       const one = data.projects.find((p) => p.id === id);
       if (!one) return null;
       return { ...data, projects: [one] };
     },
-    []
+    [repository]
   );
 
   return {

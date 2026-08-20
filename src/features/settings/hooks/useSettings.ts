@@ -6,18 +6,19 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Settings } from '@/types/domain';
-import { repo } from '@/lib/storage/repo';
+import { useRepository } from '@/components/RepositoryProvider';
 import { useDebouncedSave } from '@/hooks/useDebouncedSave';
 import { cloudSyncBus } from '@/lib/firebase/cloudSyncBus';
 import { addToastGlobal } from '@/components/Toast';
 
 export function useSettings() {
+  const { repository } = useRepository();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {
     try {
-      const s = await repo.getSettings();
+      const s = await repository.getSettings();
       setSettings(s);
     } catch (err) {
       const code = (err as { code?: string })?.code;
@@ -33,7 +34,7 @@ export function useSettings() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [repository]);
 
   // Fetch-on-mount + cloudSyncBus subscription — externally driven, not cascading.
   useEffect(() => {
@@ -50,12 +51,12 @@ export function useSettings() {
 
   const persistSettingsFn = useCallback(async (s: Settings) => {
     try {
-      await repo.saveSettings(s);
+      await repository.saveSettings(s);
     } catch (err) {
       addToastGlobal('Failed to save settings. Please check your connection.', 'error');
       throw err;
     }
-  }, []);
+  }, [repository]);
   const { save: persistSettings, flush } = useDebouncedSave<Settings>(persistSettingsFn);
 
   const updateSettings = useCallback(

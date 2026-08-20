@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { PoolMember } from '@/types/domain';
-import { repo } from '@/lib/storage/repo';
+import { useRepository } from '@/components/RepositoryProvider';
 import { useDebouncedSave } from '@/hooks/useDebouncedSave';
 import { generateId } from '@/lib/utils/id';
 import { ensureOriginRef, appendToChangeLog } from '@/lib/storage/fingerprint';
@@ -14,12 +14,13 @@ import { cloudSyncBus } from '@/lib/firebase/cloudSyncBus';
 import { addToastGlobal } from '@/components/Toast';
 
 export function useTeamPool() {
+  const { repository } = useRepository();
   const [pool, setPool] = useState<PoolMember[]>([]);
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {
     try {
-      const p = await repo.getTeamPool();
+      const p = await repository.getTeamPool();
       setPool(p);
     } catch (err) {
       const code = (err as { code?: string })?.code;
@@ -32,7 +33,7 @@ export function useTeamPool() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [repository]);
 
   // Fetch-on-mount + cloudSyncBus subscription — externally driven, not cascading.
   useEffect(() => {
@@ -49,12 +50,12 @@ export function useTeamPool() {
 
   const persistFn = useCallback(async (p: PoolMember[]) => {
     try {
-      await repo.saveTeamPool(p);
+      await repository.saveTeamPool(p);
     } catch (err) {
       addToastGlobal('Failed to save team pool. Please check your connection.', 'error');
       throw err;
     }
-  }, []);
+  }, [repository]);
   const { save: persist, flush } = useDebouncedSave<PoolMember[]>(persistFn);
 
   const addPoolMember = useCallback(
@@ -122,7 +123,7 @@ export function useTeamPool() {
 
   const deletePoolMember = useCallback(
     async (id: string): Promise<{ ok: boolean; reason?: string; canArchive?: boolean }> => {
-      const projects = await repo.getProjects();
+      const projects = await repository.getProjects();
       const inUse = projects.some((p) =>
         (p.reforecasts ?? []).some((rf) =>
           (rf.assignments ?? []).some((a) => a.poolMemberId === id),
@@ -157,7 +158,7 @@ export function useTeamPool() {
       appendToChangeLog({ op: 'delete', entity: 'pool-member', id });
       return { ok: true };
     },
-    [persist, pool],
+    [persist, pool, repository],
   );
 
   return {

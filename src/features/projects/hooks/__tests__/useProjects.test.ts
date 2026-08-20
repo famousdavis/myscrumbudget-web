@@ -23,16 +23,28 @@ vi.mock('@/lib/storage/pendingSaveRegistry', () => ({
   cancelByKey: mocks.cancelByKey,
   register: vi.fn(() => () => {}),
 }));
-vi.mock('@/lib/storage/repo', () => ({
-  repo: {
-    getProjects: mocks.getProjects,
-    getProject: mocks.getProject,
-    saveProject: mocks.saveProject,
-    createProject: mocks.createProject,
-    deleteProject: mocks.deleteProject,
-    exportAll: mocks.exportAll,
-  },
-}));
+// ⚠️ The returned value must be REFERENTIALLY STABLE across renders. `reload`
+// is memoised on `repository`, and the mount effect is memoised on `reload`, so
+// a fresh object per call produces an unbounded re-fetch loop rather than a
+// clean failure. Discovered here; pinned as a property of the real provider by
+// the identity-stability test in RepositoryProvider.test.tsx.
+const repositoryContext = vi.hoisted(() => ({ value: null as unknown }));
+vi.mock('@/components/RepositoryProvider', () => {
+  repositoryContext.value = {
+    repository: {
+      getProjects: mocks.getProjects,
+      getProject: mocks.getProject,
+      saveProject: mocks.saveProject,
+      createProject: mocks.createProject,
+      deleteProject: mocks.deleteProject,
+      exportAll: mocks.exportAll,
+    },
+    mode: 'local' as const,
+    isCloud: false,
+    switchMode: vi.fn(),
+  };
+  return { useRepository: () => repositoryContext.value };
+});
 vi.mock('@/lib/storage/fingerprint', () => ({
   appendToChangeLog: mocks.appendToChangeLog,
   ensureOriginRef: mocks.ensureOriginRef,

@@ -13,8 +13,8 @@ import { ExportAttribution } from '@/features/settings/components/ExportAttribut
 import { LocalStorageWarningToggle } from '@/features/settings/components/LocalStorageWarningToggle';
 import { GoogleLogo } from '@/components/icons/GoogleLogo';
 import { MicrosoftLogo } from '@/components/icons/MicrosoftLogo';
-import { getStorageMode, setStorageMode, type StorageMode } from '@/lib/storage/storageMode';
-import { repo, switchRepoImpl } from '@/lib/storage/repo';
+import type { StorageMode } from '@/lib/storage/storageMode';
+import { useRepository } from '@/components/RepositoryProvider';
 import { createLocalStorageRepository } from '@/lib/storage/localStorage';
 import { createFirestoreRepository } from '@/lib/storage/firestoreRepo';
 import { sanitizeFirebaseError } from '@/lib/firebase/errors';
@@ -45,7 +45,7 @@ export function CloudStorageModal({ onClose }: CloudStorageModalProps) {
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  const [mode, setMode] = useState<StorageMode>(() => getStorageMode());
+  const { repository, mode, switchMode } = useRepository();
 
   const [showUploadConfirm, setShowUploadConfirm] = useState(false);
   const [showSwitchToLocalConfirm, setShowSwitchToLocalConfirm] = useState(false);
@@ -76,22 +76,23 @@ export function CloudStorageModal({ onClose }: CloudStorageModalProps) {
 
   const switchToCloudDirect = useCallback(() => {
     if (!user) return;
-    const cloudRepo = createFirestoreRepository(user.uid);
-    switchRepoImpl(cloudRepo);
-    setStorageMode('cloud');
+    switchMode('cloud');
     setHasUploaded();
     setOriginRef(user.uid);
+    // Redundant since v0.37.0 — switchMode re-derives the repository and
+    // re-runs the cloud-sync effect on its own. Kept deliberately; removing it
+    // is a separate behaviour change. See CloudStorageSection.switchToCloud.
     window.location.reload();
-  }, [user]);
+  }, [user, switchMode]);
 
   const handleModeChange = async (newMode: StorageMode) => {
     if (newMode === mode || migrating) return;
 
     if (newMode === 'cloud') {
       if (!user) return;
-      // Read from the delegating repo to avoid the C3 leak (a fresh local
-      // repo might surface keys belonging to a prior user).
-      const localProjects = await repo.getProjects();
+      // Read through the ACTIVE repository to avoid the C3 leak (a freshly
+      // constructed local repository might surface keys belonging to a prior user).
+      const localProjects = await repository.getProjects();
       if (localProjects.length > 0) {
         setLocalProjectCount(localProjects.length);
         setShowUploadConfirm(true);
@@ -109,11 +110,11 @@ export function CloudStorageModal({ onClose }: CloudStorageModalProps) {
     setMigrating(true);
 
     try {
-      const localData = await repo.exportAll();
+      const localData = await repository.exportAll();
+      // A one-shot UPLOAD TARGET, not the app's active store — switchMode is
+      // what makes it active.
       const cloudRepo = createFirestoreRepository(user.uid);
-      switchRepoImpl(cloudRepo);
-      setStorageMode('cloud');
-      setMode('cloud');
+      switchMode('cloud');
       await cloudRepo.importAll(localData);
       setHasUploaded();
 
@@ -123,17 +124,15 @@ export function CloudStorageModal({ onClose }: CloudStorageModalProps) {
     } catch (error) {
       const msg = sanitizeFirebaseError(error);
       addToast(`Upload failed: ${msg}`, 'error');
-      switchRepoImpl(createLocalStorageRepository());
-      setStorageMode('local');
-      setMode('local');
+      switchMode('local');
     } finally {
       setMigrating(false);
     }
   };
 
   const confirmSwitchToLocal = () => {
-    switchRepoImpl(createLocalStorageRepository());
-    setStorageMode('local');
+    switchMode('local');
+    // Redundant since v0.37.0 — kept deliberately. See switchToCloudDirect.
     window.location.reload();
   };
 
@@ -149,8 +148,8 @@ export function CloudStorageModal({ onClose }: CloudStorageModalProps) {
   };
 
   const handleSignOut = async () => {
-    // performSignOutCleanup cascades storage mode → local, clears keys, and
-    // reloads the page. The modal unmounts naturally post-reload.
+    // performSignOutCleanup cascades storage mode → local (which re-derives
+    // the repository), clears keys, and reloads the page. The modal unmounts naturally post-reload.
     await signOut();
   };
 

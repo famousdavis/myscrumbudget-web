@@ -437,7 +437,7 @@ const exampleState: AppState = {
 │  │  │ costs.ts        │  │ repository.ts    │  │ MigrationGuard.tsx     │  ││
 │  │  │ metrics.ts      │  │ localStorage.ts  │  │ charts/                │  ││
 │  │  │ npv.ts          │  │ migrations.ts    │  │   MonthlyCostBarChart  │  ││
-│  │  │ productivity.ts │  │ repo.ts (singl.) │  │   CumulativeCostLine   │  ││
+│  │  │ productivity.ts │  │ firestoreRepo.ts │  │   CumulativeCostLine   │  ││
 │  │  │ allocationMap.ts│  │ types.ts         │  │   ChartTooltip         │  ││
 │  │  │ index.ts        │  │                  │  │   svg-utils.ts         │  ││
 │  │  └─────────────────┘  └──────────────────┘  └────────────────────────┘  ││
@@ -565,7 +565,7 @@ src/
 │   ├── storage/                      # Persistence layer
 │   │   ├── repository.ts            # Abstract interface
 │   │   ├── localStorage.ts          # LocalStorage implementation
-│   │   ├── repo.ts                  # Shared singleton instance
+│   │   ├── firestoreRepo.ts         # Firestore implementation
 │   │   ├── migrations.ts            # Version migrations (v1→v0.2.0)
 │   │   └── __tests__/
 │   │       ├── localStorage.test.ts
@@ -1630,10 +1630,21 @@ export interface Repository {
 ```
 
 ```typescript
-// lib/storage/repo.ts — shared singleton used by all hooks and components
+// components/RepositoryProvider.tsx — the ACTIVE repository is derived state
+//
+// v0.37.0 replaced a module-global singleton (lib/storage/repo.ts, now deleted)
+// with a provider that derives the implementation from (storage mode, user).
+// The global was initialised to localStorage on every module load and mutated
+// only from user-action handlers, so a cloud-mode page load silently read and
+// wrote localStorage. Consumers call useRepository() instead of importing a
+// module-level `repo`.
 
-import { createLocalStorageRepository } from './localStorage';
-export const repo = createLocalStorageRepository();
+const repository = useMemo<Repository>(
+  () => (mode === 'cloud' && uid
+    ? createFirestoreRepository(uid)
+    : createLocalStorageRepository()),
+  [mode, uid],
+);
 ```
 
 The localStorage implementation (`localStorage.ts`) uses `STORAGE_KEYS` from `types/storage.ts` and handles team pool via `getTeamPool()`/`saveTeamPool()`. The `exportAll()`/`importAll()` methods include `teamPool` in the `AppState` round-trip.
@@ -1910,7 +1921,7 @@ Key design decisions:
 - **Burn rate uses active months**, not project end date (matches spreadsheet)
 - **Productivity is a calculation overlay**, never mutates stored allocations
 - **Pre-aggregated allocation maps** for efficient reactive UI rendering
-- **Shared repo singleton** (`repo.ts`) used by all hooks — no duplicate instantiation
+- **Repository is derived state** (`RepositoryProvider` + `useRepository()`) — the active implementation follows from (storage mode, authenticated user); no module global to fall out of step with the UI
 - **Generic `useDebouncedSave<T>`** hook for consistent debounced persistence
 - **resolveAssignments()** at hook level keeps calc functions consuming `TeamMember[]`
 

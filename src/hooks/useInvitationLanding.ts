@@ -7,10 +7,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/components/AuthProvider';
 import { INVITATIONS_ENABLED } from '@/lib/featureFlags';
-import { switchRepoImpl } from '@/lib/storage/repo';
 import { createLocalStorageRepository } from '@/lib/storage/localStorage';
-import { createFirestoreRepository } from '@/lib/storage/firestoreRepo';
-import { getStorageMode, setStorageMode } from '@/lib/storage/storageMode';
+import { useRepository } from '@/components/RepositoryProvider';
 import { setHasUploaded } from '@/lib/storage/cloudFlipHelpers';
 import { setOriginRef } from '@/lib/storage/fingerprint';
 import type { ClaimPendingInvitationsResult } from '@/lib/firebase/invitation-types';
@@ -115,6 +113,7 @@ interface UseInvitationLandingResult {
  * Retry path: user re-clicks the email link (IIFE sets a new SESSION_KEY).
  */
 export function useInvitationLanding(): UseInvitationLandingResult {
+  const { mode, switchMode } = useRepository();
   const { user } = useAuth();
 
   // Lazy initial state — folds the old Effect 1 (SESSION_KEY check on mount)
@@ -145,16 +144,20 @@ export function useInvitationLanding(): UseInvitationLandingResult {
     flipAttemptedRef.current = true;
     void (async () => {
       try {
-        // Always read the LOCAL repo here — repo.getProjects() may return
-        // Firestore data for cloud-mode users. The Lesson 28 gate is
-        // specifically about LOCAL unsynced data.
+        // Always read LOCAL storage here — the active repository may be
+        // Firestore for cloud-mode users. The Lesson 28 gate is specifically
+        // about LOCAL unsynced data.
         const localProjectCount = (await createLocalStorageRepository().getProjects()).length;
-        if (localProjectCount === 0 && getStorageMode() !== 'cloud') {
-          switchRepoImpl(createFirestoreRepository(user.uid));
-          setStorageMode('cloud');
+        if (localProjectCount === 0 && mode !== 'cloud') {
+          // ⚠️ This is the ONLY flip that does not reload — the banner state
+          // machine must stay alive. Before v0.37.0 that made it the only path
+          // where cloud writes actually reached Firestore, because every other
+          // path reloaded away the module global it had just set. It is no
+          // longer special: switchMode re-derives the repository for every
+          // path, reload or not.
+          switchMode('cloud');
           setHasUploaded();        // suppress repeated "switch to cloud?" prompts
           setOriginRef(user.uid);  // changelog origin fingerprint
-          // No window.location.reload() — banner state machine must stay alive
         }
         // localProjectCount > 0: banner 'claimed' copy will instruct the user
         // to flip via Settings to preserve their existing local data.
@@ -170,7 +173,7 @@ export function useInvitationLanding(): UseInvitationLandingResult {
         );
       }
     })();
-  }, [user]);
+  }, [user, mode, switchMode]);
 
   // ---- Effect 2b: SESSION_KEY cleanup on sign-out mid-claim (v0.28.2 / L3) -
   // If `user` becomes null while we are in 'claiming' (sign-out, token

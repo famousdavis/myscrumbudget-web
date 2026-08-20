@@ -15,7 +15,7 @@ import { ConfirmDialog, AlertDialog } from '@/components/BaseDialog';
 import { useToast } from '@/components/Toast';
 import { SkeletonProjectCard } from '@/components/Skeleton';
 import { STORAGE_KEYS } from '@/types/storage';
-import { repo } from '@/lib/storage/repo';
+import { useRepository } from '@/components/RepositoryProvider';
 import { useImportState } from '@/features/projects/hooks/useImportState';
 import { getDashboardEmptyState } from '@/features/projects/lib/dashboardCard';
 import {
@@ -37,6 +37,7 @@ export default function DashboardPage() {
   } = useProjects();
   const { settings } = useSettings();
   const { pool } = useTeamPool();
+  const { repository } = useRepository();
   const { addToast } = useToast();
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [showArchived, setShowArchived] = useState(false);
@@ -97,7 +98,7 @@ export default function DashboardPage() {
   };
 
   const handleExportAll = async () => {
-    const data = await repo.exportAll();
+    const data = await repository.exportAll();
     downloadJson(data, `myscrumbudget-export-${new Date().toISOString().slice(0, 10)}.json`);
     addToast('Export complete', 'success');
   };

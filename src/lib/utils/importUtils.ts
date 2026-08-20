@@ -4,7 +4,7 @@
 
 import type { AppState, Project, PoolMember } from '@/types/domain';
 import type { StorageMode } from '@/lib/storage/storageMode';
-import { repo } from '@/lib/storage/repo';
+import type { Repository } from '@/lib/storage/repository';
 import { generateId } from '@/lib/utils/id';
 import { appendToChangeLog } from '@/lib/storage/fingerprint';
 import { cloudSyncBus } from '@/lib/firebase/cloudSyncBus';
@@ -196,14 +196,15 @@ export function buildBannerText(result: ImportMergeResult): string {
  * Apply the import merge to storage.
  *
  * WRITE ORDER: teamPool → settings → projects.
- * Rationale: in cloud mode, repo.createProject and repo.saveProject both call
- * repo.getTeamPool() internally to build _teamSnapshot for the Firestore
+ * Rationale: in cloud mode, createProject and saveProject each read the pool
+ * back through the Firestore repository's OWN getTeamPool to build _teamSnapshot
+ * for the Firestore
  * project document. If teamPool is replaced after projects are written, every
  * new/replaced project document snapshots the pre-import pool, causing stale
  * team-member display until the next manual save. Processing teamPool first
  * ensures all project writes use the final pool state.
  *
- * Layer 2 stale-data guard: always re-reads repo.getProjects() at apply time.
+ * Layer 2 stale-data guard: always re-reads repository.getProjects() at apply time.
  * The Layer 1 snapshot (MergePreview.existingProjects) was taken at parse time.
  * Note: in cloud mode this reads from the Firestore snapshot listener cache,
  * not necessarily a network round-trip. It is more current than Layer 1 but
@@ -221,13 +222,16 @@ export function buildBannerText(result: ImportMergeResult): string {
  * triggers useProjects.reload() mid-import. Each awaited write is atomic at the
  * adapter level — visual re-render does not affect write correctness.
  *
- * Sign-out mid-apply: if performSignOutCleanup fires during apply, repo swaps to
- * localStorage. In-flight direct repo.* calls (not via useDebouncedSave) complete
- * or fail at the transport level. The result reflects actual completed writes.
- * This is an accepted edge case — sign-out implies abandonment of in-flight work.
+ * Sign-out mid-apply: the repository is a PARAMETER, captured for the duration
+ * of this call, so a sign-out cannot swap the store out from under a half-applied
+ * import (v0.37.0 — before that it could, because the store was a module global
+ * that performSignOutCleanup reset to localStorage). In-flight writes complete or
+ * fail at the transport level against the store they started on. The result
+ * reflects actual completed writes. Sign-out still implies abandonment of
+ * in-flight work; it no longer implies redirected writes.
  *
  * Sequential writes (not Promise.allSettled): required because
- * firestoreRepo.createProject reads repo.getProjects() to assign display order.
+ * firestoreRepo.createProject reads its own getProjects() to assign display order.
  * Parallel creates would assign identical order values.
  *
  * Cloud 'add': generates a new Project.id via generateId() to avoid Firestore
@@ -236,7 +240,7 @@ export function buildBannerText(result: ImportMergeResult): string {
  * regenerated — they are document-internal references with no cross-document
  * addressing in MSB's data model. Pitfall #3 does not apply here.
  *
- * 'replace' uses repo.saveProject, which calls setDoc with merge: true.
+ * 'replace' uses repository.saveProject, which calls setDoc with merge: true.
  * In cloud mode, Firestore fields NOT written by saveProject (owner, members,
  * order, createdAt, _originRef, _changeLog, schemaVersion — these live on the
  * internal FirestoreProjectDoc, not on the Project domain type) are preserved
@@ -295,6 +299,7 @@ export function buildBannerText(result: ImportMergeResult): string {
  */
 export async function applyImportMerge(
   preview: MergePreview,
+  repository: Repository,
 ): Promise<ImportMergeResult> {
   const {
     incomingState,
@@ -315,7 +320,7 @@ export async function applyImportMerge(
   let teamPoolWritten = false;
   if (teamPoolDecision === 'replace') {
     try {
-      await repo.saveTeamPool(incomingState.teamPool);
+      await repository.saveTeamPool(incomingState.teamPool);
       teamPoolWritten = true;
     } catch (err) {
       errorCount++;
@@ -325,8 +330,8 @@ export async function applyImportMerge(
     }
   } else if (teamPoolDecision === 'merge') {
     try {
-      const currentPool = await repo.getTeamPool();
-      await repo.saveTeamPool(mergeTeamPool(currentPool, incomingState.teamPool));
+      const currentPool = await repository.getTeamPool();
+      await repository.saveTeamPool(mergeTeamPool(currentPool, incomingState.teamPool));
       teamPoolWritten = true;
     } catch (err) {
       errorCount++;
@@ -340,7 +345,7 @@ export async function applyImportMerge(
   let settingsWritten = false;
   if (settingsDecision === 'replace') {
     try {
-      await repo.saveSettings(incomingState.settings);
+      await repository.saveSettings(incomingState.settings);
       settingsWritten = true;
     } catch (err) {
       errorCount++;
@@ -351,7 +356,7 @@ export async function applyImportMerge(
   }
 
   // ── 3. Projects (Layer 2 fresh read for stale-data guard) ──
-  const freshExisting = await repo.getProjects();
+  const freshExisting = await repository.getProjects();
   const freshById = new Map(freshExisting.map((p) => [p.id, p]));
   const freshByName = new Map(
     freshExisting
@@ -372,7 +377,7 @@ export async function applyImportMerge(
         // Local: keep original ID for round-trip fidelity.
         const targetProject: Project =
           mode === 'cloud' ? { ...project, id: generateId() } : project;
-        await repo.createProject(targetProject);
+        await repository.createProject(targetProject);
         addedCount++;
       } else {
         // decision === 'replace'
@@ -388,7 +393,7 @@ export async function applyImportMerge(
             // Fall back to 'add'.
             const targetProject: Project =
               mode === 'cloud' ? { ...project, id: generateId() } : project;
-            await repo.createProject(targetProject);
+            await repository.createProject(targetProject);
             addedCount++;
             continue;
           }
@@ -399,7 +404,7 @@ export async function applyImportMerge(
             // Fall back to 'add' instead.
             const targetProject: Project =
               mode === 'cloud' ? { ...project, id: generateId() } : project;
-            await repo.createProject(targetProject);
+            await repository.createProject(targetProject);
             addedCount++;
             continue;
           }
@@ -408,7 +413,7 @@ export async function applyImportMerge(
           // 'replace' with no recorded conflict — defensive; treat as 'add'.
           const targetProject: Project =
             mode === 'cloud' ? { ...project, id: generateId() } : project;
-          await repo.createProject(targetProject);
+          await repository.createProject(targetProject);
           addedCount++;
           continue;
         }
@@ -421,16 +426,16 @@ export async function applyImportMerge(
             mode === 'cloud'
               ? { ...project, id: generateId() }
               : { ...project, id: existingId };
-          await repo.createProject(targetProject);
+          await repository.createProject(targetProject);
           addedCount++;
           continue;
         }
 
-        // repo.saveProject: setDoc with merge:true. Preserves Firestore-side
+        // repository.saveProject: setDoc with merge:true. Preserves Firestore-side
         // identity fields (owner, members, order, createdAt, _originRef, etc.)
         // that live on FirestoreProjectDoc but are absent from the Project domain type.
         // _teamSnapshot is regenerated (written) from the current pool.
-        await repo.saveProject({ ...project, id: existingId });
+        await repository.saveProject({ ...project, id: existingId });
         replacedCount++;
       }
     } catch (err) {
