@@ -1046,7 +1046,7 @@ Delivered:
 **Goal**: Add optional Firebase cloud storage alongside existing localStorage persistence
 
 Delivered:
-- **Firebase Auth** — Google + Microsoft SSO via `AuthProvider` context (`src/components/AuthProvider.tsx`)
+- **Firebase Auth** — Google SSO and Microsoft SSO (work/school accounts only; personal Microsoft accounts are refused at the app registration) via `AuthProvider` context (`src/components/AuthProvider.tsx`)
 - **Firestore Repository** — Full `Repository` interface implementation against Firestore (`src/lib/storage/firestoreRepo.ts`), monolithic project documents (~500KB, well under 1MB limit)
 - **Delegating repo wrapper** — `repo.ts` transformed into a proxy that delegates to whichever implementation is active via `switchRepoImpl()`, zero hook refactoring needed
 - **Real-time cloud sync** — `onSnapshot` listeners emit events on a lightweight pub/sub event bus (`cloudSyncBus.ts`); hooks subscribe and re-fetch from repo
