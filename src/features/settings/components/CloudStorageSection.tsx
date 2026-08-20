@@ -250,6 +250,10 @@ export function CloudStorageSection() {
                 Sign in with Microsoft
               </button>
             </div>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              Microsoft sign-in requires a work or school account. For a
+              personal account, use Google.
+            </p>
             {signInError && (
               <p className="text-sm text-red-600 dark:text-red-400">{signInError}</p>
             )}

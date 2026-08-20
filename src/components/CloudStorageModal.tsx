@@ -276,6 +276,10 @@ export function CloudStorageModal({ onClose }: CloudStorageModalProps) {
                     <span>Sign in with Microsoft</span>
                   </button>
                 </div>
+                <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                  Microsoft sign-in requires a work or school account. For a
+                  personal account, use Google.
+                </p>
                 {signInError && (
                   <p className="mt-2 text-sm text-red-600 dark:text-red-400">
                     {signInError}
