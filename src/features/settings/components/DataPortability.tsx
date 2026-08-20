@@ -4,7 +4,7 @@
 
 'use client';
 
-import { repo } from '@/lib/storage/repo';
+import { useRepository } from '@/components/RepositoryProvider';
 import { useToast } from '@/components/Toast';
 
 /**
@@ -14,9 +14,10 @@ import { useToast } from '@/components/Toast';
  */
 export function DataPortability() {
   const { addToast } = useToast();
+  const { repository } = useRepository();
 
   const handleExport = async () => {
-    const data = await repo.exportAll();
+    const data = await repository.exportAll();
     const json = JSON.stringify(data, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);

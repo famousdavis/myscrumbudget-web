@@ -6,7 +6,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Project } from '@/types/domain';
-import { repo } from '@/lib/storage/repo';
+import { useRepository } from '@/components/RepositoryProvider';
 import { useDebouncedSave } from '@/hooks/useDebouncedSave';
 import { cloudSyncBus } from '@/lib/firebase/cloudSyncBus';
 import { UNDO_STACK_LIMIT } from '@/lib/constants';
@@ -20,6 +20,7 @@ function pushBounded(stack: Project[], snapshot: Project): Project[] {
 }
 
 export function useProject(id: string) {
+  const { repository } = useRepository();
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -60,10 +61,10 @@ export function useProject(id: string) {
   }, []);
 
   const reload = useCallback(async () => {
-    const p = await repo.getProject(id);
+    const p = await repository.getProject(id);
     applyProject(p);
     setLoading(false);
-  }, [id, applyProject]);
+  }, [id, applyProject, repository]);
 
   // Fetch-on-mount + cloudSyncBus subscription — externally driven, not cascading.
   useEffect(() => {
@@ -83,12 +84,12 @@ export function useProject(id: string) {
 
   const persistProjectFn = useCallback(async (p: Project) => {
     try {
-      await repo.saveProject(p);
+      await repository.saveProject(p);
     } catch (err) {
       addToastGlobal('Failed to save project. Please check your connection.', 'error');
       throw err;
     }
-  }, []);
+  }, [repository]);
   const { save: persistProject, flush } = useDebouncedSave<Project>(persistProjectFn, id);
 
   const updateProject = useCallback(

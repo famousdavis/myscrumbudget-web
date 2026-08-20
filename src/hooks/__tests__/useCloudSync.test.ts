@@ -43,6 +43,7 @@ const h = vi.hoisted(() => {
     subs: [] as { onNext: SnapHandler; onError: ErrHandler }[],
     unsubCalls: 0,
     user: { uid: 'u1' } as { uid: string } | null,
+    mode: 'cloud' as 'local' | 'cloud',
   };
   return {
     state,
@@ -79,9 +80,21 @@ vi.mock('@/components/AuthProvider', () => ({
   useAuth: () => ({ user: h.state.user }),
 }));
 
+// The hook now takes the storage mode from provider STATE rather than reading
+// localStorage imperatively, so the mode is driven from here. The returned
+// object is rebuilt per call deliberately: this hook memoises nothing on it,
+// and the tests need `mode` to change between renders.
+vi.mock('@/components/RepositoryProvider', () => ({
+  useRepository: () => ({
+    repository: {} as unknown,
+    mode: h.state.mode,
+    isCloud: h.state.mode === 'cloud',
+    switchMode: () => {},
+  }),
+}));
+
 import { useCloudSync } from '../useCloudSync';
 import { cloudSyncBus } from '@/lib/firebase/cloudSyncBus';
-import { setStorageMode } from '@/lib/storage/storageMode';
 import * as Toast from '@/components/Toast';
 
 /** Snapshot with no local pending writes — a genuine remote change. */
@@ -100,7 +113,7 @@ beforeEach(() => {
   h.state.unsubCalls = 0;
   h.state.user = { uid: 'u1' };
   localStorage.clear();
-  setStorageMode('cloud');
+  h.state.mode = 'cloud';
   events = [];
   unsubscribeBus = cloudSyncBus.subscribe((e) => events.push(e));
 });
@@ -128,7 +141,7 @@ describe('mock self-check — nothing below is meaningful without this', () => {
 
 describe('useCloudSync — subscription guard', () => {
   it('does not subscribe in local mode', () => {
-    setStorageMode('local');
+    h.state.mode = 'local';
     renderHook(() => useCloudSync());
     expect(h.state.subs).toHaveLength(0);
   });

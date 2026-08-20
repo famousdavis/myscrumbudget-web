@@ -6,10 +6,20 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { useRef } from 'react';
 import { useImportState } from '../useImportState';
-import { repo, switchRepoImpl } from '@/lib/storage/repo';
-import { createLocalStorageRepository } from '@/lib/storage/localStorage';
-import { getStorageMode } from '@/lib/storage/storageMode';
 import type { AppState, Project } from '@/types/domain';
+
+// The hook reads BOTH the repository and the storage mode out of provider
+// context now. ⚠️ ONE shared instance — a spy on a second instance would never
+// see the hook's calls even though both read the same localStorage.
+const PROVIDER_MODE = 'local' as const;
+const { repo } = await vi.hoisted(async () => {
+  const { createLocalStorageRepository } = await import('@/lib/storage/localStorage');
+  return { repo: createLocalStorageRepository() };
+});
+vi.mock('@/components/RepositoryProvider', () => {
+  const value = { repository: repo, mode: 'local' as const, isCloud: false, switchMode: vi.fn() };
+  return { useRepository: () => value };
+});
 
 // Mock applyImportMerge so we can isolate the hook from the apply logic.
 vi.mock('@/lib/utils/importUtils', async (importOriginal) => {
@@ -96,7 +106,6 @@ function setupHook() {
 describe('useImportState', () => {
   beforeEach(async () => {
     localStorage.clear();
-    switchRepoImpl(createLocalStorageRepository());
     mockedApply.mockReset();
     mockedApply.mockResolvedValue({
       addedCount: 0,
@@ -379,7 +388,7 @@ describe('useImportState', () => {
     expect(result.current.phase.phase).toBe('preview');
     if (result.current.phase.phase === 'preview') {
       expect(result.current.phase.preview.decisions['p_new']).toBe('add');
-      expect(result.current.phase.preview.mode).toBe(getStorageMode());
+      expect(result.current.phase.preview.mode).toBe(PROVIDER_MODE);
     }
   });
 

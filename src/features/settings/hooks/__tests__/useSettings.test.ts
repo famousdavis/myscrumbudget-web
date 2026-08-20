@@ -5,10 +5,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import type { Settings } from '@/types/domain';
-import { repo } from '@/lib/storage/repo';
 import { addToastGlobal } from '@/components/Toast';
 
-vi.mock('@/lib/storage/repo', () => ({
+// The hook now reads the repository out of RepositoryProvider context, so the
+// seam to mock is the provider hook — not a storage module. `repo` keeps its
+// name here so the assertions below still read as "the repository the hook used".
+const { repo } = vi.hoisted(() => ({
   repo: {
     getSettings: vi.fn().mockResolvedValue({
       discountRateAnnual: 0.08,
@@ -19,6 +21,12 @@ vi.mock('@/lib/storage/repo', () => ({
     saveSettings: vi.fn().mockResolvedValue(undefined),
   },
 }));
+// ⚠️ Returned value must be REFERENTIALLY STABLE — `reload` is memoised on
+// `repository`, so a fresh object per call re-fetches without bound.
+vi.mock('@/components/RepositoryProvider', () => {
+  const value = { repository: repo, mode: 'local' as const, isCloud: false, switchMode: vi.fn() };
+  return { useRepository: () => value };
+});
 vi.mock('@/components/Toast', () => ({ addToastGlobal: vi.fn() }));
 
 import { useSettings } from '../useSettings';

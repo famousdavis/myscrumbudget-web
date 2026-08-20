@@ -4,12 +4,14 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+type Proj = { id: string };
+
 const mocks = vi.hoisted(() => ({
   firebaseSignOut: vi.fn(async () => undefined),
-  mockAuth: { currentUser: null },
+  mockAuth: { currentUser: null as { uid: string } | null },
   cancelAll: vi.fn(),
-  switchRepoImpl: vi.fn(),
-  createLocalStorageRepository: vi.fn(() => ({ __local: true })),
+  cloudGetProjects: vi.fn<() => Promise<{ id: string }[]>>(),
+  localGetProjects: vi.fn<() => Promise<{ id: string }[]>>(),
   setStorageMode: vi.fn(),
   getStorageMode: vi.fn<() => 'local' | 'cloud'>(() => 'local'),
 }));
@@ -17,9 +19,11 @@ const mocks = vi.hoisted(() => ({
 vi.mock('firebase/auth', () => ({ signOut: mocks.firebaseSignOut }));
 vi.mock('@/lib/firebase/config', () => ({ auth: mocks.mockAuth }));
 vi.mock('@/lib/storage/pendingSaveRegistry', () => ({ cancelAll: mocks.cancelAll }));
-vi.mock('@/lib/storage/repo', () => ({ switchRepoImpl: mocks.switchRepoImpl }));
 vi.mock('@/lib/storage/localStorage', () => ({
-  createLocalStorageRepository: mocks.createLocalStorageRepository,
+  createLocalStorageRepository: () => ({ getProjects: mocks.localGetProjects }),
+}));
+vi.mock('@/lib/storage/firestoreRepo', () => ({
+  createFirestoreRepository: () => ({ getProjects: mocks.cloudGetProjects }),
 }));
 vi.mock('@/lib/storage/storageMode', () => ({
   setStorageMode: mocks.setStorageMode,
@@ -48,10 +52,13 @@ describe('performSignOutCleanup', () => {
   beforeEach(() => {
     mocks.firebaseSignOut.mockReset().mockResolvedValue(undefined);
     mocks.cancelAll.mockReset();
-    mocks.switchRepoImpl.mockReset();
-    mocks.createLocalStorageRepository.mockReset().mockReturnValue({ __local: true });
     mocks.setStorageMode.mockReset();
     mocks.getStorageMode.mockReset().mockReturnValue('local');
+    // Default: a signed-in user whose cloud copy EXISTS, so the cloud-mode
+    // clear is permitted. Tests that exercise the v0.37.0 guard override these.
+    mocks.mockAuth.currentUser = { uid: 'u1' };
+    mocks.cloudGetProjects.mockReset().mockResolvedValue([{ id: 'cloud-p1' }] as Proj[]);
+    mocks.localGetProjects.mockReset().mockResolvedValue([{ id: 'local-p1' }] as Proj[]);
 
     seedAll();
 
@@ -132,13 +139,73 @@ describe('performSignOutCleanup', () => {
     expect(order.indexOf('cancelAll')).toBeLessThan(order.indexOf('firebaseSignOut'));
   });
 
-  it('swaps delegating repo to localStorage before firebaseSignOut', async () => {
-    const order: string[] = [];
-    mocks.switchRepoImpl.mockImplementation(() => { order.push('switchRepoImpl'); });
-    mocks.firebaseSignOut.mockImplementation(async () => { order.push('firebaseSignOut'); });
-    await performSignOutCleanup();
-    expect(order.indexOf('switchRepoImpl')).toBeLessThan(order.indexOf('firebaseSignOut'));
-    expect(mocks.switchRepoImpl).toHaveBeenCalledWith({ __local: true });
+  /**
+   * v0.37.0 — the cloud-copy guard on step 2b.
+   *
+   * ⚠️ THE ASYMMETRY IS THE POINT, and it is why these tests assert the
+   * PRESERVED direction more than the cleared one. Clearing is tidy-up: failing
+   * to tidy up leaves stale keys and costs nothing. Clearing wrongly destroys
+   * the user's only copy. Every uncertain outcome must therefore preserve.
+   *
+   * This is not hypothetical. While the active repository was a module global
+   * reset to localStorage on every page load, a cloud-mode user's work WAS in
+   * localStorage, and the unguarded step 2b deleted it as redundant.
+   */
+  describe('cloud-copy guard on the cloud-only clear (v0.37.0)', () => {
+    beforeEach(() => { mocks.getStorageMode.mockReturnValue('cloud'); });
+
+    it('clears the local copy when the cloud copy is confirmed present', async () => {
+      mocks.cloudGetProjects.mockResolvedValue([{ id: 'cloud-p1' }]);
+      await performSignOutCleanup();
+      for (const k of CLOUD_ONLY_CLEAR) expect(localStorage.getItem(k)).toBeNull();
+    });
+
+    it('KEEPS the local copy when the cloud is empty and local is not', async () => {
+      mocks.cloudGetProjects.mockResolvedValue([]);
+      mocks.localGetProjects.mockResolvedValue([{ id: 'local-p1' }]);
+      await performSignOutCleanup();
+      for (const k of CLOUD_ONLY_CLEAR) {
+        expect(localStorage.getItem(k), `${k} must survive an unconfirmed cloud`).toBe(`__value_${k}`);
+      }
+      // ALWAYS_CLEAR is unaffected by the guard — it is not user data.
+      for (const k of ALWAYS_CLEAR) expect(localStorage.getItem(k)).toBeNull();
+    });
+
+    it('KEEPS the local copy when the cloud read REJECTS', async () => {
+      mocks.cloudGetProjects.mockRejectedValue({ code: 'permission-denied' });
+      await performSignOutCleanup();
+      for (const k of CLOUD_ONLY_CLEAR) expect(localStorage.getItem(k)).toBe(`__value_${k}`);
+    });
+
+    it('KEEPS the local copy when there is no current user to check against', async () => {
+      mocks.mockAuth.currentUser = null;
+      await performSignOutCleanup();
+      expect(mocks.cloudGetProjects).not.toHaveBeenCalled();
+      for (const k of CLOUD_ONLY_CLEAR) expect(localStorage.getItem(k)).toBe(`__value_${k}`);
+    });
+
+    it('clears when BOTH sides are empty — nothing is at risk', async () => {
+      mocks.cloudGetProjects.mockResolvedValue([]);
+      mocks.localGetProjects.mockResolvedValue([]);
+      await performSignOutCleanup();
+      for (const k of CLOUD_ONLY_CLEAR) expect(localStorage.getItem(k)).toBeNull();
+    });
+
+    it('KEEPS the local copy when the cloud read never settles (timeout)', async () => {
+      // A dead network must not hang sign-out, and a timeout is FAILURE — which
+      // takes the preserve branch.
+      vi.useFakeTimers();
+      try {
+        mocks.cloudGetProjects.mockReturnValue(new Promise<Proj[]>(() => {}));
+        const done = performSignOutCleanup();
+        await vi.advanceTimersByTimeAsync(6000);
+        await done;
+        for (const k of CLOUD_ONLY_CLEAR) expect(localStorage.getItem(k)).toBe(`__value_${k}`);
+        expect(reloadMock).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 
   it("resets storage mode to 'local'", async () => {
@@ -157,12 +224,13 @@ describe('performSignOutCleanup', () => {
     expect(reloadMock).toHaveBeenCalledTimes(1);
   });
 
-  it('clears always-clear keys and swaps repo even when firebaseSignOut rejects', async () => {
+  it('clears always-clear keys and resets the mode even when firebaseSignOut rejects', async () => {
     mocks.getStorageMode.mockReturnValue('cloud');
     mocks.firebaseSignOut.mockRejectedValueOnce(new Error('revoked'));
     await expect(performSignOutCleanup()).rejects.toThrow();
     for (const k of ALWAYS_CLEAR) expect(localStorage.getItem(k)).toBeNull();
-    expect(mocks.switchRepoImpl).toHaveBeenCalled();
+    // v0.37.0: resetting the mode IS the repository reset — RepositoryProvider
+    // re-derives from it. There is no longer a global to swap.
     expect(mocks.setStorageMode).toHaveBeenCalledWith('local');
   });
 

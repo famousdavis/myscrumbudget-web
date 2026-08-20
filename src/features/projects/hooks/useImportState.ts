@@ -5,8 +5,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
-import { repo } from '@/lib/storage/repo';
-import { getStorageMode } from '@/lib/storage/storageMode';
+import { useRepository } from '@/components/RepositoryProvider';
 import { runMigrations } from '@/lib/storage/migrations';
 import { validateAppState } from '@/lib/utils/validation';
 import { parseImportJson } from '@/lib/utils/safeJsonParse';
@@ -39,6 +38,7 @@ export interface UseImportStateReturn {
 export function useImportState(
   fileInputRef: React.RefObject<HTMLInputElement | null>,
 ): UseImportStateReturn {
+  const { repository, mode } = useRepository();
   const [phase, setPhase] = useState<ImportPhase>({ phase: 'idle' });
   const [fileError, setFileError] = useState<string | null>(null);
 
@@ -157,20 +157,18 @@ export function useImportState(
       // and existingProjects is empty.
       let existingProjects: Project[];
       try {
-        existingProjects = await repo.getProjects();
+        existingProjects = await repository.getProjects();
       } catch {
         setFileError('Could not read existing projects. Please try again.');
         return;
       }
-
-      const mode = getStorageMode();
 
       // No fast-path (pitfall #69): always show preview regardless of conflict
       // count and mode. Simplest and safest approach.
       const preview = buildMergePreview(sanitized, existingProjects, mode);
       setPhase({ phase: 'preview', preview });
     },
-    [resetFileInput],
+    [resetFileInput, repository, mode],
   );
 
   const setDecision = useCallback((projectId: string, decision: ImportDecision) => {
@@ -208,13 +206,14 @@ export function useImportState(
     const preview = (phase as Extract<ImportPhase, { phase: 'preview' }>).preview;
     setPhase({ phase: 'applying' });
 
-    // Sign-out mid-apply: if performSignOutCleanup fires, repo swaps to localStorage.
-    // Direct repo.* calls (not via useDebouncedSave) complete or fail at the
-    // transport level. The result reflects actual completed writes. Accepted edge
-    // case — sign-out implies abandonment of in-flight work.
+    // Sign-out mid-apply: the repository is handed to applyImportMerge as an
+    // argument and captured for the call, so a sign-out cannot redirect a
+    // half-applied import to a different store (v0.37.0). Writes still complete
+    // or fail at the transport level; sign-out implies abandonment of in-flight
+    // work, not writes landing somewhere else.
     let result: ImportMergeResult;
     try {
-      result = await applyImportMerge(preview);
+      result = await applyImportMerge(preview, repository);
     } catch (err) {
       result = {
         addedCount: 0,
@@ -234,7 +233,7 @@ export function useImportState(
     // If user navigated away during apply, React 18 drops this call silently.
     // The import completed correctly; cloudSyncBus already emitted.
     setPhase({ phase: 'banner', result });
-  }, [phase]);
+  }, [phase, repository]);
 
   const cancelImport = useCallback(() => {
     // Cancel from preview or banner → idle.

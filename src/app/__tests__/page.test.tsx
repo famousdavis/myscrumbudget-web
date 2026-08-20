@@ -26,7 +26,18 @@ import { render, screen, waitFor, fireEvent, within } from '@testing-library/rea
 import type { ReactNode } from 'react';
 import DashboardPage from '../page';
 import { ToastProvider } from '@/components/Toast';
-import { repo } from '@/lib/storage/repo';
+
+// DashboardPage and its hooks take the repository from provider context. These
+// tests drive the REAL localStorage repository and assert on persisted state,
+// so the seam yields one shared instance — see the note in useProject.test.ts.
+const { repo } = await vi.hoisted(async () => {
+  const { createLocalStorageRepository } = await import('@/lib/storage/localStorage');
+  return { repo: createLocalStorageRepository() };
+});
+vi.mock('@/components/RepositoryProvider', () => {
+  const value = { repository: repo, mode: 'local' as const, isCloud: false, switchMode: vi.fn() };
+  return { useRepository: () => value };
+});
 import type { Project } from '@/types/domain';
 
 vi.mock('next/link', () => ({

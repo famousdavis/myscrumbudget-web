@@ -4,6 +4,18 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.37.0] - 2026-08-20
+
+### Fixed
+- **Cloud storage did not actually store anything in the cloud after the first page load — and the app said it did.** Turning cloud storage on worked for as long as you stayed on the page. From the next page load onward, everything you did was saved to this browser instead, while the cloud badge in the top bar still showed cloud storage as active. Nothing failed, nothing was reported, and the work looked saved because it was saved — to the wrong place. Projects created or edited after that point never reached the cloud, so they would not appear on another device and were not backed up.
+- **Signing out could then delete the local copy.** When you signed out of cloud storage, the app cleared this browser's copy of your work on the reasonable assumption that the cloud already had it. Because of the fault above, sometimes it did not. Sign-out now checks that your work really is in the cloud before clearing anything local, and simply skips the clean-up if it cannot confirm it. Leaving a stale copy behind is harmless; deleting the only copy is not.
+
+### Changed
+- **The fix removes the pattern that allowed this, rather than patching the symptom.** Which storage the app uses is no longer a setting recorded in one place and a decision made separately somewhere else — it is now worked out directly from whether you are signed in and which mode you chose, in one place, every time. The practical consequence is that the app can no longer display one storage mode while using another, and a test can now ask which storage is in use and get an answer. That test did not exist before, and could not have been written.
+
+### Note
+- This affected cloud storage only. If you use MyScrumBudget without signing in — the default — nothing was ever at risk and nothing about your data changes.
+
 ## [0.36.16] - 2026-08-19
 
 ### Changed

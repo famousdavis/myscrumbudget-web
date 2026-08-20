@@ -9,6 +9,7 @@ import { FirstRunBanner } from '@/components/FirstRunBanner';
 import { LocalStorageWarningBanner } from '@/components/LocalStorageWarningBanner';
 import { MigrationGuard } from '@/components/MigrationGuard';
 import { AuthProvider } from '@/components/AuthProvider';
+import { RepositoryProvider } from '@/components/RepositoryProvider';
 import { CloudSyncProvider } from '@/components/CloudSyncProvider';
 import { Footer } from '@/components/Footer';
 import { ToastProvider } from '@/components/Toast';
@@ -67,7 +68,7 @@ export default function RootLayout({
             <main id="main-content" className="min-w-0 flex-1 p-8 pt-16 md:pt-4">
               <FirstRunBanner />
               <LocalStorageWarningBanner />
-              <MigrationGuard><AuthProvider><CloudSyncProvider><ToastProvider>{INVITATIONS_ENABLED && <InvitationBanner />}<TopBar />{children}</ToastProvider></CloudSyncProvider></AuthProvider></MigrationGuard>
+              <MigrationGuard><AuthProvider><RepositoryProvider><CloudSyncProvider><ToastProvider>{INVITATIONS_ENABLED && <InvitationBanner />}<TopBar />{children}</ToastProvider></CloudSyncProvider></RepositoryProvider></AuthProvider></MigrationGuard>
             </main>
           </div>
           <Footer />

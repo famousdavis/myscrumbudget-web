@@ -4,16 +4,22 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { repo } from '@/lib/storage/repo';
 import { addToastGlobal } from '@/components/Toast';
 
-vi.mock('@/lib/storage/repo', () => ({
+// Seam is the provider hook — see the note in useSettings.test.ts.
+const { repo } = vi.hoisted(() => ({
   repo: {
     getTeamPool: vi.fn(),
     saveTeamPool: vi.fn().mockResolvedValue(undefined),
     getProjects: vi.fn().mockResolvedValue([]),
   },
 }));
+// ⚠️ Returned value must be REFERENTIALLY STABLE — `reload` is memoised on
+// `repository`, so a fresh object per call re-fetches without bound.
+vi.mock('@/components/RepositoryProvider', () => {
+  const value = { repository: repo, mode: 'local' as const, isCloud: false, switchMode: vi.fn() };
+  return { useRepository: () => value };
+});
 vi.mock('@/components/Toast', () => ({ addToastGlobal: vi.fn() }));
 
 const DEFAULT_POOL = [

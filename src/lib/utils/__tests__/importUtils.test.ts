@@ -13,12 +13,20 @@ import {
   type MergePreview,
   type ImportDecision,
 } from '../importUtils';
-import { repo, switchRepoImpl } from '@/lib/storage/repo';
 import { createLocalStorageRepository } from '@/lib/storage/localStorage';
 import { cloudSyncBus } from '@/lib/firebase/cloudSyncBus';
 import { appendToChangeLog } from '@/lib/storage/fingerprint';
 import type { AppState, Project, PoolMember, Settings } from '@/types/domain';
 import type { Repository } from '@/lib/storage/repository';
+
+// applyImportMerge now takes the repository as an ARGUMENT rather than reaching
+// for a module global, so these tests hold the repository themselves. The shim
+// below keeps the existing `switchRepoImpl(x)` call sites — it swaps which
+// repository the next applyImportMerge call receives. `repo` stays a plain
+// localStorage instance for seeding and for asserting persisted state.
+const repo = createLocalStorageRepository();
+let activeRepo: Repository = repo;
+function switchRepoImpl(impl: Repository): void { activeRepo = impl; }
 
 // ── Test fixtures ──────────────────────────────────────────────────────
 
@@ -287,7 +295,7 @@ describe('applyImportMerge', () => {
   it('addedCount increments on add decision', async () => {
     const project = makeProject({ id: 'new1', name: 'Brand New' });
     const result = await applyImportMerge(
-      makePreview({ new1: 'add' }, [project]),
+      makePreview({ new1: 'add' }, [project]), activeRepo
     );
     expect(result.addedCount).toBe(1);
     expect(result.replacedCount).toBe(0);
@@ -311,7 +319,7 @@ describe('applyImportMerge', () => {
           existingProjects: [existing],
           conflicts: { p1: { type: 'id', existingId: 'p1', existingName: 'Original' } },
         },
-      ),
+      ), activeRepo
     );
     expect(result.replacedCount).toBe(1);
 
@@ -322,7 +330,7 @@ describe('applyImportMerge', () => {
   it('skippedCount increments on skip decision', async () => {
     const project = makeProject({ id: 'p1', name: 'X' });
     const result = await applyImportMerge(
-      makePreview({ p1: 'skip' }, [project]),
+      makePreview({ p1: 'skip' }, [project]), activeRepo
     );
     expect(result.skippedCount).toBe(1);
   });
@@ -336,7 +344,7 @@ describe('applyImportMerge', () => {
     switchRepoImpl(throwing);
 
     const result = await applyImportMerge(
-      makePreview({ p1: 'add' }, [makeProject({ id: 'p1' })]),
+      makePreview({ p1: 'add' }, [makeProject({ id: 'p1' })]), activeRepo
     );
     expect(result.errorCount).toBe(1);
     expect(result.errorMessages[0]).toContain('boom');
@@ -350,7 +358,7 @@ describe('applyImportMerge', () => {
     );
     preview.incomingState.teamPool = [{ id: 'm1', name: 'A', role: 'Dev' }];
 
-    await applyImportMerge(preview);
+    await applyImportMerge(preview, activeRepo);
     expect(vi.mocked(appendToChangeLog)).toHaveBeenCalledTimes(1);
   });
 
@@ -360,7 +368,7 @@ describe('applyImportMerge', () => {
       [makeProject({ id: 'p1' })],
       { settingsDecision: 'replace' },
     );
-    await applyImportMerge(preview);
+    await applyImportMerge(preview, activeRepo);
     expect(vi.mocked(appendToChangeLog)).toHaveBeenCalledTimes(1);
   });
 
@@ -378,7 +386,7 @@ describe('applyImportMerge', () => {
       [makeProject({ id: 'p1' })],
       { settingsDecision: 'replace', teamPoolDecision: 'replace' },
     );
-    await applyImportMerge(preview);
+    await applyImportMerge(preview, activeRepo);
     expect(vi.mocked(appendToChangeLog)).not.toHaveBeenCalled();
   });
 
@@ -391,7 +399,7 @@ describe('applyImportMerge', () => {
         { p1: 'skip' },
         [makeProject({ id: 'p1' })],
         { settingsDecision: 'replace', teamPoolDecision: 'merge' },
-      ),
+      ), activeRepo
     );
 
     const events = emitSpy.mock.calls.map((c) => c[0]);
@@ -405,7 +413,7 @@ describe('applyImportMerge', () => {
     emitSpy.mockClear();
 
     await applyImportMerge(
-      makePreview({ p1: 'skip' }, [makeProject({ id: 'p1' })]),
+      makePreview({ p1: 'skip' }, [makeProject({ id: 'p1' })]), activeRepo
     );
 
     const events = emitSpy.mock.calls.map((c) => c[0]);
@@ -434,7 +442,7 @@ describe('applyImportMerge', () => {
     );
     preview.incomingState.teamPool = [{ id: 'm1', name: 'A', role: 'Dev' }];
 
-    await applyImportMerge(preview);
+    await applyImportMerge(preview, activeRepo);
 
     expect(callOrder[0]).toBe('saveTeamPool');
     expect(callOrder.indexOf('saveTeamPool')).toBeLessThan(callOrder.indexOf('createProject'));
@@ -458,7 +466,7 @@ describe('applyImportMerge', () => {
       },
     );
 
-    const result = await applyImportMerge(preview);
+    const result = await applyImportMerge(preview, activeRepo);
     expect(result.addedCount).toBe(1);
     expect(result.replacedCount).toBe(0);
 
@@ -482,7 +490,7 @@ describe('applyImportMerge', () => {
       },
     );
 
-    const result = await applyImportMerge(preview);
+    const result = await applyImportMerge(preview, activeRepo);
     expect(result.addedCount).toBe(1);
     expect(result.replacedCount).toBe(0);
 
@@ -505,7 +513,7 @@ describe('applyImportMerge', () => {
     it('add: writes under a NEW id, not the incoming one', async () => {
       const incoming = makeProject({ id: 'incoming-id', name: 'From Cloud' });
       const result = await applyImportMerge(
-        makePreview({ 'incoming-id': 'add' }, [incoming], { mode: 'cloud' }),
+        makePreview({ 'incoming-id': 'add' }, [incoming], { mode: 'cloud' }), activeRepo
       );
       expect(result.addedCount).toBe(1);
 
@@ -518,7 +526,7 @@ describe('applyImportMerge', () => {
     it('local mode KEEPS the incoming id — the two modes genuinely differ', async () => {
       const incoming = makeProject({ id: 'incoming-id', name: 'From Local' });
       await applyImportMerge(
-        makePreview({ 'incoming-id': 'add' }, [incoming], { mode: 'local' }),
+        makePreview({ 'incoming-id': 'add' }, [incoming], { mode: 'local' }), activeRepo
       );
       const stored = await repo.getProjects();
       expect(stored[0].id).toBe('incoming-id');
@@ -533,7 +541,7 @@ describe('applyImportMerge', () => {
           conflicts: {
             inc: { type: 'name', existingId: 'other', existingName: 'Ghost Name' },
           },
-        }),
+        }), activeRepo
       );
       expect(result.addedCount).toBe(1);
       expect(result.replacedCount).toBe(0);
@@ -553,7 +561,7 @@ describe('applyImportMerge', () => {
           conflicts: {
             inc: { type: 'name', existingId: 'original-target', existingName: 'Contested' },
           },
-        }),
+        }), activeRepo
       );
 
       expect(result.addedCount).toBe(1);
@@ -572,7 +580,7 @@ describe('applyImportMerge', () => {
           conflicts: { gone: { type: 'id', existingId: 'gone', existingName: 'Old' } },
         });
 
-      await applyImportMerge(preview());
+      await applyImportMerge(preview(), activeRepo);
       const cloudStored = await repo.getProjects();
       expect(cloudStored[0].id).not.toBe('gone');
     });
@@ -590,7 +598,7 @@ describe('applyImportMerge', () => {
           conflicts: {
             inc: { type: 'name', existingId: 'existing', existingName: 'Shared Name' },
           },
-        }),
+        }), activeRepo
       );
 
       expect(result.replacedCount).toBe(1);
@@ -608,7 +616,7 @@ describe('applyImportMerge', () => {
           conflicts: {
             inc: { type: 'name', existingId: 'other', existingName: 'Ghost Name' },
           },
-        }),
+        }), activeRepo
       );
       expect(result.addedCount).toBe(1);
       const stored = await repo.getProjects();
@@ -620,7 +628,7 @@ describe('applyImportMerge', () => {
     it("cloud mode: 'replace' with no recorded conflict adds under a new id", async () => {
       const incoming = makeProject({ id: 'orphan', name: 'Orphan Cloud' });
       const result = await applyImportMerge(
-        makePreview({ orphan: 'replace' }, [incoming], { mode: 'cloud', conflicts: {} }),
+        makePreview({ orphan: 'replace' }, [incoming], { mode: 'cloud', conflicts: {} }), activeRepo
       );
       expect(result.addedCount).toBe(1);
       const stored = await repo.getProjects();
@@ -632,7 +640,7 @@ describe('applyImportMerge', () => {
       // there is no target to replace. Adding is the safe interpretation.
       const incoming = makeProject({ id: 'orphan', name: 'Orphan' });
       const result = await applyImportMerge(
-        makePreview({ orphan: 'replace' }, [incoming], { conflicts: {} }),
+        makePreview({ orphan: 'replace' }, [incoming], { conflicts: {} }), activeRepo
       );
       expect(result.addedCount).toBe(1);
       expect(result.replacedCount).toBe(0);
@@ -642,7 +650,7 @@ describe('applyImportMerge', () => {
       // `decisions[project.id] ?? 'skip'` — nothing may be written for a project
       // the user was never asked about.
       const incoming = makeProject({ id: 'unasked', name: 'Unasked' });
-      const result = await applyImportMerge(makePreview({}, [incoming]));
+      const result = await applyImportMerge(makePreview({}, [incoming]), activeRepo);
       expect(result.skippedCount).toBe(1);
       expect(result.addedCount).toBe(0);
       expect(await repo.getProjects()).toHaveLength(0);
@@ -658,7 +666,7 @@ describe('applyImportMerge', () => {
       switchRepoImpl(throwing);
 
       const result = await applyImportMerge(
-        makePreview({}, [], { teamPoolDecision: 'merge' }),
+        makePreview({}, [], { teamPoolDecision: 'merge' }), activeRepo
       );
       expect(result.errorCount).toBe(1);
       expect(result.errorMessages[0]).toContain('Team pool merge');
@@ -673,7 +681,7 @@ describe('applyImportMerge', () => {
       switchRepoImpl(throwing);
 
       const result = await applyImportMerge(
-        makePreview({}, [], { teamPoolDecision: 'replace' }),
+        makePreview({}, [], { teamPoolDecision: 'replace' }), activeRepo
       );
       expect(result.errorCount).toBe(1);
       expect(result.errorMessages[0]).toContain('Team pool:');
@@ -687,7 +695,7 @@ describe('applyImportMerge', () => {
       switchRepoImpl(throwing);
 
       const result = await applyImportMerge(
-        makePreview({}, [], { teamPoolDecision: 'replace' }),
+        makePreview({}, [], { teamPoolDecision: 'replace' }), activeRepo
       );
       expect(result.errorMessages[0]).toBe('Team pool: Unknown error');
     });
@@ -700,7 +708,7 @@ describe('applyImportMerge', () => {
       switchRepoImpl(throwing);
 
       const result = await applyImportMerge(
-        makePreview({}, [], { settingsDecision: 'replace' }),
+        makePreview({}, [], { settingsDecision: 'replace' }), activeRepo
       );
       expect(result.errorCount).toBe(1);
       expect(result.errorMessages[0]).toContain('Settings:');
@@ -722,7 +730,7 @@ describe('applyImportMerge', () => {
         makePreview({ p1: 'add' }, [makeProject({ id: 'p1' })], {
           settingsDecision: 'replace',
           teamPoolDecision: 'merge',
-        }),
+        }), activeRepo
       );
 
       expect(result.errorCount).toBe(3);

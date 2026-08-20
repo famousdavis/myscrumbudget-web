@@ -5,7 +5,19 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useProject } from '../useProject';
-import { repo } from '@/lib/storage/repo';
+// These tests drive the REAL localStorage repository — they assert on persisted
+// bytes AND spy on its methods. ⚠️ ONE INSTANCE, shared: two instances would
+// read the same localStorage and so look equivalent, but a spy attached to one
+// never sees calls made on the other. That failed exactly the two flush() tests
+// and nothing else, which is the quiet way to get it wrong.
+const { repo } = await vi.hoisted(async () => {
+  const { createLocalStorageRepository } = await import('@/lib/storage/localStorage');
+  return { repo: createLocalStorageRepository() };
+});
+vi.mock('@/components/RepositoryProvider', () => {
+  const value = { repository: repo, mode: 'local' as const, isCloud: false, switchMode: vi.fn() };
+  return { useRepository: () => value };
+});
 import { cloudSyncBus } from '@/lib/firebase/cloudSyncBus';
 import type { Project } from '@/types/domain';
 

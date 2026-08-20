@@ -10,8 +10,8 @@ import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { ConfirmDialog } from '@/components/BaseDialog';
 import { TosConsentModal } from '@/components/TosConsentModal';
 import { useToast } from '@/components/Toast';
-import { getStorageMode, setStorageMode, type StorageMode } from '@/lib/storage/storageMode';
-import { repo, switchRepoImpl } from '@/lib/storage/repo';
+import type { StorageMode } from '@/lib/storage/storageMode';
+import { useRepository } from '@/components/RepositoryProvider';
 import { createLocalStorageRepository } from '@/lib/storage/localStorage';
 import { createFirestoreRepository } from '@/lib/storage/firestoreRepo';
 import { sanitizeFirebaseError } from '@/lib/firebase/errors';
@@ -30,7 +30,7 @@ export function CloudStorageSection() {
     signInError,
   } = useSignInWithTosGate();
 
-  const [mode, setMode] = useState<StorageMode>(getStorageMode);
+  const { repository, mode, switchMode } = useRepository();
   const [showUploadConfirm, setShowUploadConfirm] = useState(false);
   const [showReuploadConfirm, setShowReuploadConfirm] = useState(false);
   const [showCleanupConfirm, setShowCleanupConfirm] = useState(false);
@@ -45,15 +45,19 @@ export function CloudStorageSection() {
   // early return is still a Rules-of-Hooks violation.
   const switchToCloud = useCallback(() => {
     if (!user) return;
-    const cloudRepo = createFirestoreRepository(user.uid);
-    switchRepoImpl(cloudRepo);
-    setStorageMode('cloud');
+    switchMode('cloud');
     setHasUploaded();
     // In cloud mode, origin ref is the Firebase UID
     setOriginRef(user.uid);
-    // Reload so hooks fetch from Firestore and cloud sync listeners are set up
+    // ⚠️ The reload is now REDUNDANT, and is kept deliberately (v0.37.0).
+    // switchMode re-derives the repository and re-runs the cloud-sync effect
+    // on its own, so nothing here depends on the remount any more — which is
+    // exactly the claim the old comment got wrong (it said the reload was what
+    // made hooks fetch from Firestore; the reload actually DESTROYED the
+    // module global that had just been set). Removing it is a separate
+    // behaviour change with its own risks; it is a deliberate follow-up.
     window.location.reload();
-  }, [user]);
+  }, [user, switchMode]);
 
   // If Firebase is not configured, hide entirely
   if (!firebaseAvailable) return null;
@@ -64,11 +68,11 @@ export function CloudStorageSection() {
     if (newMode === 'cloud') {
       if (!user) return; // Can't switch to cloud without auth
 
-      // Read from the delegating repo (currently pointing at localStorage,
-      // since mode !== 'cloud' at this branch). Avoids the C3 leak where a
-      // freshly-constructed localStorage repo bypasses any in-flight state
-      // and reads raw keys that may belong to a prior user.
-      const localProjects = await repo.getProjects();
+      // Read through the ACTIVE repository — localStorage here, since this
+      // branch only runs while mode !== 'cloud'. Avoids the C3 leak where a
+      // freshly-constructed localStorage repository bypasses any in-flight
+      // state and reads raw keys that may belong to a prior user.
+      const localProjects = await repository.getProjects();
 
       if (localProjects.length > 0) {
         setLocalProjectCount(localProjects.length);
@@ -90,17 +94,16 @@ export function CloudStorageSection() {
     setMigrationResult(null);
 
     try {
-      // Main migration path — the active repo is still localStorage here
-      // (user is toggling from local → cloud). Reading via the delegating
-      // wrapper avoids the C3 leak where a freshly-constructed local repo
-      // could surface stale keys from a prior user.
-      const localData = await repo.exportAll();
+      // Main migration path — the active repository is still localStorage
+      // here (the user is toggling local → cloud). Reading through it rather
+      // than constructing a fresh one avoids the C3 leak where a new local
+      // repository could surface stale keys from a prior user.
+      const localData = await repository.exportAll();
 
-      // Switch to cloud repo
+      // Constructed directly as a one-shot UPLOAD TARGET, not as the app's
+      // active store — switchMode below is what makes it active.
       const cloudRepo = createFirestoreRepository(user.uid);
-      switchRepoImpl(cloudRepo);
-      setStorageMode('cloud');
-      setMode('cloud');
+      switchMode('cloud');
 
       // Import local data into cloud
       await cloudRepo.importAll(localData);
@@ -118,9 +121,7 @@ export function CloudStorageSection() {
       addToast('Upload failed. Reverting to local storage.', 'error');
 
       // Revert to local
-      switchRepoImpl(createLocalStorageRepository());
-      setStorageMode('local');
-      setMode('local');
+      switchMode('local');
     } finally {
       setMigrating(false);
     }
@@ -133,7 +134,7 @@ export function CloudStorageSection() {
     setMigrationResult(null);
 
     try {
-      // Reads localStorage directly because the active repo is Firestore in
+      // Reads localStorage directly because the active repository is Firestore in
       // cloud mode; this button exists specifically to surface localStorage
       // stragglers left behind after a prior migration. Safe under sign-out
       // cleanup (performSignOutCleanup wipes msb:projects before any new
@@ -160,9 +161,8 @@ export function CloudStorageSection() {
   };
 
   const confirmSwitchToLocal = () => {
-    switchRepoImpl(createLocalStorageRepository());
-    setStorageMode('local');
-    // Reload so hooks fetch from localStorage and cloud sync listeners are torn down
+    switchMode('local');
+    // Redundant since v0.37.0 — see the note in switchToCloud. Kept deliberately.
     window.location.reload();
   };
 
@@ -181,8 +181,8 @@ export function CloudStorageSection() {
   const handleSignOut = async () => {
     // Thin wrapper: performSignOutCleanup (invoked via useAuth().signOut) is
     // the canonical path. It cancels pending saves, clears per-user keys,
-    // resets storage mode, swaps the repo, revokes Firebase credentials, and
-    // reloads the page. No component-local cleanup is needed after this.
+    // resets storage mode (which re-derives the repository), revokes Firebase
+    // credentials, and reloads. No component-local cleanup is needed.
     await signOut();
   };
 
@@ -280,7 +280,7 @@ export function CloudStorageSection() {
         {mode === 'cloud' && user && !migrating && !showUploadConfirm && !showReuploadConfirm && (
           <button
             onClick={async () => {
-              // Reads localStorage directly because the active repo is
+              // Reads localStorage directly because the active repository is
               // Firestore in cloud mode; this button surfaces localStorage
               // stragglers left behind after a prior migration.
               const localRepo = createLocalStorageRepository();

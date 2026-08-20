@@ -129,7 +129,18 @@ export function createFirestoreRepository(uid: string): Repository {
 
   const settingsRef = doc(db, SETTINGS_COL, uid);
 
-  const repo: Repository = {
+  // ⚠️ NAMED `impl`, NOT `repo`, DELIBERATELY (v0.37.0).
+  // Until v0.36.16 this const was called `repo` — the same identifier as the
+  // module-global delegator that the rest of the codebase imported. The eight
+  // `impl.getTeamPool()` / `impl.getProjects()` calls in the methods below are
+  // and always were SELF-DISPATCH onto this object; this module has never
+  // imported the delegator. But two independent readers, working from a grep
+  // rather than from the binding, concluded the opposite and wrote it down —
+  // one of them in the comment deleted from saveProject's JSDoc below, which
+  // asserted these calls went "through the delegating module" and was simply
+  // wrong when written. Renaming is the fix: the calls read as self-dispatch
+  // now because the name says so.
+  const impl: Repository = {
     // ── Settings ──
     async getSettings(): Promise<Settings> {
       const snap = await getDoc(settingsRef);
@@ -240,16 +251,10 @@ export function createFirestoreRepository(uid: string): Repository {
      * saveProject for 'replace' decisions and relies on merge: true to preserve
      * identity fields from the existing document. Do NOT add any of those fields
      * to this write payload without auditing the import path for regressions.
-     *
-     * INVESTIGATION FLAG (v0.28.1): both saveProject and createProject below
-     * call repo.getTeamPool() through the delegating module, relying on the
-     * active repo identity not switching mid-call. Safe today (single-tab,
-     * sign-out cleanup cancels in-flight saves). Revisit before introducing
-     * any concurrent or cross-tab path that could swap the active repo while
-     * a save is awaiting the pool snapshot.
+
      */
     async saveProject(project: Project): Promise<void> {
-      const pool = await repo.getTeamPool();
+      const pool = await impl.getTeamPool();
       const now = new Date().toISOString();
 
       // v0.31.0 (C1): explicit mergeFields instead of merge:true. The
@@ -277,9 +282,9 @@ export function createFirestoreRepository(uid: string): Repository {
      * Only used for brand-new projects — sets owner and members.
      */
     async createProject(project: Project): Promise<void> {
-      const pool = await repo.getTeamPool();
+      const pool = await impl.getTeamPool();
       const now = new Date().toISOString();
-      const projects = await repo.getProjects();
+      const projects = await impl.getProjects();
 
       const docData: FirestoreProjectDoc = {
         name: project.name,
@@ -317,9 +322,9 @@ export function createFirestoreRepository(uid: string): Repository {
 
     // ── Export/Import ──
     async exportAll(): Promise<AppState> {
-      const settings = await repo.getSettings();
-      const teamPool = await repo.getTeamPool();
-      const projects = await repo.getProjects();
+      const settings = await impl.getSettings();
+      const teamPool = await impl.getTeamPool();
+      const projects = await impl.getProjects();
 
       const data: AppState = {
         version: DATA_VERSION,
@@ -341,8 +346,8 @@ export function createFirestoreRepository(uid: string): Repository {
 
     async importAll(state: AppState): Promise<void> {
       // Save settings with merge to preserve cloud-only fields
-      await repo.saveSettings(state.settings);
-      await repo.saveTeamPool(state.teamPool);
+      await impl.saveSettings(state.settings);
+      await impl.saveTeamPool(state.teamPool);
 
       // Full replace for each project (no merge — import overwrites entirely)
       const pool = state.teamPool;
@@ -440,9 +445,9 @@ export function createFirestoreRepository(uid: string): Repository {
 
     async migrateIfNeeded(): Promise<void> {
       // Cloud data schema is always current — migrations happen at the app level
-      // before data reaches Firestore. No-op for cloud repo.
+      // before data reaches Firestore. No-op for the cloud repository.
     },
   };
 
-  return repo;
+  return impl;
 }
