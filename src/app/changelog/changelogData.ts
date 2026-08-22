@@ -13,6 +13,32 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.37.1',
+    date: '2026-08-22',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'The shared release-checking script no longer says there is no automated checking. That script is deliberately the same file in all nine SPERT® Suite projects, and the note at the top of it said there was no automated checking anywhere in the suite — that a green tick on a proposed change meant only that a preview copy had been built, and that nothing ran the tests. That has not been true since the script existed. Automated checking runs on every one of the nine projects, on every proposed change and on every merge, and what it runs is this very script.',
+          'The statement did not go out of date — it was untrue on the day it was written. The same set of edits that added the script also switched the automated checking on, so the file contradicted a change sitting beside it. That distinction decides the remedy: a statement that decays can be helped by writing down when it was made; a statement that was never true cannot. What went wrong was that a claim about the projects was written into an explanation without being checked against them, and an explanation is read as background rather than as an assertion somebody has to verify.',
+        ],
+      },
+      {
+        title: 'Added',
+        items: [
+          'A note that automated checking and a check run by hand are complementary rather than ranked. The automated one works from a clean copy, so it catches anything that quietly depends on a file existing only on the author’s own machine; but it also has less of the project to look at, so certain checks step aside there and only a hand-run finds what those cover.',
+          'A note explaining how the code-style step is judged. That step compares the number of reported issues against an agreed figure instead of reading pass or fail, and it does so for opposite reasons in different projects: in most of them the step reports failure at the agreed figure, so reading pass-or-fail would be too strict; in one it reports success at the agreed figure, so reading pass-or-fail would be too lenient and would let new issues through unnoticed. One mechanism, two reasons. The note also warns that the figure counts every kind of issue rather than the one kind a project set it for, and that when it reaches zero the setting must be removed rather than set to zero — at zero the tool prints no count at all, and the step then fails asking for a number that was never printed.',
+        ],
+      },
+      {
+        title: 'Note',
+        items: [
+          'Development and release tooling only. No application code changed and nothing about how the app behaves is different.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.37.0',
     date: '2026-08-20',
     sections: [
