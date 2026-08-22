@@ -1079,6 +1079,7 @@ Delivered:
 - `src/features/projects/components/SharingSection.tsx` — Project sharing UI
 - `firestore.rules` — Firestore security rules
 - `firebase.json` — Firebase project config
+  **(Both removed in v0.34.1, `f00530e`; this repo keeps no rules mirror — the canonical ruleset lives in `spert-landing-page` and is CI-deployed from there)**
 
 ### v0.16.1 Bug Fixes & Refactoring — COMPLETE
 **Goal**: Fix cloud storage bugs found post-deployment, improve code organization and testability
