@@ -13,6 +13,32 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.37.2',
+    date: '2026-08-22',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'The mutation-testing safety check no longer passes the run it exists to catch. Mutation testing makes small deliberate changes to the code and asks whether any test notices, and a wrapper around it exists to refuse a run that produced no real results but reports a clean-looking one. That wrapper counted "no test reaches this code" as a real result, so a run in which every single change went unchecked — scoring zero per cent, with nothing actually tested — was reported as having produced real verdicts. The precise failure it was written to prevent, surviving inside it.',
+          'The fix separates two questions that had been sharing one sum. Whether a change was left unchecked is a real fact about the code and still counts towards the score exactly as before; whether the suite ever ran at all is a different question, and an unchecked change is silence rather than evidence. Only the second question changed, and one line of running code differs.',
+        ],
+      },
+      {
+        title: 'Changed',
+        items: [
+          'The note explaining it now names no cause, deliberately. The suite’s records blamed one specific misconfiguration for the all-unchecked state. Five attempts were made to produce that state on purpose across two sibling projects, including the one where the misconfiguration should do the most damage, and none of them produced it. A note explaining a fault by pointing at one cause stops being true when the cause changes; a note describing what is being refused does not.',
+        ],
+      },
+      {
+        title: 'Note',
+        items: [
+          'Development tooling only. No application code changed and nothing about how the app behaves is different.',
+          'This project’s stored measurement is not evidence for this change. The case the change had to leave alone is a run containing some unchecked code, and this project’s stored measurement contains none — so it passes identically under the old logic and the new and cannot tell them apart. Two of the four projects provide that evidence; this is not one of them.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.37.1',
     date: '2026-08-22',
     sections: [
