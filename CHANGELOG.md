@@ -4,6 +4,20 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.37.2] - 2026-08-22
+
+Development tooling only — no application code changed and nothing about how the app behaves is different.
+
+### Fixed
+- **The mutation-testing safety check no longer passes the run it exists to catch.** Mutation testing makes small deliberate changes to the code and asks whether any test notices. A wrapper around it exists to refuse a run that produced no real results but reports a clean-looking one, because that failure is silent and flattering. The wrapper counted "no test reaches this code" as a real result — so a run in which every single change went unchecked, scoring zero per cent with nothing actually tested, was reported as having produced real verdicts. The precise failure it was written to prevent, surviving inside it.
+- **The fix separates two questions that had been sharing one sum.** Whether a change was left unchecked is a real fact about the code, and still counts towards the score exactly as before. Whether the suite ever ran at all is a different question, and an unchecked change is silence rather than evidence. Only the second question changed; one line of running code differs.
+
+### Changed
+- **The note explaining it now names no cause, deliberately.** The suite's records blamed one specific misconfiguration for the all-unchecked state. Five attempts were made to produce that state on purpose, across two sibling projects — including the one where the misconfiguration should do the most damage, because its test configuration sits at a non-standard filename with no standard one to fall back on. None of them produced it. The tool either refuses to start when no test covers the changed code, or runs the whole suite and reports the changes as surviving instead. A note explaining a fault by pointing at one cause stops being true when the cause changes; a note describing what is being refused does not.
+
+### Note
+- **This project's stored measurement is not evidence for this change, and that is worth stating.** Four hand-built cases were run through the real checking script both before and after the change, and every stored measurement across the projects still passes with an identical score. But the case this change had to leave alone is a run containing some unchecked code, and this project's stored measurement contains none — it passes identically under the old logic and the new, so it cannot tell them apart. Two of the four projects provide that evidence; this is not one of them.
+
 ## [0.37.1] - 2026-08-22
 
 Development and release tooling only — no application code changed and nothing about how the app behaves is different.
