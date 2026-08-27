@@ -4,6 +4,18 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.37.3] - 2026-08-27
+
+Documentation only — no application code changed and nothing about how the app behaves is different.
+
+### Fixed
+- **The changelog no longer tells you that a cloud saving failure never happened.** The v0.34.0 entry said that creating a project in cloud mode was never broken while one field was missing from the shared security rules, and gave a reason: a field explicitly set to "no value" supposedly did not count towards the rules' field check. That reason is wrong. It has since been tested directly against Firestore's own rules engine, with controls in both directions, and a field explicitly set to "no value" does count — so the check rejected the write. Between 3 June 2026, when project colours shipped, and 16 July 2026, when the rules were corrected, creating and saving projects in cloud mode were rejected.
+- Cloud storage is used by almost nobody here and no report was ever received, so whether this reached a real user is **unknown**. That is stated as unknown rather than as no harm, which is the mistake the original entry made.
+- The v0.34.0 entry has been corrected here and in `src/app/changelog/changelogData.ts`. The original wording is quoted inside each correction rather than deleted, so a reader who saw the old claim can see exactly what changed and when.
+
+### Note
+- The same false explanation was also written into the shared SPERT Firestore rules file, which is not part of this project. It is being corrected separately.
+
 ## [0.37.2] - 2026-08-22
 
 Development tooling only — no application code changed and nothing about how the app behaves is different.
@@ -442,7 +454,7 @@ Project archiving: hide a project from the Dashboard without deleting it. Adds a
 ### Storage
 
 - **DATA_VERSION bumped to `0.16.0`.** New structural no-op migration entry mirrors the shape of the existing `color` migration (absent `archived` = active; no backfill).
-- **Firestore:** `FirestoreProjectDoc.archived` is stored as `boolean | null` (Firestore rejects `undefined`); `docToProject` only hydrates the field when `true`. The projects-collection field allowlist in the shared SPERT Firestore rules was updated to include both `archived` and `color`, deployed ahead of this release. Cloud-mode project creation was never broken by the missing `color` entry: a new project writes `color: null`, and a null-valued field is not counted by the rules' `keys().hasOnly()` check (unlike a non-null value). The archive toggle writes a non-null `archived: true`, so the allowlist entry is added to keep that path safe.
+- **Firestore:** `FirestoreProjectDoc.archived` is stored as `boolean | null` (Firestore rejects `undefined`); `docToProject` only hydrates the field when `true`. The projects-collection field allowlist in the shared SPERT Firestore rules was updated to include both `archived` and `color`, deployed ahead of this release. **Correction (2026-08-27):** this entry originally read "Cloud-mode project creation was never broken by the missing `color` entry: a new project writes `color: null`, and a null-valued field is not counted by the rules' `keys().hasOnly()` check (unlike a non-null value)." That is false. Measured since on the Firestore emulator, with positive, negative and `hasAll` controls: an explicitly `null` field **is** a present key, so `keys().hasOnly()` counts it and rejects the write. `createProject` and `saveProject` both always send `color` (coalesced to `null` when unset), so between v0.33.0 (2026-06-03), which shipped `color`, and the rules fix on 2026-07-16, cloud-mode project creation and saving were rejected. Cloud storage adoption is near zero and no report was received, so whether any user was affected is unknown. The archive toggle writes a non-null `archived: true`, so the allowlist entry is added to keep that path safe.
 - **The strict import validator now type-checks the optional `archived` field.** The lenient localStorage guard is intentionally unchanged.
 
 ### Tests
