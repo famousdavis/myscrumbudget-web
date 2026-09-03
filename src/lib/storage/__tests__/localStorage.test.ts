@@ -2,13 +2,13 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import {
   createLocalStorageRepository,
   DEFAULT_SETTINGS,
 } from '../localStorage';
 import { STORAGE_KEYS } from '@/types/storage';
-import type { Project, Settings, AppState } from '@/types/domain';
+import type { PoolMember, Project, Settings, AppState } from '@/types/domain';
 import {
   WORKSPACE_ID_KEY,
   setExportAttribution,
@@ -362,5 +362,62 @@ describe('LocalStorage Repository', () => {
       expect(log).toHaveLength(1);
       expect(log[0].op).toBe('import');
     });
+  });
+});
+
+describe('saveSettingsAndTeamPool — one operation, pool written first (PR C1)', () => {
+  const settings: Settings = {
+    ...DEFAULT_SETTINGS,
+    laborRates: [{ role: 'Business Analyst', hourlyRate: 75 }],
+  };
+  const pool: PoolMember[] = [
+    { id: 'pm1', name: 'Alice', role: 'Business Analyst' },
+    { id: 'pm2', name: 'Cara', role: 'Business Analyst', archived: true },
+  ];
+
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it('writes the POOL BEFORE the rates', () => {
+    /**
+     * ⚠️ This was the ONE criterion that could not be run against unfixed HEAD,
+     * and the reason is worth keeping: before this method existed there was no
+     * single operation whose write order could be observed. A test would have
+     * had to issue the two calls itself and would then have been asserting
+     * about its own sequence rather than about the code. It is verified here,
+     * after the fact, by observing `setItem` order — which is only meaningful
+     * because ONE call now produces both writes.
+     *
+     * The order is load-bearing: see the comment at the implementation. Both
+     * orders leave identical markers on screen, so only recoverability and
+     * quota separate them, and both favour pool-first.
+     */
+    const keys: string[] = [];
+    const original = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (
+      this: Storage, k: string, v: string,
+    ) {
+      keys.push(k);
+      original.call(this, k, v);
+    });
+
+    const repo = createLocalStorageRepository();
+    return repo.saveSettingsAndTeamPool(settings, pool).then(() => {
+      // Both keys, in this order. Asserting membership alone would pass under
+      // either order and would not be this criterion.
+      expect(keys).toEqual([STORAGE_KEYS.teamPool, STORAGE_KEYS.settings]);
+    });
+  });
+
+  it('both halves land, and the archived member is carried', async () => {
+    // The pool half must include archived members: `resolveAssignments` applies
+    // no archived filter, so an archived member in a saved reforecast is still
+    // costed and an un-cascaded one would be orphaned.
+    const repo = createLocalStorageRepository();
+    await repo.saveSettingsAndTeamPool(settings, pool);
+
+    expect(await repo.getSettings()).toEqual(settings);
+    expect(await repo.getTeamPool()).toEqual(pool);
+    expect((await repo.getTeamPool()).find((m) => m.archived === true)?.role)
+      .toBe('Business Analyst');
   });
 });

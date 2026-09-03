@@ -34,7 +34,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { Project, Settings } from '@/types/domain';
+import type { PoolMember, Project, Settings } from '@/types/domain';
 
 /** Every setDoc call, in order: { ref, data, options }. */
 type SetDocCall = { ref: { col: string; id: string }; data: Record<string, unknown>; options?: { mergeFields?: string[] } };
@@ -537,5 +537,114 @@ describe('the remaining repository operations', () => {
     await expect(repo.migrateIfNeeded()).resolves.toBeUndefined();
     expect(setDocCalls).toHaveLength(0);
     expect(batchOps).toHaveLength(0);
+  });
+});
+
+describe('saveSettingsAndTeamPool — one document, one write (PR C1)', () => {
+  /**
+   * ⚠️ WRITTEN AGAINST THE WRITE, NOT AGAINST THE METHOD NAME, and that is the
+   * whole reason these assertions are trustworthy.
+   *
+   * A criterion written as `repo.saveSettingsAndTeamPool(...)` fails at an
+   * unfixed HEAD with `TypeError: ... is not a function` — which is the SAME
+   * output as a typo in the test, a mock missing the method, or a bad import.
+   * That failure carries no information about the criterion, so pasting it into
+   * a PR body looks like compliance while proving nothing.
+   *
+   * These assertions instead name the OBSERVABLE the PR changes: how many
+   * `setDoc` calls the operation produces, and what the resolved field mask
+   * contains. `persistSettingsAndPool` below is the only line that differs
+   * between the two worlds. In its HEAD-baseline form it was the two-call
+   * sequence a caller would otherwise have to write, and these tests failed
+   * with `expected 1, received 2` and a mask not containing `teamPool` —
+   * informative failures, recorded in the PR body for v0.37.8.
+   */
+  async function persistSettingsAndPool(
+    repo: Awaited<ReturnType<typeof createFirestoreRepository>>,
+    settings: Settings,
+    pool: PoolMember[],
+  ): Promise<void> {
+    await repo.saveSettingsAndTeamPool(settings, pool);
+  }
+
+  /**
+   * The six fields the combined write is allowed to touch, in resolved order.
+   *
+   * ⚠️ A LITERAL, deliberately — NOT an import of the source constant. Importing
+   * it would make this test agree with whatever the constant happens to say,
+   * which is exactly the change it exists to catch (the self-referential
+   * assertion finding from v0.36.12). `EXPECTED_MERGE_FIELDS` above is a literal
+   * for the same reason; keep both that way.
+   */
+  const EXPECTED_SETTINGS_POOL_MASK = [
+    'discountRateAnnual', 'laborRates', 'holidays',
+    'trafficLightThresholds', 'schemaVersion', 'teamPool',
+  ];
+
+  /** A rate set mid-rename: "BA" has become "Business Analyst". */
+  function renamedSettings(): Settings {
+    return {
+      discountRateAnnual: 0.03,
+      laborRates: [{ role: 'Business Analyst', hourlyRate: 75 }, { role: 'IT-Security', hourlyRate: 90 }],
+      holidays: [],
+      trafficLightThresholds: { amberPercent: 5, redPercent: 15, violetPercent: 20 },
+    };
+  }
+
+  /** The pool that must land in the same write, or its members are orphaned. */
+  function cascadedPool(): PoolMember[] {
+    return [
+      { id: 'pm1', name: 'Alice', role: 'Business Analyst' },
+      { id: 'pm2', name: 'Cara', role: 'Business Analyst', archived: true },
+      { id: 'pm3', name: 'Dan', role: 'IT-Security' },
+    ];
+  }
+
+  it('produces ONE setDoc carrying both laborRates and teamPool', async () => {
+    const repo = createFirestoreRepository(UID);
+    await persistSettingsAndPool(repo, renamedSettings(), cascadedPool());
+
+    expect(setDocCalls).toHaveLength(1);
+    const [call] = setDocCalls;
+    expect(call.ref.col).toBe('myscrumbudget_settings');
+    expect(call.ref.id).toBe(UID);
+    // Both halves of the rename in one payload — the property that makes the
+    // write atomic by single-document semantics.
+    expect(call.data.laborRates).toEqual(renamedSettings().laborRates);
+    expect(call.data.teamPool).toEqual(cascadedPool());
+  });
+
+  it('its mask CONTAINS laborRates and teamPool', async () => {
+    // ⚠️ CONTAINMENT, not order. A data field absent from the mask is dropped
+    // SILENTLY (the mask is built only from mergeFields), so losing either entry
+    // is invisible at runtime — which is why it is asserted here.
+    const repo = createFirestoreRepository(UID);
+    await persistSettingsAndPool(repo, renamedSettings(), cascadedPool());
+
+    const mask = setDocCalls[0].options?.mergeFields ?? [];
+    expect(mask).toContain('laborRates');
+    expect(mask).toContain('teamPool');
+  });
+
+  it('writes exactly its six mergeFields, in resolved order', async () => {
+    const repo = createFirestoreRepository(UID);
+    await persistSettingsAndPool(repo, renamedSettings(), cascadedPool());
+
+    expect(setDocCalls[0].options?.mergeFields).toEqual(EXPECTED_SETTINGS_POOL_MASK);
+  });
+
+  it('every mask entry is present in the payload', async () => {
+    // ⚠️ Not decoration. From the SDK (`parseSetData`): a mask entry absent from
+    // the input data throws INVALID_ARGUMENT client-side and nothing is written.
+    // A mask that names a field the payload does not carry is therefore a hard
+    // runtime failure, not a silent one — the opposite direction from the test
+    // above, and the two together bound the mask from both sides.
+    const repo = createFirestoreRepository(UID);
+    await persistSettingsAndPool(repo, renamedSettings(), cascadedPool());
+
+    const { data, options } = setDocCalls[0];
+    for (const field of options?.mergeFields ?? []) {
+      expect(Object.keys(data)).toContain(field);
+    }
   });
 });
