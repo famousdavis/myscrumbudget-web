@@ -13,6 +13,22 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.37.4',
+    date: '2026-09-03',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'Two labor rates can no longer be given the same name. Renaming a role onto a name that already exists \u2014 or adding one \u2014 is now refused, with a message naming the rate it collides with, instead of quietly creating a second row with that name. Capitalisation is no longer a loophole: \u201cba\u201d is treated as the same role as \u201cBA\u201d. Rates you already have are left alone; the check applies when you add or rename one.',
+          'Deleting a labor rate now deletes only the rate you clicked. When two rates shared a name, deleting either one destroyed both. The table then redrew showing the rate you had just deleted still sitting there and a different one gone, so the loss did not look like a loss until the page was reloaded.',
+          'Editing a labor rate now opens only the row you clicked, and saving changes only that row. When two rates shared a name, clicking Edit on one opened both for editing, and a single Save rewrote both.',
+          'A Save button in the rate table that cannot be used now says why. Clearing the role name, entering a negative rate, or typing a name that already exists left Save looking usable while clicking it did nothing at all.',
+          'A team member whose labor rate was deleted no longer looks like they have no role. The Role dropdown appeared to be sitting on \u201cSelect role...\u201d while the member still held the deleted role underneath, so saving wrote it straight back. The dropdown now shows the missing role by name, marked \u201c(rate removed)\u201d, so it is clear what has to be re-picked.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.37.3',
     date: '2026-08-27',
     sections: [
