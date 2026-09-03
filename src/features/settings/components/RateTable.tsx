@@ -7,11 +7,48 @@
 import { Fragment, useState, useCallback } from 'react';
 import type { Settings, LaborRate } from '@/types/domain';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
+import { ConfirmDialog } from '@/components/BaseDialog';
 import { STORAGE_KEYS } from '@/types/storage';
+
+/** What a Save carries when it is a RENAME rather than a rate-only edit. */
+export interface RoleRenameRequest {
+  index: number;
+  /** The UNTRIMMED stored name — `handleSaveEdit` trims only the new one. */
+  oldRole: string;
+  newRole: string;
+  hourlyRate: number;
+}
 
 interface RateTableProps {
   rates: LaborRate[];
   onUpdate: (updater: (prev: Settings) => Settings) => void;
+  /**
+   * Called INSTEAD of `onUpdate` when a Save changes the role name, because a
+   * rename must also move every pool member holding the old name and that write
+   * has to be one operation.
+   *
+   * ⚠️ REQUIRED, NOT OPTIONAL, AND THAT IS DELIBERATE. An optional prop makes
+   * "the page forgot to pass it" and "the feature is off" the same state, and
+   * nothing in this component's own tests could tell them apart — they would
+   * pass under both. Required, omitting it is a compile error at the call site.
+   *
+   * ⚠️ Resolves TRUE when the write landed and FALSE when it did not. The edit
+   * row's `editingIndex` is this component's private state, so the page cannot
+   * close it; the boolean is how a failed write leaves the row open with the new
+   * name still typed, making the retry one click.
+   */
+  onRenameRole: (change: RoleRenameRequest) => Promise<boolean>;
+  /**
+   * How many pool members would be left with NO labor rate if row `index` were
+   * deleted. Async because the pool lives in storage and this component has no
+   * business holding it.
+   *
+   * ⚠️ A DIFFERENT PREDICATE FROM RENAME'S N, and the difference is not cosmetic:
+   * this counts members left RATELESS, not members holding the name. Legacy data
+   * holds exact duplicate rate rows, so deleting one twin leaves every holder
+   * with a rate and orphans nobody — the honest count there is zero.
+   */
+  countOrphansIfDeleted: (index: number) => Promise<number>;
 }
 
 /**
@@ -93,9 +130,22 @@ function describeRateProblem(
   return null;
 }
 
-export function RateTable({ rates, onUpdate }: RateTableProps) {
+export function RateTable({
+  rates,
+  onUpdate,
+  onRenameRole,
+  countOrphansIfDeleted,
+}: RateTableProps) {
   const [newRole, setNewRole] = useState('');
   const [newRate, setNewRate] = useState('');
+  // ⚠️ `saving` and `pendingDelete` live HERE, in the parent, and that placement is
+  // required rather than stylistic. The `key={index}` note below is legitimate only
+  // while rows hold no per-row component state; moving either of these into a row
+  // would break the condition that makes the key safe.
+  const [saving, setSaving] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<
+    { index: number; role: string; orphanCount: number } | null
+  >(null);
   // Edit identity is the row INDEX, not the role name (v0.37.4). A name matched
   // more than one row whenever two rows shared it, so Edit opened both, Save
   // rewrote both, and Delete removed both — the last of those being data loss.
@@ -131,7 +181,22 @@ export function RateTable({ rates, onUpdate }: RateTableProps) {
   // functional update against the state the props came from); the one divergence
   // is a cloud-sync reload landing between render and click, which is the same
   // window every other functional update in the app already has.
-  const handleDelete = (index: number) => {
+  const requestDelete = async (index: number) => {
+    const orphanCount = await countOrphansIfDeleted(index);
+    // Captured with the count so the dialog and the write agree about which row
+    // this is. Nothing here writes yet.
+    setPendingDelete({ index, role: rates[index].role, orphanCount });
+  };
+
+  const confirmDelete = () => {
+    if (!pendingDelete) return;
+    const { index, role } = pendingDelete;
+    setPendingDelete(null);
+    // ⚠️ RE-VERIFY BEFORE WRITING. The index was captured before the dialog opened,
+    // and the confirm step makes that window far longer than a plain click. If the
+    // row at that index is no longer the one the user chose, this is the wrong row
+    // and the delete is abandoned rather than misapplied.
+    if (rates[index]?.role !== role) return;
     onUpdate((prev) => ({
       ...prev,
       laborRates: prev.laborRates.filter((_, i) => i !== index),
@@ -147,11 +212,36 @@ export function RateTable({ rates, onUpdate }: RateTableProps) {
     setEditRate(String(rate.hourlyRate));
   };
 
-  const handleSaveEdit = () => {
-    if (editingIndex === null || editProblem) return;
+  const handleSaveEdit = async () => {
+    // ⚠️ THE REFUSAL SHORT-CIRCUIT MUST STAY FIRST. Under the pre-cascade shape this
+    // was structural — the cascade would have sat after this return and could not run
+    // on a refused save. Now that the page owns the write it is only a CONVENTION, and
+    // a rename that got past here would move every holder of a name the user was told
+    // they could not use.
+    if (editingIndex === null || editProblem || saving) return;
     const role = editRole.trim();
     const hourlyRate = parseFloat(editRate);
     const target = editingIndex;
+    // The UNTRIMMED stored name is the key every holder is matched on. Only the new
+    // name is trimmed; trimming this one would fail to match members holding a stored
+    // role with surrounding whitespace.
+    const oldRole = rates[target].role;
+
+    // ⚠️ EXACT inequality, never a case-insensitive one. Re-casing a row in place is
+    // permitted, every rate lookup is exact, so a case-only change IS a rename and
+    // must cascade — see `cascadeRoleRename`'s note.
+    if (oldRole !== role) {
+      setSaving(true);
+      try {
+        const committed = await onRenameRole({ index: target, oldRole, newRole: role, hourlyRate });
+        // Left open on failure, with the new name still typed, so the retry is one
+        // click. The page has already surfaced why.
+        if (committed) setEditingIndex(null);
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
 
     onUpdate((prev) => ({
       ...prev,
@@ -188,7 +278,7 @@ export function RateTable({ rates, onUpdate }: RateTableProps) {
             has no reorder, so a key that changes with position costs nothing. It
             is also the honest key now that the role name is known non-unique in
             legacy data. Re-check this if either condition ever stops holding.
-            A stable `LaborRate.id` was considered and declined 2026-09-04: the
+            A stable `LaborRate.id` was considered and declined 2026-09-03: the
             type is `{ role, hourlyRate }` and `sanitizeImport.ts` derives its
             allowlist from `Record<keyof LaborRate, true>`, so adding a field is a
             DATA_VERSION bump plus a migration — out of proportion to a React key.
@@ -223,7 +313,7 @@ export function RateTable({ rates, onUpdate }: RateTableProps) {
                     <td className="py-2 text-right">
                       <button
                         onClick={handleSaveEdit}
-                        disabled={editProblem !== null}
+                        disabled={editProblem !== null || saving}
                         className="mr-2 text-sm text-blue-600 hover:text-blue-800 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-blue-600 dark:text-blue-400"
                       >
                         Save
@@ -248,7 +338,7 @@ export function RateTable({ rates, onUpdate }: RateTableProps) {
                         Edit
                       </button>
                       <button
-                        onClick={() => handleDelete(index)}
+                        onClick={() => requestDelete(index)}
                         className="text-sm text-red-600 hover:text-red-800 dark:text-red-400"
                       >
                         Delete
@@ -301,6 +391,20 @@ export function RateTable({ rates, onUpdate }: RateTableProps) {
         <p className="mt-1 text-xs text-red-600 dark:text-red-400" role="alert">
           {addMessage}
         </p>
+      )}
+      {pendingDelete && (
+        <ConfirmDialog
+          title="Delete labor rate?"
+          message={
+            pendingDelete.orphanCount === 0
+              ? `Delete the "${pendingDelete.role}" rate? No team members would be left without a rate.`
+              : `Delete the "${pendingDelete.role}" rate? ${pendingDelete.orphanCount} team ` +
+                `member${pendingDelete.orphanCount === 1 ? '' : 's'} would be left with no rate, ` +
+                `and would be costed at $0 until given one.`
+          }
+          onConfirm={confirmDelete}
+          onCancel={() => setPendingDelete(null)}
+        />
       )}
     </CollapsibleSection>
   );

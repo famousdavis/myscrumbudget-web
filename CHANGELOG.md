@@ -4,6 +4,19 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.37.9] - 2026-09-03
+
+### Fixed
+- **Renaming a labor-rate role now updates the team members who hold it.** Previously the rate row was renamed and every member holding the old name was left behind, pointing at a role that no longer had a rate. Their cost silently became $0, which moved the project's forecast, its variance and its status colour — with nothing on screen to say why. Renaming now moves the rate and the members together, and a message confirms how many were updated.
+- **Archived members are updated too**, and the confirmation says how many of the total were archived. Archived members still appear in saved reforecast scenarios and are still costed there, so leaving them behind would have quietly broken historical scenarios while the active roster looked correct.
+- **Changing only the capitalisation of a role — "BA" to "ba" — also updates the members.** Rates are matched exactly, so a change of case alone would have orphaned every holder just as a full rename did.
+- **Only exact matches are moved.** If both "BA" and "ba" exist as separate roles, renaming one leaves the other alone.
+- **Deleting a labor rate now asks first, and says what it will cost.** The confirmation states how many team members would be left with no rate at all. Where two rate rows share a name, deleting one correctly reports that nobody is affected.
+- **A double-click on a rate's Delete button no longer destroys two rates.** Confirmed in a browser: with three rates, one double-click on the first row's Delete removed that row *and* the next one, which had never been clicked, and the loss survived a reload. The confirmation step closes it.
+
+### Changed
+- **If a rename cannot be saved, nothing is changed and the row stays open** with the new name still typed, so a retry is one click. Renaming is also refused, with an explanation, if the rate list changed in another tab while the row was open — rather than renaming whichever row had moved into that position.
+
 ## [0.37.8] - 2026-09-03
 
 ### Added
