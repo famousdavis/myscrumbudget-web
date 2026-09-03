@@ -4,6 +4,11 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.37.5] - 2026-09-03
+
+### Fixed
+- **A team member whose role has no labor rate is now marked in the allocation grid.** The red "Role not in labor rates" marker previously appeared only for people imported from a resource plan carrying the placeholder role "Unknown". If you deleted or renamed a labor rate that people were already assigned to, their cost quietly fell to $0 and the grid gave no sign at all — so the case you are most likely to cause was the one it could not show. Any member whose role has no matching rate is now marked, whatever the cause, and the marker clears again once you add a rate for that role. Nobody is marked while your settings are still loading.
+
 ## [0.37.4] - 2026-09-03
 
 Labor rate table fixes. The rate table could end up holding two rates with the same name, and once it did, editing or deleting either one acted on both.

@@ -11,6 +11,7 @@ import type {
 } from '@/types/domain';
 import type { AllocationMap } from '@/lib/calc/allocationMap';
 import { generateId } from '@/lib/utils/id';
+import { UNKNOWN_ROLE } from '@/lib/constants';
 import type { ParseResult } from './excelImport';
 
 export interface ImportDiff {
@@ -54,7 +55,9 @@ export function computeImportDiff(
     } else {
       // New pool member needed. Use a temporary ID; it gets re-keyed at apply time.
       const roleMatchesLabor = settings.laborRates.some((lr) => lr.role === row.role);
-      const role = roleMatchesLabor ? row.role : 'Unknown';
+      // Was the bare literal 'Unknown'; the sentinel now has one definition, since
+      // two copies of it in two files are free to drift apart. Identical value.
+      const role = roleMatchesLabor ? row.role : UNKNOWN_ROLE;
       const tempId = `tmp_${generateId()}`;
       newPoolMemberDrafts.push({ name: row.name, role, tempId });
       poolMemberId = tempId;
