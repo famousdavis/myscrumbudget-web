@@ -173,6 +173,15 @@ interface FirestoreSettingsDoc {
  * WEAKER than the TS2741 `_projectKeyCoverage` produces. It catches the
  * deletion; the reader has to diff the list to see what went.
  */
+/**
+ * ⚠️ DERIVED FROM THE DOC TYPE, NOT A HAND-WRITTEN UNION, AND THAT IS DELIBERATE
+ * even though it is stricter than it needs to be. Adding a field to
+ * `FirestoreSettingsDoc` fails BOTH constants below until someone decides
+ * whether it belongs in each mask. That is the `_projectKeyCoverage`
+ * philosophy — the compile error exists as a PROMPT TO DECIDE, not as an
+ * obstacle. If you hit it, disposition the new field; do not loosen this to a
+ * literal union to make the error go away.
+ */
 type SettingsWriteField = Exclude<keyof FirestoreSettingsDoc, 'teamPool'>;
 
 const SETTINGS_MERGE_SET = {

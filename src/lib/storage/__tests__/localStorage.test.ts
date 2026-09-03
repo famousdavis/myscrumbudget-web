@@ -408,10 +408,16 @@ describe('saveSettingsAndTeamPool — one operation, pool written first (PR C1)'
     });
   });
 
-  it('both halves land, and the archived member is carried', async () => {
-    // The pool half must include archived members: `resolveAssignments` applies
-    // no archived filter, so an archived member in a saved reforecast is still
-    // costed and an un-cascaded one would be orphaned.
+  it('[REGRESSION] both halves land, and the archived member is carried', async () => {
+    // ⚠️ [REGRESSION], NOT [FAILS-TODAY]. This is a behaviour test of the new
+    // method, not a criterion that discriminates fixed from unfixed code —
+    // against HEAD it could only have thrown "not a function", which is the
+    // same output as a typo or a bad import and proves nothing.
+    //
+    // What it DOES bound: the pool half must carry archived members.
+    // `resolveAssignments` applies no archived filter, so an archived member in
+    // a saved reforecast is still costed — an un-cascaded one is orphaned just
+    // as loudly as an active one, and silently in the numbers.
     const repo = createLocalStorageRepository();
     await repo.saveSettingsAndTeamPool(settings, pool);
 

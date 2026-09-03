@@ -633,12 +633,21 @@ describe('saveSettingsAndTeamPool — one document, one write (PR C1)', () => {
     expect(setDocCalls[0].options?.mergeFields).toEqual(EXPECTED_SETTINGS_POOL_MASK);
   });
 
-  it('every mask entry is present in the payload', async () => {
-    // ⚠️ Not decoration. From the SDK (`parseSetData`): a mask entry absent from
-    // the input data throws INVALID_ARGUMENT client-side and nothing is written.
-    // A mask that names a field the payload does not carry is therefore a hard
-    // runtime failure, not a silent one — the opposite direction from the test
-    // above, and the two together bound the mask from both sides.
+  it('[REGRESSION] every mask entry is present in the payload', async () => {
+    // ⚠️ [REGRESSION], NOT [FAILS-TODAY], and the label is load-bearing: this
+    // one PASSED against unfixed HEAD, because `saveSettings`' mask already
+    // matched its own payload. The three tests above failed there. A reader
+    // counting "four green tests" would otherwise read this as a fourth piece
+    // of evidence that the feature works, and it is not.
+    //
+    // ⚠️ It is also NOT redundant with the containment test above, which is the
+    // reason to keep it. From the SDK's `parseSetData`, the two directions have
+    // opposite consequences and only one is silent: a DATA FIELD ABSENT FROM
+    // THE MASK is dropped without error (what containment catches), while a
+    // MASK ENTRY ABSENT FROM THE DATA throws INVALID_ARGUMENT and writes
+    // nothing. Containment structurally cannot see the second — it only ever
+    // looks for entries it expects to be there. This bounds the mask from that
+    // other side. Do not delete it as duplication.
     const repo = createFirestoreRepository(UID);
     await persistSettingsAndPool(repo, renamedSettings(), cascadedPool());
 
