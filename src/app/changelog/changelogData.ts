@@ -13,6 +13,30 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.37.7',
+    date: '2026-09-03',
+    sections: [
+      {
+        title: 'Added',
+        items: [
+          'A release step that had been enforced by nothing is now enforced by code. Release tooling only \u2014 no application code changed and nothing about how the app behaves is different. After a release is merged, the local copy of the project is supposed to be brought back into line with the copy on the server. Merging advances the server; it does not touch the local copy. If the local one is left behind, every report still reads as though the release arrived everywhere, and the next release is built on the wrong starting point. That step existed only as a line in a written checklist.',
+          'Why nothing had caught it. Two mechanisms that look like they should have covered it could not. The release gate runs before a release is merged, so the condition it would be checking does not exist yet. The automated build cannot check it either, because it is a fact about the machine doing the release rather than about the project, and a fresh automated copy has no view of anyone\u2019s working copy. The gap was invisible rather than merely unaddressed.',
+          'A check before the release. The gate now refuses to proceed if the local copy is behind the server, so a release is never cut on a stale starting point. No other check in the gate can see that, because they all read the files on disk, which look entirely correct. Being ahead is normal and is not reported \u2014 that is what the release itself is.',
+          'A check after the release. A new command compares three sources \u2014 the local copy, the local record of the server, and the server\u2019s own answer \u2014 and reports which one disagrees. Three rather than two, because the first two can be stale together and agree with each other while both are wrong.',
+        ],
+      },
+      {
+        title: 'Notes',
+        items: [
+          'The pre-release check deliberately does not require a clean working copy, and must not start to. It runs partway through a release, after the version and changelog edits are made and before they are committed, so uncommitted work is expected at that exact moment. Requiring cleanliness there would fail every release. That check belongs to the after-the-merge command, where it is correct.',
+          'Both compare fingerprints rather than reading a command\u2019s own message. The step had once been reported as done elsewhere in the suite from the tail of a command whose informative line had been trimmed away, and a message saying everything was already current cannot distinguish a real check with nothing to do from no check at all.',
+          'A failure to reach the server fails the pre-release check rather than skipping it. The comparison reads a local record of the server, so a swallowed error would compare that record with itself, agree, and read as a pass.',
+          'The release script is shared byte-for-byte across the suite. It is deliberately the same file in every project so that none can quietly drift onto its own rules; this project now carries the same version as the rest.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.37.6',
     date: '2026-09-03',
     sections: [
