@@ -90,6 +90,49 @@ const SESSION_CLEAR_ON_SIGN_OUT: readonly string[] = [
 let cleanupInFlight = false;
 
 /**
+ * True while a local→cloud upload is running. Set by CloudStorageSection around
+ * `confirmUpload` / `confirmReupload`; read by `confirmCloudCopy` below.
+ *
+ * ⚠️ WHY THIS EXISTS. `confirmUpload` flips the app to cloud mode BEFORE the
+ * upload finishes, and `importAll` then writes settings, the team pool, and one
+ * `getDoc` + `setDoc` per project — seconds for a real dataset. A sign-out
+ * inside that window finds mode `'cloud'` and a cloud that already holds the
+ * uploaded HEAD under still-valid credentials, so `confirmCloudCopy` returned
+ * true and step 2b deleted the local keys. Sign-out then revoked the credential,
+ * the next `setDoc` rejected, and the upload's own catch flipped the mode back
+ * to local — with the local keys already gone. The un-uploaded TAIL existed
+ * nowhere.
+ *
+ * ⚠️ THE BUTTON GUARD IS NOT A SUBSTITUTE FOR THIS, which is why both exist.
+ * Disabling Sign out while migrating covers the click. It cannot cover the
+ * PASSIVE path: a token expiring mid-upload drives `AuthProvider` to a null
+ * user and calls this same cleanup with no click anywhere.
+ *
+ * ⚠️ IN-MEMORY AND PER-PAGE-SESSION, DELIBERATELY — do NOT move this into
+ * `cloudFlipHelpers.ts` or otherwise back it with localStorage. Every function
+ * in that module is a storage read/write, and a PERSISTED "upload in flight"
+ * would survive the reload at the end of sign-out and block every subsequent
+ * cleanup forever. A crashed tab must forget this flag; that is the safe
+ * direction, and it is the same reason `cleanupInFlight` above is a plain
+ * module variable.
+ *
+ * A boolean rather than a counter: concurrent uploads are not reachable (the
+ * upload buttons are disabled while `migrating`), and a counter that leaked an
+ * increment would fail CLOSED forever rather than recovering on the next call.
+ */
+let uploadInFlight = false;
+
+/** Mark a local→cloud upload as started. Pair with `endCloudUpload` in a `finally`. */
+export function beginCloudUpload(): void {
+  uploadInFlight = true;
+}
+
+/** Mark it finished — on success OR failure. Must run in a `finally`. */
+export function endCloudUpload(): void {
+  uploadInFlight = false;
+}
+
+/**
  * Bound on the cloud-copy check. A sign-out must not hang on a dead network,
  * and a timeout is failure — which skips the clear, the safe direction.
  */
@@ -125,6 +168,17 @@ const CLOUD_CHECK_TIMEOUT_MS = 5000;
  * Runs BEFORE step 5, so the Firebase credential is still live.
  */
 async function confirmCloudCopy(): Promise<boolean> {
+  // An upload in progress means the cloud holds a PREFIX of the local data, not
+  // all of it. Checked first, and before any network call: a partial cloud copy
+  // reads as a complete one to every check below it, because they ask whether
+  // the cloud has projects rather than whether it has all of them.
+  if (uploadInFlight) {
+    console.warn(
+      '[signOutCleanup] Local data kept: a cloud upload is still in flight.',
+    );
+    return false;
+  }
+
   try {
     const uid = auth?.currentUser?.uid;
     if (!uid) return false;
