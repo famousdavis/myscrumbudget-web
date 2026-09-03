@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.37.6',
+    date: '2026-09-03',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'A team member\u2019s role could be labelled \u201c(rate removed)\u201d when it had not been. On the Team Pool page, editing a member in the moment before your labor rates finished loading showed their role marked as though its rate had been deleted \u2014 the page waits for the team pool to load but not for the settings that hold the rates, so for that moment it had no rates to check against and treated \u201cnot loaded yet\u201d as \u201cno rate exists\u201d. Nothing was ever saved incorrectly; the label was wrong, not the data. The role selector now stays quiet until it actually knows, and still marks a role whose rate is genuinely gone.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.37.5',
     date: '2026-09-03',
     sections: [
