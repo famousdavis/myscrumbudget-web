@@ -13,6 +13,27 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.37.8',
+    date: '2026-09-03',
+    sections: [
+      {
+        title: 'Added',
+        items: [
+          'Internal groundwork for a fix to renaming a labor-rate role. Nothing about the app behaves differently in this release \u2014 no screen, number or saved file changes, and there is nothing to try out.',
+          'The problem being prepared for. Renaming a role in the Labor Rate Table does not currently update the team members who hold that role. Those members are left pointing at a role that no longer has a rate, so their cost silently falls to zero and every figure derived from it moves. Fixing that means changing the rate list and the team list together.',
+          'Why that needs new plumbing rather than just two saves. Saving them separately can lose the change entirely, with no error and no warning: leaving the Settings page within half a second of the rename means the next edit made anywhere in the team list is written from a copy taken before the rename, quietly overwriting it. This release adds a way to save both together as a single operation, so either the whole rename is stored or none of it is.',
+          'A safeguard on the fields being saved. The list of fields the app is allowed to write when it saves settings is now checked when the app is built, rather than trusted. Dropping one used to be invisible \u2014 the field would simply stop being saved, with nothing reporting it. It is now refused before the app can be built at all.',
+        ],
+      },
+      {
+        title: 'Notes',
+        items: [
+          'The new save operation has no user-facing entry point yet; the screen that will use it comes in the next release. It is deliberately shipped first so its safeguard is in place before anything depends on it.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.37.7',
     date: '2026-09-03',
     sections: [

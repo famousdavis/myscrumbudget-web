@@ -98,6 +98,32 @@ export function createLocalStorageRepository(): Repository {
       set(STORAGE_KEYS.teamPool, pool);
     },
 
+    async saveSettingsAndTeamPool(settings, pool) {
+      // ⚠️ POOL FIRST, AND THE ORDER IS THE WHOLE DESIGN OF THIS METHOD IN LOCAL
+      // MODE. localStorage has no multi-key transaction, so this is two
+      // `setItem`s — far narrower than two debounced writes (no debounce, no
+      // navigation, no second reader) but not atomic. `set` throws
+      // StorageQuotaError on quota and swallows every other write error with a
+      // bare console.error, so a partial write IS reachable.
+      //
+      // Pool first, for two independent reasons:
+      //   1. RECOVERABILITY. Both orders leave identical red markers on screen,
+      //      so visibility does not separate them. Pool-first is repaired by
+      //      repeating the same rename — the cascade finds 0 holders and the
+      //      rates land, one step. Rates-first strands every holder on a role
+      //      whose rate row no longer exists, with no X row left to rename.
+      //   2. A rename's byte delta is N×Δ on the pool against 1×Δ on the rates,
+      //      so if either write crosses quota it is the pool's. Writing it
+      //      first means the likelier failure happens before anything was
+      //      written at all.
+      //
+      // ⚠️ `importUtils.ts:319` is also pool-first, for a DIFFERENT reason
+      // (project writes downstream need the updated pool to build
+      // `_teamSnapshot`). Do not copy its reasoning onto this site.
+      set(STORAGE_KEYS.teamPool, pool);
+      set(STORAGE_KEYS.settings, settings);
+    },
+
     async getProjects() {
       return get<Project[]>(STORAGE_KEYS.projects, [], isValidProjectArray);
     },

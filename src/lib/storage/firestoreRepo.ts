@@ -97,9 +97,20 @@ void _projectKeyCoverage;
  * The fields `saveProject` writes on every save, as a `satisfies`-checked set.
  *
  * Previously an inline `string[]` on the `setDoc` call: unconstrained, so an
- * invalid or stale key was accepted and the field simply never merged.
- * `satisfies` checks every entry against `FirestoreProjectDoc` while keeping the
- * literal key types.
+ * invalid or stale key typechecked. `satisfies` checks every entry against
+ * `FirestoreProjectDoc` while keeping the literal key types.
+ *
+ * ⚠️ CORRECTED 2026-09-03 — this comment described the RUNTIME consequence
+ * backwards, and it had the two directions swapped. From the SDK's
+ * `parseSetData`, both are real and only one is silent:
+ *   - A mask entry ABSENT FROM THE DATA throws `INVALID_ARGUMENT` client-side
+ *     ("Field 'x' is specified in your field mask but missing from your input
+ *     data") and nothing is written. LOUD. This is what a stale key does.
+ *   - A DATA FIELD ABSENT FROM THE MASK is dropped without any error, because
+ *     `fieldMask` is built ONLY from `mergeFields` and never from the parsed
+ *     data. SILENT — and it is the direction that matters, because losing an
+ *     entry from a mask is invisible at runtime.
+ * The old text attributed the silent consequence to the loud cause.
  *
  * ⚠️ `Partial` is deliberate and it bounds what this catches: it rejects a key
  * that is NOT a doc field, and it does NOT require completeness. It cannot,
@@ -123,6 +134,71 @@ const SAVE_PROJECT_MERGE_SET = {
 } satisfies Partial<Record<keyof FirestoreProjectDoc, true>>;
 
 const SAVE_PROJECT_MERGE_FIELDS = Object.keys(SAVE_PROJECT_MERGE_SET);
+
+/**
+ * Firestore document shape for the per-user settings doc.
+ *
+ * The team pool lives in this same document (`teamPool`), which is what makes a
+ * combined settings+pool write atomic by single-document semantics.
+ */
+interface FirestoreSettingsDoc {
+  discountRateAnnual: Settings['discountRateAnnual'];
+  laborRates: Settings['laborRates'];
+  holidays: Settings['holidays'];
+  trafficLightThresholds: Settings['trafficLightThresholds'];
+  schemaVersion: number;
+  teamPool: PoolMember[];
+}
+
+/**
+ * The fields `saveSettings` writes, and its extension carrying `teamPool`.
+ *
+ * ⚠️ EXACT `Record`, NOT `Partial<Record<…>>`, AND THE DIFFERENCE IS THE GUARD.
+ * Measured by deletion 2026-09-03: under a `Partial` shape, removing
+ * `laborRates` from the set produces NO compile error at all, so the whole
+ * guarantee would rest on the runtime pin. Under an exact `Record` the deletion
+ * is TS1360, in both directions.
+ *
+ * ⚠️ `SAVE_PROJECT_MERGE_SET` above IS `Partial`, and copying that here would
+ * have been wrong for a reason its own comment states: `Partial` is deliberate
+ * there because completeness is IMPOSSIBLE — ownership and identity fields are
+ * excluded on purpose. Here completeness is the entire point; `laborRates` and
+ * `teamPool` must move together or a rename orphans every holder. The
+ * precedent's justification does not transfer, so the precedent's construct
+ * must not either. Check a borrowed guard by asking whether the reason it was
+ * chosen still applies, not by reading its shape.
+ *
+ * ⚠️ HONEST LIMIT, so these are not read as equivalent: TS1360 ENUMERATES THE
+ * SURVIVING KEYS rather than naming the missing one, so this is diagnostically
+ * WEAKER than the TS2741 `_projectKeyCoverage` produces. It catches the
+ * deletion; the reader has to diff the list to see what went.
+ */
+/**
+ * ⚠️ DERIVED FROM THE DOC TYPE, NOT A HAND-WRITTEN UNION, AND THAT IS DELIBERATE
+ * even though it is stricter than it needs to be. Adding a field to
+ * `FirestoreSettingsDoc` fails BOTH constants below until someone decides
+ * whether it belongs in each mask. That is the `_projectKeyCoverage`
+ * philosophy — the compile error exists as a PROMPT TO DECIDE, not as an
+ * obstacle. If you hit it, disposition the new field; do not loosen this to a
+ * literal union to make the error go away.
+ */
+type SettingsWriteField = Exclude<keyof FirestoreSettingsDoc, 'teamPool'>;
+
+const SETTINGS_MERGE_SET = {
+  discountRateAnnual: true,
+  laborRates: true,
+  holidays: true,
+  trafficLightThresholds: true,
+  schemaVersion: true,
+} satisfies Record<SettingsWriteField, true>;
+
+const SETTINGS_AND_POOL_MERGE_SET = {
+  ...SETTINGS_MERGE_SET,
+  teamPool: true,
+} satisfies Record<keyof FirestoreSettingsDoc, true>;
+
+const SETTINGS_MERGE_FIELDS = Object.keys(SETTINGS_MERGE_SET);
+const SETTINGS_AND_POOL_MERGE_FIELDS = Object.keys(SETTINGS_AND_POOL_MERGE_SET);
 
 export function createFirestoreRepository(uid: string): Repository {
   if (!db) throw new Error('Firestore is not initialized');
@@ -165,14 +241,17 @@ export function createFirestoreRepository(uid: string): Repository {
       // v0.31.0 (C1+K2): explicit mergeFields instead of merge:true, and
       // schemaVersion: 2 written so future settings-schema bumps can branch
       // on the stored version in getSettings below.
+      // ⚠️ `stripUndefined` here is one-deep and is a no-op on a well-typed
+      // `Settings` (all four fields are required). Keep the pairing in mind
+      // rather than the habit: if it ever DID strip a field the mask still
+      // names, the write throws INVALID_ARGUMENT — see the mask comment above.
       await setDoc(settingsRef, stripUndefined({
         discountRateAnnual: settings.discountRateAnnual,
         laborRates: settings.laborRates,
         holidays: settings.holidays,
         trafficLightThresholds: settings.trafficLightThresholds,
         schemaVersion: 2,
-      }), { mergeFields: ['discountRateAnnual', 'laborRates', 'holidays',
-                          'trafficLightThresholds', 'schemaVersion'] });
+      }), { mergeFields: SETTINGS_MERGE_FIELDS });
     },
 
     // ── Team Pool (stored in settings doc) ──
@@ -186,6 +265,25 @@ export function createFirestoreRepository(uid: string): Repository {
       // v0.31.0 (C1): explicit mergeFields. Replaces the entire teamPool
       // array (correct behavior — array-element merging is not desired).
       await setDoc(settingsRef, { teamPool: pool }, { mergeFields: ['teamPool'] });
+    },
+
+    async saveSettingsAndTeamPool(settings: Settings, pool: PoolMember[]): Promise<void> {
+      // ONE `setDoc` on ONE document. The team pool is stored inside the
+      // settings doc, so single-document write semantics make this atomic —
+      // which is the property the caller in C2 depends on: a role rename must
+      // land in `laborRates` and in every holding `PoolMember.role` together,
+      // or it lands nowhere.
+      //
+      // ⚠️ NO CALLER UNTIL C2 (2026-09-03) — see `repository.ts` for why this
+      // ships ahead of its caller and what to do if C2 does not land.
+      await setDoc(settingsRef, stripUndefined({
+        discountRateAnnual: settings.discountRateAnnual,
+        laborRates: settings.laborRates,
+        holidays: settings.holidays,
+        trafficLightThresholds: settings.trafficLightThresholds,
+        schemaVersion: 2,
+        teamPool: pool,
+      }), { mergeFields: SETTINGS_AND_POOL_MERGE_FIELDS });
     },
 
     // ── Projects ──
