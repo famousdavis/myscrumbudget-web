@@ -4,6 +4,17 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.37.4] - 2026-09-03
+
+Labor rate table fixes. The rate table could end up holding two rates with the same name, and once it did, editing or deleting either one acted on both.
+
+### Fixed
+- **Two labor rates can no longer be given the same name.** Renaming a role onto a name that already exists — or adding one — is now refused, with a message naming the rate it collides with, instead of quietly creating a second row with that name. Capitalisation is no longer a loophole: "ba" is treated as the same role as "BA". Rates you already have are left alone; the check applies when you add or rename one.
+- **Deleting a labor rate now deletes only the rate you clicked.** When two rates shared a name, deleting either one destroyed both. The table then redrew showing the rate you had just deleted still sitting there and a different one gone, so the loss did not look like a loss until the page was reloaded.
+- **Editing a labor rate now opens only the row you clicked, and saving changes only that row.** When two rates shared a name, clicking Edit on one opened both for editing, and a single Save rewrote both.
+- **A Save button in the rate table that cannot be used now says why.** Clearing the role name, entering a negative rate, or typing a name that already exists left Save looking usable while clicking it did nothing at all.
+- **A team member whose labor rate was deleted no longer looks like they have no role.** The Role dropdown appeared to be sitting on "Select role..." while the member still held the deleted role underneath, so saving wrote it straight back. The dropdown now shows the missing role by name, marked "(rate removed)", so it is clear what has to be re-picked.
+
 ## [0.37.3] - 2026-08-27
 
 Documentation only — no application code changed and nothing about how the app behaves is different.
