@@ -4,6 +4,17 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.37.10] - 2026-09-03
+
+### Added
+- **The Team Pool list now shows, at a glance, which members have a role with no labor rate.** Their role reads *"Data Engineer (rate removed)"* in amber. Until now this was only visible after clicking Edit on the member — which is exactly what nobody does when the list looks fine. A member in this state is costed at $0, so a project's forecast, variance and status colour can all be wrong with nothing on screen to explain it. Hovering the marker says so.
+- **Archived members are marked too.** They still appear in saved reforecast scenarios and are still costed there, so an archived member with no rate matters just as much as an active one. Use "Show archived" to see them.
+- **Roles are matched exactly.** A member holding "ba" is marked even when a rate named "BA" exists, because that is how costs are actually looked up.
+
+### Notes
+- **Nobody is marked while settings are still loading.** The absence of a rate list means "not loaded yet", not "no rates exist" — marking everyone during that moment would be a false alarm on every member at once. An empty rate list, which does mean no rates exist, correctly marks everyone.
+- The dashboard tiles, the project summary and the printed report are deliberately left unmarked; they show money rather than roles.
+
 ## [0.37.9] - 2026-09-03
 
 ### Fixed

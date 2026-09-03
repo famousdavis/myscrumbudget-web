@@ -112,6 +112,25 @@ export function PoolMemberTable({
   const renderRow = (member: PoolMember) => {
     const isArchived = member.archived === true;
     const mutedClass = isArchived ? 'opacity-60' : '';
+    /**
+     * ⚠️ `laborRates !== undefined &&` IS LOAD-BEARING AND `!laborRates?.some(...)` IS
+     * THE BUG. The optional-chain form evaluates to `!undefined` while settings are
+     * still loading, which marks EVERY member as rate-less — the v0.37.6 defect
+     * verbatim, in the same file family, four releases later.
+     *
+     * ⚠️ AND IT IS MORE REACHABLE HERE THAN IT WAS THERE. `RoleSelect` survives that
+     * window because its predicate also requires `value !== ''`, and at mount every
+     * select on this page holds `''`. A RESTING ROW HAS NO SUCH ESCAPE: it renders
+     * `member.role`, which is always non-empty, so the loading window would be
+     * visible immediately and on every member at once.
+     *
+     * `undefined` means "settings not loaded yet" and marks nobody; `[]` means
+     * "loaded, and there are no rates" and marks everybody — which is correct. Same
+     * token as `AllocationGridRow.tsx:106` and `RoleSelect.tsx:54`; keep all three
+     * spelled the same way.
+     */
+    const roleHasNoRate =
+      laborRates !== undefined && !laborRates.some((r) => r.role === member.role);
     return (
       <Fragment key={member.id}>
         <tr className="border-b border-zinc-100 dark:border-zinc-800">
@@ -153,7 +172,22 @@ export function PoolMemberTable({
           ) : (
             <>
               <td className={`py-1 ${mutedClass}`}>{member.name}</td>
-              <td className={`py-1 ${mutedClass}`}>{member.role}</td>
+              <td className={`py-1 ${mutedClass}`}>
+                {roleHasNoRate ? (
+                  // Marked on the RESTING row, with no Edit click. Until now the only
+                  // way to discover an orphaned role was to open the row for editing,
+                  // which is precisely what a user has no reason to do when nothing
+                  // looks wrong.
+                  <span
+                    className="text-amber-600 dark:text-amber-400"
+                    title={`No labor rate is defined for "${member.role}", so this member is costed at $0.`}
+                  >
+                    {member.role} (rate removed)
+                  </span>
+                ) : (
+                  member.role
+                )}
+              </td>
               <td className="py-1 text-right">
                 <button
                   onClick={() => startEdit(member)}
