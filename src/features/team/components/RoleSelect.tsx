@@ -90,6 +90,17 @@ export function RoleSelect({ value, laborRates, onChange, id }: RoleSelectProps)
           {orphanedRole} (rate removed)
         </option>
       )}
+      {/*
+        ⚠️ THIS `?? []` IS CORRECT, AND IT IS THE SAME TOKEN v0.37.6 EXISTS TO REMOVE
+        FROM THE PREDICATE TWELVE LINES ABOVE. Do not "finish the job" by deleting it.
+        Same operator, opposite correctness, because the two answer different questions:
+          - In the PREDICATE, `?? []` asserts "no rate exists for this role" — a CLAIM,
+            and a false one while settings are merely unresolved. That is the defect.
+          - Here, in the OPTIONS LIST, `[]` renders "there are no rates to offer yet",
+            which is exactly what "unknown" should look like. Nothing is claimed.
+        An unloaded list and an empty list should show the same options and must NOT
+        produce the same marker.
+      */}
       {(laborRates ?? []).map((rate, index) => (
         // Keyed by index: role names are known non-unique in legacy data, and a
         // duplicated name previously produced duplicate React keys here. Options
