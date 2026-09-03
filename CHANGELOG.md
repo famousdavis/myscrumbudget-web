@@ -4,6 +4,14 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.37.11] - 2026-09-03
+
+### Fixed
+- **Signing out while local data is uploading to the cloud can no longer delete the part that had not uploaded yet.** This is a data-integrity guard, not a security fix, and **the likelihood of anyone hitting it today is low** — it needs cloud storage to be in use at all, the Settings page specifically, and an action taken inside a window a few seconds wide.
+- **What could happen.** Switching from local to cloud storage marks the app as "cloud" the moment the upload starts, not when it finishes. Sign out during that window and the app checked whether the cloud held your data, saw the part that had already uploaded, concluded the local copy was redundant and removed it. Signing out then revoked access, the rest of the upload failed, and the app switched back to local storage — with the local copy already gone. Whatever had not yet uploaded existed in neither place. Settings and the team pool were never at risk; they upload first.
+- **Two guards, because one is not enough.** The Sign out button on the Settings page is now disabled while an upload is running, matching the equivalent button in the Cloud Storage dialog, which has always been disabled. Separately, the sign-out cleanup itself now refuses to remove the local copy while an upload is in progress — which covers the case where no one clicked anything and a sign-in simply expired mid-upload. A button alone cannot cover that.
+- **The safe direction is unchanged and now has one more case.** Sign-out only removes the local copy when it is certain the cloud already holds it. Every uncertain answer — a failed check, a timeout, an empty cloud, and now an upload still running — keeps the local copy. Leaving a redundant copy behind is harmless; removing the only copy is not.
+
 ## [0.37.10] - 2026-09-03
 
 ### Added
