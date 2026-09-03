@@ -6,7 +6,7 @@
 
 import { useCallback, useState, useRef, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import type { TeamMember, PoolMember, MonthlyCalculation, ProductivityWindow } from '@/types/domain';
+import type { TeamMember, PoolMember, MonthlyCalculation, ProductivityWindow, LaborRate } from '@/types/domain';
 import { ConfirmDialog } from '@/components/BaseDialog';
 import type { AllocationMap } from '@/lib/calc/allocationMap';
 import { useDragReorder } from '@/hooks/useDragReorder';
@@ -38,6 +38,12 @@ interface AllocationGridProps {
   monthlyData?: MonthlyCalculation[];
   productivityWindows?: ProductivityWindow[];
   actualsThroughDate?: string;
+  /**
+   * Forwarded to each row to flag a member whose role has no labor rate.
+   * ⚠️ Optional, and `undefined` (settings not loaded) is NOT an empty list — see
+   * the prop's note on AllocationGridRow. Never default it to `[]` here.
+   */
+  laborRates?: LaborRate[];
 }
 
 export function AllocationGrid({
@@ -54,6 +60,7 @@ export function AllocationGrid({
   monthlyData,
   productivityWindows,
   actualsThroughDate,
+  laborRates,
 }: AllocationGridProps) {
   const [selection, setSelection] = useState<SelectionRange | null>(null);
   const [editingCell, setEditingCell] = useState<CellCoord | null>(null);
@@ -313,6 +320,7 @@ export function AllocationGrid({
             <AllocationGridRow
               key={member.id}
               member={member}
+              laborRates={laborRates}
               rowIdx={rowIdx}
               months={months}
               allocationMap={allocationMap}

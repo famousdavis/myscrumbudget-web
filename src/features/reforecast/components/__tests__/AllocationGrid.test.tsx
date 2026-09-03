@@ -231,3 +231,142 @@ describe('AllocationGrid', () => {
     });
   });
 });
+
+/**
+ * The "role has no labor rate" indicator (v0.37.5).
+ *
+ * ⚠️ THE COLOUR IS A BROWSER CLAIM, NOT A JSDOM ONE. jsdom applies no Tailwind, so
+ * `text-red-600` here is a class name and nothing more; that the pixels are actually
+ * red was verified on `next start`. What these tests honestly pin is the PREDICATE —
+ * which member gets flagged, and, more importantly, which does not.
+ *
+ * ⚠️ `laborRates` is OPTIONAL and its absence means "settings have not loaded yet",
+ * which must never render as "this role has no rate". `projects/[id]/page.tsx`
+ * discards `useSettings`' `loading` and renders the grid with no `settings &&` guard,
+ * so `undefined` is a real first-render state, not a defensive hypothetical — in cloud
+ * mode the settings and project reads are two racing `getDoc`s.
+ */
+describe('AllocationGrid — role-has-no-rate indicator', () => {
+  const laborRates = [
+    { role: 'Developer', hourlyRate: 100 },
+    { role: 'Designer', hourlyRate: 90 },
+  ];
+
+  const baseProps = {
+    months,
+    allocationMap: sampleMap,
+    onAllocationChange: vi.fn(),
+    pool,
+  };
+
+  /** The `(Role)` suffix span rendered beside a member's name. */
+  function roleTag(role: string) {
+    return screen.getByText(`(${role})`);
+  }
+
+  it('flags a member whose role has no matching labor rate', () => {
+    render(
+      <AllocationGrid
+        {...baseProps}
+        teamMembers={[{ id: 'tm-1', name: 'Grace Kim', role: 'Data Engineer' }]}
+        laborRates={laborRates}
+      />,
+    );
+    const tag = roleTag('Data Engineer');
+    expect(tag.className).toContain('text-red-600');
+    expect(tag.getAttribute('title')).toBe('Role not in labor rates');
+  });
+
+  it('does NOT flag a member whose role has a labor rate', () => {
+    render(
+      <AllocationGrid
+        {...baseProps}
+        teamMembers={[{ id: 'tm-1', name: 'Alice', role: 'Developer' }]}
+        laborRates={laborRates}
+      />,
+    );
+    const tag = roleTag('Developer');
+    expect(tag.className).not.toContain('text-red-600');
+    expect(tag.getAttribute('title')).toBeNull();
+  });
+
+  it('flags NOBODY while settings are still loading (laborRates undefined)', () => {
+    // ⚠️ This assertion is vacuous against v0.37.4, where nothing but the literal
+    // 'Unknown' was ever flagged. It earns its place only against the fix, and the
+    // mutation that makes it fail is the naive `laborRates ?? []` — the existing
+    // house pattern at team/page.tsx, which would flash EVERY member red mid-fetch.
+    render(
+      <AllocationGrid
+        {...baseProps}
+        teamMembers={[
+          { id: 'tm-1', name: 'Grace Kim', role: 'Data Engineer' },
+          { id: 'tm-2', name: 'Alice', role: 'Developer' },
+        ]}
+        laborRates={undefined}
+      />,
+    );
+    expect(roleTag('Data Engineer').className).not.toContain('text-red-600');
+    expect(roleTag('Developer').className).not.toContain('text-red-600');
+    expect(roleTag('Data Engineer').getAttribute('title')).toBeNull();
+  });
+
+  it('flags nobody when the prop is omitted entirely', () => {
+    render(
+      <AllocationGrid
+        {...baseProps}
+        teamMembers={[{ id: 'tm-1', name: 'Grace Kim', role: 'Data Engineer' }]}
+      />,
+    );
+    expect(roleTag('Data Engineer').className).not.toContain('text-red-600');
+  });
+
+  it('flags an empty labor-rate list — loaded-and-empty is not the same as not loaded', () => {
+    render(
+      <AllocationGrid
+        {...baseProps}
+        teamMembers={[{ id: 'tm-1', name: 'Grace Kim', role: 'Data Engineer' }]}
+        laborRates={[]}
+      />,
+    );
+    expect(roleTag('Data Engineer').className).toContain('text-red-600');
+  });
+
+  it('still flags the Excel "Unknown" sentinel, via the general predicate', () => {
+    // The sentinel no longer has a branch of its own; excelImport assigns it only when
+    // the role has no rate, so the general predicate subsumes it.
+    render(
+      <AllocationGrid
+        {...baseProps}
+        teamMembers={[{ id: 'tm-1', name: 'Imported Person', role: 'Unknown' }]}
+        laborRates={laborRates}
+      />,
+    );
+    expect(roleTag('Unknown').className).toContain('text-red-600');
+  });
+
+  it('does NOT flag "Unknown" once a rate literally named Unknown exists', () => {
+    // The case a dedicated sentinel branch would get wrong: the role now has a rate,
+    // so flagging it would be false. This is why the branch was deleted rather than kept.
+    render(
+      <AllocationGrid
+        {...baseProps}
+        teamMembers={[{ id: 'tm-1', name: 'Imported Person', role: 'Unknown' }]}
+        laborRates={[...laborRates, { role: 'Unknown', hourlyRate: 0 }]}
+      />,
+    );
+    expect(roleTag('Unknown').className).not.toContain('text-red-600');
+  });
+
+  it('matches roles case-sensitively, as the rate lookup does', () => {
+    // `calc/costs.ts` resolves rates with `r.role === role`, so "developer" genuinely
+    // has no rate and flagging it is the honest reading.
+    render(
+      <AllocationGrid
+        {...baseProps}
+        teamMembers={[{ id: 'tm-1', name: 'Alice', role: 'developer' }]}
+        laborRates={laborRates}
+      />,
+    );
+    expect(roleTag('developer').className).toContain('text-red-600');
+  });
+});

@@ -319,6 +319,12 @@ export default function ProjectDetailPage({
           </div>
         )}
         <div className="mt-3">
+          {/* ⚠️ `laborRates` is passed as `settings?.laborRates` and deliberately NOT
+              `?? []`. This page discards useSettings' `loading` and the grid below has
+              no `settings &&` guard (the one further down wraps the Excel panel), so
+              `settings` really is null on the first render. Defaulting to an empty
+              list would flag EVERY member's role as rate-less mid-fetch; `undefined`
+              means "not loaded yet" and flags nobody. */}
           <AllocationGrid
             months={months}
             teamMembers={members}
@@ -332,6 +338,7 @@ export default function ProjectDetailPage({
             monthlyData={metrics?.monthlyData}
             productivityWindows={productivityWindows}
             actualsThroughDate={actualsThroughDate}
+            laborRates={settings?.laborRates}
           />
         </div>
         {activeReforecast && settings && (

@@ -2,10 +2,9 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import type { TeamMember } from '@/types/domain';
+import type { TeamMember, LaborRate } from '@/types/domain';
 import type { AllocationMap } from '@/lib/calc/allocationMap';
 import { getAllocation } from '@/lib/calc/allocationMap';
-import { UNKNOWN_ROLE } from '@/lib/constants';
 import type { CellCoord, SelectionRange, FillDragState } from '../lib/gridHelpers';
 import {
   isCellInRange,
@@ -48,6 +47,18 @@ interface AllocationGridRowProps {
   };
   canReorder: boolean;
   mutedMonths: Set<string>;
+  /**
+   * The labor rates currently loaded, used only to flag a member whose role has none.
+   *
+   * ⚠️ OPTIONAL ON PURPOSE, AND `undefined` IS NOT AN EMPTY LIST. Absent means
+   * "settings have not loaded yet", which must never render as "this role has no
+   * rate". `projects/[id]/page.tsx` discards `useSettings`' `loading` and renders the
+   * grid with no `settings &&` guard (the guard there wraps the Excel panel instead),
+   * so `undefined` is a genuine first-render state: in cloud mode the settings and
+   * project reads are two racing `getDoc`s. Passing `settings?.laborRates ?? []` —
+   * the house pattern used on the Team page — would flash EVERY member red mid-fetch.
+   */
+  laborRates?: LaborRate[];
 }
 
 export function AllocationGridRow({
@@ -77,7 +88,23 @@ export function AllocationGridRow({
   dragHandlers,
   canReorder,
   mutedMonths,
+  laborRates,
 }: AllocationGridRowProps) {
+  /*
+   * ⚠️ THE `UNKNOWN_ROLE` SENTINEL DELIBERATELY HAS NO BRANCH OF ITS OWN. Do not
+   * re-add one. `excelImport.ts` assigns the sentinel ONLY when
+   * `!settings.laborRates.some(lr => lr.role === r.role)`, so a member carrying it is
+   * by construction a member whose role has no rate — this predicate subsumes it in
+   * every reachable state. And a sentinel branch would be actively WRONG in one case:
+   * once a user adds a labor rate literally named "Unknown", that member's role does
+   * have a rate, and not flagging them becomes the correct behaviour. Both cases are
+   * pinned in AllocationGrid.test.tsx.
+   *
+   * `laborRates === undefined` means "not loaded yet" and flags nobody — see the prop.
+   */
+  const roleHasNoRate =
+    laborRates !== undefined && !laborRates.some((r) => r.role === member.role);
+
   return (
     <tr
       className={`${isDragging ? 'opacity-40' : ''}${isDragOver ? ' bg-blue-50 dark:bg-blue-950' : ''}`}
@@ -103,8 +130,8 @@ export function AllocationGridRow({
           <span>
             {member.name}
             <span
-              className={`ml-1 ${member.role === UNKNOWN_ROLE ? 'text-red-600 dark:text-red-400' : 'text-zinc-400'}`}
-              title={member.role === UNKNOWN_ROLE ? 'Role not in labor rates' : undefined}
+              className={`ml-1 ${roleHasNoRate ? 'text-red-600 dark:text-red-400' : 'text-zinc-400'}`}
+              title={roleHasNoRate ? 'Role not in labor rates' : undefined}
             >
               ({member.role})
             </span>
