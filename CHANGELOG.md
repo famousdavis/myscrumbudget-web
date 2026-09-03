@@ -4,6 +4,11 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.37.6] - 2026-09-03
+
+### Fixed
+- **A team member's role could be labelled "(rate removed)" when it had not been.** On the Team Pool page, editing a member in the moment before your labor rates finished loading showed their role marked as though its rate had been deleted — the page waits for the team pool to load but not for the settings that hold the rates, so for that moment it had no rates to check against and treated "not loaded yet" as "no rate exists". Nothing was ever saved incorrectly; the label was wrong, not the data. The role selector now stays quiet until it actually knows, and still marks a role whose rate is genuinely gone.
+
 ## [0.37.5] - 2026-09-03
 
 ### Fixed

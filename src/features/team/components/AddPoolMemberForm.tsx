@@ -10,7 +10,9 @@ import { RoleSelect } from './RoleSelect';
 import { BaseDialog, dialogButtonStyles } from '@/components/BaseDialog';
 
 interface AddPoolMemberFormProps {
-  laborRates: LaborRate[];
+  /** Forwarded straight to `RoleSelect`; optional for the same reason — see its note.
+   *  Never default this to `[]` on the way through. */
+  laborRates?: LaborRate[];
   pool: PoolMember[];
   onAdd: (name: string, role: string) => void;
   onUnarchive: (id: string) => void;

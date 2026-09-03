@@ -96,3 +96,39 @@ describe('RoleSelect — rendering', () => {
     expect(screen.queryByText(/rate removed/)).toBeNull();
   });
 });
+
+describe('RoleSelect — settings not yet loaded (v0.37.6)', () => {
+  /**
+   * ⚠️ THE DISCRIMINATING PAIR. `undefined` and `[]` must behave DIFFERENTLY, and a test
+   * with only one of them passes under both the correct implementation and the naive
+   * `laborRates ?? []`. This is the same pair `AllocationGridRow` needed, expressed the
+   * same way on purpose: the two orphan predicates are one rule and should read as one.
+   */
+  it('marks NOTHING as removed while laborRates is undefined', () => {
+    render(<RoleSelect value="BA" laborRates={undefined} onChange={vi.fn()} />);
+    expect(screen.queryByText(/rate removed/)).toBeNull();
+    // Only the placeholder is offered: there are no rates to list yet. The window is
+    // mount-only and holds no non-empty select in practice, so this is what the user
+    // would see if it were ever reached, and it claims nothing false.
+    expect(screen.getAllByRole('option')).toHaveLength(1);
+    expect(select().selectedIndex).toBe(0);
+  });
+
+  it('DOES mark a role removed when the list is loaded and genuinely empty', () => {
+    render(<RoleSelect value="BA" laborRates={[]} onChange={vi.fn()} />);
+    const orphan = screen.getByRole('option', { name: /BA \(rate removed\)/ }) as HTMLOptionElement;
+    expect(orphan.disabled).toBe(true);
+    expect(select().value).toBe('BA');
+  });
+
+  it('marks nothing when the prop is omitted entirely', () => {
+    render(<RoleSelect value="BA" onChange={vi.fn()} />);
+    expect(screen.queryByText(/rate removed/)).toBeNull();
+  });
+
+  it('renders the placeholder normally when nothing is selected and nothing is loaded', () => {
+    render(<RoleSelect value="" laborRates={undefined} onChange={vi.fn()} />);
+    expect(select().selectedIndex).toBe(0);
+    expect(screen.queryByText(/rate removed/)).toBeNull();
+  });
+});

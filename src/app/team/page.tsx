@@ -44,9 +44,13 @@ export default function TeamPoolPage() {
         Manage your organization&apos;s team members. Add members here, then assign them to projects.
       </p>
 
+      {/* ⚠️ `settings?.laborRates`, deliberately NOT `?? []`. The `if (loading)` gate
+          above is `useTeamPool`'s — `useSettings`' own loading flag is discarded — so
+          this renders while `settings` is still null. Collapsing that to `[]` tells the
+          role selects every role is rate-less, which is a claim, not an absence. */}
       <div className="mt-6">
         <AddPoolMemberForm
-          laborRates={settings?.laborRates ?? []}
+          laborRates={settings?.laborRates}
           pool={pool}
           onAdd={addPoolMember}
           onUnarchive={unarchivePoolMember}
@@ -56,7 +60,7 @@ export default function TeamPoolPage() {
       <div className="mt-6">
         <PoolMemberTable
           pool={pool}
-          laborRates={settings?.laborRates ?? []}
+          laborRates={settings?.laborRates}
           onUpdate={updatePoolMember}
           onArchive={archivePoolMember}
           onUnarchive={unarchivePoolMember}

@@ -9,7 +9,15 @@ import type { LaborRate } from '@/types/domain';
 
 interface RoleSelectProps {
   value: string;
-  laborRates: LaborRate[];
+  /**
+   * ⚠️ OPTIONAL, AND `undefined` IS NOT AN EMPTY LIST — the same distinction
+   * `AllocationGridRow` makes, deliberately expressed the same way so the two orphan
+   * predicates read as one rule. Absent means "settings have not loaded yet" and must
+   * never render as "this role has no rate"; `[]` means loaded-and-genuinely-empty and
+   * SHOULD. `team/page.tsx` gates only on `useTeamPool`'s loading flag and discards
+   * `useSettings`', so a null `settings` really does reach this component.
+   */
+  laborRates?: LaborRate[];
   onChange: (role: string) => void;
   id?: string;
 }
@@ -29,8 +37,23 @@ export function RoleSelect({ value, laborRates, onChange, id }: RoleSelectProps)
    * orphan, the placeholder text rendered in the NON-placeholder colour: it did
    * not even look unset. Nothing here may be derived from an empty value.
    */
+  /*
+   * What this renders while `laborRates` is undefined: the placeholder alone, because
+   * there are no rates to list yet. That is sufficient rather than merely tolerable, and
+   * the reason is measurable rather than aesthetic — MEASURED 2026-09-03: the undefined
+   * window is MOUNT-ONLY (`useSettings` calls `setSettings` with a real value or an
+   * updater, never with null, and `setLoading` only ever goes false), and at mount
+   * `PoolMemberTable.editingId` is null and `AddPoolMemberForm.role` is '', so EVERY
+   * RoleSelect on the page has `value === ''` in that window. Rendering the placeholder
+   * and rendering the current value as a plain option are therefore indistinguishable
+   * there; no test can separate them. If a non-empty select ever becomes reachable while
+   * settings are unresolved, revisit this — the choice is sufficient because of that
+   * measurement, not independently of it.
+   */
   const orphanedRole =
-    value !== '' && !laborRates.some((rate) => rate.role === value) ? value : null;
+    value !== '' && laborRates !== undefined && !laborRates.some((rate) => rate.role === value)
+      ? value
+      : null;
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLSelectElement>) => {
     if (e.key === 'Enter' && !value) {
@@ -67,7 +90,18 @@ export function RoleSelect({ value, laborRates, onChange, id }: RoleSelectProps)
           {orphanedRole} (rate removed)
         </option>
       )}
-      {laborRates.map((rate, index) => (
+      {/*
+        ⚠️ THIS `?? []` IS CORRECT, AND IT IS THE SAME TOKEN v0.37.6 EXISTS TO REMOVE
+        FROM THE PREDICATE TWELVE LINES ABOVE. Do not "finish the job" by deleting it.
+        Same operator, opposite correctness, because the two answer different questions:
+          - In the PREDICATE, `?? []` asserts "no rate exists for this role" — a CLAIM,
+            and a false one while settings are merely unresolved. That is the defect.
+          - Here, in the OPTIONS LIST, `[]` renders "there are no rates to offer yet",
+            which is exactly what "unknown" should look like. Nothing is claimed.
+        An unloaded list and an empty list should show the same options and must NOT
+        produce the same marker.
+      */}
+      {(laborRates ?? []).map((rate, index) => (
         // Keyed by index: role names are known non-unique in legacy data, and a
         // duplicated name previously produced duplicate React keys here. Options
         // hold no state and the list has no reorder, so position is a safe key.

@@ -12,7 +12,9 @@ type SortField = 'name' | 'role';
 
 interface PoolMemberTableProps {
   pool: PoolMember[];
-  laborRates: LaborRate[];
+  /** Forwarded straight to `RoleSelect`; optional for the same reason — see its note.
+   *  Never default this to `[]` on the way through. */
+  laborRates?: LaborRate[];
   onUpdate: (id: string, updates: Partial<Omit<PoolMember, 'id'>>) => void;
   onArchive: (id: string) => void;
   onUnarchive: (id: string) => void;
