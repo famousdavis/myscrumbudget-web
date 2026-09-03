@@ -65,6 +65,16 @@ function findCollidingRole(
  * data that ALREADY holds a duplicate, editing either twin is refused even for a
  * rate-only change, because another row genuinely does hold that name. The message
  * says so, and the repair (rename or delete one twin) is the outcome we want.
+ *
+ * ⚠️ THE ORDER OF THESE CHECKS IS LOAD-BEARING AND A TEST IS HOLDING IT, which is
+ * not obvious from reading either the function or that test. Because the collision
+ * check runs BEFORE the rate checks, a row that is both duplicated and has a bad
+ * rate reports the collision — so the ordering decides which message appears, not
+ * merely which problems are caught. Found by falsification: removing the index
+ * self-exclusion was predicted to fail 3 tests and failed 4, the extra one being
+ * "explains and disables Save when the hourly rate is negative", which never
+ * mentions duplicates. If you reorder these, expect that test to fail and treat it
+ * as a real signal about the message a user will see, not as a stale assertion.
  */
 function describeRateProblem(
   rates: LaborRate[],
