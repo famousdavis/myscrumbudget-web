@@ -10,7 +10,21 @@ export const CHANGELOG_MAX_ENTRIES = 500;
 
 export interface ChangeLogEntry {
   t: number;       // Unix timestamp (seconds)
-  op: string;      // 'add' | 'delete' | 'import' | 'archive' | 'unarchive'
+  /**
+   * ⚠️ 'update' WAS MISSING FROM THIS LIST while two live call sites wrote it —
+   * `useTeamPool.archivePoolMember` and `unarchivePoolMember` have both written
+   * `{ op: 'update', entity: 'pool-member', id }` since v0.25.0. Corrected 2026-09-03.
+   * `op` is a plain string, so nothing was type-checked and nothing reported the gap.
+   *
+   * ⚠️ AND THOSE TWO ARE INDISTINGUISHABLE FROM EACH OTHER in the exported trail: an
+   * archive and an unarchive of the same member produce byte-identical entries. That is
+   * a pre-existing defect, recorded here rather than fixed, because changing an op
+   * changes what downstream reads of already-exported files mean. It is its own item.
+   *
+   * The v0.37.9 role-rename entry is deliberately distinguishable from both: it carries
+   * `count` and omits `id`, where archive/unarchive carry `id` and omit `count`.
+   */
+  op: string;      // 'add' | 'delete' | 'update' | 'import' | 'archive' | 'unarchive'
   entity: string;  // 'project' | 'pool-member' | 'reforecast' | 'productivity-window' | 'dataset'
   id?: string;
   count?: number;

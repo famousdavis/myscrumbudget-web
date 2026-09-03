@@ -13,6 +13,29 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.37.9',
+    date: '2026-09-03',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'Renaming a labor-rate role now updates the team members who hold it. Previously the rate row was renamed and every member holding the old name was left behind, pointing at a role that no longer had a rate. Their cost silently became $0, which moved the project\u2019s forecast, its variance and its status colour \u2014 with nothing on screen to say why. Renaming now moves the rate and the members together, and a message confirms how many were updated.',
+          'Archived members are updated too, and the confirmation says how many of the total were archived. Archived members still appear in saved reforecast scenarios and are still costed there, so leaving them behind would have quietly broken historical scenarios while the active roster looked correct.',
+          'Changing only the capitalisation of a role \u2014 "BA" to "ba" \u2014 also updates the members. Rates are matched exactly, so a change of case alone would have orphaned every holder just as a full rename did.',
+          'Only exact matches are moved. If both "BA" and "ba" exist as separate roles, renaming one leaves the other alone.',
+          'Deleting a labor rate now asks first, and says what it will cost. The confirmation states how many team members would be left with no rate at all. Where two rate rows share a name, deleting one correctly reports that nobody is affected.',
+          'A double-click on a rate\u2019s Delete button no longer destroys two rates. Confirmed in a browser: with three rates, one double-click on the first row\u2019s Delete removed that row and the next one, which had never been clicked, and the loss survived a reload. The confirmation step closes it.',
+        ],
+      },
+      {
+        title: 'Changed',
+        items: [
+          'If a rename cannot be saved, nothing is changed and the row stays open with the new name still typed, so a retry is one click. Renaming is also refused, with an explanation, if the rate list changed in another tab while the row was open \u2014 rather than renaming whichever row had moved into that position.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.37.8',
     date: '2026-09-03',
     sections: [
