@@ -18,6 +18,7 @@ import { sanitizeFirebaseError } from '@/lib/firebase/errors';
 import { setOriginRef } from '@/lib/storage/fingerprint';
 import { setHasUploaded, getHasUploaded } from '@/lib/storage/cloudFlipHelpers';
 import { useSignInWithTosGate } from '@/hooks/useSignInWithTosGate';
+import { beginCloudUpload, endCloudUpload } from '@/lib/auth/signOutCleanup';
 
 export function CloudStorageSection() {
   const { user, loading: authLoading, firebaseAvailable, signOut } = useAuth();
@@ -92,7 +93,12 @@ export function CloudStorageSection() {
     setShowUploadConfirm(false);
     setMigrating(true);
     setMigrationResult(null);
-
+    // ⚠️ Paired with endCloudUpload in the finally, and it must stay that way.
+    // switchMode('cloud') below runs BEFORE the upload completes, so from here
+    // until the finally the cloud holds only a PREFIX of the local data. A
+    // sign-out in that window would otherwise confirm the partial copy and
+    // delete the local original.
+    beginCloudUpload();
     try {
       // Main migration path — the active repository is still localStorage
       // here (the user is toggling local → cloud). Reading through it rather
@@ -123,6 +129,7 @@ export function CloudStorageSection() {
       // Revert to local
       switchMode('local');
     } finally {
+      endCloudUpload();
       setMigrating(false);
     }
   };
@@ -132,6 +139,10 @@ export function CloudStorageSection() {
     setShowReuploadConfirm(false);
     setMigrating(true);
     setMigrationResult(null);
+    // ⚠️ Same pairing as confirmUpload. The mode is ALREADY cloud here, so this
+    // path never flips it — but the window it opens is the same one: while this
+    // runs, a sign-out would find a cloud whose contents are mid-write.
+    beginCloudUpload();
 
     try {
       // Reads localStorage directly because the active repository is Firestore in
@@ -156,6 +167,7 @@ export function CloudStorageSection() {
       setMigrationResult(`Upload failed: ${msg}`);
       addToast('Upload failed.', 'error');
     } finally {
+      endCloudUpload();
       setMigrating(false);
     }
   };
@@ -269,7 +281,11 @@ export function CloudStorageSection() {
             </div>
             <button
               onClick={handleSignOut}
-              className="rounded border border-red-300 px-3 py-1 text-sm text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/30"
+              // Mirrors the two sibling controls in this file (:204, :215) and the
+              // modal's own Sign out. This surface predates the modal by five
+              // minor versions and the guard was never back-ported to it.
+              disabled={migrating}
+              className="rounded border border-red-300 px-3 py-1 text-sm text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/30"
             >
               Sign out
             </button>

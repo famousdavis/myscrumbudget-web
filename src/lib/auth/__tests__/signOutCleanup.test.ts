@@ -30,7 +30,7 @@ vi.mock('@/lib/storage/storageMode', () => ({
   getStorageMode: mocks.getStorageMode,
 }));
 
-import { performSignOutCleanup } from '../signOutCleanup';
+import { performSignOutCleanup, beginCloudUpload, endCloudUpload } from '../signOutCleanup';
 
 const ALWAYS_CLEAR = ['msb:exportAttribution', 'msb:ratesReviewed', 'msb:hasUploadedToCloud'];
 const CLOUD_ONLY_CLEAR = ['msb:projects', 'msb:settings', 'msb:teamPool', 'msb:changeLog', 'msb:originRef'];
@@ -240,5 +240,85 @@ describe('performSignOutCleanup', () => {
     await Promise.all([first, second]);
     expect(mocks.cancelAll).toHaveBeenCalledTimes(1);
     expect(reloadMock).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * WI-17 (v0.37.11) — sign-out during a local→cloud upload.
+   *
+   * `confirmUpload` switches the app to cloud mode BEFORE `importAll` finishes, so for
+   * the length of the upload the cloud holds a PREFIX of the local data. Every check in
+   * `confirmCloudCopy` asks whether the cloud has projects, not whether it has all of
+   * them, so a partial copy reads as a complete one — and the local original, which is
+   * the only place the un-uploaded tail exists, was deleted.
+   *
+   * ⚠️ THIS GROUP IS [FALSIFY-AFTER], NOT [FAILS-TODAY], AND THE DISTINCTION IS REAL.
+   * Against v0.37.10 the observable-only form of the first test — cloud non-empty, local
+   * non-empty, mode cloud, keys survive — is the EXACT fixture of
+   * "clears the local copy when the cloud copy is confirmed present" above, which passes
+   * while asserting the opposite. The in-flight flag is the only thing that separates
+   * them and it did not exist. A red manufactured by naming a missing identifier would
+   * have been indistinguishable from a typo; this is verified by breaking the finished
+   * guard instead.
+   */
+  describe('upload-in-flight guard on the cloud-only clear (v0.37.11)', () => {
+    beforeEach(() => {
+      mocks.getStorageMode.mockReturnValue('cloud');
+      // The module flag outlives a single test — leaking it would silently disable
+      // every clear in the tests that follow.
+      endCloudUpload();
+    });
+    afterEach(() => { endCloudUpload(); });
+
+    it('[FALSIFY-AFTER] KEEPS the local copy while an upload is in flight, and clears once it finishes', async () => {
+      // ⚠️ BOTH HALVES IN ONE TEST. The first is a pure absence and is asserted
+      // elsewhere in this file for a different cause; only the second — the SAME
+      // fixture clearing after release — makes it discriminate.
+      mocks.cloudGetProjects.mockResolvedValue([{ id: 'cloud-p1' }]);
+      mocks.localGetProjects.mockResolvedValue([{ id: 'local-p1' }]);
+
+      beginCloudUpload();
+      await performSignOutCleanup();
+      for (const k of CLOUD_ONLY_CLEAR) {
+        expect(localStorage.getItem(k), `${k} must survive a sign-out mid-upload`)
+          .toBe(`__value_${k}`);
+      }
+
+      endCloudUpload();
+      seedAll();
+      await performSignOutCleanup();
+      for (const k of CLOUD_ONLY_CLEAR) {
+        expect(localStorage.getItem(k), `${k} must clear once the upload has finished`)
+          .toBeNull();
+      }
+    });
+
+    it('does not even ASK the cloud while an upload is in flight', async () => {
+      // The guard runs before any network call. Not an optimisation: the answer the
+      // cloud would give is affirmative and wrong, so the cheapest correct behaviour
+      // is not to ask.
+      mocks.cloudGetProjects.mockResolvedValue([{ id: 'cloud-p1' }]);
+      beginCloudUpload();
+      await performSignOutCleanup();
+      expect(mocks.cloudGetProjects).not.toHaveBeenCalled();
+    });
+
+    it('the PII and UX keys still clear mid-upload — the guard is narrow by design', async () => {
+      // The guard protects user DATA only. Sign-out must still remove export
+      // attribution and the UX flags, exactly as the cloud-copy guard above does.
+      mocks.cloudGetProjects.mockResolvedValue([{ id: 'cloud-p1' }]);
+      beginCloudUpload();
+      await performSignOutCleanup();
+      for (const k of ALWAYS_CLEAR) expect(localStorage.getItem(k)).toBeNull();
+      for (const k of PRESERVE_KEYS) expect(localStorage.getItem(k)).toBe(`__value_${k}`);
+    });
+
+    it('a LOCAL-mode sign-out mid-upload is unaffected — it never reached the guard', async () => {
+      // Local mode does not run step 2b at all, so the flag must not change anything
+      // there. Pins that the new guard did not widen the clear's gate.
+      mocks.getStorageMode.mockReturnValue('local');
+      beginCloudUpload();
+      await performSignOutCleanup();
+      for (const k of CLOUD_ONLY_CLEAR) expect(localStorage.getItem(k)).toBe(`__value_${k}`);
+    });
   });
 });
