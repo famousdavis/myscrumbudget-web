@@ -4,6 +4,11 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.37.17] - 2026-09-04
+
+### Fixed
+- **Dropping a project tile between two cards, or in the empty space after the last one, no longer does nothing.** Reordering only worked if you released the tile directly on top of another project — anywhere else and the tile slid back to where it started, with no message to say why. The gaps between cards and the empty space at the end of the grid are now valid places to drop, and the tile lands next to whichever card you released it beside. Dropping into the space after the last card moves the project to the end. Dropping straight onto a card works exactly as before.
+
 ## [0.37.16] - 2026-09-04
 
 ### Fixed

@@ -173,7 +173,7 @@ describe('useDragReorder — container drop path (wiring, not geometry)', () => 
     expect(overCard.defaultPrevented, 'POSITIVE CONTROL: a card was already droppable').toBe(true);
   });
 
-  it('emits data-drag-id from handlersFor, which is what the container hit-tests on', () => {
+  it('[FAILS-TODAY] emits data-drag-id from handlersFor, which is what the container hit-tests on', () => {
     const { grid } = renderGrid(['a', 'b', 'c', 'd']);
     expect(Array.from(grid.querySelectorAll('[data-drag-id]')).map((el) => (el as HTMLElement).dataset.dragId))
       .toEqual(['a', 'b', 'c', 'd']);

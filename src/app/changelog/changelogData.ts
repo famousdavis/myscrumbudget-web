@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.37.17',
+    date: '2026-09-04',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          "Dropping a project tile between two cards, or in the empty space after the last one, no longer does nothing. Reordering only worked if you released the tile directly on top of another project \u2014 anywhere else and the tile slid back to where it started, with no message to say why. The gaps between cards and the empty space at the end of the grid are now valid places to drop, and the tile lands next to whichever card you released it beside. Dropping into the space after the last card moves the project to the end. Dropping straight onto a card works exactly as before.",
+        ],
+      },
+    ],
+  },
+  {
     version: '0.37.16',
     date: '2026-09-04',
     sections: [

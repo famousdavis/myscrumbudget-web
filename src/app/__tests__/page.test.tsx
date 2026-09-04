@@ -346,7 +346,7 @@ describe('DashboardPage — drag-to-reorder is bound to the FULL project list', 
    * position-based container would produce the right answer by accident and this
    * test would prove nothing.
    */
-  it('a drop in EMPTY GRID SPACE reorders by id, with a hidden archived project intact', async () => {
+  it('[FAILS-TODAY] a drop in EMPTY GRID SPACE reorders by id, with a hidden archived project intact', async () => {
     await repo.saveProject(makeProject('z', 'Zephyr', { archived: true }));
     await repo.saveProject(makeProject('a', 'Apollo'));
     await repo.saveProject(makeProject('b', 'Borealis'));
@@ -392,7 +392,7 @@ describe('DashboardPage — drag-to-reorder is bound to the FULL project list', 
    * would hit-test nothing, every unit test above would stay green, and the fix
    * would silently become a no-op.
    */
-  it('every rendered card carries data-drag-id in the DOM', async () => {
+  it('[FAILS-TODAY] every rendered card carries data-drag-id in the DOM', async () => {
     await repo.saveProject(makeProject('a', 'Apollo'));
     await repo.saveProject(makeProject('b', 'Borealis'));
 
