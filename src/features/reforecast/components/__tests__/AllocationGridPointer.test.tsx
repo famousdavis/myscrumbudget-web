@@ -266,9 +266,14 @@ describe('AllocationGrid — pointer and focus guards', () => {
     const { container } = render(<AllocationGrid {...gridProps(vi.fn())} />);
     startFillDrag(container);
 
-    expect(cellAt(container, 1, 0).hasAttribute('data-fill-preview')).toBe(true);
-    expect(cellAt(container, 2, 0).hasAttribute('data-fill-preview')).toBe(true);
-    expect(cellAt(container, 0, 1).hasAttribute('data-fill-preview')).toBe(false);
+    // Messages are per-assertion on purpose: bare hasAttribute checks all print
+    // "expected false to be true", so a break in two of them would be one message.
+    expect(cellAt(container, 1, 0).hasAttribute('data-fill-preview'), "Bob's cell (1,0) is previewed")
+      .toBe(true);
+    expect(cellAt(container, 2, 0).hasAttribute('data-fill-preview'), "Carmen's cell (2,0) is previewed")
+      .toBe(true);
+    expect(cellAt(container, 0, 1).hasAttribute('data-fill-preview'), 'a cell outside the fill region is not')
+      .toBe(false);
 
     /*
      * data-selected marks the drag SOURCE, which stays selected for the whole
