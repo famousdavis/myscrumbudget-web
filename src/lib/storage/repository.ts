@@ -39,6 +39,39 @@ export interface Repository {
   saveProject(project: Project): Promise<void>;
   createProject(project: Project): Promise<void>;
   deleteProject(id: string): Promise<void>;
+  /**
+   * Ids in `orderedIds` take that order; ids present in storage but ABSENT from
+   * `orderedIds` follow, in their existing relative order.
+   *
+   * ⚠️ Stated here as of v0.37.12 because this interface had NO contract and the
+   * two implementations disagreed. Firestore had already implemented end-placement
+   * all along, undocumented (`createProject` sets `order: projects.length` and
+   * `getProjects` sorts on it, so an unseen project keeps the highest `order`);
+   * localStorage instead rebuilt storage from exactly the ids it was handed and
+   * PERMANENTLY DESTROYED the rest. The method is named *reorder*, not *replace*.
+   *
+   * ⚠️ The two implementations converge on the MISSING-id axis only. They still
+   * diverge on the EXTRA-id axis: `WriteBatch.update` carries
+   * `Precondition.exists(true)`, so a cloud batch naming a project deleted
+   * elsewhere is rejected WHOLE — nothing reordered, the optimistic update
+   * already applied, and the rejection unhandled. localStorage tolerates an
+   * extra id (it is filtered out). Do not describe these as equivalent.
+   *
+   * ⚠️ DELIBERATE NON-CHOICE (2026-09-03), recorded so the surviving caller-side
+   * invariant reads as CHOSEN rather than overlooked. The better shape is move
+   * semantics — `moveProject(sourceId, targetId)`, each implementation replaying
+   * one move against its own fresh read; `useDragReorder` already holds both ids
+   * (`handleDrop:59-61`) and throws them away at :64-71. It was measured correct
+   * on all three cases where end-placement is correct on one (two-tab add /
+   * filtered drag / concurrent reorder). It was declined for v0.37.12 because it
+   * closes the DELETION no better than end-placement, its extra value lies in one
+   * case the caller invariant already guards and one that is out of scope, and its
+   * blast radius — this interface, both implementations, a Firestore read path
+   * that has none today with no emulator to verify it, the generic drag hook and
+   * three tests — is a different size class from a data-loss fix. If the caller
+   * invariant is ever to be RETIRED rather than reworded, this is the only shape
+   * that does it.
+   */
   reorderProjects(orderedIds: string[]): Promise<void>;
 
   exportAll(): Promise<AppState>;

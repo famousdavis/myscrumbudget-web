@@ -125,20 +125,57 @@ describe('LocalStorage Repository', () => {
   });
 
   describe('reorderProjects', () => {
-    it('drops a stored project whose id is omitted from orderedIds (data-loss guard)', async () => {
-      // Documents WHY the Dashboard must pass the FULL project list to
-      // useDragReorder, never a filtered (e.g. archived-hidden) subset:
-      // reorderProjects rebuilds storage from exactly the ids it is handed.
+    // ⚠️ REWRITTEN IN PLACE at v0.37.12, NOT deleted. Up to v0.37.11 this
+    // describe pinned the OPPOSITE behaviour — it asserted that an id omitted
+    // from `orderedIds` was permanently removed from storage, and its comment
+    // presented that as the documented reason the Dashboard must hand
+    // `useDragReorder` the FULL project list. The drop was real and it was a
+    // data-loss defect, not a contract: two tabs, create a project in tab A,
+    // drag in tab B, and tab A's project is destroyed with no error and nothing
+    // on screen. The behaviour is now end-placement (see the contract on
+    // `Repository.reorderProjects`).
+    //
+    // ⚠️ THE CALLER-SIDE RULE SURVIVES, for a changed reason — the Dashboard
+    // still passes the FULL list, now to keep the ORDER of hidden archived
+    // projects rather than to keep them in existence at all. That half is
+    // asserted in `src/app/__tests__/page.test.tsx`, not here.
+    it('keeps a stored project whose id is omitted from orderedIds, placing it after the handled ones', async () => {
       await repo.saveProject(makeProject({ id: 'a' }));
       await repo.saveProject(makeProject({ id: 'b' }));
       await repo.saveProject(makeProject({ id: 'c' }));
 
-      // Omit 'b' (as a filtered drag would) — it is permanently dropped.
+      // Omit 'b', as a stale caller would.
       await repo.reorderProjects(['c', 'a']);
 
       const remaining = (await repo.getProjects()).map((p) => p.id);
-      expect(remaining).toEqual(['c', 'a']);
-      expect(remaining).not.toContain('b');
+      expect(remaining).toEqual(['c', 'a', 'b']);
+    });
+
+    it('keeps unhandled projects in their existing relative storage order', async () => {
+      // The contract's SECOND clause. Without this, reversing the appended run
+      // would fail nothing: with a single unhandled project there is no relative
+      // order to observe, so one omitted id cannot distinguish the two.
+      await repo.saveProject(makeProject({ id: 'a' }));
+      await repo.saveProject(makeProject({ id: 'b' }));
+      await repo.saveProject(makeProject({ id: 'c' }));
+      await repo.saveProject(makeProject({ id: 'd' }));
+
+      await repo.reorderProjects(['d', 'b']);
+
+      // 'a' before 'c' — their order in storage, not the order they were omitted.
+      expect((await repo.getProjects()).map((p) => p.id)).toEqual(['d', 'b', 'a', 'c']);
+    });
+
+    it('writes exactly the handed order when orderedIds covers every stored project', async () => {
+      // The non-stale path: nothing is appended and behaviour is unchanged from
+      // pre-v0.37.12. This is what keeps the rest of the suite green.
+      await repo.saveProject(makeProject({ id: 'a' }));
+      await repo.saveProject(makeProject({ id: 'b' }));
+      await repo.saveProject(makeProject({ id: 'c' }));
+
+      await repo.reorderProjects(['c', 'b', 'a']);
+
+      expect((await repo.getProjects()).map((p) => p.id)).toEqual(['c', 'b', 'a']);
     });
   });
 

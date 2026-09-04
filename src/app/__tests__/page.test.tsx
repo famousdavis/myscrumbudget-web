@@ -14,11 +14,32 @@
  *
  * The headline case is the v0.34.0 archiving invariant, which until now was
  * guarded only by a comment. `useDragReorder` is bound to the FULL project list
- * and must never be bound to the archived-filtered subset, because
- * `reorderProjects` rebuilds storage from exactly the ids it is handed — a
- * filtered drag would permanently DELETE every hidden archived project. The
- * storage half of that is already characterised in localStorage.test.ts; the
- * composition half — which list the Dashboard actually passes — is here.
+ * and must never be bound to the archived-filtered subset. The storage half of
+ * that is characterised in localStorage.test.ts; the composition half — which
+ * list the Dashboard actually passes — is here.
+ *
+ * ⚠️ THE MECHANISM CHANGED AT v0.37.12 AND THIS HEADER USED TO STATE THE OLD ONE
+ * — that the localStorage implementation kept only the ids it was handed, so a
+ * filtered drag destroyed every hidden archived project outright. True when
+ * written, false now: that implementation appends the ids it was NOT handed. A
+ * filtered drag no longer deletes; it silently moves every hidden archived
+ * project to the END of the order. The rule survives, guarding ORDER not
+ * existence.
+ *
+ * ⚠️ THE OLD WORDING IS DELIBERATELY PARAPHRASED HERE RATHER THAN QUOTED. Quoting
+ * it put the retired phrasing back into `src/` verbatim, where the release grep
+ * for stale drop-semantics prose matched MY OWN CORRECTION and read 2 instead of
+ * 0 — the third time in this campaign a site-count grep has counted its own
+ * documentation. A criterion that needs a human to excuse two hits is a weaker
+ * instrument than one that reads zero.
+ *
+ * ⚠️⚠️ AND THE TEST BELOW WENT VACUOUS UNDER THAT FIX WITHOUT ANYONE TOUCHING IT.
+ * Its fixture seeded the archived project LAST — the one position where "appended
+ * to the end" and "left where it was" are the same list — and its assertion was
+ * a `.sort()`ed SET. Both halves had to be repaired: seed `z` FIRST, and assert
+ * the FULL ORDER. Measured: with the fix and the old fixture, binding the drag to
+ * the filtered list made the whole file pass (9/9) while the caller bug was
+ * present. An order-exact assertion ALONE would not have caught it either.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -159,13 +180,23 @@ describe('DashboardPage — archived projects', () => {
 
 describe('DashboardPage — drag-to-reorder is bound to the FULL project list', () => {
   it('reorders visible projects without deleting a hidden archived one', async () => {
-    // THE v0.34.0 INVARIANT. Until now this was guarded only by a comment at
-    // page.tsx:54-57. If `useDragReorder` were ever rebound to `visibleProjects`,
-    // this drag would hand reorderProjects only ['b','a'] and 'z' would be gone
-    // from storage forever — silently, with no error and nothing on screen.
+    // THE v0.34.0 INVARIANT, guarded by a comment at page.tsx:66-69 and by this
+    // test. If `useDragReorder` were ever rebound to `visibleProjects`, this drag
+    // would hand reorderProjects only ['b','a'].
+    //
+    // ⚠️ FIXTURE ORDER IS LOAD-BEARING — 'z' MUST BE SEEDED FIRST, and this is
+    // not tidiness. Since v0.37.12 an unhandled id is APPENDED rather than
+    // dropped, so with 'z' seeded last the correct binding and the filtered
+    // binding produce the IDENTICAL list ['b','a','z'] and no assertion over it,
+    // ordered or not, can tell them apart. Seeded first, the correct binding
+    // gives ['z','b','a'] and the filtered one gives ['b','a','z'].
+    //
+    // ⚠️ AND THE ASSERTION MUST BE THE FULL ORDER, not a `.sort()`ed set: a set
+    // assertion tests existence, which appending now guarantees for EVERY caller.
+    // Both halves are required; either alone passes under the filtered binding.
+    await repo.saveProject(makeProject('z', 'Zephyr', { archived: true }));
     await repo.saveProject(makeProject('a', 'Apollo'));
     await repo.saveProject(makeProject('b', 'Borealis'));
-    await repo.saveProject(makeProject('z', 'Zephyr', { archived: true }));
 
     renderDashboard();
     await waitFor(() => expect(screen.getByText('Apollo')).toBeInTheDocument());
@@ -187,7 +218,7 @@ describe('DashboardPage — drag-to-reorder is bound to the FULL project list', 
     });
 
     const stored = await repo.getProjects();
-    expect(stored.map((p) => p.id).sort()).toEqual(['a', 'b', 'z']);
+    expect(stored.map((p) => p.id)).toEqual(['z', 'b', 'a']);
     expect(stored.find((p) => p.id === 'z')?.archived).toBe(true);
   });
 

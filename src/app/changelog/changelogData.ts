@@ -13,6 +13,27 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.37.12',
+    date: '2026-09-03',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'Reordering projects on the Dashboard can no longer delete a project created in another browser tab. With the app open in two tabs, create a project in one and then drag a tile to reorder in the other, and the newly created project was removed for good \u2014 silently, with no error and nothing on screen to say it had happened. Reloading did not bring it back. This affected local (in-browser) storage only; cloud storage never had the problem.',
+          'What was going wrong. A drag handed the app a complete list of projects in the order they should appear, and the app rebuilt its stored list from exactly that list. A tab that had never loaded the newest project could not name it, so it was written out of existence. Any project the dragging tab had not seen was lost this way, not only ones just created.',
+          'What happens now. Projects a drag does not mention are kept, placed after the ones it does mention, in the order they were already in. Cloud storage has always behaved this way; local storage was the odd one out. The Dashboard now also refreshes itself after a reorder, so a project added in another tab appears instead of staying invisible until the next reload.',
+          'Ordinary reordering is unchanged. When a drag covers every stored project \u2014 which is every ordinary drag in a single tab \u2014 the stored result is exactly what it was before.',
+        ],
+      },
+      {
+        title: 'Notes',
+        items: [
+          'Archived projects stay hidden from the Dashboard by default, and reordering still works across the full list including them, so dragging while they are hidden leaves their position alone.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.37.11',
     date: '2026-09-03',
     sections: [

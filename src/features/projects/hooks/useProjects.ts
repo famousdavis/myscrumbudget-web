@@ -96,8 +96,20 @@ export function useProjects() {
           .filter((p): p is Project => p !== undefined);
       });
       await repository.reorderProjects(orderedIds);
+      // ⚠️ A RELOAD, not a second append inside the optimistic update above.
+      // In the two-tab case `prev` NEVER held the foreign project — it was
+      // created in another tab and this tab never loaded it — so there is
+      // nothing here to append and a hook-side merge is measurably a no-op
+      // (2026-09-03: storage AND DOM identical with and without it). The
+      // repository fix keeps the project in STORAGE; only a re-read puts it on
+      // SCREEN. This is also the house pattern — createProject, deleteProject,
+      // setProjectColor, archiveProject, unarchiveProject and cloneProject all
+      // reload already; reorderProjects was the sole exception. Cost is one
+      // extra read per drag (a getDocs round trip in cloud mode), which is what
+      // every sibling mutation already pays.
+      await reload();
     },
-    [repository]
+    [reload, repository]
   );
 
   /**

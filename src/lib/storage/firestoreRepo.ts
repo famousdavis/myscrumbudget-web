@@ -411,6 +411,14 @@ export function createFirestoreRepository(uid: string): Repository {
     },
 
     async reorderProjects(orderedIds: string[]): Promise<void> {
+      // ⚠️ UNCHANGED by v0.37.12 — deletion is structurally impossible here, and
+      // end-placement already falls out of `order: projects.length` + the sort in
+      // `getProjects`. But note the MIRROR-IMAGE failure, which that fix does NOT
+      // close: `batch.update` carries `Precondition.exists(true)`, so an
+      // `orderedIds` naming a project deleted in another tab rejects the batch
+      // WHOLE — nothing is reordered, the hook's optimistic update has already
+      // been applied, and the rejection is unhandled. Cloud's window is narrower
+      // than local's because the onSnapshot listener reloads the stale tab.
       const batch = writeBatch(db!);
       orderedIds.forEach((id, index) => {
         batch.update(doc(db!, PROJECTS_COL, id), { order: index });
