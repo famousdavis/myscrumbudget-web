@@ -4,6 +4,18 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.37.14] - 2026-09-04
+
+### Fixed
+- **The allocation grid could act on the wrong team member.** The grid remembered your selected cell by its position in the list — row 3, column 2 — and nothing rechecked that position when the list underneath it changed. Sort the rows, drag them into a new order, remove somebody, or have a second browser tab change the team, and your selection stayed pointing at that slot while a different person moved into it. Pressing Delete, or typing a number, then applied your change to whoever now occupied the row. Your selection now follows the person you actually picked, and is cleared if they are no longer on the list.
+- **The grid could vanish mid-drag.** If the team changed while you were dragging to fill cells — most likely from another tab, or an undo — the grid could hit an error and disappear from the page until you reloaded. In one variation it had already written part of the fill before stopping, leaving a half-applied change.
+- **Switching to a reforecast with a different date range could save an unusable entry.** Reforecasts each carry their own start and end dates. Selecting a cell, then switching to one with a shorter window, left the selection pointing past the last month on screen. Typing a value then saved an allocation with no month attached — nothing appeared on screen while you typed, and the resulting file would later be refused on import. That can no longer happen.
+- **Keystrokes reached the grid while the "Remove Team Member" dialog was open.** Pressing Delete or Backspace to answer the dialog also cleared allocation cells behind it. The grid now ignores the keyboard while that dialog is up, and responds again as soon as it closes.
+- **Clicking blank space beside the grid no longer clears your selection.** Only clicking genuinely outside the grid does.
+
+### Changed
+- **Cancelling the "Remove Team Member" dialog now leaves your selection where it was.** Previously any click on the dialog — including Cancel — silently cleared it.
+
 ## [0.37.13] - 2026-09-04
 
 ### Fixed
