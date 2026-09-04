@@ -165,14 +165,27 @@ export function AllocationGridRow({
           !fillDrag;
 
         const needsElevation = (isSelected || isFocused) && !isEditing;
+        // Named so data-selected below cannot drift from the class it stands for.
+        const showsSelectionOutline = isSelected && !isEditing;
         let cellClasses =
           `relative border border-zinc-200 p-0 dark:border-zinc-700${needsElevation ? ' z-20' : ''}`;
 
-        if (!isInFillPreview) {
-          cellClasses += isMuted ? '' : ` ${getAllocationColor(value)}`;
-        }
+        /*
+         * The allocation tint is applied to previewed cells TOO; it used to be
+         * suppressed for them.
+         *
+         * The reason is NOT "don't hide the data" - the number is text and never
+         * vanishes. It is that this tint is a member of the DATA colour ramp
+         * (getAllocationColor), so painting the preview in it made the cell ASSERT
+         * AN ALLOCATION IT DOES NOT HAVE. Measured 2026-09-04: against a
+         * destination holding 26-50%, the old preview tint sat 3/255 from the
+         * cell's own colour in light mode and 17 in dark - invisible, on the
+         * commonest value in a resource plan. The indicator below sits outside the
+         * ramp and is coupled to nothing.
+         */
+        cellClasses += isMuted ? '' : ` ${getAllocationColor(value)}`;
 
-        if (isSelected && !isEditing) {
+        if (showsSelectionOutline) {
           cellClasses +=
             ' outline outline-2 outline-blue-500 -outline-offset-1';
         } else if (isFocused && !isEditing) {
@@ -180,7 +193,21 @@ export function AllocationGridRow({
             ' ring-2 ring-blue-400 ring-inset';
         }
         if (isInFillPreview) {
-          cellClasses += ' bg-blue-200/60 dark:bg-blue-700/60';
+          /*
+           * DO NOT "simplify" this to a bare blue outline. Measured across all 12
+           * band x theme cells 2026-09-04: outline-blue-500 ALONE scores 51 light /
+           * 41 dark on a 100% cell. The ground-coloured inner ring is what carries
+           * the contrast (worst case 198/256, minimum 127/141).
+           * And no single blue token works: blue-600 IS the dark 100% fill,
+           * blue-700 the dark 90%, blue-800 the dark 75%.
+           * A per-theme pair (outline-blue-600 dark:outline-blue-400) also passes,
+           * at 91, and was REJECTED: it works only because those two happen to sit
+           * at the ramp's ends, so it preserves exactly the palette coupling this
+           * change exists to remove, and a future palette edit collapses its margin
+           * silently. The ring is coupled to the page ground, not to the data.
+           */
+          cellClasses +=
+            ' outline-2 outline-dashed outline-blue-500 -outline-offset-1 ring-[3px] ring-inset ring-white dark:ring-zinc-950';
         }
 
         const textClasses = isMuted
@@ -202,6 +229,22 @@ export function AllocationGridRow({
           <td
             key={`${member.id}-${month}`}
             className={cellClasses}
+            /*
+             * These two attributes are what the pointer guards key on, and they are
+             * NOT cosmetic. AllocationGridPointer.test.tsx used to find previewed
+             * cells by the class `bg-blue-200/60` and selected cells by
+             * `outline-blue-500`.
+             *
+             * A CLASS-BASED re-key does not merely age badly - it BREAKS
+             * IMMEDIATELY. That test selects a cell and releases the mouse BEFORE
+             * grabbing the fill handle, so the drag SOURCE is selected; the preview
+             * indicator and the selection outline now share `outline-blue-500`, so
+             * keying the preview helper on the class makes its `toBe(0)` assertion
+             * match the still-selected source and fail. Keep BOTH helpers on
+             * attributes. (Measured 2026-09-04.)
+             */
+            data-selected={showsSelectionOutline || undefined}
+            data-fill-preview={isInFillPreview || undefined}
             onMouseDown={(e) => {
               if ((e.target as HTMLElement).dataset.fillHandle) return;
               if (isEditing) return;
