@@ -4,6 +4,17 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.37.13] - 2026-09-04
+
+### Fixed
+- **A release check had been quietly skipping itself, in exactly the situation releases are normally prepared in.** The release gate confirms that this project's internal notes file declares the same version number as everything else, so those notes cannot drift out of date unnoticed.
+- **Why it was skipping.** The check skips when the notes file is not present. That is correct on the automated build server, where the file is deliberately excluded from the repository and genuinely is not there. But the file is also absent for a second, unrelated reason: when a release is prepared in a separate working copy — which is how these releases are normally prepared — the tooling that creates that copy leaves excluded files behind. The check saw the same absence, assumed the build-server reason, and skipped. It printed a skip line and the gate went green, so nothing looked wrong.
+- **What happens now.** The check tells the two reasons apart. On the build server it skips as before. Otherwise it looks for the notes file in the main working copy and reads it from there, so the check runs even when the release is prepared elsewhere. If it still cannot be found, that is now a failure rather than a skip, because a check that cannot run should say so instead of passing quietly.
+
+### Notes
+- **This project is one of the four where that check is switched on**, so this closes a real gap here rather than a preventive one. Nine projects share the release script; five declare an empty list of version patterns and never run the check at all.
+- **Release tooling only.** No application code changed and nothing about how the app behaves is different.
+
 ## [0.37.12] - 2026-09-03
 
 ### Fixed
