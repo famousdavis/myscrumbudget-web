@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.37.18',
+    date: '2026-09-04',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          "The highlight showing which cells a fill-drag will change is now visible on cells that already have a value. Dragging the fill handle tinted the destination cells pale blue — but that tint came from the same range of blues the grid uses to show how heavily someone is allocated, so on a cell already sitting at around half-time the two were very nearly the same colour and the highlight could not be seen at all. Destination cells are now marked with a dashed blue border over a light inner edge, which stands out against every allocation shade in both light and dark mode. Each cell also keeps its own allocation shading while it is highlighted, so a previewed cell no longer looks as though it holds a different value than it does.",
+        ],
+      },
+    ],
+  },
+  {
     version: '0.37.17',
     date: '2026-09-04',
     sections: [

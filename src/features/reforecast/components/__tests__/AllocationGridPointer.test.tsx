@@ -62,11 +62,22 @@ function cellAt(container: HTMLElement, row: number, col: number): HTMLElement {
   const rows = container.querySelectorAll('tbody tr');
   return rows[row].querySelectorAll('td')[1 + col] as HTMLElement;
 }
+/*
+ * Both helpers key on ATTRIBUTES, never on class strings - see the <td> in
+ * AllocationGridRow.tsx for the full reason.
+ *
+ * The short version: v0.37.18 gave the fill preview a dashed `outline-blue-500`,
+ * which the SELECTION outline also uses. These two tests select a cell before
+ * grabbing the fill handle, so the drag source is selected throughout - a
+ * class-keyed fillPreviewCount would match that still-selected source and fail
+ * `toBe(0)` outright. Attributes make the two states independent of styling, so
+ * a later restyle cannot silently disarm the guard below.
+ */
 function selectedCount(container: HTMLElement): number {
-  return container.querySelectorAll('td.outline-blue-500').length;
+  return container.querySelectorAll('td[data-selected]').length;
 }
 function fillPreviewCount(container: HTMLElement): number {
-  return container.querySelectorAll('td.bg-blue-200\\/60').length;
+  return container.querySelectorAll('td[data-fill-preview]').length;
 }
 
 describe('AllocationGrid — pointer and focus guards', () => {
@@ -193,5 +204,86 @@ describe('AllocationGrid — pointer and focus guards', () => {
     expect(selectedCount(container)).toBe(1);
     fireEvent.keyDown(document.body, { key: 'Delete' });
     expect(onChange.mock.calls).toEqual([['tm-alice', '2026-01', 0]]);
+  });
+  // ───────────── WI-18: the fill-preview indicator ─────────────
+
+  /*
+   * v0.37.18. The preview used to be a background tint drawn from the SAME colour
+   * ramp that encodes allocation, so against a destination holding 26-50% it sat
+   * 3/255 from the cell's own colour in light mode and 17 in dark - invisible.
+   *
+   * ⚠️ THE COLOUR CLAIMS ARE NOT TESTABLE HERE and are not attempted: jsdom
+   * applies no Tailwind, so getComputedStyle reports nothing useful and any
+   * assertion would be a class-string change-detector wearing a contrast
+   * argument. Those are measured in a browser; see the release notes. What is
+   * pinned here is the STRUCTURE that measurement rests on - the indicator is
+   * applied, the allocation colour SURVIVES it, and the guard attributes exist.
+   *
+   * ⚠️ Carmen's cell (2,0) is the deliberate subject: it holds 0.5, the 26-50%
+   * band this item exists for. Bob's (1,0) is previewed too but holds nothing, so
+   * it carries no allocation class and could not show a retention failure at all.
+   */
+  function startFillDrag(container: HTMLElement) {
+    fireEvent.mouseDown(cellAt(container, 0, 0));
+    fireEvent.mouseUp(window); // completes the selection; (0,0) stays selected
+    fireEvent.mouseDown(container.querySelector('[data-fill-handle="true"]') as HTMLElement);
+    fireEvent.mouseEnter(cellAt(container, 2, 0)); // fills rows 1-2 of column 0
+  }
+
+  it('a previewed cell carries the dashed indicator and an unpreviewed one does not', () => {
+    const { container } = render(<AllocationGrid {...gridProps(vi.fn())} />);
+    startFillDrag(container);
+
+    const previewed = cellAt(container, 2, 0);
+    expect(previewed.className, 'previewed cell must carry the dashed outline')
+      .toContain('outline-dashed');
+    expect(previewed.className, 'and the ground-coloured ring that carries the contrast')
+      .toContain('ring-[3px]');
+
+    // Paired, per this file's convention: a cell outside the fill region gains neither.
+    const untouched = cellAt(container, 0, 1);
+    expect(untouched.className).not.toContain('outline-dashed');
+    expect(untouched.className).not.toContain('ring-[3px]');
+  });
+
+  it('a previewed cell RETAINS its own allocation colour', () => {
+    /*
+     * Before v0.37.18 the allocation class was SUPPRESSED for previewed cells,
+     * which is precisely what let the preview tint assert a value the cell did not
+     * have. Carmen holds 0.5 -> bg-blue-100.
+     */
+    const { container } = render(<AllocationGrid {...gridProps(vi.fn())} />);
+    startFillDrag(container);
+
+    expect(cellAt(container, 2, 0).className, 'the 26-50% band class must survive the preview')
+      .toContain('bg-blue-100');
+    // Paired: the old ramp-member tint is GONE, not merely joined by the outline.
+    expect(cellAt(container, 2, 0).className, 'the old ramp-member tint must be gone')
+      .not.toContain('bg-blue-200/60');
+  });
+
+  it('the guard attributes mark exactly the previewed cells and the selected source', () => {
+    const { container } = render(<AllocationGrid {...gridProps(vi.fn())} />);
+    startFillDrag(container);
+
+    // Messages are per-assertion on purpose: bare hasAttribute checks all print
+    // "expected false to be true", so a break in two of them would be one message.
+    expect(cellAt(container, 1, 0).hasAttribute('data-fill-preview'), "Bob's cell (1,0) is previewed")
+      .toBe(true);
+    expect(cellAt(container, 2, 0).hasAttribute('data-fill-preview'), "Carmen's cell (2,0) is previewed")
+      .toBe(true);
+    expect(cellAt(container, 0, 1).hasAttribute('data-fill-preview'), 'a cell outside the fill region is not')
+      .toBe(false);
+
+    /*
+     * data-selected marks the drag SOURCE, which stays selected for the whole
+     * gesture - and that is exactly why the preview guard cannot be keyed on
+     * `outline-blue-500`: both states now carry it, so a class-keyed
+     * fillPreviewCount would match this cell and fail its `toBe(0)`.
+     */
+    expect(cellAt(container, 0, 0).hasAttribute('data-selected'), 'the drag source is selected')
+      .toBe(true);
+    expect(cellAt(container, 0, 0).hasAttribute('data-fill-preview'), 'and is NOT itself previewed')
+      .toBe(false);
   });
 });
