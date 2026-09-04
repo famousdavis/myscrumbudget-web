@@ -94,7 +94,20 @@ describe('useProjects — reorderProjects against a list this tab never saw', ()
     // ids it was handed and 'NEW' was destroyed, permanently and silently. With
     // the repository fixed but no reload, the FIRST passes and the SECOND fails —
     // the bytes are safe while the dashboard still shows a list without it.
-    expect(await storedIds()).toEqual(['b', 'a', 'NEW']);
-    expect(result.current.projects.map((p) => p.id)).toEqual(['b', 'a', 'NEW']);
+    //
+    // ⚠️ THE TWO ASSERTIONS CARRY CUSTOM MESSAGES BECAUSE WITHOUT THEM THEIR
+    // FAILURE TEXT IS BYTE-IDENTICAL — both print
+    // `expected [ 'b', 'a' ] to deeply equal [ 'b', 'a', 'NEW' ]`, so the split
+    // that IS the evidence would be invisible in the output and only the line
+    // number would separate them. Found by falsifying this test both ways.
+    expect(await storedIds(), 'STORAGE half — the repository must keep the foreign project').toEqual([
+      'b',
+      'a',
+      'NEW',
+    ]);
+    expect(
+      result.current.projects.map((p) => p.id),
+      'MEMORY half — the hook must reload so the dashboard actually shows it',
+    ).toEqual(['b', 'a', 'NEW']);
   });
 });
