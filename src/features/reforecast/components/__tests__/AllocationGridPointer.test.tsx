@@ -133,19 +133,32 @@ describe('AllocationGrid — pointer and focus guards', () => {
     expect(onChange.mock.calls).toEqual([]);
   });
 
-  it('losing the window with a completed selection leaves that selection usable', () => {
-    // The other direction, and the one that stops "cancel" being read as "undo":
-    // alt-tabbing away and back must not cost the user their selection.
+  it('losing the window during a range drag ends the drag but keeps what was selected', () => {
+    /*
+     * Both directions in one test, because each alone is satisfiable by a build
+     * that breaks the other.
+     *
+     * ⚠️ It must be blurred DURING the drag, not after it. The effect that owns
+     * this listener only attaches while a drag is in flight, so blurring a
+     * COMPLETED selection exercises no code at all — an earlier version of this
+     * test did exactly that and passed against a deliberately broken build. The
+     * completed case is safe by construction and needs no test.
+     */
     const onChange = vi.fn();
     const { container } = render(<AllocationGrid {...gridProps(onChange)} />);
     fireEvent.mouseDown(cellAt(container, 0, 0));
-    fireEvent.mouseEnter(cellAt(container, 0, 1));
-    fireEvent.mouseUp(window);
+    fireEvent.mouseEnter(cellAt(container, 0, 1)); // still dragging
     expect(selectedCount(container), 'precondition: two cells selected').toBe(2);
 
     fireEvent.blur(window);
 
-    expect(selectedCount(container)).toBe(2);
+    // Kept: alt-tabbing away must not cost the user the selection they made.
+    expect(selectedCount(container), 'the selection must survive the blur').toBe(2);
+    // Ended: without this the drag stays live, and moving over cells with no
+    // button held keeps extending it — measured at v0.37.14, two cells became nine.
+    fireEvent.mouseEnter(cellAt(container, 2, 2));
+    expect(selectedCount(container), 'the drag must have ended').toBe(2);
+
     fireEvent.keyDown(document.body, { key: 'Delete' });
     expect(onChange.mock.calls).toEqual([
       ['tm-alice', '2026-01', 0],
