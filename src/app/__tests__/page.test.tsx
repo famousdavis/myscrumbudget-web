@@ -47,6 +47,7 @@ import { render, screen, waitFor, fireEvent, within } from '@testing-library/rea
 import type { ReactNode } from 'react';
 import DashboardPage from '../page';
 import { ToastProvider } from '@/components/Toast';
+import { RateTable } from '@/features/settings/components/RateTable';
 
 // DashboardPage and its hooks take the repository from provider context. These
 // tests drive the REAL localStorage repository and assert on persisted state,
@@ -113,6 +114,32 @@ function renderDashboard() {
   );
 }
 
+/**
+ * The completion marker for a checklist step, read from the step's own <li>.
+ *
+ * ⚠️ Tests assert the MARKER ITSELF ('1' vs the check), never the ABSENCE of the
+ * numeral. "Step 1 does not show a 1" is an absence, and an absence is satisfied
+ * by the step — or the whole checklist — not rendering at all, which is exactly
+ * what happens once a project exists.
+ */
+function stepMarker(linkText: string): string {
+  const li = screen.getByText(linkText).closest('li');
+  if (!li) throw new Error(`no <li> found for step "${linkText}"`);
+  return (li.querySelector('span')?.textContent ?? '').trim();
+}
+
+/** What the Settings page renders for the rate table, with the props it passes. */
+function renderRateTable() {
+  return render(
+    <RateTable
+      rates={[{ role: 'BA', hourlyRate: 75 }]}
+      onUpdate={() => {}}
+      onRenameRole={async () => true}
+      countOrphansIfDeleted={async () => 0}
+    />,
+  );
+}
+
 /** The card root is the `draggable` element; find it via the project's heading. */
 function cardFor(name: string): HTMLElement {
   const heading = screen.getByRole('heading', { name: new RegExp(name) });
@@ -140,6 +167,70 @@ describe('DashboardPage — project grid', () => {
     renderDashboard();
     await waitFor(() => expect(screen.getByText('Getting Started')).toBeInTheDocument());
     expect(screen.getByText('Review Labor Rates')).toBeInTheDocument();
+  });
+});
+
+/**
+ * WI-3 (v0.37.16) — the Getting Started checklist could never complete step 1.
+ *
+ * ⚠️ PLACED HERE AS A SIBLING OF THE ONBOARDING TEST ABOVE, NOT APPENDED AT EOF.
+ * The `beforeEach` on line 124 is at FILE scope, outside all of these blocks, so
+ * an appended block would in fact still inherit it — measured, because the
+ * general warning is about files with an OUTER describe, and this file has none.
+ * Kept adjacent anyway: it groups the onboarding concern, and costs nothing.
+ */
+describe('DashboardPage — Getting Started checklist', () => {
+  it('completes step 1 end to end: following the link opens the rate table, which marks the step done', async () => {
+    // [FAILS-TODAY] Against v0.37.15 this fails at the FIRST Settings assertion:
+    // the link was a bare `/settings`, so the user landed with the Labor Rate
+    // Table COLLAPSED, `onOpen` never fired, the flag was never written, and the
+    // step stayed at '1'. Reproduced in a production build before the fix.
+    const dash = renderDashboard();
+    await waitFor(() => expect(screen.getByText('Getting Started')).toBeInTheDocument());
+    expect(stepMarker('Review Labor Rates')).toBe('1');
+
+    // The rendered href is the observable — deliberately NOT the exported
+    // constant, which would only assert the constant equals itself.
+    const href = screen.getByText('Review Labor Rates').getAttribute('href');
+    expect(href).toBe('/settings?section=rates');
+    dash.unmount();
+
+    // Follow it. jsdom has no router, so put the document at that URL and mount
+    // what the Settings page renders there.
+    window.history.replaceState({}, '', href as string);
+    const settings = renderRateTable();
+
+    // The half the user actually complained about: it is OPEN on arrival.
+    expect(screen.getByText('Hourly Rate ($)')).toBeInTheDocument();
+    settings.unmount();
+
+    // …and going back shows the step COMPLETED.
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText('Getting Started')).toBeInTheDocument());
+    expect(stepMarker('Review Labor Rates')).toBe('\u2713');
+  });
+
+  it('step 2 completes from live pool state, and does not drag step 1 along with it', async () => {
+    // [REGRESSION] Step 2 is `pool.length > 0`, derived state with no stored
+    // flag. Asserting step 1 is STILL '1' in the same fixture is what keeps the
+    // two steps independent — a fix that marked everything reviewed would pass
+    // an assertion about step 2 alone.
+    await repo.saveTeamPool([{ id: 'p1', name: 'Alice', role: 'BA' }]);
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText('Getting Started')).toBeInTheDocument());
+
+    expect(stepMarker('Build Your Team Pool')).toBe('\u2713');
+    expect(stepMarker('Review Labor Rates')).toBe('1');
+  });
+
+  it('the checklist disappears once the first project exists', async () => {
+    // [REGRESSION] The other half of the empty-state contract. The all-archived
+    // half is pinned separately below and is deliberately not duplicated here.
+    await repo.saveProject(makeProject('a', 'Apollo'));
+    renderDashboard();
+
+    await waitFor(() => expect(screen.getByText('Apollo')).toBeInTheDocument());
+    expect(screen.queryByText('Getting Started')).not.toBeInTheDocument();
   });
 });
 
