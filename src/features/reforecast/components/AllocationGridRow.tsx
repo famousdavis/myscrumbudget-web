@@ -29,7 +29,7 @@ interface AllocationGridRowProps {
   teamMembers: TeamMember[];
   onInputChange: (value: string) => void;
   onCellCommitEdit: () => void;
-  onCellMouseDown: (rowIdx: number, colIdx: number, shiftKey: boolean) => void;
+  onCellMouseDown: (rowIdx: number, colIdx: number, shiftKey: boolean, button: number) => void;
   onCellMouseEnter: (rowIdx: number, colIdx: number) => void;
   onCellDoubleClick: (rowIdx: number, colIdx: number, pctValue: number) => void;
   onFillHandleMouseDown: (rowIdx: number, colIdx: number, normalizedSel: SelectionRange) => void;
@@ -113,7 +113,7 @@ export function AllocationGridRow({
       onDragLeave={dragHandlers.onDragLeave}
       onDrop={dragHandlers.onDrop}
     >
-      <td className="sticky left-0 z-10 border border-zinc-200 bg-white px-1 py-1 dark:border-zinc-700 dark:bg-zinc-950">
+      <td className="sticky left-0 z-[25] border border-zinc-200 bg-white px-1 py-1 dark:border-zinc-700 dark:bg-zinc-950">
         <div className="flex items-center gap-1 px-1 text-sm font-medium whitespace-nowrap">
           {hasRowControls && canReorder && (
             <div
@@ -205,7 +205,7 @@ export function AllocationGridRow({
             onMouseDown={(e) => {
               if ((e.target as HTMLElement).dataset.fillHandle) return;
               if (isEditing) return;
-              onCellMouseDown(rowIdx, colIdx, e.shiftKey);
+              onCellMouseDown(rowIdx, colIdx, e.shiftKey, e.button);
             }}
             onMouseEnter={() => onCellMouseEnter(rowIdx, colIdx)}
             onDoubleClick={() => onCellDoubleClick(rowIdx, colIdx, pctValue)}
@@ -233,7 +233,32 @@ export function AllocationGridRow({
             {showFillHandle && normalizedSel && (
               <div
                 data-fill-handle="true"
-                className="absolute -right-[4px] -bottom-[4px] z-20 h-[8px] w-[8px] cursor-crosshair border border-white bg-blue-600"
+                /*
+                 * The handle no longer overhangs its cell HORIZONTALLY, and that is
+                 * a consequence of this release rather than a style choice.
+                 *
+                 * It used to sit at -right-[4px], straddling the cell border. On the
+                 * LAST month column that overhang lies under the sticky action
+                 * column, which this release raised from z-10 to z-[25] so that
+                 * selected cells scroll UNDER the pinned columns instead of over
+                 * them. Measured on `next start` 2026-09-04: 8 of 8 horizontal
+                 * pixels of the handle were clickable before, and only 4 after —
+                 * the sticky cell also covers one non-overhanging pixel via the
+                 * collapsed border.
+                 *
+                 * ⚠️ RAISING THE HANDLE'S OWN z-index DOES NOT FIX THIS, and that
+                 * was measured, not assumed: z-[26] was tried and changed nothing.
+                 * The handle's parent <td> is `relative` with z-20 while selected,
+                 * which CREATES A STACKING CONTEXT, so the handle's z-index only
+                 * orders it against its siblings inside that cell. What competes
+                 * with the sticky column is the parent's z-20. The handle cannot be
+                 * lifted out without lifting the whole cell, which would undo the
+                 * fix above.
+                 *
+                 * The vertical -bottom-[4px] overhang is kept: nothing sticky sits
+                 * below a row, so it occludes nothing.
+                 */
+                className="absolute right-0 -bottom-[4px] z-20 h-[8px] w-[8px] cursor-crosshair border border-white bg-blue-600"
                 onMouseDown={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -245,7 +270,7 @@ export function AllocationGridRow({
         );
       })}
       {hasRowControls && (
-        <td className="sticky right-0 z-10 border border-zinc-200 bg-white px-2 py-1 text-center dark:border-zinc-700 dark:bg-zinc-950">
+        <td className="sticky right-0 z-[25] border border-zinc-200 bg-white px-2 py-1 text-center dark:border-zinc-700 dark:bg-zinc-950">
           <button
             onClick={() => onDeleteClick(member.id)}
             className="text-sm text-zinc-300 hover:text-red-500 dark:text-zinc-600 dark:hover:text-red-400"

@@ -13,6 +13,27 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.37.15',
+    date: '2026-09-04',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'Right-clicking inside a selected block of cells no longer collapses it to one cell. Selecting a range and then right-clicking anywhere inside it threw the whole selection away. Right-clicking now leaves the selection alone, and a left-click still moves it as before. If you were part-way through typing in a cell, that value is still saved.',
+          'Switching away from the app in the middle of a drag no longer completes the drag behind your back. Dragging the fill handle and then alt-tabbing to another window left the drag running: releasing the mouse afterwards applied the fill you had walked away from. The drag is now cancelled and nothing is written. Dragging out a selection and switching away likewise stops the drag — but keeps the cells you had already selected, so you can come back and carry on.',
+          'Clicking or tabbing to a control inside the grid no longer quietly selects the first cell. Focus moving to a row\u2019s remove button, or to the Add member control, was treated as focus arriving on the grid itself, which selected the top-left cell. Pressing Delete after that cleared an allocation you had never chosen. Focusing the grid itself still selects the first cell, as it always did.',
+          'The Team Member and action columns now stay on top when you scroll a wide grid sideways. A selected cell used to slide over them: on a long project this hid team member names, and could put a cell on top of the remove button so it could not be clicked at all.',
+        ],
+      },
+      {
+        title: 'Changed',
+        items: [
+          'The fill handle sits just inside the bottom-right corner of the selected cell instead of straddling its edge. It used to overhang by a few pixels. With the column fix above, that overhang would have been covered on the final month, halving the size of an already small target.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.37.14',
     date: '2026-09-04',
     sections: [

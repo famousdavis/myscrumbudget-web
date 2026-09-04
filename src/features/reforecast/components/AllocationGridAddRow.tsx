@@ -28,7 +28,7 @@ export function AllocationGridAddRow({
       {addingRow ? (
         <>
           <td
-            className="sticky left-0 z-10 border border-zinc-200 bg-white px-1 py-1 dark:border-zinc-700 dark:bg-zinc-950"
+            className="sticky left-0 z-[25] border border-zinc-200 bg-white px-1 py-1 dark:border-zinc-700 dark:bg-zinc-950"
           >
             <select
               name="addAllocationMember"
@@ -59,12 +59,12 @@ export function AllocationGridAddRow({
             colSpan={months.length}
             className="border border-zinc-200 dark:border-zinc-700"
           />
-          <td className="sticky right-0 z-10 border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-950" />
+          <td className="sticky right-0 z-[25] border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-950" />
         </>
       ) : (
         <>
           <td
-            className="sticky left-0 z-10 border border-zinc-200 bg-white px-3 py-1 dark:border-zinc-700 dark:bg-zinc-950"
+            className="sticky left-0 z-[25] border border-zinc-200 bg-white px-3 py-1 dark:border-zinc-700 dark:bg-zinc-950"
           >
             <button
               onClick={() => onAddingRowChange(true)}
@@ -77,7 +77,7 @@ export function AllocationGridAddRow({
             colSpan={months.length}
             className="border border-zinc-200 dark:border-zinc-700"
           />
-          <td className="sticky right-0 z-10 border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-950" />
+          <td className="sticky right-0 z-[25] border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-950" />
         </>
       )}
     </tr>

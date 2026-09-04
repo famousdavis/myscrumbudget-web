@@ -23,7 +23,7 @@ export function AllocationGridSummaryRows({
   return (
     <>
       <tr>
-        <td className="sticky left-0 z-10 border border-zinc-200 bg-zinc-50 px-3 py-1 text-sm font-medium whitespace-nowrap dark:border-zinc-700 dark:bg-zinc-900">
+        <td className="sticky left-0 z-[25] border border-zinc-200 bg-zinc-50 px-3 py-1 text-sm font-medium whitespace-nowrap dark:border-zinc-700 dark:bg-zinc-900">
           Monthly Cost
         </td>
         {months.map((month) => {
@@ -39,11 +39,11 @@ export function AllocationGridSummaryRows({
           );
         })}
         {hasRowControls && (
-          <td className="sticky right-0 z-10 border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900" />
+          <td className="sticky right-0 z-[25] border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900" />
         )}
       </tr>
       <tr>
-        <td className="sticky left-0 z-10 border border-zinc-200 bg-zinc-50 px-3 py-1 text-sm font-medium whitespace-nowrap dark:border-zinc-700 dark:bg-zinc-900">
+        <td className="sticky left-0 z-[25] border border-zinc-200 bg-zinc-50 px-3 py-1 text-sm font-medium whitespace-nowrap dark:border-zinc-700 dark:bg-zinc-900">
           Monthly Hours
         </td>
         {months.map((month) => {
@@ -59,7 +59,7 @@ export function AllocationGridSummaryRows({
           );
         })}
         {hasRowControls && (
-          <td className="sticky right-0 z-10 border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900" />
+          <td className="sticky right-0 z-[25] border border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900" />
         )}
       </tr>
     </>

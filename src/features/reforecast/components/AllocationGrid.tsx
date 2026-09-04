@@ -258,6 +258,41 @@ export function AllocationGrid({
     return () => window.removeEventListener('mouseup', handleMouseUp);
   }, [fillDrag, isRangeSelecting, allocationMap, teamMembers, months, onAllocationChange]);
 
+  /*
+   * Cancel an in-flight drag when the window loses focus. Without this, alt-tabbing
+   * mid-fill leaves the drag live: measured at v0.37.14 the preview survived the
+   * blur and the next mouseup COMMITTED the fill the user had walked away from.
+   *
+   * ⚠️ TWO MECHANISMS, OPPOSITE TREATMENT — one sentence covering two things that
+   * must not be collapsed.
+   *   - fillDrag has a destructive commit, so cancelling means DISCARDING it.
+   *   - Range selection has no destructive branch; "commit" and "cancel" are the
+   *     same operation. Stopping the drag stops the EXTENSION only.
+   * ⚠️ `selection` IS DELIBERATELY NOT TOUCHED. Reading "cancel" as "undo" and
+   * clearing it would lose the user's selection every time they alt-tab away —
+   * measured at v0.37.14, a completed 2-cell selection survives a window blur and
+   * Delete still targets both cells. That must stay true.
+   * ⚠️ And do NOT reuse the mouseup handler above for this: it COMMITS the fill,
+   * which is the exact bug this guard exists to prevent.
+   *
+   * ⚠️ ESCAPE IS DELIBERATELY NOT A TRIGGER HERE, and that is a scoping decision
+   * rather than an oversight. Measured at v0.37.14: Escape during a fill drag does
+   * nothing at all — the preview survives and the next mouseup still commits. It
+   * is not closed here because the keyboard lives in useGridKeyboard, so adding it
+   * means giving that hook setFillDrag/setIsRangeSelecting as new inputs, which is
+   * a wider change than this release is scoped for. Recorded 2026-09-04 as a
+   * follow-up candidate, not as a gap someone should quietly patch in passing.
+   */
+  useEffect(() => {
+    if (!fillDrag && !isRangeSelecting) return;
+    const handleWindowBlur = () => {
+      setFillDrag(null);
+      setIsRangeSelecting(false);
+    };
+    window.addEventListener('blur', handleWindowBlur);
+    return () => window.removeEventListener('blur', handleWindowBlur);
+  }, [fillDrag, isRangeSelecting]);
+
   // Prevent text selection during drag
   useEffect(() => {
     if (!fillDrag && !isRangeSelecting) return;
@@ -360,7 +395,40 @@ export function AllocationGrid({
   });
 
   // --- Cell interaction callbacks ---
-  const handleCellMouseDown = useCallback((rowIdx: number, colIdx: number, shiftKey: boolean) => {
+  const handleCellMouseDown = useCallback((rowIdx: number, colIdx: number, shiftKey: boolean, button: number) => {
+    /*
+     * Non-primary buttons must not move the selection. Measured at v0.37.14: a
+     * right-click inside a 9-cell selection collapsed it to a single cell.
+     *
+     * ⚠️ This guard is a SUPERSET of that fix and is safe only by circumstance.
+     * The spreadsheet idiom is asymmetric — right-click INSIDE a selection keeps
+     * it, right-click OUTSIDE moves it — and this gives neither: it makes
+     * right-click inert. That is acceptable here ONLY BECAUSE nothing in this app
+     * renders a context menu (`onContextMenu|contextmenu` matched 0 files in
+     * src/, checked 2026-09-04), so there is no menu whose target could disagree
+     * with the selection. If one is ever added, this must become the asymmetric
+     * rule rather than staying a blanket return.
+     *
+     * ⚠️ commitEdit() STILL RUNS, and the guard is HERE rather than in the row
+     * for that reason alone. Do not "simplify" it to a bare early return, and do
+     * not move it up into AllocationGridRow's onMouseDown.
+     * Right-clicking another cell while an editor is open commits the pending
+     * value today (measured at v0.37.14), and the call below is the ONLY thing
+     * that does it. ⚠️ The click-outside handler is NOT a fallback here and never
+     * was: a <td> sits inside both the <table> and the scroll container, so its
+     * `!contains(target)` test is false on any cell click under either scoping.
+     * (What v0.37.14 did narrow is the BLANK SPACE beside a narrow table, which
+     * used to be outside the <table> and is inside the scroll container — a real
+     * change, but not one that touches cells.)
+     * So a guard that returns before this function runs would leave the commit to
+     * the input's own onBlur, which is verified in Chromium and unverified on
+     * WebKit and Gecko. Committing here keeps the shipped behaviour and removes
+     * the browser dependency.
+     */
+    if (button !== 0) {
+      commitEdit();
+      return;
+    }
     commitEdit();
     setFocusedCell({ row: rowIdx, col: colIdx });
 
@@ -447,7 +515,18 @@ export function AllocationGrid({
         ref={gridRef}
         className="border-collapse text-base select-none"
         tabIndex={0}
-        onFocus={() => {
+        onFocus={(e) => {
+          /*
+           * React's onFocus is delivered via focusin, which BUBBLES, so without
+           * this every focusable descendant triggered it. Measured at v0.37.14:
+           * focusing a row's remove button selected cell (0,0), and a Delete
+           * pressed afterwards zeroed an allocation the user never touched —
+           * tabbing to a remove button silently armed a destructive keystroke on
+           * an unrelated cell. "+ Add member" did the same.
+           * ⚠️ Focusing the TABLE itself must still select (0,0); that is the
+           * keyboard entry point, not a bug.
+           */
+          if (e.target !== e.currentTarget) return;
           if (!focusedCell && teamMembers.length > 0 && months.length > 0) {
             setFocusedCell({ row: 0, col: 0 });
             setSelection({ startRow: 0, startCol: 0, endRow: 0, endCol: 0 });
