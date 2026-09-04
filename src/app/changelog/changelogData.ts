@@ -13,6 +13,27 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.37.13',
+    date: '2026-09-04',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          "A release check had been quietly skipping itself, in exactly the situation releases are normally prepared in. The gate confirms that this project's internal notes file declares the same version number as everything else, so those notes cannot drift out of date unnoticed.",
+          'Why it was skipping: the check skips when the notes file is not present, which is correct on the automated build server, where the file is deliberately excluded and genuinely absent. But the file is also missing for a second, unrelated reason — when a release is prepared in a separate working copy, the tooling that creates that copy leaves excluded files behind. The check saw the same absence, assumed the build-server reason, and skipped, printing a skip line while the gate went green.',
+          'What happens now: the check tells the two reasons apart. On the build server it skips as before; otherwise it reads the notes file from the main working copy, so the check runs even when the release is prepared elsewhere. If it still cannot be found, that is a failure rather than a skip.',
+        ],
+      },
+      {
+        title: 'Notes',
+        items: [
+          'This project is one of the four where that check is switched on, so this closes a real gap here rather than a preventive one. Nine projects share the release script; five declare an empty list of version patterns and never run the check at all.',
+          'Release tooling only. No application code changed and nothing about how the app behaves is different.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.37.12',
     date: '2026-09-03',
     sections: [
