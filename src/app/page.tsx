@@ -309,7 +309,20 @@ export default function DashboardPage() {
           </p>
         </div>
       ) : (
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div
+          className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+          // Makes the gutters and the empty cells after the last card droppable.
+          // Before v0.37.17 a drop there hit no card, so nothing called
+          // preventDefault() on dragover and the browser discarded the gesture
+          // with no message. Bails when a card owns the point, so the per-card
+          // path is unchanged.
+          //
+          // ⚠️ The skeleton grid above has a BYTE-IDENTICAL className and must NOT
+          // get these handlers — it renders no cards, so a drop there would
+          // resolve to nothing. Identify this branch by the visibleProjects.map
+          // below it, never by matching the class string.
+          {...drag.containerHandlers}
+        >
           {visibleProjects.map((project) => (
             <ProjectCard
               key={project.id}

@@ -37,6 +37,20 @@ interface ProjectCardProps {
   onDragEnter?: (e: React.DragEvent) => void;
   onDragLeave?: (e: React.DragEvent) => void;
   onDrop?: (e: React.DragEvent) => void;
+  /**
+   * Emitted by `useDragReorder.handlersFor` and forwarded to the root element, so
+   * the dashboard grid container can hit-test cards with
+   * `closest('[data-drag-id]')` and read their rects when a drop lands in the
+   * space BETWEEN or AFTER them (v0.37.17).
+   *
+   * ⚠️ DECLARING IT IS NOT OPTIONAL BOOKKEEPING — it is what makes the attribute
+   * exist. This component destructures a fixed prop list with no `...rest`, so a
+   * prop it does not name is silently discarded, and JSX spreads skip
+   * excess-property checking, so TypeScript reports nothing. Delete the
+   * declaration or the forwarding below and the container fix becomes a no-op
+   * with every unit test still green.
+   */
+  'data-drag-id'?: string;
 }
 
 // Local-time YYYY-MM-DD for "today" — avoids the UTC drift that toISOString
@@ -68,6 +82,7 @@ export function ProjectCard({
   onDragEnter,
   onDragLeave,
   onDrop,
+  'data-drag-id': dataDragId,
 }: ProjectCardProps) {
   const [colorOpen, setColorOpen] = useState(false);
 
@@ -110,7 +125,21 @@ export function ProjectCard({
 
   return (
     <div
+      // ⚠️ DISPOSITION 2026-09-04 (v0.37.17), deliberate: `draggable` is HARDCODED
+      // here while `useDragReorder.handlersFor` ALSO returns `draggable: true` in
+      // the props spread onto this component — which this component discards,
+      // because it destructures a fixed prop list. The two agree only by
+      // coincidence, and `tsc --noEmit` is clean either way.
+      //
+      // NOT repaired here, and not an oversight: removing the hardcode in a
+      // correctness release risks disabling dragging outright, which is a worse
+      // failure than the redundancy. It is left as the standing control for why
+      // `data-drag-id` below needs a test asserting it reaches the rendered DOM —
+      // a compile-time guarantee is not available for either attribute.
+      // Follow-up: reconcile handlersFor's DOM-element props with its one
+      // component consumer.
       draggable
+      data-drag-id={dataDragId}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onDragOver={onDragOver}
