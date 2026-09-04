@@ -84,6 +84,99 @@ export function AllocationGrid({
     return new Set(months.filter(m => m < etcMonth));
   }, [actualsThroughDate, months]);
 
+  /*
+   * WI-4 — positional selection state is remapped whenever either axis changes.
+   *
+   * ⚠️ THIS RUNS DURING RENDER, NOT IN AN EFFECT, AND THAT IS LOAD-BEARING.
+   * Two of the six roster-indexed dereferences happen while rendering
+   * (AllocationGridRow -> isCellInFillPreview -> gridHelpers computeFillRegion), so
+   * an effect would run AFTER the render that already threw. Measured 2026-09-04:
+   * with a fill drag in flight and the roster shrinking by prop, an effect-based
+   * version throws from render and React tears the grid down — byte-identical to
+   * having no fix at all, while passing every gate. React's documented
+   * "adjust state when a prop changes" pattern is what actually works here.
+   *
+   * ⚠️ BOTH AXES. Rows keyed by member id, columns by month string. A row-only
+   * remap leaves `col` stale, and a stale col does NOT throw — it writes
+   * { memberId, month: undefined } into rf.allocations (useReforecast, the
+   * append branch), which validateAllocation later rejects, so the user's own
+   * export silently stops importing. Reachable by ordinary use: a cloned
+   * reforecast preserves assignment ids but carries its own window.
+   *
+   * ⚠️ CONTENT-KEYED, never reference-keyed. useTeam memoises `members` on
+   * [project, pool], so every allocation edit yields a NEW array with identical
+   * content; a reference compare would clear the selection on every keystroke.
+   *
+   * ⚠️ ALL FIVE POSITIONAL STATES ARE HANDLED HERE — focusedCell, editingCell,
+   * selection, fillDrag, isRangeSelecting — and nothing enforces that. If you add
+   * another piece of state holding a row/col, ADD IT HERE TOO.
+   *
+   * ⚠️ `setFillDrag(null)` is NOT redundant with the remap; do not drop it as
+   * dead. It closes a path the render-time argument above does not reach:
+   * computeFillRegion's vertical branch dereferences rows src.startRow..src.endRow
+   * but EMITS rows src.endRow+1..current.row, so the fill-commit loop in the
+   * mouseup effect below can throw on a row render never touched. Measured at
+   * HEAD 2026-09-04: render survives, mouseup throws, and the loop had already
+   * PERSISTED part of the fill before aborting.
+   */
+  const rowIds = teamMembers.map((m) => m.id);
+  const gridKey = `${rowIds.join('|')}#${months.join('|')}`;
+  const [prevGridKey, setPrevGridKey] = useState(gridKey);
+  const [prevAxes, setPrevAxes] = useState<{ rowIds: string[]; months: string[] }>({ rowIds, months });
+  if (prevGridKey !== gridKey) {
+    setPrevGridKey(gridKey);
+    setPrevAxes({ rowIds, months });
+
+    // -1 means "this row/column no longer exists". Returning the raw index instead
+    // is what makes the whole remap a no-op: teamMembers[-1] is undefined and the
+    // dereferences throw exactly as they did before.
+    const remapRow = (row: number) => {
+      const id = prevAxes.rowIds[row];
+      return id === undefined ? -1 : rowIds.indexOf(id);
+    };
+    const remapCol = (col: number) => {
+      const month = prevAxes.months[col];
+      return month === undefined ? -1 : months.indexOf(month);
+    };
+    const remapCell = (cell: CellCoord | null): CellCoord | null => {
+      if (!cell) return cell;
+      const row = remapRow(cell.row);
+      const col = remapCol(cell.col);
+      return row < 0 || col < 0 ? null : { row, col };
+    };
+
+    setFocusedCell(remapCell);
+    setEditingCell(remapCell);
+    // A range survives only while it is still a contiguous block on both axes.
+    // Clearing every multi-cell range instead would lose a VALID selection on an
+    // unrelated removal, which is its own silent selection-loss surface.
+    setSelection((sel) => {
+      if (!sel) return sel;
+      const n = normalizeRange(sel);
+      const rows: number[] = [];
+      for (let r = n.startRow; r <= n.endRow; r++) {
+        const next = remapRow(r);
+        if (next < 0) return null;
+        rows.push(next);
+      }
+      const cols: number[] = [];
+      for (let c = n.startCol; c <= n.endCol; c++) {
+        const next = remapCol(c);
+        if (next < 0) return null;
+        cols.push(next);
+      }
+      const rowLo = Math.min(...rows);
+      const rowHi = Math.max(...rows);
+      const colLo = Math.min(...cols);
+      const colHi = Math.max(...cols);
+      if (rowHi - rowLo + 1 !== rows.length) return null;
+      if (colHi - colLo + 1 !== cols.length) return null;
+      return { startRow: rowLo, startCol: colLo, endRow: rowHi, endCol: colHi };
+    });
+    setFillDrag(null);
+    setIsRangeSelecting(false);
+  }
+
   const gridRef = useRef<HTMLTableElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const mousePositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -181,10 +274,28 @@ export function AllocationGrid({
     };
   }, [fillDrag, isRangeSelecting]);
 
-  // Clear selection when clicking outside the grid
+  /*
+   * Clear selection when clicking outside the grid.
+   *
+   * ⚠️ Scoped to the SCROLL CONTAINER, not the <table>. `createPortal` appears
+   * nowhere in src/, so the ConfirmDialog below renders in place as a sibling of
+   * the table but INSIDE this container, while BaseDialog's root is a
+   * full-viewport `fixed inset-0` backdrop. Measured against the table:
+   * table.contains(backdrop) is false and scrollContainer.contains(backdrop) is
+   * true, so the mousedown that opened or confirmed that dialog counted as
+   * "outside" and cleared the selection by accident.
+   *
+   * ⚠️ That accident was LOAD-BEARING — it was the only thing making row removal
+   * safe under positional selection. On its own this change is a REGRESSION:
+   * measured 2026-09-04, removing a member through the dialog and then pressing
+   * Delete wrote to a member the user never selected. It is safe only alongside
+   * the remap above and the pendingDeleteId gate below; do not split them.
+   *
+   * ⚠️ User-visible consequence: Cancel on the Remove dialog no longer deselects.
+   */
   useEffect(() => {
     const handleMouseDown = (e: MouseEvent) => {
-      if (gridRef.current && !gridRef.current.contains(e.target as Node)) {
+      if (scrollContainerRef.current && !scrollContainerRef.current.contains(e.target as Node)) {
         commitEdit();
         setSelection(null);
         setEditingCell(null);
@@ -198,7 +309,20 @@ export function AllocationGrid({
   // Keyboard navigation (arrow keys, Enter, Escape, Tab, Delete, digit entry)
   useGridKeyboard({
     readonly,
-    focusedCell,
+    /*
+     * WI-4 — suppress grid keyboard handling while the Remove dialog is open.
+     * Passing null trips the hook's own `if (!focusedCell) return`, so this needs
+     * no new hook input and covers Escape as well as Delete/Backspace (that guard
+     * sits above the editingCell branch).
+     *
+     * ⚠️ It does NOT strand an in-flight edit, and that was measured rather than
+     * reasoned (2026-09-04). BaseDialog focus-traps on mount, which blurs the cell
+     * <input>, whose onBlur runs commitEdit. Checkpointed at the moment the dialog
+     * appears: the input is already out of the DOM, editingCell is already null,
+     * and the pending value has already been written. There is no open editor for
+     * this gate to make inert.
+     */
+    focusedCell: pendingDeleteId ? null : focusedCell,
     editingCell,
     selection,
     teamMembers,
