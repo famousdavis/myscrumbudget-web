@@ -43,7 +43,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within, createEvent } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import DashboardPage from '../page';
 import { ToastProvider } from '@/components/Toast';
@@ -146,6 +146,25 @@ function cardFor(name: string): HTMLElement {
   const card = heading.closest('[draggable]');
   if (!card) throw new Error(`no draggable card found for "${name}"`);
   return card as HTMLElement;
+}
+
+/** jsdom lays nothing out; every rect is all-zero unless injected. */
+function stubRect(el: HTMLElement, r: { left: number; top: number; width: number; height: number }) {
+  el.getBoundingClientRect = () =>
+    ({ ...r, x: r.left, y: r.top, right: r.left + r.width, bottom: r.top + r.height, toJSON: () => ({}) }) as DOMRect;
+}
+
+/**
+ * jsdom implements no `DragEvent`, so `fireEvent.drop(el, { clientX })` falls back
+ * to a plain `Event` and SILENTLY DISCARDS the coordinates — they arrive
+ * `undefined` and every distance becomes NaN, with no error. Define them
+ * explicitly on the event.
+ */
+function dropAt(el: Element, clientX: number, clientY: number) {
+  const event = createEvent.drop(el, { dataTransfer: dragStub() });
+  Object.defineProperty(event, 'clientX', { value: clientX });
+  Object.defineProperty(event, 'clientY', { value: clientY });
+  fireEvent(el, event);
 }
 
 beforeEach(async () => {
@@ -311,6 +330,79 @@ describe('DashboardPage — drag-to-reorder is bound to the FULL project list', 
     const stored = await repo.getProjects();
     expect(stored.map((p) => p.id)).toEqual(['z', 'b', 'a']);
     expect(stored.find((p) => p.id === 'z')?.archived).toBe(true);
+  });
+
+  /**
+   * ⚠️ THIS TEST IS NEW RATHER THAN A TWEAK OF THE TWO ABOVE, AND THE REASON IS
+   * THE WHOLE POINT OF IT. Both existing tests drop on a CARD, so they never
+   * enter the container path at all — mutating the container to resolve a
+   * POSITION instead of an id leaves both of them green. They guard the card
+   * half of the full-list/visible-list bridge; nothing guarded the container
+   * half, because until v0.37.17 there was no container half.
+   *
+   * The fixture inherits the seeded-FIRST discipline from the test above for the
+   * same v0.37.12 reason, and adds one of its own: with 'z' hidden, Borealis sits
+   * at VISIBLE index 1 and FULL index 2. Those two numbers must differ, or a
+   * position-based container would produce the right answer by accident and this
+   * test would prove nothing.
+   */
+  it('[FAILS-TODAY] a drop in EMPTY GRID SPACE reorders by id, with a hidden archived project intact', async () => {
+    await repo.saveProject(makeProject('z', 'Zephyr', { archived: true }));
+    await repo.saveProject(makeProject('a', 'Apollo'));
+    await repo.saveProject(makeProject('b', 'Borealis'));
+
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText('Apollo')).toBeInTheDocument());
+    expect(screen.queryByText('Zephyr')).not.toBeInTheDocument();
+
+    const apollo = cardFor('Apollo');
+    const borealis = cardFor('Borealis');
+    const grid = apollo.parentElement;
+    if (!grid) throw new Error('no grid container');
+
+    // Two visible cards in row 1 of a 3-column grid; the third cell is empty.
+    // jsdom lays nothing out, so the rects are injected — see the header of
+    // useDragReorder.test.tsx for why that is a precondition, not a shortcut.
+    stubRect(apollo, { left: 256, top: 340, width: 373, height: 174 });
+    stubRect(borealis, { left: 645, top: 340, width: 373, height: 174 });
+
+    fireEvent.dragStart(apollo, { dataTransfer: dragStub() });
+    dropAt(grid, 1221, 427); // the empty third cell — owned by no card
+
+    await waitFor(async () => {
+      const ids = (await repo.getProjects()).map((p) => p.id);
+      expect(ids.indexOf('a')).toBeGreaterThan(ids.indexOf('b'));
+    });
+
+    const stored = await repo.getProjects();
+    // Resolved by ID: target 'b' is at FULL index 2, so Apollo lands last.
+    // Resolved by POSITION it would be visible index 1 -> full ids[1] === 'a',
+    // the dragged project itself, and handleDrop would return without reordering.
+    expect(stored.map((p) => p.id), 'container must resolve an id, never an index').toEqual(['z', 'b', 'a']);
+    expect(stored.find((p) => p.id === 'z')?.archived).toBe(true);
+  });
+
+  /**
+   * The guard TypeScript cannot give. `ProjectCard` destructures a fixed prop
+   * list with no `...rest`, and JSX spreads skip excess-property checking, so an
+   * undeclared prop compiles clean and is silently dropped. `handlersFor` has
+   * returned `draggable: true` in exactly that state for many releases — invisible
+   * only because ProjectCard hardcodes the same value (disposition at
+   * ProjectCard.tsx). If `data-drag-id` regressed the same way, the container
+   * would hit-test nothing, every unit test above would stay green, and the fix
+   * would silently become a no-op.
+   */
+  it('[FAILS-TODAY] every rendered card carries data-drag-id in the DOM', async () => {
+    await repo.saveProject(makeProject('a', 'Apollo'));
+    await repo.saveProject(makeProject('b', 'Borealis'));
+
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText('Apollo')).toBeInTheDocument());
+
+    const grid = cardFor('Apollo').parentElement;
+    expect(grid?.querySelectorAll('[data-drag-id]')).toHaveLength(2);
+    expect(cardFor('Apollo').getAttribute('data-drag-id')).toBe('a');
+    expect(cardFor('Borealis').getAttribute('data-drag-id')).toBe('b');
   });
 
   it('survives a reorder while archived projects are VISIBLE too', async () => {
