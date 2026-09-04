@@ -105,7 +105,15 @@ export function AllocationGrid({
    *
    * ⚠️ CONTENT-KEYED, never reference-keyed. useTeam memoises `members` on
    * [project, pool], so every allocation edit yields a NEW array with identical
-   * content; a reference compare would clear the selection on every keystroke.
+   * content, and a reference compare would re-run this block on every render.
+   * ⚠️ The harm is NOT a lost selection — remapping identical content is the
+   * identity map, so focus and selection survive either way, and no assertion
+   * about them can tell the two apart (measured: a reference-keyed build passes
+   * every other test in AllocationGridSelection.test.tsx). What breaks is
+   * `setFillDrag(null)` / `setIsRangeSelecting(false)` firing on every render,
+   * which KILLS AN IN-PROGRESS DRAG whenever the parent re-renders. Measured
+   * 2026-09-04: a range drag stops extending after one cell and a fill drag
+   * commits nothing. That is what the two drag-survival tests pin.
    *
    * ⚠️ ALL FIVE POSITIONAL STATES ARE HANDLED HERE — focusedCell, editingCell,
    * selection, fillDrag, isRangeSelecting — and nothing enforces that. If you add

@@ -405,6 +405,48 @@ describe('AllocationGrid — selection integrity across roster and window change
 
   // ───────────────────────── identity churn ─────────────────────────
 
+  it('an identity-only re-render does not cancel an in-progress RANGE drag', () => {
+    // Keying the remap on array identity rather than content re-runs it on every
+    // render, and the drag-cancel clause then fires mid-drag. No assertion about
+    // focus or selection can catch that: remapping identical content is the
+    // identity map, so those survive either way.
+    const onChange = vi.fn();
+    const roster = () => [{ ...ALICE }, { ...BOB }, { ...CARMEN }];
+    const { container, rerender } = render(
+      <AllocationGrid {...gridProps(roster(), MONTHS, onChange)} />,
+    );
+    fireEvent.mouseDown(cellAt(container, 0, 0)); // begin a range at Alice / 2026-01
+    rerender(<AllocationGrid {...gridProps(roster(), [...MONTHS], onChange)} />);
+    fireEvent.mouseEnter(cellAt(container, 2, 0)); // extend to Carmen
+    fireEvent.mouseUp(window);
+    fireEvent.keyDown(document.body, { key: 'Delete' });
+
+    expect(onChange.mock.calls).toEqual([
+      ['tm-alice', '2026-01', 0],
+      ['tm-bob', '2026-01', 0],
+      ['tm-carmen', '2026-01', 0],
+    ]);
+  });
+
+  it('an identity-only re-render does not cancel an in-progress FILL drag', () => {
+    const onChange = vi.fn();
+    const roster = () => [{ ...ALICE }, { ...BOB }, { ...CARMEN }];
+    const { container, rerender } = render(
+      <AllocationGrid {...gridProps(roster(), MONTHS, onChange)} />,
+    );
+    fireEvent.mouseDown(cellAt(container, 0, 0));
+    fireEvent.mouseUp(window);
+    fireEvent.mouseDown(container.querySelector('[data-fill-handle="true"]') as HTMLElement);
+    rerender(<AllocationGrid {...gridProps(roster(), [...MONTHS], onChange)} />);
+    fireEvent.mouseEnter(cellAt(container, 2, 0));
+    fireEvent.mouseUp(window);
+
+    expect(onChange.mock.calls).toEqual([
+      ['tm-bob', '2026-01', 0.5],
+      ['tm-carmen', '2026-01', 0.5],
+    ]);
+  });
+
   it('a new roster array with identical content does not reset the selection', () => {
     // useTeam memoises on [project, pool], so every allocation edit hands the grid
     // a fresh array. Keying the remap on reference rather than content would clear
