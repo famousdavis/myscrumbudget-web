@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.37.16',
+    date: '2026-09-04',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'The Getting Started checklist now completes step 1 when you follow its own link. "Review Labor Rates" opened Settings with the Labor Rate Table collapsed, and the step was only ever marked done if you happened to expand that table yourself. Following the link and coming back therefore left step 1 still showing "1", as though you had not done it. The link now opens the rate table for you and marks the step complete. Reaching Settings any other way still leaves the step outstanding until you actually open the table.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.37.15',
     date: '2026-09-04',
     sections: [
