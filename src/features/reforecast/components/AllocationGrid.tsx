@@ -119,13 +119,28 @@ export function AllocationGrid({
    * selection, fillDrag, isRangeSelecting — and nothing enforces that. If you add
    * another piece of state holding a row/col, ADD IT HERE TOO.
    *
-   * ⚠️ `setFillDrag(null)` is NOT redundant with the remap; do not drop it as
-   * dead. It closes a path the render-time argument above does not reach:
-   * computeFillRegion's vertical branch dereferences rows src.startRow..src.endRow
-   * but EMITS rows src.endRow+1..current.row, so the fill-commit loop in the
-   * mouseup effect below can throw on a row render never touched. Measured at
-   * HEAD 2026-09-04: render survives, mouseup throws, and the loop had already
-   * PERSISTED part of the fill before aborting.
+   * ⚠️⚠️ `setFillDrag(null)` IS NOT REDUNDANT WITH THE REMAP. Do not delete it as
+   * dead in a later cleanup — its necessity is invisible from the argument that
+   * motivated everything above it, which is exactly why it needs saying here.
+   * The render-time reasoning does NOT reach the path it closes:
+   *   - computeFillRegion's vertical branch DEREFERENCES rows
+   *     src.startRow..src.endRow but EMITS rows src.endRow+1..current.row. The
+   *     emitted rows lie entirely BELOW the dereferenced ones, so with a stale
+   *     end row the fill-commit loop in the mouseup effect below throws on a row
+   *     RENDER NEVER TOUCHED. Render survives; there is nothing for an
+   *     adjust-state-before-children argument to prevent.
+   *   - `onAllocationChange` is called INSIDE that loop and `setFillDrag(null)`
+   *     sits AFTER it, so a mid-loop throw both persists the earlier cells and
+   *     skips the reset.
+   * Measured at HEAD 2026-09-04, and the second half is the worse half: one
+   * mouseup wrote a single cell and threw, the fill preview was STILL RENDERED
+   * afterwards, and a SECOND mouseup threw again and re-wrote the same cell.
+   * The drag is not merely aborted — it is left live and failing, re-writing on
+   * every subsequent mouse release until the page is reloaded.
+   * ⚠️ Pinned by the test 'a downward fill commit after the roster shrinks
+   * writes nothing rather than partially applying' in
+   * __tests__/AllocationGridSelection.test.tsx. That test, not this comment, is
+   * what fails if the line goes.
    */
   const rowIds = teamMembers.map((m) => m.id);
   const gridKey = `${rowIds.join('|')}#${months.join('|')}`;
