@@ -258,6 +258,33 @@ export function AllocationGrid({
     return () => window.removeEventListener('mouseup', handleMouseUp);
   }, [fillDrag, isRangeSelecting, allocationMap, teamMembers, months, onAllocationChange]);
 
+  /*
+   * Cancel an in-flight drag when the window loses focus. Without this, alt-tabbing
+   * mid-fill leaves the drag live: measured at v0.37.14 the preview survived the
+   * blur and the next mouseup COMMITTED the fill the user had walked away from.
+   *
+   * ⚠️ TWO MECHANISMS, OPPOSITE TREATMENT — one sentence covering two things that
+   * must not be collapsed.
+   *   - fillDrag has a destructive commit, so cancelling means DISCARDING it.
+   *   - Range selection has no destructive branch; "commit" and "cancel" are the
+   *     same operation. Stopping the drag stops the EXTENSION only.
+   * ⚠️ `selection` IS DELIBERATELY NOT TOUCHED. Reading "cancel" as "undo" and
+   * clearing it would lose the user's selection every time they alt-tab away —
+   * measured at v0.37.14, a completed 2-cell selection survives a window blur and
+   * Delete still targets both cells. That must stay true.
+   * ⚠️ And do NOT reuse the mouseup handler above for this: it COMMITS the fill,
+   * which is the exact bug this guard exists to prevent.
+   */
+  useEffect(() => {
+    if (!fillDrag && !isRangeSelecting) return;
+    const handleWindowBlur = () => {
+      setFillDrag(null);
+      setIsRangeSelecting(false);
+    };
+    window.addEventListener('blur', handleWindowBlur);
+    return () => window.removeEventListener('blur', handleWindowBlur);
+  }, [fillDrag, isRangeSelecting]);
+
   // Prevent text selection during drag
   useEffect(() => {
     if (!fillDrag && !isRangeSelecting) return;
@@ -360,7 +387,33 @@ export function AllocationGrid({
   });
 
   // --- Cell interaction callbacks ---
-  const handleCellMouseDown = useCallback((rowIdx: number, colIdx: number, shiftKey: boolean) => {
+  const handleCellMouseDown = useCallback((rowIdx: number, colIdx: number, shiftKey: boolean, button: number) => {
+    /*
+     * Non-primary buttons must not move the selection. Measured at v0.37.14: a
+     * right-click inside a 9-cell selection collapsed it to a single cell.
+     *
+     * ⚠️ This guard is a SUPERSET of that fix and is safe only by circumstance.
+     * The spreadsheet idiom is asymmetric — right-click INSIDE a selection keeps
+     * it, right-click OUTSIDE moves it — and this gives neither: it makes
+     * right-click inert. That is acceptable here ONLY BECAUSE nothing in this app
+     * renders a context menu (`onContextMenu|contextmenu` matched 0 files in
+     * src/, checked 2026-09-04), so there is no menu whose target could disagree
+     * with the selection. If one is ever added, this must become the asymmetric
+     * rule rather than staying a blanket return.
+     *
+     * ⚠️ commitEdit() STILL RUNS. Do not "simplify" this to a bare early return.
+     * Right-clicking another cell while an editor is open commits the pending
+     * value today (measured at v0.37.14); a bare return would leave that commit
+     * to the input's own onBlur, which fires in Chromium but is unverified on
+     * WebKit and Gecko. v0.37.14 also scoped the click-outside handler to the
+     * scroll container, so that second route no longer covers a right-click on
+     * another CELL either. Committing here keeps the shipped behaviour and
+     * removes the browser dependency.
+     */
+    if (button !== 0) {
+      commitEdit();
+      return;
+    }
     commitEdit();
     setFocusedCell({ row: rowIdx, col: colIdx });
 
@@ -447,7 +500,18 @@ export function AllocationGrid({
         ref={gridRef}
         className="border-collapse text-base select-none"
         tabIndex={0}
-        onFocus={() => {
+        onFocus={(e) => {
+          /*
+           * React's onFocus is delivered via focusin, which BUBBLES, so without
+           * this every focusable descendant triggered it. Measured at v0.37.14:
+           * focusing a row's remove button selected cell (0,0), and a Delete
+           * pressed afterwards zeroed an allocation the user never touched —
+           * tabbing to a remove button silently armed a destructive keystroke on
+           * an unrelated cell. "+ Add member" did the same.
+           * ⚠️ Focusing the TABLE itself must still select (0,0); that is the
+           * keyboard entry point, not a bug.
+           */
+          if (e.target !== e.currentTarget) return;
           if (!focusedCell && teamMembers.length > 0 && months.length > 0) {
             setFocusedCell({ row: 0, col: 0 });
             setSelection({ startRow: 0, startCol: 0, endRow: 0, endCol: 0 });

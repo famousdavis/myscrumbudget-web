@@ -29,7 +29,7 @@ interface AllocationGridRowProps {
   teamMembers: TeamMember[];
   onInputChange: (value: string) => void;
   onCellCommitEdit: () => void;
-  onCellMouseDown: (rowIdx: number, colIdx: number, shiftKey: boolean) => void;
+  onCellMouseDown: (rowIdx: number, colIdx: number, shiftKey: boolean, button: number) => void;
   onCellMouseEnter: (rowIdx: number, colIdx: number) => void;
   onCellDoubleClick: (rowIdx: number, colIdx: number, pctValue: number) => void;
   onFillHandleMouseDown: (rowIdx: number, colIdx: number, normalizedSel: SelectionRange) => void;
@@ -113,7 +113,7 @@ export function AllocationGridRow({
       onDragLeave={dragHandlers.onDragLeave}
       onDrop={dragHandlers.onDrop}
     >
-      <td className="sticky left-0 z-10 border border-zinc-200 bg-white px-1 py-1 dark:border-zinc-700 dark:bg-zinc-950">
+      <td className="sticky left-0 z-[25] border border-zinc-200 bg-white px-1 py-1 dark:border-zinc-700 dark:bg-zinc-950">
         <div className="flex items-center gap-1 px-1 text-sm font-medium whitespace-nowrap">
           {hasRowControls && canReorder && (
             <div
@@ -205,7 +205,7 @@ export function AllocationGridRow({
             onMouseDown={(e) => {
               if ((e.target as HTMLElement).dataset.fillHandle) return;
               if (isEditing) return;
-              onCellMouseDown(rowIdx, colIdx, e.shiftKey);
+              onCellMouseDown(rowIdx, colIdx, e.shiftKey, e.button);
             }}
             onMouseEnter={() => onCellMouseEnter(rowIdx, colIdx)}
             onDoubleClick={() => onCellDoubleClick(rowIdx, colIdx, pctValue)}
@@ -245,7 +245,7 @@ export function AllocationGridRow({
         );
       })}
       {hasRowControls && (
-        <td className="sticky right-0 z-10 border border-zinc-200 bg-white px-2 py-1 text-center dark:border-zinc-700 dark:bg-zinc-950">
+        <td className="sticky right-0 z-[25] border border-zinc-200 bg-white px-2 py-1 text-center dark:border-zinc-700 dark:bg-zinc-950">
           <button
             onClick={() => onDeleteClick(member.id)}
             className="text-sm text-zinc-300 hover:text-red-500 dark:text-zinc-600 dark:hover:text-red-400"
