@@ -274,6 +274,14 @@ export function AllocationGrid({
    * Delete still targets both cells. That must stay true.
    * ⚠️ And do NOT reuse the mouseup handler above for this: it COMMITS the fill,
    * which is the exact bug this guard exists to prevent.
+   *
+   * ⚠️ ESCAPE IS DELIBERATELY NOT A TRIGGER HERE, and that is a scoping decision
+   * rather than an oversight. Measured at v0.37.14: Escape during a fill drag does
+   * nothing at all — the preview survives and the next mouseup still commits. It
+   * is not closed here because the keyboard lives in useGridKeyboard, so adding it
+   * means giving that hook setFillDrag/setIsRangeSelecting as new inputs, which is
+   * a wider change than this release is scoped for. Recorded 2026-09-04 as a
+   * follow-up candidate, not as a gap someone should quietly patch in passing.
    */
   useEffect(() => {
     if (!fillDrag && !isRangeSelecting) return;
@@ -401,14 +409,21 @@ export function AllocationGrid({
      * with the selection. If one is ever added, this must become the asymmetric
      * rule rather than staying a blanket return.
      *
-     * ⚠️ commitEdit() STILL RUNS. Do not "simplify" this to a bare early return.
+     * ⚠️ commitEdit() STILL RUNS, and the guard is HERE rather than in the row
+     * for that reason alone. Do not "simplify" it to a bare early return, and do
+     * not move it up into AllocationGridRow's onMouseDown.
      * Right-clicking another cell while an editor is open commits the pending
-     * value today (measured at v0.37.14); a bare return would leave that commit
-     * to the input's own onBlur, which fires in Chromium but is unverified on
-     * WebKit and Gecko. v0.37.14 also scoped the click-outside handler to the
-     * scroll container, so that second route no longer covers a right-click on
-     * another CELL either. Committing here keeps the shipped behaviour and
-     * removes the browser dependency.
+     * value today (measured at v0.37.14), and the call below is the ONLY thing
+     * that does it. ⚠️ The click-outside handler is NOT a fallback here and never
+     * was: a <td> sits inside both the <table> and the scroll container, so its
+     * `!contains(target)` test is false on any cell click under either scoping.
+     * (What v0.37.14 did narrow is the BLANK SPACE beside a narrow table, which
+     * used to be outside the <table> and is inside the scroll container — a real
+     * change, but not one that touches cells.)
+     * So a guard that returns before this function runs would leave the commit to
+     * the input's own onBlur, which is verified in Chromium and unverified on
+     * WebKit and Gecko. Committing here keeps the shipped behaviour and removes
+     * the browser dependency.
      */
     if (button !== 0) {
       commitEdit();
