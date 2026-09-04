@@ -4,11 +4,12 @@
 
 'use client';
 
-import { Fragment, useState, useCallback } from 'react';
+import { Fragment, useState, useCallback, useEffect } from 'react';
 import type { Settings, LaborRate } from '@/types/domain';
 import { CollapsibleSection } from '@/components/CollapsibleSection';
 import { ConfirmDialog } from '@/components/BaseDialog';
 import { STORAGE_KEYS } from '@/types/storage';
+import { SETTINGS_SECTION_PARAM, RATES_SECTION_VALUE } from '@/lib/constants';
 
 /** What a Save carries when it is a RENAME rather than a rate-only edit. */
 export interface RoleRenameRequest {
@@ -260,8 +261,65 @@ export function RateTable({
     try { localStorage.setItem(STORAGE_KEYS.ratesReviewed, '1'); } catch { /* quota */ }
   }, []);
 
+  /**
+   * Deep-link arrival from the Dashboard's Getting Started step 1
+   * (`/settings?section=rates`): open this section and mark step 1 reviewed.
+   *
+   * ⚠️ THIS WRITE IS NOT REDUNDANT WITH `onOpen`, AND DELETING IT SILENTLY
+   * RESTORES THE DEFECT. `CollapsibleSection` calls `onOpen` from exactly one
+   * place — inside `toggle()`, which runs only on a header CLICK. MEASURED
+   * 2026-09-04 with a controlled host: flipping the `open` prop opens the
+   * section and fires `onOpen` ZERO times. Before v0.37.16 the step-1 link was
+   * a bare `/settings`, so the user landed here with the table COLLAPSED, the
+   * flag was never written, and the checklist step never completed.
+   *
+   * ⚠️ READ WITH THE PLAIN URL API, NEVER `useSearchParams`. That hook forces a
+   * Suspense boundary or an App Router prerender failure. This repo avoids it
+   * deliberately: `useInvitationLanding.ts:73` reads `?invite=` the same way,
+   * and `InvitationBanner.tsx:18` records that its Suspense boundary is "not
+   * strictly required" precisely BECAUSE the hook is avoided.
+   *
+   * ⚠️ THE PARAM IS STRIPPED ON PURPOSE. Left in place it survives a reload, so
+   * the section would re-open on every refresh and defeat the user's own
+   * collapse. `replaceState` does not notify the Next router, which is safe here
+   * for a MEASURED reason rather than an assumed one: 2026-09-04, three files
+   * import from 'next/navigation' and ZERO import `useSearchParams`, so nothing
+   * reads this param reactively. (A bare `grep useSearchParams src` reads 4 and
+   * every hit is a comment — the import is the honest instrument.) Same shape
+   * and same reasoning as `useInvitationLanding.ts:77`.
+   */
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get(SETTINGS_SECTION_PARAM) !== RATES_SECTION_VALUE) return;
+      // ⚠️ THE EFFECT FORM IS REQUIRED, NOT A STYLE CHOICE, so this directive is
+      // not a lint dodge. The obvious way to avoid it — `useState(() => …)`
+      // reading the URL in a lazy initializer — is the exact construct that
+      // shipped a production hydration error in `FirstRunBanner` (v0.36.2) and
+      // that `page.tsx:45-56` records as unsafe in general. It would be harmless
+      // here only by accident of nesting (Settings renders inside
+      // `MigrationGuard`, which renders nothing on the server or on the client's
+      // first render), and reproducing a documented anti-pattern to satisfy a
+      // lint rule is the wrong trade. Same shape, same reason, and same
+      // directive as `LocalStorageWarningBanner.tsx:22-25`.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setOpen(true);
+      handleRatesOpen();
+      url.searchParams.delete(SETTINGS_SECTION_PARAM);
+      window.history.replaceState({}, '', url.pathname + url.search + url.hash);
+    } catch { /* SSR/edge — no-op */ }
+  }, [handleRatesOpen]);
+
   return (
-    <CollapsibleSection title="Labor Rate Table" count={rates.length} onOpen={handleRatesOpen}>
+    <CollapsibleSection
+      title="Labor Rate Table"
+      count={rates.length}
+      open={open}
+      onOpenChange={setOpen}
+      onOpen={handleRatesOpen}
+    >
       <table className="w-full max-w-md text-sm">
         <thead>
           <tr className="border-b border-zinc-200 dark:border-zinc-700">

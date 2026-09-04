@@ -18,7 +18,7 @@
  * both, Delete removed both.
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { useState } from 'react';
 import { render, screen, fireEvent, within, act } from '@testing-library/react';
 import type { Settings, LaborRate } from '@/types/domain';
@@ -550,5 +550,71 @@ describe('RateTable — rename vs rate-only, and the two double-click properties
 
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(screen.getAllByRole('row').slice(1)).toHaveLength(2);
+  });
+});
+
+/**
+ * WI-3 (v0.37.16) — the Getting Started deep link.
+ *
+ * ⚠️ THIS BLOCK CARRIES ITS OWN `beforeEach` AND THAT IS LOAD-BEARING, NOT
+ * TIDINESS. This file has NO file-scoped setup, and every one of the 24 tests
+ * above calls `renderTable()`, which CLICKS the section header — so by the time
+ * execution reaches here `msb:ratesReviewed` is already '1' and the URL is
+ * whatever the last test left. Without the reset below, the "marks nothing"
+ * test would be asserting over state it did not create: it would fail on
+ * leftovers rather than on the behaviour it names, and the deep-link test would
+ * pass whether or not the effect ran.
+ */
+describe('RateTable — Getting Started deep link (v0.37.16)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    window.history.replaceState({}, '', '/settings');
+  });
+
+  function renderPlain() {
+    return render(
+      <RateTable
+        rates={UNIQUE}
+        onUpdate={vi.fn()}
+        onRenameRole={vi.fn().mockResolvedValue(true)}
+        countOrphansIfDeleted={async () => 0}
+      />,
+    );
+  }
+
+  it('arriving at ?section=rates opens the section, marks step 1 reviewed, and strips the param', () => {
+    window.history.replaceState({}, '', '/settings?section=rates');
+    renderPlain();
+
+    // All three are one arrival, deliberately asserted together: the open state
+    // is what the user sees, the flag is what completes the checklist, and the
+    // strip is what stops the section re-opening on every later refresh.
+    expect(screen.getByText('Hourly Rate ($)')).toBeInTheDocument();
+    expect(localStorage.getItem('msb:ratesReviewed')).toBe('1');
+    expect(window.location.search).toBe('');
+    expect(window.location.pathname).toBe('/settings');
+  });
+
+  it('a plain /settings visit still lands COLLAPSED and marks nothing', () => {
+    // [REGRESSION] The deep link must not make every Settings visit count as a
+    // review. Reaching Settings by any other route leaves step 1 outstanding.
+    renderPlain();
+
+    expect(screen.queryByText('Hourly Rate ($)')).not.toBeInTheDocument();
+    expect(localStorage.getItem('msb:ratesReviewed')).toBeNull();
+  });
+
+  it('expanding the section by hand still marks step 1 reviewed', () => {
+    // [REGRESSION] The pre-v0.37.16 path, and nothing in this repo pinned it
+    // before now — the only other test naming this key is
+    // signOutCleanup.test.ts:35, which pins that it is CLEARED, not written.
+    // Making the section controlled must not cost the click path its write.
+    renderPlain();
+    expect(localStorage.getItem('msb:ratesReviewed')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: /Labor Rate Table/i }));
+
+    expect(screen.getByText('Hourly Rate ($)')).toBeInTheDocument();
+    expect(localStorage.getItem('msb:ratesReviewed')).toBe('1');
   });
 });

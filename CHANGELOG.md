@@ -4,6 +4,11 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.37.16] - 2026-09-04
+
+### Fixed
+- **The Getting Started checklist now completes step 1 when you follow its own link.** "Review Labor Rates" opened Settings with the Labor Rate Table collapsed, and the step was only ever marked done if you happened to expand that table yourself. Following the link and coming back therefore left step 1 still showing "1", as though you had not done it. The link now opens the rate table for you and marks the step complete. Reaching Settings any other way still leaves the step outstanding until you actually open the table.
+
 ## [0.37.15] - 2026-09-04
 
 ### Fixed

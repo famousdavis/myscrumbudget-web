@@ -18,6 +18,7 @@ import { STORAGE_KEYS } from '@/types/storage';
 import { useRepository } from '@/components/RepositoryProvider';
 import { useImportState } from '@/features/projects/hooks/useImportState';
 import { getDashboardEmptyState } from '@/features/projects/lib/dashboardCard';
+import { RATES_DEEP_LINK } from '@/lib/constants';
 import {
   ImportPreviewSection,
   ImportBanner,
@@ -258,7 +259,7 @@ export default function DashboardPage() {
                 {ratesReviewed ? '\u2713' : '1'}
               </span>
               <div>
-                <Link href="/settings" className="text-sm font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
+                <Link href={RATES_DEEP_LINK} className="text-sm font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
                   Review Labor Rates
                 </Link>
                 <p className="text-sm text-zinc-500 dark:text-zinc-400">
