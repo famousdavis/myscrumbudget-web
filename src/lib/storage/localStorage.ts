@@ -157,13 +157,50 @@ export function createLocalStorageRepository(): Repository {
       );
     },
 
+    /**
+     * CONTRACT: ids in `orderedIds` take that order; ids present in storage but
+     * ABSENT from `orderedIds` follow, in their existing relative order.
+     *
+     * ⚠️ Until v0.37.12 this wrote ONLY the ids it was handed, so a caller
+     * holding a stale picture of the list silently and permanently destroyed
+     * every project missing from it. Reachable by an ordinary user with two
+     * tabs: create a project in tab A, drag to reorder in tab B, and tab A's
+     * project is gone. Nothing corrects tab B in local mode — this file has zero
+     * `cloudSyncBus` references and no `storage` listener exists for
+     * `msb:projects` (`FirstRunBanner.tsx:57` is the only one, for another key).
+     *
+     * ⚠️ End-placement is not an arbitrary pick. `saveProject` pushes (:142),
+     * so new projects already go last here; and Firestore has implemented the
+     * same rule all along — `createProject` sets `order: projects.length` and
+     * `getProjects` sorts on `order`, so a project a stale tab never saw keeps
+     * the highest `order` and sorts last. The interface is named *reorder*, not
+     * *replace*. THIS implementation was the outlier; the fix makes it conform.
+     *
+     * ⚠⚠ BOUND, stated because the obvious stronger claim is FALSE: this never
+     * drops a project that `getProjects()` RETURNED. It is NOT "never reduces the
+     * stored project count". `getProjects` reads through `isValidProjectArray`,
+     * which is `.every(...)`, so ONE malformed stored project makes it return the
+     * `[]` fallback and this function then writes `[]`. Measured 2026-09-03 WITH
+     * this fix applied: three well-formed projects seeded alongside one malformed
+     * entry, all three destroyed by an ordinary drag. That is a separate, general
+     * localStorage hazard — `saveProject` and `deleteProject` read through the
+     * same fallback and would do the same — and is a named follow-up item by
+     * owner decision, deliberately NOT fixed here.
+     */
     async reorderProjects(orderedIds) {
       const projects = await repo.getProjects();
       const byId = new Map(projects.map((p) => [p.id, p]));
+      const handled = new Set(orderedIds);
       const reordered = orderedIds
         .map((id) => byId.get(id))
         .filter((p): p is Project => p !== undefined);
-      set(STORAGE_KEYS.projects, reordered);
+      // Unhandled projects follow, in storage order. When `orderedIds` covers
+      // every stored project nothing is appended and the write is byte-identical
+      // to the pre-v0.37.12 behaviour.
+      set(STORAGE_KEYS.projects, [
+        ...reordered,
+        ...projects.filter((p) => !handled.has(p.id)),
+      ]);
     },
 
     async exportAll() {

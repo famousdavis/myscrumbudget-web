@@ -64,9 +64,21 @@ export default function DashboardPage() {
   });
   const drag = useDragReorder(projects, 'id', reorderProjects);
   // Archived is a visibility filter only. `drag` above stays bound to the FULL
-  // `projects` list (never these filtered subsets): localStorage reorderProjects
-  // rebuilds storage from exactly the ids it is handed, so a filtered list would
-  // permanently delete hidden archived projects on the first reorder.
+  // `projects` list, never these filtered subsets.
+  //
+  // ⚠️ THE REASON CHANGED IN v0.37.12; THE RULE DID NOT. Until then, handing
+  // reorderProjects a filtered list PERMANENTLY DELETED every hidden archived
+  // project, because the localStorage implementation rebuilt storage from exactly
+  // the ids it was handed. That implementation now appends the ids it was not
+  // handed, so a filtered drag no longer destroys anything — it would instead
+  // silently MOVE every hidden archived project to the END of the order, on every
+  // single drag, permanently clustering them at the bottom and contradicting the
+  // v0.34.0 single-interleaved-grid design.
+  //
+  // ⚠️ That is a WEAKER consequence and a WEAKER-GUARDED one: nobody files "my
+  // archived project moved". The invariant survives as a rule about ORDER rather
+  // than existence, and it is pinned by a test that had to have its FIXTURE fixed
+  // to see it — see `src/app/__tests__/page.test.tsx`.
   const archivedProjects = projects.filter((p) => p.archived);
   const visibleProjects = showArchived ? projects : projects.filter((p) => !p.archived);
   const emptyState = getDashboardEmptyState(projects.length, visibleProjects.length);
