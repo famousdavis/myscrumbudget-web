@@ -66,12 +66,13 @@ function cellAt(container: HTMLElement, row: number, col: number): HTMLElement {
  * Both helpers key on ATTRIBUTES, never on class strings - see the <td> in
  * AllocationGridRow.tsx for the full reason.
  *
- * The short version: v0.37.18 gave the fill preview a dashed `outline-blue-500`,
- * which the SELECTION outline also uses. These two tests select a cell before
- * grabbing the fill handle, so the drag source is selected throughout - a
- * class-keyed fillPreviewCount would match that still-selected source and fail
- * `toBe(0)` outright. Attributes make the two states independent of styling, so
- * a later restyle cannot silently disarm the guard below.
+ * The short version: styling is not identity. For one release (v0.37.18) the
+ * fill preview and the SELECTION both carried `outline-blue-500`, and these two
+ * tests select a cell before grabbing the fill handle, so the drag source is
+ * selected throughout - a class-keyed fillPreviewCount would have matched that
+ * still-selected source and failed `toBe(0)` outright. v0.37.19 gave the two
+ * indicators different tokens; the attributes stay, so the next restyle cannot
+ * disarm the guard below by accident either.
  */
 function selectedCount(container: HTMLElement): number {
   return container.querySelectorAll('td[data-selected]').length;
@@ -230,20 +231,61 @@ describe('AllocationGrid — pointer and focus guards', () => {
     fireEvent.mouseEnter(cellAt(container, 2, 0)); // fills rows 1-2 of column 0
   }
 
-  it('a previewed cell carries the dashed indicator and an unpreviewed one does not', () => {
+  it('a previewed cell carries the neutral dashed indicator and an unpreviewed one does not', () => {
     const { container } = render(<AllocationGrid {...gridProps(vi.fn())} />);
     startFillDrag(container);
 
     const previewed = cellAt(container, 2, 0);
     expect(previewed.className, 'previewed cell must carry the dashed outline')
       .toContain('outline-dashed');
-    expect(previewed.className, 'and the ground-coloured ring that carries the contrast')
-      .toContain('ring-[3px]');
+    expect(previewed.className, 'in the neutral light-mode token')
+      .toContain('outline-zinc-600');
+    expect(previewed.className, 'and the neutral dark-mode token')
+      .toContain('dark:outline-zinc-400');
+    /*
+     * v0.37.18 sat the dash on a ground-coloured ring-[3px] because a BLUE dash
+     * collapsed on the filled bands. A neutral dash collapses on no band
+     * (measured minimum 167 across all 12 band x theme cells), so the ring is
+     * gone - and its absence is pinned, because re-adding it "for safety" costs
+     * 16% of the cell's own colour for contrast the dash no longer needs.
+     */
+    expect(previewed.className, 'the v0.37.18 ring must be gone')
+      .not.toContain('ring-[3px]');
 
     // Paired, per this file's convention: a cell outside the fill region gains neither.
     const untouched = cellAt(container, 0, 1);
     expect(untouched.className).not.toContain('outline-dashed');
-    expect(untouched.className).not.toContain('ring-[3px]');
+    expect(untouched.className).not.toContain('outline-zinc-600');
+  });
+
+  it('the preview indicator and the selection indicator use different colour tokens', () => {
+    /*
+     * v0.37.19. At v0.37.18 the preview was a dashed `outline-blue-500` and the
+     * selection a solid `outline-blue-500` - identical colour, identical width,
+     * differing by dash pattern alone (measured on `next start`: distance 0).
+     * The user read the selection as LOST the moment the fill handle was grabbed.
+     * Nothing was lost; it had merely stopped being distinguishable.
+     *
+     * jsdom cannot measure the colours (no Tailwind), so what is pinned here is
+     * the TOKEN DISJOINTNESS the browser measurement rests on: the preview must
+     * not wear the selection's colour token, and the selection must be unchanged
+     * for the whole drag. The distances are browser-verified; see the release
+     * notes.
+     */
+    const { container } = render(<AllocationGrid {...gridProps(vi.fn())} />);
+    startFillDrag(container);
+
+    const previewed = cellAt(container, 2, 0);
+    const source = cellAt(container, 0, 0);
+    expect(previewed.className, 'the preview must NOT wear the selection colour')
+      .not.toContain('outline-blue-500');
+    // The selection is unchanged throughout the drag.
+    expect(source.className, 'the selected source keeps its solid blue outline mid-drag')
+      .toContain('outline outline-2 outline-blue-500');
+    expect(source.className, 'and does not become dashed')
+      .not.toContain('outline-dashed');
+    expect(source.hasAttribute('data-selected'), 'and stays marked selected')
+      .toBe(true);
   });
 
   it('a previewed cell RETAINS its own allocation colour', () => {
@@ -277,9 +319,11 @@ describe('AllocationGrid — pointer and focus guards', () => {
 
     /*
      * data-selected marks the drag SOURCE, which stays selected for the whole
-     * gesture - and that is exactly why the preview guard cannot be keyed on
-     * `outline-blue-500`: both states now carry it, so a class-keyed
-     * fillPreviewCount would match this cell and fail its `toBe(0)`.
+     * gesture - which is why the preview guard is not keyed on a class: at
+     * v0.37.18 both states carried `outline-blue-500`, and a class-keyed
+     * fillPreviewCount would have matched this cell and failed its `toBe(0)`.
+     * The tokens differ since v0.37.19; the attributes are what keep the two
+     * states independent of styling either way.
      */
     expect(cellAt(container, 0, 0).hasAttribute('data-selected'), 'the drag source is selected')
       .toBe(true);
