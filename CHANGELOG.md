@@ -4,6 +4,11 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.37.19] - 2026-09-04
+
+### Fixed
+- **The cells you selected stay visibly selected while you drag the fill handle.** The previous release marked the cells a fill-drag will change with a dashed blue border, but that blue is the same blue the grid uses for the selection itself, so the moment the fill handle was grabbed the selected cells and the cells about to be filled differed only by a dashed versus solid edge, and the selection looked lost. It was not lost; it had only stopped being distinguishable. The fill preview is now a dashed neutral grey (dark grey in light mode, light grey in dark mode), which sits apart from both the selection blue and every allocation shade. The light inner edge that accompanied the blue dash is no longer needed and has been removed, so a previewed cell shows more of its own allocation colour than before.
+
 ## [0.37.18] - 2026-09-04
 
 ### Fixed

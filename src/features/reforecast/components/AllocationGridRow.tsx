@@ -194,20 +194,43 @@ export function AllocationGridRow({
         }
         if (isInFillPreview) {
           /*
-           * DO NOT "simplify" this to a bare blue outline. Measured across all 12
-           * band x theme cells 2026-09-04: outline-blue-500 ALONE scores 51 light /
-           * 41 dark on a 100% cell. The ground-coloured inner ring is what carries
-           * the contrast (worst case 198/256, minimum 127/141).
-           * And no single blue token works: blue-600 IS the dark 100% fill,
-           * blue-700 the dark 90%, blue-800 the dark 75%.
-           * A per-theme pair (outline-blue-600 dark:outline-blue-400) also passes,
-           * at 91, and was REJECTED: it works only because those two happen to sit
-           * at the ramp's ends, so it preserves exactly the palette coupling this
-           * change exists to remove, and a future palette edit collapses its margin
-           * silently. The ring is coupled to the page ground, not to the data.
+           * The preview is a NEUTRAL dashed OUTLINE, and both words are load-bearing.
+           *
+           * OUTLINE, not a background: the tint this replaced at v0.37.18 was a
+           * member of the data ramp and asserted an allocation the cell did not
+           * have (see the comment above getAllocationColor).
+           *
+           * NEUTRAL, not blue: at v0.37.18 the dash was `outline-blue-500`, the
+           * SELECTION's own colour, so mid-drag the selected source and the
+           * previewed destinations differed by dash pattern alone (measured on
+           * `next start`: distance 0) and the user read the selection as lost.
+           * Zinc is in neither the allocation ramp nor the selection, so it
+           * collides with neither. Measured 2026-09-04 on RENDERED colours -
+           * Tailwind v4 emits lab(), so read the cell, never the hex you remember:
+           * minimum across all 12 band x theme cells 167 (dark 51-75%); against
+           * the selection 173 light / 148 dark. The bar is 100.
+           *
+           * NO RING. v0.37.18 sat its blue dash on a ground-coloured `ring-[3px]`
+           * because blue-on-blue collapsed (41 on the dark 100% cell). A neutral
+           * dash collapses on no band, so the ring has nothing left to carry, and
+           * removing it returns 91.6% of the cell's own colour (75.7% with it). Do
+           * not re-add it "for safety": it costs data colour and buys no contrast.
+           *
+           * This per-theme ZINC pair is not the per-theme BLUE pair v0.37.18
+           * declined. That one (blue-600 / blue-400) worked only because those
+           * tokens sit at the ramp's two ends, so it preserved the very coupling
+           * the change existed to remove; zinc is coupled to nothing that can
+           * move. Both halves ARE load-bearing, though: zinc-600 alone scores 75
+           * on dark 1-25%, zinc-400 alone 95 on light 76-99%, neither clears 100.
+           *
+           * If you rename either token, check the BUILT CSS emits it. A mistyped
+           * outline token does not render transparent - outline-color falls back
+           * to `currentcolor`, the TEXT colour, which looks like a deliberate dark
+           * outline. This string was verified by grepping the built CSS for both
+           * classes and asserting the computed outlineColor is the zinc lab().
            */
           cellClasses +=
-            ' outline-2 outline-dashed outline-blue-500 -outline-offset-1 ring-[3px] ring-inset ring-white dark:ring-zinc-950';
+            ' outline-2 outline-dashed outline-zinc-600 dark:outline-zinc-400 -outline-offset-1';
         }
 
         const textClasses = isMuted
@@ -235,12 +258,14 @@ export function AllocationGridRow({
              * cells by the class `bg-blue-200/60` and selected cells by
              * `outline-blue-500`.
              *
-             * A CLASS-BASED re-key does not merely age badly - it BREAKS
-             * IMMEDIATELY. That test selects a cell and releases the mouse BEFORE
-             * grabbing the fill handle, so the drag SOURCE is selected; the preview
-             * indicator and the selection outline now share `outline-blue-500`, so
-             * keying the preview helper on the class makes its `toBe(0)` assertion
-             * match the still-selected source and fail. Keep BOTH helpers on
+             * Styling is not identity, and v0.37.18 showed a class-based key does
+             * not merely age badly - it BREAKS: for that one release the preview
+             * and the selection both carried `outline-blue-500`, and that test
+             * selects a cell and releases the mouse BEFORE grabbing the fill
+             * handle, so the drag SOURCE stays selected - a class-keyed preview
+             * helper matched it and failed `toBe(0)`. v0.37.19 gave the two
+             * indicators different tokens; the attributes stay so that the next
+             * restyle cannot disarm the guards by accident. Keep BOTH helpers on
              * attributes. (Measured 2026-09-04.)
              */
             data-selected={showsSelectionOutline || undefined}
