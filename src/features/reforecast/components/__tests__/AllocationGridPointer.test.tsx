@@ -330,4 +330,136 @@ describe('AllocationGrid — pointer and focus guards', () => {
     expect(cellAt(container, 0, 0).hasAttribute('data-fill-preview'), 'and is NOT itself previewed')
       .toBe(false);
   });
+
+  // ───────────── WI-18 PR A3: the source is drawn from the drag ─────────────
+
+  /*
+   * v0.37.20. Reported in production on two engines: pressing the fill handle
+   * made the selected cells' borders vanish while the preview dashes and the
+   * copy itself kept working. The copy reads fillDrag.source; the source
+   * marking read `selection`. Whatever clears `selection` mid-drag on that
+   * machine (not reproduced in this suite or in a local browser), the marking
+   * must not depend on it.
+   *
+   * The clear is driven through the one path the DOM can reach: a mousedown
+   * outside the scroll container, which the click-outside effect turns into
+   * setSelection(null). It stands in for the unpinned trigger.
+   */
+  it('clearing the selection mid-drag leaves the source cells marked', () => {
+    const onChange = vi.fn();
+    const { container } = render(<AllocationGrid {...gridProps(onChange)} />);
+    startFillDrag(container);
+    expect(fillPreviewCount(container), 'precondition: a fill is previewing').toBe(2);
+    expect(cellAt(container, 0, 0).hasAttribute('data-selected'), 'precondition: the source is marked')
+      .toBe(true);
+
+    fireEvent.mouseDown(document.body); // outside the grid: clears `selection`
+
+    expect(fillPreviewCount(container), 'the drag itself must survive').toBe(2);
+    expect(cellAt(container, 0, 0).hasAttribute('data-selected'), 'the source must stay marked while the drag is live')
+      .toBe(true);
+    expect(cellAt(container, 0, 0).className, 'with its solid blue outline, not the dashed preview')
+      .toContain('outline outline-2 outline-blue-500');
+  });
+
+  it('after a drag whose selection was cleared, the dragged range is selected again', () => {
+    const onChange = vi.fn();
+    const { container } = render(<AllocationGrid {...gridProps(onChange)} />);
+    startFillDrag(container);
+    fireEvent.mouseDown(document.body);
+    fireEvent.mouseUp(window); // commits the fill
+
+    expect(onChange.mock.calls.length, 'the copy still lands').toBe(2);
+    expect(selectedCount(container), 'the source is selected again').toBe(1);
+    expect(cellAt(container, 0, 0).hasAttribute('data-selected'), 'and it is the dragged cell').toBe(true);
+    expect(container.querySelectorAll('[data-fill-handle]').length, 'with its handle back').toBe(1);
+  });
+
+  it('with the selection intact, a completed fill drag leaves it byte-identical - orientation included', () => {
+    /*
+     * The safety argument for shipping without a reproduction is that both
+     * halves are no-ops when `selection` survives. That is only true if the
+     * restore preserves the range's ORIENTATION: `selection` keeps its anchor
+     * in startRow/startCol, and a shift-click extends from that anchor. A
+     * restore that writes the NORMALISED source moves the anchor to the
+     * top-left, which this test can see.
+     */
+    const onChange = vi.fn();
+    const { container } = render(<AllocationGrid {...gridProps(onChange)} />);
+    // Select 2x2 by dragging from the bottom-right (1,1) UP to (0,0): anchor stays at (1,1).
+    fireEvent.mouseDown(cellAt(container, 1, 1));
+    fireEvent.mouseEnter(cellAt(container, 0, 0));
+    fireEvent.mouseUp(window);
+    expect(selectedCount(container), 'precondition: four cells selected').toBe(4);
+
+    // Fill from the handle (at the normalised bottom-right, (1,1)) down onto row 2.
+    fireEvent.mouseDown(container.querySelector('[data-fill-handle="true"]') as HTMLElement);
+    fireEvent.mouseEnter(cellAt(container, 2, 1));
+    expect(fillPreviewCount(container), 'precondition: two cells previewing').toBe(2);
+    fireEvent.mouseUp(window);
+
+    expect(selectedCount(container), 'the 2x2 is still selected').toBe(4);
+    // Shift-click (2,2): extending from anchor (1,1) gives a 2x2 = 4 cells;
+    // from a normalised anchor (0,0) it would give 3x3 = 9.
+    fireEvent.mouseDown(cellAt(container, 2, 2), { shiftKey: true });
+    expect(selectedCount(container), 'shift-extension still runs from the original anchor').toBe(4);
+  });
+
+  it('a drag cancelled by losing the window, after the selection was cleared, still ends with the source selected', () => {
+    const { container } = render(<AllocationGrid {...gridProps(vi.fn())} />);
+    startFillDrag(container);
+    fireEvent.mouseDown(document.body); // clears `selection` mid-drag
+    fireEvent.blur(window);             // cancels the drag
+
+    expect(fillPreviewCount(container), 'the preview is gone').toBe(0);
+    expect(selectedCount(container), 'and the source is selected again').toBe(1);
+  });
+
+  it('a press whose target unmounts before the click-outside listener runs is not a click outside', () => {
+    /*
+     * The trigger behind the report, reproduced in production on Brave and
+     * Safari and pinned locally with a real pointer. The fill handle's
+     * onMouseDown sets fillDrag; showFillHandle includes !fillDrag; so the
+     * handle unmounts its OWN event target. On a TRUSTED event the browser runs
+     * a microtask checkpoint between listeners and React flushes the update in
+     * it, so the grid's document-level click-outside listener receives a
+     * DETACHED node - measured {isConnected:false, contains:false,
+     * isTrusted:true}, against {isConnected:true, contains:true,
+     * isTrusted:false} for the same press dispatched synthetically - and cleared
+     * the selection as "outside".
+     *
+     * ⚠️ jsdom cannot reach that state through the handle: no microtask runs
+     * between listeners under fireEvent, and the handle's stopPropagation halts
+     * the event at the test container before it reaches document at all (in the
+     * app the React root IS document, so the listener runs regardless). What is
+     * pinned here is the listener's RULE - a detached target is not outside -
+     * with a stand-in: a node inside the scroll container with no React
+     * handler, removed by a body-level listener that runs before the grid's
+     * document listener. The browser timing is verified with a real pointer;
+     * see the release notes.
+     */
+    const onChange = vi.fn();
+    const { container } = render(<AllocationGrid {...gridProps(onChange)} />);
+    fireEvent.mouseDown(cellAt(container, 0, 0));
+    fireEvent.mouseUp(window);
+    expect(selectedCount(container), 'precondition: one cell selected').toBe(1);
+
+    const scroller = (container.querySelector('table') as HTMLElement).parentElement as HTMLElement;
+    const probe = document.createElement('span');
+    scroller.appendChild(probe);
+    const detach = () => probe.remove();
+    document.body.addEventListener('mousedown', detach);
+    try {
+      fireEvent.mouseDown(probe);
+    } finally {
+      document.body.removeEventListener('mousedown', detach);
+    }
+    expect(probe.isConnected, 'precondition: the target was detached before the document listener ran').toBe(false);
+    expect(selectedCount(container), 'a press whose target unmounted is not a click outside: the selection must survive')
+      .toBe(1);
+
+    // Paired: a genuine outside press, target still connected, must still clear.
+    fireEvent.mouseDown(document.body);
+    expect(selectedCount(container), 'a real outside press still clears the selection').toBe(0);
+  });
 });
