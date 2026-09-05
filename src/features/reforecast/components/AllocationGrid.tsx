@@ -24,6 +24,23 @@ import { AllocationGridAddRow } from './AllocationGridAddRow';
 
 type SortMode = 'none' | 'name' | 'role-name';
 
+/**
+ * The selection to hold after a fill drag ends. Keeps `prev` whenever it already
+ * covers the dragged source - preserving its orientation, i.e. the anchor that a
+ * shift-click extends from - and falls back to the source only when `prev` was
+ * cleared or replaced during the drag.
+ */
+function restoreSource(prev: SelectionRange | null, source: SelectionRange): SelectionRange {
+  if (prev) {
+    const a = normalizeRange(prev);
+    const b = normalizeRange(source);
+    if (a.startRow === b.startRow && a.startCol === b.startCol && a.endRow === b.endRow && a.endCol === b.endCol) {
+      return prev;
+    }
+  }
+  return source;
+}
+
 interface AllocationGridProps {
   months: string[];
   teamMembers: TeamMember[];
@@ -236,6 +253,7 @@ export function AllocationGrid({
 
     const handleMouseUp = () => {
       if (fillDrag) {
+        const { source } = fillDrag;
         const { cells, values } = computeFillRegion(
           fillDrag,
           allocationMap,
@@ -248,6 +266,7 @@ export function AllocationGrid({
           onAllocationChange(memberId, month, values[i]);
         }
         setFillDrag(null);
+        setSelection((prev) => restoreSource(prev, source));
       }
       if (isRangeSelecting) {
         setIsRangeSelecting(false);
@@ -286,6 +305,11 @@ export function AllocationGrid({
   useEffect(() => {
     if (!fillDrag && !isRangeSelecting) return;
     const handleWindowBlur = () => {
+      if (fillDrag) {
+        // A cancelled drag must not end with nothing selected either.
+        const { source } = fillDrag;
+        setSelection((prev) => restoreSource(prev, source));
+      }
       setFillDrag(null);
       setIsRangeSelecting(false);
     };
@@ -353,6 +377,35 @@ export function AllocationGrid({
    */
   useEffect(() => {
     const handleMouseDown = (e: MouseEvent) => {
+      /*
+       * A target that is no longer in the document was removed by its OWN
+       * handler, and that is not a click outside the grid.
+       *
+       * Reported in production on Brave and Safari and pinned locally with a
+       * real pointer (2026-09-04): the fill handle's onMouseDown sets fillDrag,
+       * showFillHandle includes !fillDrag, so the handle unmounts its own event
+       * target. On a TRUSTED event the browser runs a microtask checkpoint
+       * between listeners and React flushes the discrete update in it; this
+       * listener is registered after React's root listener on the same node
+       * (the App Router root is `document`), so it received a DETACHED node -
+       * measured {isConnected:false, contains:false, isTrusted:true}, against
+       * {isConnected:true, contains:true, isTrusted:false} for the same press
+       * dispatched synthetically. contains() was false, and every handle press
+       * cleared the selection and the focused cell and committed any editor.
+       * No synthetic instrument could see it: jsdom, fireEvent and
+       * dispatchEvent keep the stack busy, so the microtask never runs between
+       * listeners. Verified with a real pointer; the jsdom test detaches by
+       * hand (AllocationGridPointer.test.tsx).
+       *
+       * Bound, checked 2026-09-04: the fill handle is the only onMouseDown in
+       * the grid that unmounts its target. Buttons and the dialogs act on click,
+       * by which time nothing has unmounted (the Remove dialog's Cancel was
+       * checked with a real click), so a genuine outside click still clears.
+       * The one other self-unmounting mousedown target in src/ is the
+       * CloudStorageModal backdrop, outside the grid and reachable only after a
+       * click on the auth chip has already cleared the selection.
+       */
+      if (!(e.target instanceof Node) || !e.target.isConnected) return;
       if (scrollContainerRef.current && !scrollContainerRef.current.contains(e.target as Node)) {
         commitEdit();
         setSelection(null);
@@ -505,7 +558,30 @@ export function AllocationGrid({
     );
   }
 
+  /*
+   * While a fill drag is live the SOURCE marking is drawn from the drag's own
+   * record, not from `selection`.
+   *
+   * The two halves of the gesture used to read two states: the copy and the
+   * preview read `fillDrag`, the marking and the handle read `selection`. So
+   * anything that clears or replaces `selection` mid-drag produced exactly the
+   * reported symptom - borders gone, previews rendering, copy landing. The
+   * clearer turned out to be the click-outside listener above (fixed there),
+   * but the coupling is a defect on its own: the table's onFocus can replace
+   * `selection` with (0,0) too, and the next clearer would reproduce the report
+   * verbatim. `fillDrag.source` is the range the copy uses, so drawing the
+   * source from it cannot disagree with what gets written.
+   *
+   * ⚠️ Both this and the drag-end restore are NO-OPS while `selection` survives:
+   * the source was taken from the selection at handle-down, and restoreSource
+   * keeps the existing object when it covers the same cells, so the range's
+   * orientation - the anchor a shift-click extends from - is untouched. That
+   * is not automatic: `fillDrag.source` is NORMALISED, and writing it back
+   * would move the anchor to the top-left. Pinned by the byte-identical test
+   * in AllocationGridPointer.test.tsx.
+   */
   const normalizedSel = selection ? normalizeRange(selection) : null;
+  const sourceRange = fillDrag ? fillDrag.source : normalizedSel;
   const fillHandleRow = normalizedSel?.endRow ?? null;
   const fillHandleCol = normalizedSel?.endCol ?? null;
 
@@ -552,7 +628,7 @@ export function AllocationGrid({
               allocationMap={allocationMap}
               readonly={readonly}
               hasRowControls={hasRowControls}
-              normalizedSel={normalizedSel}
+              normalizedSel={sourceRange}
               editingCell={editingCell}
               focusedCell={focusedCell}
               fillDrag={fillDrag}
