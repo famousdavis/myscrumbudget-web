@@ -4,6 +4,11 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.37.20] - 2026-09-05
+
+### Fixed
+- **Pressing the fill handle no longer makes the selected cells lose their borders.** On a real mouse or trackpad the moment the fill handle was pressed the grid treated that press as a click outside the grid: the handle removes itself from the page as soon as a fill-drag starts, and the click-outside check ran a fraction later on an element that was no longer there. The selection was cleared, so the source cells lost their borders and the handle vanished, while the preview dashes and the copy itself carried on working from the drag's own record. This only happens with real pointer input, which is why automated tests never saw it. Two things changed: a press on an element that has just removed itself is no longer treated as a click outside the grid, and while a fill-drag is in progress the source cells are drawn from the drag itself, so they stay marked whatever happens to the selection, with the selection put back to the dragged range when the drag ends or is cancelled. Nothing changes when the selection was never lost, including which corner a Shift-click extends from.
+
 ## [0.37.19] - 2026-09-04
 
 ### Fixed
