@@ -4,6 +4,11 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.37.21] - 2026-09-05
+
+### Changed
+- **Finishing a fill-drag now leaves the grid with nothing selected.** Since v0.37.20 the cells you dragged from stayed selected after the copy landed. They no longer need to be, and leaving them selected was a small hazard: the selection is what the Delete key acts on, so coming back later and pressing Delete meaning to clear one cell would have cleared the whole range you had copied from. After a completed fill the grid is now in its resting state, with no selected or focused cell, so the next thing you do starts from a click. Cancelling a fill by switching away from the window still leaves your selection exactly as it was, including the corner a Shift-click extends from, because nothing was copied.
+
 ## [0.37.20] - 2026-09-05
 
 ### Fixed
