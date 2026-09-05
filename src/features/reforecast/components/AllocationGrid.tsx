@@ -25,10 +25,11 @@ import { AllocationGridAddRow } from './AllocationGridAddRow';
 type SortMode = 'none' | 'name' | 'role-name';
 
 /**
- * The selection to hold after a fill drag ends. Keeps `prev` whenever it already
- * covers the dragged source - preserving its orientation, i.e. the anchor that a
- * shift-click extends from - and falls back to the source only when `prev` was
- * cleared or replaced during the drag.
+ * The selection to hold after a fill drag is CANCELLED (window blur). Keeps
+ * `prev` whenever it already covers the dragged source - preserving its
+ * orientation, i.e. the anchor that a shift-click extends from - and falls back
+ * to the source only when `prev` was cleared or replaced during the drag. A
+ * COMMITTED fill clears the selection instead (see the mouseup handler).
  */
 function restoreSource(prev: SelectionRange | null, source: SelectionRange): SelectionRange {
   if (prev) {
@@ -253,7 +254,6 @@ export function AllocationGrid({
 
     const handleMouseUp = () => {
       if (fillDrag) {
-        const { source } = fillDrag;
         const { cells, values } = computeFillRegion(
           fillDrag,
           allocationMap,
@@ -266,7 +266,34 @@ export function AllocationGrid({
           onAllocationChange(memberId, month, values[i]);
         }
         setFillDrag(null);
-        setSelection((prev) => restoreSource(prev, source));
+        /*
+         * A completed fill leaves nothing selected and nothing focused. The
+         * owner's model is that a selection means "I am about to do something",
+         * and after a copy there is nothing left to do. The reason that decided
+         * it is safety, not tidiness: `selection` is what Delete and Backspace
+         * act on (useGridKeyboard zeroes the whole normalised range, gated on
+         * focusedCell), so a selection left standing after a copy is a live
+         * destructive target - finish a fill, come back later, press Delete
+         * meaning one cell, lose the whole source range. focusedCell is cleared
+         * too: alone it would keep the keyboard armed and wear a visible
+         * ring-blue-400 focus ring, which is not "no selected cells". The cost,
+         * accepted: arrow keys have nowhere to resume from until the next click.
+         * The table itself keeps DOM focus (the handle press preventDefaults and
+         * nothing blurs it), so a stray arrow key after a fill falls through to
+         * the browser's default - a scroll nudge - rather than moving a cell;
+         * that is the only user-visible residue of the cleared focus.
+         *
+         * v0.37.20 restored the selection here. That restore answered a
+         * screenshot of the v0.37.19 defect (the handle press clearing the
+         * selection), not a design gap, and is withdrawn. The CANCEL path below
+         * still restores, orientation included: nothing was copied there, so
+         * the user is left exactly where they were. Do not "unify" the two
+         * paths - the difference is pinned. Spreadsheets expand the selection
+         * to source + filled instead; judged not to win in a budgeting tool
+         * where a fill is occasional and the selection is the Delete target.
+         */
+        setSelection(null);
+        setFocusedCell(null);
       }
       if (isRangeSelecting) {
         setIsRangeSelecting(false);
@@ -572,13 +599,14 @@ export function AllocationGrid({
    * verbatim. `fillDrag.source` is the range the copy uses, so drawing the
    * source from it cannot disagree with what gets written.
    *
-   * ⚠️ Both this and the drag-end restore are NO-OPS while `selection` survives:
-   * the source was taken from the selection at handle-down, and restoreSource
-   * keeps the existing object when it covers the same cells, so the range's
-   * orientation - the anchor a shift-click extends from - is untouched. That
-   * is not automatic: `fillDrag.source` is NORMALISED, and writing it back
-   * would move the anchor to the top-left. Pinned by the byte-identical test
-   * in AllocationGridPointer.test.tsx.
+   * ⚠️ Both this and the cancel-path restore are NO-OPS while `selection`
+   * survives: the source was taken from the selection at handle-down, and
+   * restoreSource keeps the existing object when it covers the same cells, so
+   * the range's orientation - the anchor a shift-click extends from - is
+   * untouched. That is not automatic: `fillDrag.source` is NORMALISED, and
+   * writing it back would move the anchor to the top-left. Pinned by the
+   * cancelled-fill test in AllocationGridPointer.test.tsx. A COMMITTED fill
+   * clears the selection instead (v0.37.21; see the mouseup handler).
    */
   const normalizedSel = selection ? normalizeRange(selection) : null;
   const sourceRange = fillDrag ? fillDrag.source : normalizedSel;

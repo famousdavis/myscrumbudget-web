@@ -362,27 +362,58 @@ describe('AllocationGrid — pointer and focus guards', () => {
       .toContain('outline outline-2 outline-blue-500');
   });
 
-  it('after a drag whose selection was cleared, the dragged range is selected again', () => {
+  it('after a fill commits, nothing is selected and Delete writes nothing', () => {
+    /*
+     * v0.37.21. A completed fill leaves the grid with no selection. The reason
+     * that decided it is safety, not tidiness: `selection` is what Delete and
+     * Backspace act on (useGridKeyboard zeroes the whole normalised range), so
+     * a selection left standing after a copy is a live destructive target -
+     * finish a fill, come back later, press Delete meaning one cell, lose the
+     * whole source range. v0.37.20 restored the selection here; that answered a
+     * screenshot of the v0.37.19 defect, not a design gap.
+     */
     const onChange = vi.fn();
     const { container } = render(<AllocationGrid {...gridProps(onChange)} />);
     startFillDrag(container);
-    fireEvent.mouseDown(document.body);
     fireEvent.mouseUp(window); // commits the fill
 
-    expect(onChange.mock.calls.length, 'the copy still lands').toBe(2);
-    expect(selectedCount(container), 'the source is selected again').toBe(1);
-    expect(cellAt(container, 0, 0).hasAttribute('data-selected'), 'and it is the dragged cell').toBe(true);
-    expect(container.querySelectorAll('[data-fill-handle]').length, 'with its handle back').toBe(1);
+    expect(onChange.mock.calls, 'the copy itself is unaffected').toEqual([
+      ['tm-bob', '2026-01', 0.5],
+      ['tm-carmen', '2026-01', 0.5],
+    ]);
+    fireEvent.keyDown(document.body, { key: 'Delete' });
+    expect(onChange.mock.calls.length, 'Delete after a completed fill must write nothing').toBe(2);
+    expect(selectedCount(container), 'no cell is selected after the copy').toBe(0);
+    expect(container.querySelectorAll('[data-fill-handle]').length, 'and there is no handle to grab').toBe(0);
   });
 
-  it('with the selection intact, a completed fill drag leaves it byte-identical - orientation included', () => {
+  it('after a fill commits, no cell is focused: no focus ring, and the arrow keys have nowhere to resume from', () => {
     /*
-     * The safety argument for shipping without a reproduction is that both
-     * halves are no-ops when `selection` survives. That is only true if the
-     * restore preserves the range's ORIENTATION: `selection` keeps its anchor
-     * in startRow/startCol, and a shift-click extends from that anchor. A
-     * restore that writes the NORMALISED source moves the anchor to the
-     * top-left, which this test can see.
+     * focusedCell is independent state. Clearing only `selection` would disarm
+     * Delete but leave the last cell wearing the ring-2 ring-blue-400 focus
+     * ring, which is not "no selected cells whatsoever". The accepted cost is
+     * that keyboard navigation restarts from the next click.
+     */
+    const onChange = vi.fn();
+    const { container } = render(<AllocationGrid {...gridProps(onChange)} />);
+    startFillDrag(container);
+    fireEvent.mouseUp(window);
+
+    const ringed = [...container.querySelectorAll('td')].filter((td) => td.className.includes('ring-blue-400'));
+    expect(ringed.length, 'no cell wears the focus ring after the copy').toBe(0);
+    fireEvent.keyDown(document.body, { key: 'ArrowRight' });
+    expect(selectedCount(container), 'an arrow key after the copy selects nothing').toBe(0);
+  });
+
+  it('a cancelled fill leaves the selection byte-identical - orientation included', () => {
+    /*
+     * The cancel path keeps v0.37.20's restore: nothing was copied, so the user
+     * is left exactly where they were. "Exactly" includes the range's
+     * ORIENTATION: `selection` keeps its anchor in startRow/startCol, and a
+     * shift-click extends from that anchor. A restore that wrote the NORMALISED
+     * source (fillDrag.source is normalised) would move the anchor to the
+     * top-left, which this test can see. The commit path no longer restores at
+     * all (v0.37.21) - that difference is deliberate and F3 pins it.
      */
     const onChange = vi.fn();
     const { container } = render(<AllocationGrid {...gridProps(onChange)} />);
@@ -392,12 +423,14 @@ describe('AllocationGrid — pointer and focus guards', () => {
     fireEvent.mouseUp(window);
     expect(selectedCount(container), 'precondition: four cells selected').toBe(4);
 
-    // Fill from the handle (at the normalised bottom-right, (1,1)) down onto row 2.
+    // Start a fill from the handle (at the normalised bottom-right, (1,1)) down onto row 2, then cancel it.
     fireEvent.mouseDown(container.querySelector('[data-fill-handle="true"]') as HTMLElement);
     fireEvent.mouseEnter(cellAt(container, 2, 1));
     expect(fillPreviewCount(container), 'precondition: two cells previewing').toBe(2);
-    fireEvent.mouseUp(window);
+    fireEvent.blur(window);
 
+    expect(fillPreviewCount(container), 'the preview is gone').toBe(0);
+    expect(onChange.mock.calls, 'nothing was copied').toEqual([]);
     expect(selectedCount(container), 'the 2x2 is still selected').toBe(4);
     // Shift-click (2,2): extending from anchor (1,1) gives a 2x2 = 4 cells;
     // from a normalised anchor (0,0) it would give 3x3 = 9.
