@@ -495,4 +495,101 @@ describe('AllocationGrid — pointer and focus guards', () => {
     fireEvent.mouseDown(document.body);
     expect(selectedCount(container), 'a real outside press still clears the selection').toBe(0);
   });
+
+  // ───────────── WI-5b: the fill handle's hit surface ─────────────
+  /*
+   * ⚠️ WHAT THESE PIN IS THE HANDLER'S HOST, NOT THE ATTRIBUTE'S.
+   *
+   * The handle is a 16x16 transparent box with an 8x8 painted core inside it.
+   * The obvious wrong build is a padded WRAPPER with the handler left on the blue
+   * child: it looks identical, and its padding is inert - a press there has
+   * e.target = the wrapper, the <td> handler runs, and the selection collapses
+   * instead of a fill starting. Measured 2026-09-06, both halves: a bare child of
+   * the <td> does reach that handler, and closest('[data-fill-handle]') from such a
+   * wrapper returns FALSE, because closest() walks self-and-ancestors and the
+   * attribute would be on a DESCENDANT.
+   *
+   * ⚠️ SO THE 16x16 BOX IS LOCATED BY ITS SIZE, NOT BY data-fill-handle, in the
+   * test that presses it. Querying the attribute would find the blue child under
+   * that wrong build, press the element that does have the handler, and pass.
+   *
+   * jsdom has no layout, so nothing here is a hit test; the pixel measurements are
+   * in the release notes. These pin the STRUCTURE that makes the pixels reachable.
+   */
+
+  it('[FAILS-TODAY] the pressed surface is the padded box, and the painted core is an inert child of it', () => {
+    const { container } = render(<AllocationGrid {...gridProps(vi.fn())} />);
+    fireEvent.mouseDown(cellAt(container, 0, 0));
+    fireEvent.mouseUp(window);
+
+    const hit = container.querySelector('[data-fill-handle]') as HTMLElement;
+    expect(hit, 'precondition: selecting a cell renders a fill handle').toBeTruthy();
+
+    expect(hit.className, 'the element that receives the press must be the PADDED box, not the painted core')
+      .not.toMatch(/bg-blue-600/);
+
+    const core = hit.querySelector('div');
+    expect(core, 'the painted core must be a CHILD of the padded box, so the box can be larger than the paint')
+      .toBeTruthy();
+    expect((core as HTMLElement).className, 'the core must be inert to the pointer, so e.target is the padded box for every press inside it')
+      .toContain('pointer-events-none');
+  });
+
+  it('[FAILS-TODAY] pressing the 16x16 box - located by its size, not by the attribute - starts a fill', () => {
+    const { container } = render(<AllocationGrid {...gridProps(vi.fn())} />);
+    fireEvent.mouseDown(cellAt(container, 0, 0));
+    fireEvent.mouseUp(window);
+    expect(selectedCount(container), 'precondition: one cell selected').toBe(1);
+
+    const box = [...container.querySelectorAll('div')].find(
+      (d) => d.className.includes('h-[16px]') && d.className.includes('w-[16px]'),
+    );
+    expect(box, 'a 16x16 padded hit box must exist - the enlargement is the whole item').toBeTruthy();
+
+    fireEvent.mouseDown(box as HTMLElement);
+    fireEvent.mouseEnter(cellAt(container, 1, 0));
+
+    expect(fillPreviewCount(container), 'pressing the PADDED box must start a fill, not collapse the selection')
+      .toBeGreaterThan(0);
+  });
+
+  it('[REGRESSION] the visible core is still an 8x8 blue square with a white border', () => {
+    const { container } = render(<AllocationGrid {...gridProps(vi.fn())} />);
+    fireEvent.mouseDown(cellAt(container, 0, 0));
+    fireEvent.mouseUp(window);
+
+    // Located by its PAINT, so this reads the same element before and after WI-5b.
+    const core = [...container.querySelectorAll('div')].find((d) => d.className.includes('bg-blue-600'));
+    expect(core, 'precondition: a painted core exists').toBeTruthy();
+    for (const cls of ['h-[8px]', 'w-[8px]', 'border', 'border-white', 'bg-blue-600']) {
+      expect((core as HTMLElement).className, `the visible core must keep "${cls}" - WI-5b enlarges the HIT area only`)
+        .toContain(cls);
+    }
+  });
+
+  it('[REGRESSION] a fill driven from the handle still copies the source value', () => {
+    const onChange = vi.fn();
+    const { container } = render(<AllocationGrid {...gridProps(onChange)} />);
+    fireEvent.mouseDown(cellAt(container, 0, 0)); // Alice, 2026-01, 0.5
+    fireEvent.mouseUp(window);
+
+    fireEvent.mouseDown(container.querySelector('[data-fill-handle="true"]') as HTMLElement);
+    fireEvent.mouseEnter(cellAt(container, 1, 0));
+    fireEvent.mouseUp(window);
+
+    expect(onChange, 'the enlargement must not disturb what a fill writes')
+      .toHaveBeenCalledWith('tm-bob', '2026-01', 0.5);
+  });
+
+  it('[REGRESSION] exactly one element carries data-fill-handle', () => {
+    const { container } = render(<AllocationGrid {...gridProps(vi.fn())} />);
+    fireEvent.mouseDown(cellAt(container, 0, 0));
+    fireEvent.mouseUp(window);
+
+    // Six sites in this suite do querySelector('[data-fill-handle]') and one asserts
+    // a count of 0 when no handle is rendered; a second marked element would make
+    // "which one did I press?" depend on document order.
+    expect(container.querySelectorAll('[data-fill-handle]').length, 'the marker must name exactly one element')
+      .toBe(1);
+  });
 });

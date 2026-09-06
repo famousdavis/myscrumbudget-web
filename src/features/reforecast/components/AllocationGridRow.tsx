@@ -301,6 +301,43 @@ export function AllocationGridRow({
             data-selected={showsSelectionOutline || undefined}
             data-fill-preview={isInFillPreview || undefined}
             onMouseDown={(e) => {
+              /*
+               * ⚠️ THIS GUARD IS CURRENTLY UNREACHABLE, AND IT IS KEPT ON PURPOSE.
+               *
+               * The fill handle's own onMouseDown calls e.stopPropagation(), so
+               * React never dispatches to this handler for a press on the handle
+               * and this line has never once returned early.
+               *
+               * TWO SEPARATE CLAIMS, TWO SEPARATE INSTRUMENTS - do not let either
+               * stand for the other (both measured 2026-09-06):
+               *   UNREACHABLE - at 35b1e8b, an instrumented build recorded every
+               *     entry to this handler. A press on a plain cell logs
+               *     `td-entered tag=TD`; a press on the handle logs NOTHING AT ALL.
+               *     The early return never fires.
+               *   UNTESTED - deleting this line outright fails no test: 0 of 1616 at
+               *     35b1e8b, and 0 of 1621 on this build. That says nothing is
+               *     watching it; it does NOT say it is dead, and a reader who sees
+               *     only this number may think it covered.
+               *
+               * ⚠️ IT IS UNREACHABLE ONLY BECAUSE A SIBLING CALLS stopPropagation.
+               * That is a precondition, not a property of this line. Delete the
+               * stopPropagation below and this guard is what stops a handle press
+               * from collapsing the selection instead of starting a fill - and it
+               * does so SILENTLY: that mutation alone fails 0 of 1621 tests. The
+               * guard is load-bearing exactly when nothing reports that it is.
+               *
+               * ⚠️ Removing BOTH is caught, but only incidentally, and the failure
+               * points somewhere else: 1 test fails - `a cancelled fill leaves the
+               * selection byte-identical - orientation included`, asserting
+               * "shift-extension still runs from the original anchor: expected 9 to
+               * be 4". That is a v0.37.20 test about a shift-click ANCHOR; its
+               * message names neither this guard nor the fill handle, because what
+               * it actually sees is handleCellMouseDown moving selection.startRow /
+               * startCol to the handle's own cell. A reader who trips it will not be
+               * led back here. (An earlier draft of this comment claimed no test
+               * would report it at all; measured 2026-09-06, that was wrong, and it
+               * is corrected rather than left standing.)
+               */
               if ((e.target as HTMLElement).dataset.fillHandle) return;
               if (isEditing) return;
               onCellMouseDown(rowIdx, colIdx, e.shiftKey, e.button);
@@ -354,16 +391,75 @@ export function AllocationGridRow({
                  * lifted out without lifting the whole cell, which would undo the
                  * fix above.
                  *
-                 * The vertical -bottom-[4px] overhang is kept: nothing sticky sits
-                 * below a row, so it occludes nothing.
+                 * The vertical overhang is kept - nothing sticky sits below a row,
+                 * so it occludes nothing - and WI-5b widened it from -bottom-[4px] to
+                 * -bottom-[8px]. (Corrected here rather than left standing: this line
+                 * named the old value, and a comment asserting a dead figure is the
+                 * v0.36.2 defect.)
+                 *
+                 * ⚠️ THAT z-[25] STILL WINS, AND WI-5b MEASURED WHAT IT COSTS.
+                 * Every earlier measurement of this interaction was taken with the
+                 * grid scrolled FULLY RIGHT, where the last month column is merely
+                 * ADJACENT to the pinned column and the overlap is literally zero
+                 * (1379.82 == 1379.82) - so they all concluded the sticky column no
+                 * longer occludes anything. Force an overlap instead, by scrolling a
+                 * selected cell 9.49 px under it, and the old 8x8 handle measures
+                 * 0 of 64 pixels hittable: completely unreachable. A probe that
+                 * cannot produce the phenomenon returns the answer that ends the
+                 * work. (Measured 2026-09-06; 16 px wide takes it to 112 of 256.)
                  */
-                className="absolute right-0 -bottom-[4px] z-20 h-[8px] w-[8px] cursor-crosshair border border-white bg-blue-600"
+                /*
+                 * ⚠️ THIS ELEMENT IS THE 16x16 HIT BOX. THE BLUE SQUARE IS ITS CHILD.
+                 *
+                 * The handle used to be a single 8x8 div - 64 px² to the pointer and,
+                 * because box-sizing is border-box and the border is 1 px of white,
+                 * only a 6x6 = 36 px² blue core to the eye. Two operators missed it
+                 * while actively trying: the owner in normal use, and an instrumented
+                 * real-pointer drag during v0.37.20 debugging, whose miss was read as
+                 * "the bug does not reproduce". Measured 2026-09-06: hit area is now
+                 * 64 -> 256 px², 256/256 of them owned by this element.
+                 *
+                 * ⚠️⚠️ WHAT MAKES THE PADDING LIVE IS THAT *THIS* ELEMENT CARRIES THE
+                 * onMouseDown HANDLER - NOT that it carries data-fill-handle.
+                 * Move the handler onto the blue child and the padding goes inert:
+                 * a press on it has e.target = this div, the <td> handler above runs
+                 * and COLLAPSES THE SELECTION, and the enlargement appears to do
+                 * nothing. Measured, both halves: a bare child of the <td> reaches
+                 * that handler, and closest('[data-fill-handle]') from a bare wrapper
+                 * returns FALSE - closest() walks self-and-ancestors, never
+                 * descendants, so putting the attribute on the child cannot rescue it.
+                 *
+                 * ⚠️ PAD LEFT AND DOWN ONLY; NEVER RIGHT. right-0 is load-bearing.
+                 * Rightward pad is lost 1:1 under the sticky ✕ column (z-[25] beats
+                 * this cell's z-20 - see the note below) and steals the right
+                 * neighbour for nothing. The leftward pad is what pays: with a
+                 * selected cell scrolled 9.49 px under that pinned column, the old
+                 * 8x8 box measured 0 of 64 pixels hittable - COMPLETELY UNREACHABLE -
+                 * and 16 px wide takes it to 112 of 256.
+                 *
+                 * Width is capped by the number, not by the row: 16 px leaves 5.49 px
+                 * clear of a "100%" glyph box, 20 px leaves 1.49 px.
+                 */
+                className="absolute right-0 -bottom-[8px] z-20 h-[16px] w-[16px] cursor-crosshair"
                 onMouseDown={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                   onFillHandleMouseDown(rowIdx, colIdx, normalizedSel);
                 }}
-              />
+              >
+                {/*
+                 * The visible core, unchanged at 8x8 and still anchored to the cell's
+                 * bottom-right corner: the box grew around it, so nothing moved on
+                 * screen. pointer-events-none keeps e.target equal to the padded box
+                 * for every press inside it, so hit tests and the six
+                 * querySelector('[data-fill-handle]') sites in the suite all resolve
+                 * the element that actually handles the press.
+                 */}
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute right-0 bottom-[4px] h-[8px] w-[8px] border border-white bg-blue-600"
+                />
+              </div>
             )}
           </td>
         );

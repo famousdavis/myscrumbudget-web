@@ -4,6 +4,11 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.37.23] - 2026-09-06
+
+### Fixed
+- **The fill handle — the small blue square at the corner of a selection that you drag to copy a value across cells — is now four times easier to hit. It was an 8-pixel square, and because its white border is drawn inside that, only a 6-pixel blue dot was visible: a target small enough that it was regularly missed even when aimed at deliberately. The square you see is unchanged, but the area that responds to the mouse now extends 8 pixels further left and further down, behind the bottom-right corner of the cell. It is not extended to the right, where the extra area would sit underneath the pinned column of remove buttons and do nothing. That left-hand extension also fixes a case where the handle could not be grabbed at all: when a selected cell is scrolled under the pinned remove-button column, the old handle was completely covered and no click could reach it, and part of it is now reachable. One trade-off worth knowing: clicks in a small strip just below a selected cell now grab the fill handle instead of selecting the cell underneath, and pressing the handle without dragging clears the selection.**
+
 ## [0.37.22] - 2026-09-05
 
 ### Fixed
