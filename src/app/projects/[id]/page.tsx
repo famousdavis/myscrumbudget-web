@@ -98,6 +98,7 @@ export default function ProjectDetailPage({
     allocationMap,
     productivityWindows,
     onAllocationChange,
+    onAllocationsChange,
     switchReforecast,
     createReforecast,
     deleteReforecast,
@@ -330,6 +331,7 @@ export default function ProjectDetailPage({
             teamMembers={members}
             allocationMap={allocationMap}
             onAllocationChange={onAllocationChange}
+            onAllocationsChange={onAllocationsChange}
             onMemberDelete={removeAssignment}
             onMemberAdd={addAssignment}
             onReorder={reorderAssignments}

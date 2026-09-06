@@ -45,12 +45,35 @@ const MAP: AllocationMap = new Map([
 ]);
 
 type Change = [string, string, number];
+
+/*
+ * ⚠️ WHAT `onChange` RECORDS HERE, AND WHAT IT NO LONGER PROVES.
+ *
+ * v0.37.24 moved multi-cell writes onto `onAllocationsChange` (one batch = one
+ * undo entry). Every test in this file is about WHICH CELLS get written - which
+ * member, which month, which value survives a sort/removal/window shift - and
+ * not about the delivery route. So the batch is fanned out into the SAME spy,
+ * and these tests keep asserting exactly what they were written to assert.
+ *
+ * ⚠️ The cost, stated rather than left to be discovered: with the fan-out these
+ * tests pass under BOTH the batched and the old per-cell route, so they do NOT
+ * pin the batching. The route is pinned separately and deliberately - a fill
+ * calls `onAllocationsChange` once and `onAllocationChange` zero times - in
+ * AllocationGridPointer.test.tsx and useGridKeyboard.test.ts. Do not read a
+ * green run here as evidence that the batch is wired.
+ */
+function fanOut(onChange: (...a: Change) => void) {
+  return (changes: { memberId: string; month: string; value: number }[]) => {
+    changes.forEach((c) => onChange(c.memberId, c.month, c.value));
+  };
+}
 function gridProps(onChange: (...a: Change) => void) {
   return {
     months: MONTHS,
     teamMembers: TEAM,
     allocationMap: MAP,
     onAllocationChange: onChange,
+    onAllocationsChange: fanOut(onChange),
     onMemberDelete: vi.fn(),
     onMemberAdd: vi.fn(),
     pool: [],
@@ -591,5 +614,78 @@ describe('AllocationGrid — pointer and focus guards', () => {
     // "which one did I press?" depend on document order.
     expect(container.querySelectorAll('[data-fill-handle]').length, 'the marker must name exactly one element')
       .toBe(1);
+  });
+
+  /*
+   * ================= v0.37.24 WI-5c: the batch ROUTE =================
+   *
+   * ⚠️ These two use a DEDICATED spy pair, not gridProps()'s fan-out. The whole
+   * point is to keep the two routes apart, and the fan-out deliberately merges
+   * them - reusing it here would make both tests unable to fail.
+   *
+   * ⚠️ NEITHER TEST CAN PROVE ONE UNDO ENTRY. There is no undo stack in this
+   * file. They prove the CALL SHAPE; the semantics live in
+   * src/features/reforecast/hooks/__tests__/undoGrouping.test.ts.
+   */
+  function routeProps(onChange: (...a: Change) => void, onBatch: (c: unknown[]) => void) {
+    return {
+      months: MONTHS,
+      teamMembers: TEAM,
+      allocationMap: MAP,
+      onAllocationChange: onChange,
+      onAllocationsChange: onBatch,
+      onMemberDelete: vi.fn(),
+      onMemberAdd: vi.fn(),
+      pool: [],
+    };
+  }
+
+  it('[CRITERION 5, fill half] a 2-cell fill is ONE call carrying both cells, and the per-cell route is unused', () => {
+    const onChange = vi.fn();
+    const onBatch = vi.fn();
+    const { container } = render(<AllocationGrid {...routeProps(onChange, onBatch)} />);
+
+    fireEvent.mouseDown(cellAt(container, 0, 0)); // Alice 2026-01 = 0.5
+    fireEvent.mouseUp(window);
+    fireEvent.mouseDown(container.querySelector('[data-fill-handle="true"]') as HTMLElement);
+    fireEvent.mouseEnter(cellAt(container, 2, 0)); // drag down to Carmen
+    fireEvent.mouseUp(window);
+
+    expect(onBatch, 'the whole fill is one call').toHaveBeenCalledTimes(1);
+    // PRECONDITION, asserted explicitly: a fill that silently wrote nothing
+    // would also be "one call", which is the setup-vacuity class exactly.
+    expect(onBatch.mock.calls[0][0], 'carrying every filled cell').toEqual([
+      { memberId: 'tm-bob', month: '2026-01', value: 0.5 },
+      { memberId: 'tm-carmen', month: '2026-01', value: 0.5 },
+    ]);
+    expect(
+      onChange,
+      'the per-cell route must be unused - an implementation calling BOTH still writes correctly and still costs N undo entries',
+    ).not.toHaveBeenCalled();
+  });
+
+  it('[CRITERION 3b] releasing the fill handle on the source cell passes an EMPTY batch through', () => {
+    const onChange = vi.fn();
+    const onBatch = vi.fn();
+    const { container } = render(<AllocationGrid {...routeProps(onChange, onBatch)} />);
+
+    fireEvent.mouseDown(cellAt(container, 0, 0));
+    fireEvent.mouseUp(window);
+    fireEvent.mouseDown(container.querySelector('[data-fill-handle="true"]') as HTMLElement);
+    fireEvent.mouseEnter(cellAt(container, 0, 0)); // released on the source: zero cells
+    fireEvent.mouseUp(window);
+
+    /*
+     * ⚠️ THE GRID MUST PASS `[]`, NOT SKIP THE CALL. This is what keeps the
+     * empty guard in useReforecast.onAllocationsChange able to fail: if the
+     * grid "tidied" by skipping the call when cells.length === 0, deleting that
+     * guard would break nothing here and criterion 3a would stand alone.
+     * Aborting a fill this way is the commonest fill gesture - grab the handle,
+     * change your mind, let go - so the phantom entry it guards against is not
+     * a corner case.
+     */
+    expect(onBatch, 'the call still happens').toHaveBeenCalledTimes(1);
+    expect(onBatch.mock.calls[0][0], 'and it carries an EMPTY array').toEqual([]);
+    expect(onChange, 'nothing is written per-cell either').not.toHaveBeenCalled();
   });
 });

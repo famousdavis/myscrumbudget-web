@@ -78,6 +78,7 @@ function gridProps(onChange: (...a: Change) => void) {
     teamMembers: TEAM,
     allocationMap: MAP,
     onAllocationChange: onChange,
+    onAllocationsChange: vi.fn(),
     onMemberDelete: vi.fn(),
     onMemberAdd: vi.fn(),
     pool: [],

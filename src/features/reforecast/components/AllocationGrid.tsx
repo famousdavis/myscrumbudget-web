@@ -47,6 +47,16 @@ interface AllocationGridProps {
   teamMembers: TeamMember[];
   allocationMap: AllocationMap;
   onAllocationChange: (memberId: string, month: string, value: number) => void;
+  /**
+   * Apply many allocation changes as ONE undo entry. REQUIRED, not optional:
+   * an optional prop makes "the page forgot to pass it" and "the feature is
+   * off" the same undetectable state (v0.37.9 ruling).
+   *
+   * ⚠️ THE GRID MUST PASS `[]` THROUGH when a fill yields zero cells. The empty
+   * guard lives in `useReforecast.onAllocationsChange`, deliberately - a guard
+   * here instead would make the hook's guard untested and deletable.
+   */
+  onAllocationsChange: (changes: { memberId: string; month: string; value: number }[]) => void;
   onMemberDelete?: (id: string) => void;
   onMemberAdd?: (poolMemberId: string) => void;
   onReorder?: (orderedIds: string[]) => void;
@@ -69,6 +79,7 @@ export function AllocationGrid({
   teamMembers,
   allocationMap,
   onAllocationChange,
+  onAllocationsChange,
   onMemberDelete,
   onMemberAdd,
   onReorder,
@@ -299,11 +310,29 @@ export function AllocationGrid({
           teamMembers,
           months,
         );
+        /*
+         * ONE batched call, so the whole fill is ONE undo entry. Built in the
+         * same order the old per-cell loop applied them, which is what makes
+         * the two equivalent without having to prove the coordinates disjoint.
+         *
+         * ⚠️ The array is built HERE, outside the updater. v0.37.14's partial
+         * write threw at `teamMembers[cells[i].row].id` mid-loop with part of
+         * the fill already persisted; that expression now runs BEFORE
+         * onAllocationsChange is ever called, so a throw writes nothing at all.
+         * It is the call ordering that closes it, NOT the updater's atomicity -
+         * do not "simplify" by moving this loop inside the hook.
+         *
+         * ⚠️ Zero cells (handle released on the source) passes `[]` on purpose.
+         */
+        const changes: { memberId: string; month: string; value: number }[] = [];
         for (let i = 0; i < cells.length; i++) {
-          const memberId = teamMembers[cells[i].row].id;
-          const month = months[cells[i].col];
-          onAllocationChange(memberId, month, values[i]);
+          changes.push({
+            memberId: teamMembers[cells[i].row].id,
+            month: months[cells[i].col],
+            value: values[i],
+          });
         }
+        onAllocationsChange(changes);
         setFillDrag(null);
         /*
          * A completed fill leaves nothing selected and nothing focused. The
@@ -341,7 +370,7 @@ export function AllocationGrid({
 
     window.addEventListener('mouseup', handleMouseUp);
     return () => window.removeEventListener('mouseup', handleMouseUp);
-  }, [fillDrag, isRangeSelecting, allocationMap, teamMembers, months, onAllocationChange]);
+  }, [fillDrag, isRangeSelecting, allocationMap, teamMembers, months, onAllocationsChange]);
 
   /*
    * Cancel an in-flight drag when the window loses focus. Without this, alt-tabbing
@@ -506,6 +535,7 @@ export function AllocationGrid({
     months,
     allocationMap,
     onAllocationChange,
+    onAllocationsChange,
     commitEdit,
     setFocusedCell,
     setSelection,

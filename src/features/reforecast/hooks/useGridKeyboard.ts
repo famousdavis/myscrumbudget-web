@@ -22,6 +22,8 @@ interface UseGridKeyboardOptions {
   months: string[];
   allocationMap: AllocationMap;
   onAllocationChange: (memberId: string, month: string, value: number) => void;
+  /** Apply many allocation changes as ONE undo entry. REQUIRED, not optional. */
+  onAllocationsChange: (changes: { memberId: string; month: string; value: number }[]) => void;
   commitEdit: () => void;
   setFocusedCell: (cell: CellCoord) => void;
   setSelection: (sel: SelectionRange) => void;
@@ -58,6 +60,7 @@ export function useGridKeyboard({
   months,
   allocationMap,
   onAllocationChange,
+  onAllocationsChange,
   commitEdit,
   setFocusedCell,
   setSelection,
@@ -138,11 +141,14 @@ export function useGridKeyboard({
           e.preventDefault();
           if (selection) {
             const norm = normalizeRange(selection);
+            // ONE batched call: clearing a range is one undo entry, not one per cell.
+            const changes: { memberId: string; month: string; value: number }[] = [];
             for (let r = norm.startRow; r <= norm.endRow; r++) {
               for (let c = norm.startCol; c <= norm.endCol; c++) {
-                onAllocationChange(teamMembers[r].id, months[c], 0);
+                changes.push({ memberId: teamMembers[r].id, month: months[c], value: 0 });
               }
             }
+            onAllocationsChange(changes);
           }
           break;
         }
@@ -168,6 +174,7 @@ export function useGridKeyboard({
     months,
     allocationMap,
     onAllocationChange,
+    onAllocationsChange,
     commitEdit,
     setFocusedCell,
     setSelection,

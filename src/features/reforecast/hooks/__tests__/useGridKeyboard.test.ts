@@ -34,6 +34,7 @@ function makeOptions(overrides: Partial<Parameters<typeof useGridKeyboard>[0]> =
     months: MONTHS,
     allocationMap: makeAllocMap(),
     onAllocationChange: vi.fn(),
+    onAllocationsChange: vi.fn(),
     commitEdit: vi.fn(),
     setFocusedCell: vi.fn(),
     setSelection: vi.fn(),
@@ -161,17 +162,36 @@ describe('useGridKeyboard', () => {
     expect(opts.commitEdit).not.toHaveBeenCalled();
   });
 
-  it('Delete zeroes selected cells', () => {
+  /*
+   * [CRITERION 5, Delete half] v0.37.24: the whole range is ONE batched call,
+   * so clearing it costs one undo entry rather than one per cell.
+   *
+   * ⚠️ THIS CANNOT PROVE ONE UNDO ENTRY. There is no undo stack at this level -
+   * these are bare vi.fn() spies. It proves the ROUTE (one call, N entries, and
+   * the per-cell callback untouched); the SEMANTICS are pinned in
+   * src/features/reforecast/hooks/__tests__/undoGrouping.test.ts, which drives
+   * the real useProject reducer.
+   *
+   * ⚠️ The `onAllocationChange` zero-call assertion is load-bearing, not
+   * decoration: without it an implementation that called BOTH would pass.
+   */
+  it('Delete zeroes the selected range as ONE batched call', () => {
     const opts = makeOptions({
       selection: { startRow: 0, startCol: 0, endRow: 1, endCol: 1 },
     });
     renderHook(() => useGridKeyboard(opts));
     fireKey('Delete');
-    expect(opts.onAllocationChange).toHaveBeenCalledTimes(4);
-    expect(opts.onAllocationChange).toHaveBeenCalledWith('m1', '2026-01', 0);
-    expect(opts.onAllocationChange).toHaveBeenCalledWith('m1', '2026-02', 0);
-    expect(opts.onAllocationChange).toHaveBeenCalledWith('m2', '2026-01', 0);
-    expect(opts.onAllocationChange).toHaveBeenCalledWith('m2', '2026-02', 0);
+    expect(opts.onAllocationsChange, 'the whole range is one call').toHaveBeenCalledTimes(1);
+    expect(opts.onAllocationsChange, 'carrying every cell of the range, row-major').toHaveBeenCalledWith([
+      { memberId: 'm1', month: '2026-01', value: 0 },
+      { memberId: 'm1', month: '2026-02', value: 0 },
+      { memberId: 'm2', month: '2026-01', value: 0 },
+      { memberId: 'm2', month: '2026-02', value: 0 },
+    ]);
+    expect(
+      opts.onAllocationChange,
+      'the per-cell route must be unused - calling both would still write correctly and still cost N entries',
+    ).not.toHaveBeenCalled();
   });
 
   it('digit key enters edit mode with that digit', () => {

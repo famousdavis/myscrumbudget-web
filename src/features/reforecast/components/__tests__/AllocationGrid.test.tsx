@@ -48,6 +48,7 @@ describe('AllocationGrid', () => {
     teamMembers,
     allocationMap: sampleMap,
     onAllocationChange: vi.fn(),
+    onAllocationsChange: vi.fn(),
     onMemberDelete: vi.fn(),
     onMemberAdd: vi.fn(),
     pool,
@@ -256,6 +257,7 @@ describe('AllocationGrid — role-has-no-rate indicator', () => {
     months,
     allocationMap: sampleMap,
     onAllocationChange: vi.fn(),
+    onAllocationsChange: vi.fn(),
     pool,
   };
 
