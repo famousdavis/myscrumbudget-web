@@ -26,6 +26,43 @@ import {
 } from '@/features/projects/lib/timelineChange';
 import { ensureOriginRef, appendToChangeLog } from '@/lib/storage/fingerprint';
 
+/**
+ * The add / update / remove rule for one allocation cell, in one place.
+ *
+ * ⚠️ EXTRACTED BECAUSE IT WAS ABOUT TO EXIST TWICE. `onAllocationChange` and
+ * `onAllocationsChange` apply the identical rule; two copies of it is the drift
+ * hazard, and the zero branch in particular is a silent data-shape rule (a zero
+ * allocation is REMOVED, not stored as 0) that nothing else in the codebase
+ * restates. A second copy that "helpfully" stored the zero would round-trip
+ * through export/import as a different document with no test naming the change.
+ *
+ * Pure: `filter` / `map` / spread only. It throws for no input shape, which is
+ * why criterion 7b drives its throw from a getter on the CALLER's array rather
+ * than from anything in here.
+ */
+export function applyAllocation(
+  allocations: MonthlyAllocation[],
+  memberId: string,
+  month: string,
+  value: number,
+): MonthlyAllocation[] {
+  if (value === 0) {
+    // Remove zero allocations to keep data clean
+    return allocations.filter(
+      (a) => !(a.memberId === memberId && a.month === month),
+    );
+  }
+  const existing = allocations.findIndex(
+    (a) => a.memberId === memberId && a.month === month,
+  );
+  if (existing >= 0) {
+    return allocations.map((a, i) =>
+      i === existing ? { ...a, allocation: value } : a,
+    );
+  }
+  return [...allocations, { memberId, month, allocation: value }];
+}
+
 interface UseReforecastOptions {
   project: Project | null;
   updateProject: (updater: (prev: Project) => Project) => void;
@@ -88,41 +125,63 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
 
   const onAllocationChange = useCallback(
     (memberId: string, month: string, value: number) => {
-      updateProject((prev) => {
-        const { project: withRf, reforecastId } = ensureReforecast(prev);
-
-        return {
-          ...withRf,
-          reforecasts: withRf.reforecasts.map((rf) => {
-            if (rf.id !== reforecastId) return rf;
-
-            const existing = rf.allocations.findIndex(
-              (a) => a.memberId === memberId && a.month === month,
-            );
-
-            let newAllocations: MonthlyAllocation[];
-            if (value === 0) {
-              // Remove zero allocations to keep data clean
-              newAllocations = rf.allocations.filter(
-                (a) => !(a.memberId === memberId && a.month === month),
-              );
-            } else if (existing >= 0) {
-              newAllocations = rf.allocations.map((a, i) =>
-                i === existing ? { ...a, allocation: value } : a,
-              );
-            } else {
-              newAllocations = [
-                ...rf.allocations,
-                { memberId, month, allocation: value },
-              ];
-            }
-
-            return { ...rf, allocations: newAllocations };
-          }),
-        };
-      });
+      updateActiveRf((rf) => ({
+        ...rf,
+        allocations: applyAllocation(rf.allocations, memberId, month, value),
+      }));
     },
-    [updateProject, ensureReforecast],
+    [updateActiveRf],
+  );
+
+  /**
+   * Apply MANY allocation changes inside ONE `updateProject`, so a multi-cell
+   * gesture costs exactly one undo entry.
+   *
+   * ⚠️ THE ARGUMENT IS THE UNDO STACK, NOT KEYSTROKE COUNT OR EXCEL PARITY.
+   * `UNDO_STACK_LIMIT` is 50 and `pushBounded` slices from the FRONT, so a
+   * 2-row x 25-month fill - ordinary in a 36-month plan - pushed 50 snapshots
+   * and evicted every earlier entry. Measured at v0.37.23: after three edits
+   * plus that fill, 50 undos exhausted the stack and the state before the first
+   * edit was UNREACHABLE. The fill stayed undoable; the user's earlier work did
+   * not. Per-cell undo does not merely cost keypresses, it deletes the safety
+   * net for unrelated work.
+   *
+   * ⚠️⚠️ THE EMPTY GUARD IS REQUIRED AND IS NOT TIDINESS. `computeFillRegion`
+   * returns ZERO cells when the handle is released on the source cell, which is
+   * the commonest aborted fill: grab it, change your mind, let go. At HEAD that
+   * wrote nothing and pushed nothing. Without this line it would push ONE
+   * phantom entry - Ctrl+Z, nothing visibly changes (the snapshot differs by
+   * identity, not content), Ctrl+Z again, a real edit is lost.
+   *
+   * ⚠️ THE GUARD LIVES HERE, NOT AT THE CALL SITE, so a future third caller
+   * inherits it - and deliberately so: with a call-site guard the grid would
+   * never pass `[]`, deleting this line would break nothing at the grid level,
+   * and the only test standing would be the hook-level one. The grid is
+   * REQUIRED to pass `[]` through; `AllocationGridPointer.test.tsx` pins that.
+   *
+   * ⚠️ HONEST BOUND, stated because the flattering version is one word away:
+   * this makes Delete over already-empty cells 3 entries -> 1, NOT 3 -> 0.
+   * `updateProject` snapshots regardless of content, so an inert write is still
+   * an entry. Suppressing no-op writes is a different change and is out of
+   * scope. This is not "no phantom entries".
+   */
+  const onAllocationsChange = useCallback(
+    (changes: { memberId: string; month: string; value: number }[]) => {
+      if (changes.length === 0) return;
+      updateActiveRf((rf) => ({
+        ...rf,
+        /*
+         * Folded in ARRAY ORDER - the same order the per-cell loops applied
+         * them. That makes this equivalent to the old N calls whether or not
+         * the coordinates are disjoint, so disjointness never has to be proved.
+         */
+        allocations: changes.reduce(
+          (acc, c) => applyAllocation(acc, c.memberId, c.month, c.value),
+          rf.allocations,
+        ),
+      }));
+    },
+    [updateActiveRf],
   );
 
   const switchReforecast = useCallback(
@@ -426,6 +485,7 @@ export function useReforecast({ project, updateProject }: UseReforecastOptions) 
     allocationMap,
     productivityWindows,
     onAllocationChange,
+    onAllocationsChange,
     switchReforecast,
     createReforecast,
     deleteReforecast,

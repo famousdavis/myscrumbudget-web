@@ -57,12 +57,35 @@ const MAP = buildMap([['2026-01', 'tm-alice', 0.5], ['2026-02', 'tm-alice', 0.75
 
 type Change = [string, string, number];
 
+/*
+ * ⚠️ WHAT `onChange` RECORDS HERE, AND WHAT IT NO LONGER PROVES.
+ *
+ * v0.37.24 moved multi-cell writes onto `onAllocationsChange` (one batch = one
+ * undo entry). Every test in this file is about WHICH CELLS get written - which
+ * member, which month, which value survives a sort/removal/window shift - and
+ * not about the delivery route. So the batch is fanned out into the SAME spy,
+ * and these tests keep asserting exactly what they were written to assert.
+ *
+ * ⚠️ The cost, stated rather than left to be discovered: with the fan-out these
+ * tests pass under BOTH the batched and the old per-cell route, so they do NOT
+ * pin the batching. The route is pinned separately and deliberately - a fill
+ * calls `onAllocationsChange` once and `onAllocationChange` zero times - in
+ * AllocationGridPointer.test.tsx and useGridKeyboard.test.ts. Do not read a
+ * green run here as evidence that the batch is wired.
+ */
+function fanOut(onChange: (...a: Change) => void) {
+  return (changes: { memberId: string; month: string; value: number }[]) => {
+    changes.forEach((c) => onChange(c.memberId, c.month, c.value));
+  };
+}
+
 function gridProps(members: TeamMember[], months: string[], onChange: (...a: Change) => void) {
   return {
     months,
     teamMembers: members,
     allocationMap: MAP,
     onAllocationChange: onChange,
+    onAllocationsChange: fanOut(onChange),
     onMemberDelete: vi.fn(),
     onMemberAdd: vi.fn(),
     pool: [],
@@ -121,6 +144,7 @@ function StatefulHost({ initial, months, onChange }: {
       teamMembers={members}
       allocationMap={MAP}
       onAllocationChange={onChange}
+      onAllocationsChange={fanOut(onChange)}
       onMemberDelete={(id) => setMembers((m) => m.filter((x) => x.id !== id))}
       onMemberAdd={vi.fn()}
       pool={[]}

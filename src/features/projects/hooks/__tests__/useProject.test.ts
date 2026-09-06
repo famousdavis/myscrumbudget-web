@@ -330,4 +330,53 @@ describe('useProject — undo/redo', () => {
     // The reload bypasses updateProject, so no undo entry should exist.
     expect(result.current.canUndo).toBe(false);
   });
+
+  /*
+   * [CRITERION 7a, v0.37.24] `updateProject` is ATOMIC: it computes
+   * `updater(prev)` BEFORE pushing the snapshot and before assigning
+   * projectRef, so a throwing updater writes nothing and pushes nothing.
+   *
+   * ⚠️ THIS IS THE PROPERTY v0.37.24's BATCH WAS CHOSEN FOR, and it was
+   * UNPINNED until now - this file mentioned `throw`/`reject` zero times.
+   * Threading beginUndoGroup/endUndoGroup instead would only have made a
+   * mid-loop throw SURVIVABLE (cells 1..k written, one snapshot covering them);
+   * folding the whole gesture into one updater makes it not happen.
+   *
+   * ⚠️ Base form deliberately kept SEPARATE from its mid-batch twin in
+   * reforecast/hooks/__tests__/undoGrouping.test.ts. This one runs and passes
+   * at HEAD ([REGRESSION]); the twin cannot run at HEAD because
+   * onAllocationsChange does not exist there ([FALSIFY-AFTER]). Same mechanism,
+   * two labels, and collapsing them loses the distinction.
+   */
+  it('a throwing updater writes nothing and pushes nothing', async () => {
+    const { result } = await loadHook();
+
+    act(() => {
+      result.current.updateProject((prev) => ({ ...prev, name: 'Committed' }));
+    });
+    await act(async () => {
+      await result.current.flush();
+    });
+    const before = await repo.getProject('p-undo');
+    expect(before?.name, 'precondition: a real write landed first').toBe('Committed');
+    expect(result.current.canUndo, 'precondition: exactly one entry on the stack').toBe(true);
+
+    expect(() => {
+      act(() => {
+        result.current.updateProject(() => {
+          throw new Error('updater exploded');
+        });
+      });
+    }, 'the throw propagates rather than being swallowed').toThrow('updater exploded');
+
+    await act(async () => {
+      await result.current.flush();
+    });
+    expect((await repo.getProject('p-undo'))?.name, 'nothing was written').toBe('Committed');
+
+    act(() => {
+      result.current.undo();
+    });
+    expect(result.current.canUndo, 'nothing was pushed - one undo still empties the stack').toBe(false);
+  });
 });
