@@ -29,6 +29,16 @@
  * thing under test. The version this file deliberately does NOT use is
  * `fireEvent.change(input, '75')`, which would make the test supply the answer.
  *
+ * ⚠️⚠️ WHAT THIS FORM DOES NOT PROVE, AND THE SENTENCE IS WHY ONE CRITERION
+ * CARRIES THREE INSTRUMENTS: it does NOT prove that a real browser inserts at a
+ * selection the way `typeInto` models it. Only the browser proves that, and it
+ * was checked there on the built artifact. The three are (i) the `-mechanism`
+ * tests, a bare selection-range assertion that models NOTHING, so the criterion
+ * stays pinned even if someone judges the typing model unfair; (ii) the
+ * end-to-end tests below; (iii) `next start`. ⚠️ DO NOT READ (ii) AS EVIDENCE OF
+ * BROWSER BEHAVIOUR - that substitution is how a test comes to certify something
+ * its instrument cannot see.
+ *
  * ⚠️ THE `<td>`'s textContent IS USELESS AS AN OUTCOME INSTRUMENT HERE, measured
  * rather than assumed: `allocationMap` is a fixed prop in this harness, so the
  * parent never re-renders from onAllocationChange and the cell reads "50%" after
@@ -124,11 +134,21 @@ function typeInto(container: HTMLElement, text: string) {
      * only when you type at the end - so set it explicitly.
      *
      * ⚠️ MEASURED, NOT ASSUMED, AND IT IS NOT LOAD-BEARING HERE: deleting this
-     * line leaves the failing set at HEAD byte-identical (8 and 8, both lists
-     * asserted non-empty before the diff). Every insert in this file happens to
-     * land at the end of the new value, where jsdom's own rule agrees. It stays
-     * because it is what a browser does, and the first insert over a SELECTION
-     * is where the two rules could diverge.
+     * line leaves the failing set byte-identical - 8 and 8 at HEAD, and 0 and 0
+     * again after the fix, which is the run that matters, because that is where
+     * the first insert lands over a SELECTION and the two caret rules could
+     * genuinely diverge. Every insert in this file happens to land at the end of
+     * the new value, where jsdom's own rule agrees. It stays because it is what
+     * a browser does.
+     *
+     * ⚠️⚠️ "BOTH LISTS ASSERTED NON-EMPTY BEFORE THE DIFF" IS NOT BOILERPLATE -
+     * IT IS THERE BECAUSE THE FIRST ATTEMPT AT THIS MEASUREMENT LIED. That run
+     * lost its working directory, every command in it failed, and the diff of two
+     * EMPTY failure lists printed "IDENTICAL" - a gate built to catch a false
+     * green, reporting one. It was caught because `cp` errored loudly beside it,
+     * never by the gate. An equality check between two collected results needs a
+     * NON-EMPTY check on each, exactly as an md5 gate does; `"" = ""` is the null
+     * path passing.
      */
     editor(container)!.setSelectionRange(start + ch.length, start + ch.length);
   }
