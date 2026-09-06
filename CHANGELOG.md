@@ -4,6 +4,11 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.37.24] - 2026-09-06
+
+### Changed
+- **Undoing a fill or a range-delete is now one press instead of one press per cell, and a large fill no longer wipes out your earlier undo history.** Every cell of a multi-cell change was recorded as its own separate undo step. Filling two rows across twenty-five months is fifty cells, and the app only keeps the last fifty undo steps — so a single fill of that size used up the entire history and everything you had done before it became permanently un-undoable. That is the reason this changed: the cost was never just the extra keypresses, it was losing the ability to undo unrelated earlier work. A fill or a range-delete is now a single step, so one Ctrl+Z (Cmd+Z on a Mac) takes back the whole thing and your earlier steps stay where they were. Editing one cell is unchanged and still costs exactly one step. Aborting a fill by letting go of the handle without moving it still records nothing at all, so there is no dead press to work through afterwards. One limit worth stating: pressing Delete over cells that were already empty still records a step — it is now one step instead of one per cell, but it is not nothing.
+
 ## [0.37.23] - 2026-09-06
 
 ### Fixed
