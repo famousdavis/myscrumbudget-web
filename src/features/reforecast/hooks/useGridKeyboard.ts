@@ -27,6 +27,22 @@ interface UseGridKeyboardOptions {
   setSelection: (sel: SelectionRange) => void;
   setEditingCell: (cell: CellCoord | null) => void;
   setInputValue: (value: string) => void;
+  /**
+   * Whether the editor about to open should SELECT its contents on focus.
+   *
+   * ⚠️ EVERY SITE THAT OPENS THE EDITOR MUST SET THIS, and it cannot be derived
+   * from the seed. Measured on a 7% cell: Enter-open seeds '7' and digit-open
+   * seeds '7' - byte-identical. There is no signal in the value at any length,
+   * so a rule over `inputValue` (its length included: a legitimate 5% cell holds
+   * a one-character "5") cannot separate the two paths. The flag is the only
+   * mechanism.
+   *
+   * true  - opened PRE-FILLED from the cell (Enter here, double-click in
+   *         AllocationGrid): typing replaces the old value, like a spreadsheet.
+   * false - opened by typing a DIGIT: that digit is the user's first keystroke,
+   *         and selecting it makes the next one replace it ("75" becomes "5").
+   */
+  setSelectOnEditorOpen: (value: boolean) => void;
 }
 
 /**
@@ -47,6 +63,7 @@ export function useGridKeyboard({
   setSelection,
   setEditingCell,
   setInputValue,
+  setSelectOnEditorOpen,
 }: UseGridKeyboardOptions): void {
   useEffect(() => {
     if (readonly || teamMembers.length === 0 || months.length === 0) return;
@@ -111,6 +128,7 @@ export function useGridKeyboard({
           e.preventDefault();
           const value = getAllocation(allocationMap, months[focusedCell.col], teamMembers[focusedCell.row].id);
           const pctValue = value ? Math.round(value * 100) : 0;
+          setSelectOnEditorOpen(true); // pre-filled from the cell
           setEditingCell(focusedCell);
           setInputValue(pctValue > 0 ? String(pctValue) : '');
           break;
@@ -131,6 +149,7 @@ export function useGridKeyboard({
         default:
           if (/^[0-9]$/.test(e.key)) {
             e.preventDefault();
+            setSelectOnEditorOpen(false); // the seed IS the user's first keystroke
             setEditingCell(focusedCell);
             setInputValue(e.key);
           }
@@ -154,5 +173,6 @@ export function useGridKeyboard({
     setSelection,
     setEditingCell,
     setInputValue,
+    setSelectOnEditorOpen,
   ]);
 }
