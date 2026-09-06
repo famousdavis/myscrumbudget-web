@@ -26,6 +26,12 @@ interface AllocationGridRowProps {
   fillHandleRow: number | null;
   fillHandleCol: number | null;
   inputValue: string;
+  /**
+   * Whether the open editor selects its contents on focus. Set at the OPEN SITE
+   * (see AllocationGrid) - it is not derivable from `inputValue`, because a
+   * pre-filled 7% cell and a digit-opened seed of 7 are byte-identical.
+   */
+  selectOnEditorOpen: boolean;
   teamMembers: TeamMember[];
   onInputChange: (value: string) => void;
   onCellCommitEdit: () => void;
@@ -75,6 +81,7 @@ export function AllocationGridRow({
   fillHandleRow,
   fillHandleCol,
   inputValue,
+  selectOnEditorOpen,
   teamMembers,
   onInputChange,
   onCellCommitEdit,
@@ -104,6 +111,29 @@ export function AllocationGridRow({
    */
   const roleHasNoRate =
     laborRates !== undefined && !laborRates.some((r) => r.role === member.role);
+
+  /*
+   * A pre-filled editor selects its value, so the first keystroke REPLACES it -
+   * double-click a 50% cell, type 75, get 75%. Without this the caret sat at the
+   * end and you got "5075", which commitEdit clamped to 100% with nothing on
+   * screen to say so.
+   *
+   * ⚠️ CONDITIONAL, NOT UNCONDITIONAL. The grid also opens this editor when the
+   * user types a DIGIT at a focused cell, seeding it with that digit; selecting
+   * the seed makes the next keystroke replace it, so "75" becomes "5". That
+   * regression is pinned by the digit-open test in AllocationGridEditor.test.tsx.
+   *
+   * `currentTarget`, matching 2 of the 3 existing select-on-focus sites
+   * (ReforecastToolbar.tsx, HistoricalCostsTable.tsx). ⚠️ None of those fields
+   * can be opened by typing, so the precedent does not cover the case above.
+   *
+   * Declared here rather than inline in the months.map arrow below: that arrow
+   * is one of the 13 accepted cognitive-complexity findings, and a branch does
+   * not belong inside it.
+   */
+  const handleEditorFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    if (selectOnEditorOpen) e.currentTarget.select();
+  };
 
   return (
     <tr
@@ -286,6 +316,7 @@ export function AllocationGridRow({
                 autoFocus
                 data-grid-input="true"
                 value={inputValue}
+                onFocus={handleEditorFocus}
                 onChange={(e) => onInputChange(e.target.value)}
                 onBlur={onCellCommitEdit}
                 onKeyDown={(e) => {

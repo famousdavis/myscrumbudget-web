@@ -83,6 +83,23 @@ export function AllocationGrid({
   const [selection, setSelection] = useState<SelectionRange | null>(null);
   const [editingCell, setEditingCell] = useState<CellCoord | null>(null);
   const [inputValue, setInputValue] = useState('');
+  /*
+   * Whether the OPEN EDITOR should select its contents on focus - true when it
+   * was opened pre-filled from the cell, false when a typed digit seeded it.
+   *
+   * ⚠️ THE INVARIANT: every site that opens the editor writes this immediately
+   * before setEditingCell, and there are exactly three - the two in
+   * useGridKeyboard (Enter, digit) and handleCellDoubleClick below. The four
+   * other setEditingCell calls in this file and that hook either close the
+   * editor (null) or REMAP an already-open one across a roster change (the WI-4
+   * render-time remap); none of them may touch this, because the editor they
+   * act on was already opened by one of the three.
+   *
+   * ⚠️ It cannot be inferred from `inputValue`. Measured on a 7% cell:
+   * Enter-open seeds '7' and digit-open seeds '7', byte-identical - and length
+   * is no help either, since a legitimate 5% cell holds a one-character "5".
+   */
+  const [selectOnEditorOpen, setSelectOnEditorOpen] = useState(false);
   const [fillDrag, setFillDrag] = useState<FillDragState | null>(null);
   const [isRangeSelecting, setIsRangeSelecting] = useState(false);
   const [addingRow, setAddingRow] = useState(false);
@@ -238,7 +255,29 @@ export function AllocationGrid({
 
   const commitEdit = useCallback(() => {
     if (!editingCell) return;
-    const raw = parseFloat(inputValue);
+    /*
+     * An EMPTY editor commits 0, which is how this grid stores "no allocation":
+     * useReforecast deletes the entry outright when the write is 0, and a cell
+     * with no entry renders identically to one holding an explicit 0. Before
+     * this, parseFloat('') was NaN and the write was skipped - so there was no
+     * way to empty a cell from the editor at all.
+     *
+     * ⚠️ ONLY empty (or whitespace-only) becomes 0. A non-numeric entry stays a
+     * no-op: `parseFloat('abc')` is NaN and must remain skipped, because a typo
+     * must not zero a cell.
+     *
+     * ⚠️⚠️ DO NOT "SIMPLIFY" THIS TO `Number(inputValue)`. `Number('')` is 0, so
+     * that passes the empty case with no explicit check at all and looks like a
+     * shortcut to the same behaviour - while silently turning `75%` (parseFloat
+     * prefix-parses it to 75) into NaN, i.e. a no-op. Pinned by the "75%" test
+     * in AllocationGridEditor.test.tsx, which is the only thing that refuses it.
+     *
+     * ⚠️ Blur and Tab commit through here too, so clearing the editor and
+     * clicking away now empties the cell. That is the spreadsheet model and it
+     * is deliberate.
+     */
+    const trimmed = inputValue.trim();
+    const raw = trimmed === '' ? 0 : parseFloat(trimmed);
     if (Number.isFinite(raw)) {
       const clamped = Math.max(0, Math.min(100, raw));
       const memberId = teamMembers[editingCell.row].id;
@@ -472,6 +511,7 @@ export function AllocationGrid({
     setSelection,
     setEditingCell,
     setInputValue,
+    setSelectOnEditorOpen,
   });
 
   // --- Cell interaction callbacks ---
@@ -539,6 +579,12 @@ export function AllocationGrid({
   const handleCellDoubleClick = useCallback((rowIdx: number, colIdx: number, pctValue: number) => {
     setSelection({ startRow: rowIdx, startCol: colIdx, endRow: rowIdx, endCol: colIdx });
     setFocusedCell({ row: rowIdx, col: colIdx });
+    /*
+     * ⚠️ THE THIRD OPEN SITE, AND THE ONE OUTSIDE THE HOOK. Doing only the two
+     * inside useGridKeyboard ships a fix where Enter selects and double-click -
+     * the gesture the defect was reported against - still does not.
+     */
+    setSelectOnEditorOpen(true);
     setEditingCell({ row: rowIdx, col: colIdx });
     setInputValue(pctValue > 0 ? String(pctValue) : '');
   }, []);
@@ -663,6 +709,7 @@ export function AllocationGrid({
               fillHandleRow={fillHandleRow}
               fillHandleCol={fillHandleCol}
               inputValue={inputValue}
+              selectOnEditorOpen={selectOnEditorOpen}
               teamMembers={teamMembers}
               onInputChange={setInputValue}
               onCellCommitEdit={commitEdit}

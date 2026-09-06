@@ -39,6 +39,7 @@ function makeOptions(overrides: Partial<Parameters<typeof useGridKeyboard>[0]> =
     setSelection: vi.fn(),
     setEditingCell: vi.fn(),
     setInputValue: vi.fn(),
+    setSelectOnEditorOpen: vi.fn(),
     ...overrides,
   };
 }

@@ -4,6 +4,12 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.37.22] - 2026-09-05
+
+### Fixed
+- **Typing over a cell that already has a value now replaces it.** Double-clicking a cell holding 50% and typing 75 used to give "5075", which the grid quietly capped at 100% — the editor opened with the cursor after the existing number instead of selecting it, so everything you typed was added to what was already there. The value is now selected when the editor opens from a double-click or from pressing Enter, so the first thing you type replaces it, exactly as a spreadsheet does. Opening the editor by typing a digit is unchanged: that digit is the start of what you are typing, so it is left alone and the next digit follows it.
+- **Emptying a cell from its editor now works.** Clearing the box and pressing Enter previously did nothing at all, leaving the old value in place with no way to remove it except the Delete key on a selected cell. An empty editor now clears the cell. This applies however you finish the edit — pressing Enter, pressing Tab, or clicking away all commit an emptied editor and clear the cell, which is new. Typing something that is not a number, such as a stray letter, still changes nothing: a typo will not wipe a cell.
+
 ## [0.37.21] - 2026-09-05
 
 ### Changed
