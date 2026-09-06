@@ -309,14 +309,15 @@ export function AllocationGridRow({
                * and this line has never once returned early.
                *
                * TWO SEPARATE CLAIMS, TWO SEPARATE INSTRUMENTS - do not let either
-               * stand for the other (measured 2026-09-06 at 35b1e8b):
-               *   UNREACHABLE - an instrumented build recorded every entry to this
-               *     handler. A press on a plain cell logs `td-entered tag=TD`; a
-               *     press on the handle logs NOTHING AT ALL. The early return never
-               *     fires.
-               *   UNTESTED - deleting this line outright leaves 1621 of 1621 tests
-               *     passing. That says nothing is watching it; it does NOT say it is
-               *     dead, and a reader who sees only this number may think it covered.
+               * stand for the other (both measured 2026-09-06):
+               *   UNREACHABLE - at 35b1e8b, an instrumented build recorded every
+               *     entry to this handler. A press on a plain cell logs
+               *     `td-entered tag=TD`; a press on the handle logs NOTHING AT ALL.
+               *     The early return never fires.
+               *   UNTESTED - deleting this line outright fails no test: 0 of 1616 at
+               *     35b1e8b, and 0 of 1621 on this build. That says nothing is
+               *     watching it; it does NOT say it is dead, and a reader who sees
+               *     only this number may think it covered.
                *
                * ⚠️ IT IS UNREACHABLE ONLY BECAUSE A SIBLING CALLS stopPropagation.
                * That is a precondition, not a property of this line. Delete the
