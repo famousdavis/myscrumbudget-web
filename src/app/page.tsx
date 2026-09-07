@@ -135,7 +135,15 @@ export default function DashboardPage() {
   };
 
   const handleExportProject = async (id: string) => {
-    const data = await exportProject(id);
+    // `exportProject` returns null ONLY for "no such project"; a read failure
+    // rethrows after reporting itself, so "Project not found." can never be
+    // shown for a failure that was actually a damaged read.
+    let data: AppState | null;
+    try {
+      data = await exportProject(id);
+    } catch {
+      return;
+    }
     if (!data) {
       addToast('Project not found.', 'error');
       return;

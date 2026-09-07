@@ -400,6 +400,19 @@ describe('WI-20 — an unreadable stored entry does not destroy the readable one
     const notice = describeExportOmission(false);
     expect(notice, 'a short export must be reported').not.toBeNull();
     expect(notice!, 'and must say how many entries were left out').toContain('1 unreadable');
+    // ⚠️ Number agreement across BOTH sentences. The original assertion stopped at
+    // '1 unreadable' and so passed against "1 unreadable entry was left out because
+    // THEY could not be read" — a disagreement only visible in the rendered toast.
+    expect(notice!, 'singular copy must agree in both sentences').toBe(
+      '1 unreadable entry was left out because it could not be read. It is still in your browser storage.',
+    );
+  });
+
+  it('[CRITERION 6] the plural form agrees too', () => {
+    localStorage.setItem(P, JSON.stringify([mkProject('a', 'Apollo'), { x: 1 }, { y: 2 }]));
+    expect(describeExportOmission(false)).toBe(
+      '2 unreadable entries were left out because they could not be read. They are still in your browser storage.',
+    );
   });
 
   it('[CRITERION 6] a complete export says nothing, and cloud mode never claims residue', () => {

@@ -183,9 +183,12 @@ function readEntries<T>(
     else residue.push(element);
   }
   if (residue.length > 0) {
+    // Agreement across the whole sentence, not just the noun — the same slip was
+    // shipped in the export toast and caught by reading it rendered.
+    const one = residue.length === 1;
     console.warn(
-      `[storage] ${residue.length} unreadable entr${residue.length === 1 ? 'y' : 'ies'} in ` +
-      `"${key}" set aside; they are preserved and will not be overwritten.`,
+      `[storage] ${residue.length} unreadable entr${one ? 'y' : 'ies'} in "${key}" set aside; ` +
+      `${one ? 'it is' : 'they are'} preserved and will not be overwritten.`,
     );
   }
   return { entries, residue };
@@ -276,8 +279,15 @@ export function describeExportOmission(isCloud: boolean): string | null {
   const { projects, teamPool } = readStorageResidueCount();
   const total = projects + teamPool;
   if (total === 0) return null;
-  return `${total} unreadable ${total === 1 ? 'entry was' : 'entries were'} ` +
-    'left out because they could not be read. They are still in your browser storage.';
+  // ⚠️ Number agreement runs across BOTH sentences. The first version agreed only
+  // in the opening clause and read "1 unreadable entry was left out because they
+  // could not be read" — caught by reading the rendered toast in a browser, not
+  // by any test, because every assertion here matched on a substring that stopped
+  // before the disagreement.
+  const one = total === 1;
+  return `${total} unreadable ${one ? 'entry was' : 'entries were'} left out because ` +
+    `${one ? 'it' : 'they'} could not be read. ${one ? 'It is' : 'They are'} ` +
+    'still in your browser storage.';
 }
 
 /**

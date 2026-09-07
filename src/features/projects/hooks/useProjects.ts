@@ -268,6 +268,13 @@ export function useProjects() {
    */
   const exportProject = useCallback(
     async (id: string): Promise<AppState | null> => {
+      // ⚠️ RETHROWS rather than returning null, and that distinction is this
+      // release's own subject in miniature. `null` already means "no project
+      // with that id". Returning null on a READ FAILURE too would make one value
+      // mean two things and leave the caller unable to tell them apart — which is
+      // exactly the `[]`-means-both defect WI-20 exists to remove. Measured in
+      // the browser before this was fixed: a failed export toasted the storage
+      // error AND "Project not found.", the second of which is false.
       let data: AppState;
       try {
         data = await repository.exportAll();
@@ -276,7 +283,7 @@ export function useProjects() {
           describeStorageError(err, 'Failed to export project. Please check your connection.'),
           'error',
         );
-        return null;
+        throw err;
       }
       const one = data.projects.find((p) => p.id === id);
       if (!one) return null;
