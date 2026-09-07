@@ -13,6 +13,21 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.38.0',
+    date: '2026-09-06',
+    sections: [
+      {
+        title: 'Changed',
+        items: [
+          'Damaged saved data can no longer take the rest of your work with it. All of your projects live under one entry in the browser\'s storage, and until now the app read that entry all-or-nothing: if any single project in it was unreadable, the read reported that you had no projects at all. Every action that saves — editing a project, creating one, deleting one, dragging tiles into a new order — reads the list first and then writes it back, so the next thing you did wrote a list with everything else missing, permanently. The same was true of your team pool, and of your labor rates and holidays, where an unreadable entry loaded as the six built-in default rates and one ordinary edit then saved those defaults over your real ones. Reading now keeps everything it can read and sets aside only what it cannot, and every save carries the set-aside parts through untouched, so nothing is discarded and nothing is quietly rewritten. Where there is nothing readable to keep — the whole entry is damaged rather than one item in it — the app now refuses to save over it and tells you, rather than replacing it. To be clear about what prompted this: no report of this happening exists and we could not find any way the app itself produces such an entry, so this is hardening against damage arriving from outside — a browser writing a partial value, an extension, or a manual edit — not a fix for something known to have hit anyone.',
+          'Exports say so when they are incomplete. If anything in your saved data cannot be read, the export still runs and still contains everything readable, but the confirmation message now tells you how many entries were left out. Previously an export in that state produced an empty or short file with no indication, which mattered most for the people most likely to be exporting: someone taking a backup before clearing their browser would have been left with a file that quietly did not contain their work.',
+          'The Settings page no longer loads forever if your saved settings cannot be read. It now explains what happened, and says that nothing has been changed and that importing a previous export will restore them. Your labor rates, holidays and thresholds are left exactly as they are on disk rather than being replaced with defaults.',
+          'Signing out no longer clears local data it could not read. Signing out of cloud mode clears the local copy only once the cloud copy is confirmed present, and the check for whether there is any local data to worry about treated unreadable data as no data. It now treats it as data worth keeping.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.37.24',
     date: '2026-09-06',
     sections: [
