@@ -5,13 +5,14 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import type { PoolMember } from '@/types/domain';
+import type { PoolMember, Project } from '@/types/domain';
 import { useRepository } from '@/components/RepositoryProvider';
 import { useDebouncedSave } from '@/hooks/useDebouncedSave';
 import { generateId } from '@/lib/utils/id';
 import { ensureOriginRef, appendToChangeLog } from '@/lib/storage/fingerprint';
 import { cloudSyncBus } from '@/lib/firebase/cloudSyncBus';
 import { addToastGlobal } from '@/components/Toast';
+import { describeStorageError } from '@/lib/storage/localStorage';
 
 export function useTeamPool() {
   const { repository } = useRepository();
@@ -28,7 +29,10 @@ export function useTeamPool() {
         // v0.31.0 (I2): see useSettings.reload for rationale. Silent on
         // permission-denied to avoid double-toasting with useSettings,
         // since both react to the same settings-listener bus emit.
-        addToastGlobal('Failed to load team pool. Please check your connection.', 'error');
+        addToastGlobal(
+          describeStorageError(err, 'Failed to load team pool. Please check your connection.'),
+          'error',
+        );
       }
     } finally {
       setLoading(false);
@@ -52,7 +56,10 @@ export function useTeamPool() {
     try {
       await repository.saveTeamPool(p);
     } catch (err) {
-      addToastGlobal('Failed to save team pool. Please check your connection.', 'error');
+      addToastGlobal(
+        describeStorageError(err, 'Failed to save team pool. Please check your connection.'),
+        'error',
+      );
       throw err;
     }
   }, [repository]);
@@ -123,7 +130,23 @@ export function useTeamPool() {
 
   const deletePoolMember = useCallback(
     async (id: string): Promise<{ ok: boolean; reason?: string; canArchive?: boolean }> => {
-      const projects = await repository.getProjects();
+      // ⚠️ v0.38.0: this read decides whether a member is safe to delete. If it
+      // throws, the honest answer is REFUSE, not "not in use" — an unreadable
+      // project could be the one holding this member, and deleting on a failed
+      // check is exactly the class of mistake this release exists to remove.
+      let projects: Project[];
+      try {
+        projects = await repository.getProjects();
+      } catch (err) {
+        return {
+          ok: false,
+          reason: describeStorageError(
+            err,
+            'Could not check whether this member is in use. Please try again.',
+          ),
+          canArchive: false,
+        };
+      }
       const inUse = projects.some((p) =>
         (p.reforecasts ?? []).some((rf) =>
           (rf.assignments ?? []).some((a) => a.poolMemberId === id),

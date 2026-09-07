@@ -517,18 +517,42 @@ export function isValidSettings(val: unknown): val is Settings {
 }
 
 /**
+ * Lenient type guard for a SINGLE stored Project (localStorage reads)
+ * Only checks basic shape - allows partial data
+ *
+ * ⚠️ v0.38.0: the per-ELEMENT guard is the primitive and the array guard below
+ * is derived from it. That direction is load-bearing, not stylistic.
+ * `localStorage.ts` partitions a stored array into readable entries and residue
+ * using this predicate; if the partition used a predicate written out separately
+ * from the one the array guard uses, the two could drift and the reader would
+ * salvage a set the guard calls invalid (or the reverse) with nothing to report
+ * the disagreement. Deriving one from the other makes drift impossible.
+ */
+export function isValidProjectEntry(val: unknown): val is Project {
+  if (!isObject(val)) return false;
+  if (!isString(val.id)) return false;
+  if (!isString(val.name)) return false;
+  return true;
+}
+
+/**
  * Lenient type guard for Project array (localStorage reads)
  * Only checks that it's an array of objects with basic project shape
  */
 export function isValidProjectArray(val: unknown): val is Project[] {
   if (!Array.isArray(val)) return false;
-  // Only check basic shape - allows partial data
-  return val.every((p) => {
-    if (!isObject(p)) return false;
-    if (!isString(p.id)) return false;
-    if (!isString(p.name)) return false;
-    return true;
-  });
+  return val.every(isValidProjectEntry);
+}
+
+/**
+ * Lenient type guard for a SINGLE stored PoolMember (localStorage reads)
+ * See isValidProjectEntry for why the element guard is the primitive.
+ */
+export function isValidPoolMemberEntry(val: unknown): val is PoolMember {
+  if (!isObject(val)) return false;
+  if (!isString(val.id)) return false;
+  if (!isString(val.name)) return false;
+  return true;
 }
 
 /**
@@ -537,10 +561,5 @@ export function isValidProjectArray(val: unknown): val is Project[] {
  */
 export function isValidPoolMemberArray(val: unknown): val is PoolMember[] {
   if (!Array.isArray(val)) return false;
-  return val.every((m) => {
-    if (!isObject(m)) return false;
-    if (!isString(m.id)) return false;
-    if (!isString(m.name)) return false;
-    return true;
-  });
+  return val.every(isValidPoolMemberEntry);
 }

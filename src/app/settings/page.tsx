@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { Settings } from '@/types/domain';
 import { useRepository } from '@/components/RepositoryProvider';
 import { useToast } from '@/components/Toast';
+import { describeStorageError } from '@/lib/storage/localStorage';
 import { cloudSyncBus } from '@/lib/firebase/cloudSyncBus';
 import { ensureOriginRef, appendToChangeLog } from '@/lib/storage/fingerprint';
 import { cascadeRoleRename } from '@/features/settings/lib/cascadeRoleRename';
@@ -123,15 +124,53 @@ export default function SettingsPage() {
    */
   const countOrphansIfDeleted = useCallback(
     async (index: number): Promise<number> => {
-      const [storedSettings, storedPool] = await Promise.all([
-        repository.getSettings(),
-        repository.getTeamPool(),
-      ]);
+      // ⚠️ v0.38.0: these reads can now throw on unreadable storage, and there is
+      // no honest number to return. 0 would claim "nobody is orphaned" on the
+      // strength of a read that failed. NaN reaches the dialog and renders
+      // literally — `RateTable:457` branches on `orphanCount === 0`, so NaN takes
+      // the warning arm and the user is shown "NaN team members would be left
+      // with no rate". So this toasts and RETHROWS, and `requestDelete` declines
+      // to open the dialog at all: the delete is refused, with a stated reason,
+      // rather than offered on the basis of a check that did not happen.
+      let storedSettings, storedPool;
+      try {
+        [storedSettings, storedPool] = await Promise.all([
+          repository.getSettings(),
+          repository.getTeamPool(),
+        ]);
+      } catch (err) {
+        addToast(
+          describeStorageError(err, 'Could not check for affected team members.'),
+          'error',
+        );
+        throw err;
+      }
       const remaining = storedSettings.laborRates.filter((_, i) => i !== index);
       return storedPool.filter((m) => !remaining.some((r) => r.role === m.role)).length;
     },
-    [repository],
+    [addToast, repository],
   );
+
+  // ⚠️ v0.38.0: `settings` stays null when the stored blob cannot be read, and
+  // that is now a PERMANENT state rather than a tick of the fetch. Falling
+  // through to the skeleton below would leave this page loading forever with
+  // nothing said — a silent failure, which is exactly what this release exists
+  // to remove. Loading and unreadable are separated here BECAUSE they stopped
+  // being the same thing; before v0.38.0 an unreadable blob silently became
+  // DEFAULT_SETTINGS and this branch was unreachable with `loading` false.
+  if (!loading && !settings) {
+    return (
+      <div>
+        <h1 className="text-2xl font-bold">Settings</h1>
+        <p className="mt-6 max-w-prose rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+          Your saved settings could not be read, so they are not shown here and
+          cannot be edited — this avoids overwriting them with defaults. Nothing
+          has been changed. Importing a previous export from the Dashboard will
+          restore them.
+        </p>
+      </div>
+    );
+  }
 
   if (loading || !settings) {
     return (
