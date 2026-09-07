@@ -183,7 +183,16 @@ export function RateTable({
   // is a cloud-sync reload landing between render and click, which is the same
   // window every other functional update in the app already has.
   const requestDelete = async (index: number) => {
-    const orphanCount = await countOrphansIfDeleted(index);
+    // ⚠️ v0.38.0: the count comes from a storage read that can fail. The page
+    // reports the reason; this declines to open the confirmation dialog, because
+    // a delete dialog whose "N members affected" line was never computed is worse
+    // than no dialog. Nothing is written on this path.
+    let orphanCount: number;
+    try {
+      orphanCount = await countOrphansIfDeleted(index);
+    } catch {
+      return;
+    }
     // Captured with the count so the dialog and the write agree about which row
     // this is. Nothing here writes yet.
     setPendingDelete({ index, role: rates[index].role, orphanCount });

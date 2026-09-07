@@ -15,7 +15,7 @@ import { GoogleLogo } from '@/components/icons/GoogleLogo';
 import { MicrosoftLogo } from '@/components/icons/MicrosoftLogo';
 import type { StorageMode } from '@/lib/storage/storageMode';
 import { useRepository } from '@/components/RepositoryProvider';
-import { createLocalStorageRepository } from '@/lib/storage/localStorage';
+import { createLocalStorageRepository, describeStorageError } from '@/lib/storage/localStorage';
 import { createFirestoreRepository } from '@/lib/storage/firestoreRepo';
 import { sanitizeFirebaseError } from '@/lib/firebase/errors';
 import { setOriginRef } from '@/lib/storage/fingerprint';
@@ -92,7 +92,17 @@ export function CloudStorageModal({ onClose }: CloudStorageModalProps) {
       if (!user) return;
       // Read through the ACTIVE repository to avoid the C3 leak (a freshly
       // constructed local repository might surface keys belonging to a prior user).
-      const localProjects = await repository.getProjects();
+      // ⚠️ v0.38.0: this read decides whether to offer an upload. On unreadable
+      // storage it now throws; without this the mode switch aborts silently
+      // mid-flow. Reporting and declining the switch is the safe direction — a
+      // local→cloud upload built on a failed read would push a short dataset.
+      let localProjects;
+      try {
+        localProjects = await repository.getProjects();
+      } catch (err) {
+        addToast(describeStorageError(err, 'Could not read local data.'), 'error');
+        return;
+      }
       if (localProjects.length > 0) {
         setLocalProjectCount(localProjects.length);
         setShowUploadConfirm(true);

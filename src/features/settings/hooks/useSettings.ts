@@ -10,6 +10,7 @@ import { useRepository } from '@/components/RepositoryProvider';
 import { useDebouncedSave } from '@/hooks/useDebouncedSave';
 import { cloudSyncBus } from '@/lib/firebase/cloudSyncBus';
 import { addToastGlobal } from '@/components/Toast';
+import { describeStorageError } from '@/lib/storage/localStorage';
 
 export function useSettings() {
   const { repository } = useRepository();
@@ -29,7 +30,10 @@ export function useSettings() {
         // toasting in either would produce a confusing duplicate. Silent
         // eviction is intentional — users who lost access (sign-out
         // cascade, admin revocation) typically already know.
-        addToastGlobal('Failed to load settings. Please check your connection.', 'error');
+        addToastGlobal(
+          describeStorageError(err, 'Failed to load settings. Please check your connection.'),
+          'error',
+        );
       }
     } finally {
       setLoading(false);
@@ -53,7 +57,10 @@ export function useSettings() {
     try {
       await repository.saveSettings(s);
     } catch (err) {
-      addToastGlobal('Failed to save settings. Please check your connection.', 'error');
+      addToastGlobal(
+        describeStorageError(err, 'Failed to save settings. Please check your connection.'),
+        'error',
+      );
       throw err;
     }
   }, [repository]);

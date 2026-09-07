@@ -356,7 +356,21 @@ export async function applyImportMerge(
   }
 
   // ── 3. Projects (Layer 2 fresh read for stale-data guard) ──
-  const freshExisting = await repository.getProjects();
+  // ⚠️ v0.38.0: every other write in this function is wrapped so its failure
+  // becomes a reported error rather than an aborted import; this read sat in the
+  // gap between those try blocks. It can now throw on unreadable storage, and an
+  // unhandled throw here abandons the import after the team pool and settings
+  // have already been written — a half-applied import with nothing said.
+  let freshExisting: Project[];
+  try {
+    freshExisting = await repository.getProjects();
+  } catch (err) {
+    errorCount++;
+    errorMessages.push(
+      `Projects: ${err instanceof Error ? err.message : 'Unknown error'}`,
+    );
+    return { addedCount, replacedCount, skippedCount, errorCount, errorMessages };
+  }
   const freshById = new Map(freshExisting.map((p) => [p.id, p]));
   const freshByName = new Map(
     freshExisting

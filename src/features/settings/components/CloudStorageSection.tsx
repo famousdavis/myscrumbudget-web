@@ -12,7 +12,7 @@ import { TosConsentModal } from '@/components/TosConsentModal';
 import { useToast } from '@/components/Toast';
 import type { StorageMode } from '@/lib/storage/storageMode';
 import { useRepository } from '@/components/RepositoryProvider';
-import { createLocalStorageRepository } from '@/lib/storage/localStorage';
+import { createLocalStorageRepository, describeStorageError } from '@/lib/storage/localStorage';
 import { createFirestoreRepository } from '@/lib/storage/firestoreRepo';
 import { sanitizeFirebaseError } from '@/lib/firebase/errors';
 import { setOriginRef } from '@/lib/storage/fingerprint';
@@ -73,7 +73,17 @@ export function CloudStorageSection() {
       // branch only runs while mode !== 'cloud'. Avoids the C3 leak where a
       // freshly-constructed localStorage repository bypasses any in-flight
       // state and reads raw keys that may belong to a prior user.
-      const localProjects = await repository.getProjects();
+      // ⚠️ v0.38.0: this read decides whether to offer an upload. On unreadable
+      // storage it now throws; without this the mode switch aborts silently
+      // mid-flow. Reporting and declining the switch is the safe direction — a
+      // local→cloud upload built on a failed read would push a short dataset.
+      let localProjects;
+      try {
+        localProjects = await repository.getProjects();
+      } catch (err) {
+        addToast(describeStorageError(err, 'Could not read local data.'), 'error');
+        return;
+      }
 
       if (localProjects.length > 0) {
         setLocalProjectCount(localProjects.length);
@@ -300,7 +310,13 @@ export function CloudStorageSection() {
               // Firestore in cloud mode; this button surfaces localStorage
               // stragglers left behind after a prior migration.
               const localRepo = createLocalStorageRepository();
-              const localProjects = await localRepo.getProjects();
+              let localProjects;
+              try {
+                localProjects = await localRepo.getProjects();
+              } catch (err) {
+                addToast(describeStorageError(err, 'Could not read local data.'), 'error');
+                return;
+              }
               if (localProjects.length > 0) {
                 setLocalProjectCount(localProjects.length);
                 setShowReuploadConfirm(true);

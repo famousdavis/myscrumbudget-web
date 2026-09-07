@@ -110,4 +110,29 @@ describe('useProjects — reorderProjects against a list this tab never saw', ()
       'MEMORY half — the hook must reload so the dashboard actually shows it',
     ).toEqual(['b', 'a', 'NEW']);
   });
+  /**
+   * ⚠️ WI-20 (v0.38.0), and it is this release's own defect shape in miniature.
+   * `exportProject` returns null for "no project with that id". Returning null on
+   * a READ FAILURE as well would make one value mean two things, leaving the
+   * caller unable to tell them apart — the exact `[]`-means-both problem the
+   * release exists to remove. Found in the BROWSER, not by this suite: a failed
+   * export toasted the storage error AND "Project not found.", the second of
+   * which is false. It rethrows instead, so null keeps its single meaning.
+   */
+  it('exportProject RETHROWS a read failure and reserves null for "no such project"', async () => {
+    localStorage.setItem('msb:projects', JSON.stringify([makeProject('a')]));
+    const { result } = renderHook(() => useProjects());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await expect(
+      result.current.exportProject('no-such-id'),
+      'a genuinely absent project must still resolve to null',
+    ).resolves.toBeNull();
+
+    localStorage.setItem('msb:projects', '{{{ not json');
+    await expect(
+      result.current.exportProject('a'),
+      'an unreadable read must NOT masquerade as "project not found"',
+    ).rejects.toThrow();
+  });
 });

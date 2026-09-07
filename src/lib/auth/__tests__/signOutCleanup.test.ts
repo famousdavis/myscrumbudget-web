@@ -177,6 +177,34 @@ describe('performSignOutCleanup', () => {
       for (const k of CLOUD_ONLY_CLEAR) expect(localStorage.getItem(k)).toBe(`__value_${k}`);
     });
 
+    /**
+     * ⚠️ WI-20 (v0.38.0), and this is the site the item exists to protect.
+     * `confirmCloudCopy` gates the clear on `localProjects.length === 0`. Before
+     * v0.38.0 an unreadable projects key read as `[]`, so this concluded "local
+     * is empty" and DELETED THE ONLY COPY — v0.37.11's own local-data guard,
+     * defeated by a corrupt read.
+     *
+     * ⚠️ Nothing in `signOutCleanup.ts` was changed to fix this. The local read
+     * now REJECTS instead of reporting empty, and the existing catch below it
+     * already returns false. This test pins that the existing guard is what
+     * saves the data — so nobody "simplifies" the throw back into a fallback.
+     */
+    it('KEEPS the local copy when the LOCAL read rejects — an unreadable local copy is not an empty one', async () => {
+      mocks.cloudGetProjects.mockResolvedValue([]);
+      mocks.localGetProjects.mockRejectedValue(
+        new Error('Stored data under "msb:projects" could not be read'),
+      );
+
+      await performSignOutCleanup();
+
+      for (const k of CLOUD_ONLY_CLEAR) {
+        expect(
+          localStorage.getItem(k),
+          `${k} must survive: an unreadable local copy could be the only copy`,
+        ).toBe(`__value_${k}`);
+      }
+    });
+
     it('KEEPS the local copy when there is no current user to check against', async () => {
       mocks.mockAuth.currentUser = null;
       await performSignOutCleanup();
