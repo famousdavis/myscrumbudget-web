@@ -15,7 +15,9 @@ import { ConfirmDialog, AlertDialog } from '@/components/BaseDialog';
 import { useToast } from '@/components/Toast';
 import { SkeletonProjectCard } from '@/components/Skeleton';
 import { STORAGE_KEYS } from '@/types/storage';
+import type { AppState } from '@/types/domain';
 import { useRepository } from '@/components/RepositoryProvider';
+import { describeStorageError, describeExportOmission } from '@/lib/storage/localStorage';
 import { useImportState } from '@/features/projects/hooks/useImportState';
 import { getDashboardEmptyState } from '@/features/projects/lib/dashboardCard';
 import { RATES_DEEP_LINK } from '@/lib/constants';
@@ -38,7 +40,7 @@ export default function DashboardPage() {
   } = useProjects();
   const { settings } = useSettings();
   const { pool } = useTeamPool();
-  const { repository } = useRepository();
+  const { repository, isCloud } = useRepository();
   const { addToast } = useToast();
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [showArchived, setShowArchived] = useState(false);
@@ -111,9 +113,25 @@ export default function DashboardPage() {
   };
 
   const handleExportAll = async () => {
-    const data = await repository.exportAll();
+    let data: AppState;
+    try {
+      data = await repository.exportAll();
+    } catch (err) {
+      addToast(describeStorageError(err, 'Export failed. Please try again.'), 'error');
+      return;
+    }
     downloadJson(data, `myscrumbudget-export-${new Date().toISOString().slice(0, 10)}.json`);
-    addToast('Export complete', 'success');
+    reportExport();
+  };
+
+  // ⚠️ Criterion 6. An export that quietly omits unreadable entries is the one
+  // way this release could still cost a user their data: they export, see a
+  // file, believe they are safe, and clear their browser. Shared by both export
+  // paths so the two cannot drift.
+  const reportExport = () => {
+    const omission = describeExportOmission(isCloud);
+    if (omission) addToast(`Export complete. ${omission}`, 'info');
+    else addToast('Export complete', 'success');
   };
 
   const handleExportProject = async (id: string) => {
@@ -135,7 +153,9 @@ export default function DashboardPage() {
     // real quadratic. The safety is a property of this pipeline, not of the regex.
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'project';
     downloadJson(data, `myscrumbudget-${slug}-${new Date().toISOString().slice(0, 10)}.json`);
-    addToast(`Exported "${name}"`, 'success');
+    const omission = describeExportOmission(isCloud);
+    if (omission) addToast(`Exported "${name}". ${omission}`, 'info');
+    else addToast(`Exported "${name}"`, 'success');
   };
 
   const handleCloneProject = async (id: string) => {

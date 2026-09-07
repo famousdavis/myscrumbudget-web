@@ -5,6 +5,7 @@
 'use client';
 
 import { useRepository } from '@/components/RepositoryProvider';
+import { describeStorageError, describeExportOmission } from '@/lib/storage/localStorage';
 import { useToast } from '@/components/Toast';
 
 /**
@@ -14,10 +15,16 @@ import { useToast } from '@/components/Toast';
  */
 export function DataPortability() {
   const { addToast } = useToast();
-  const { repository } = useRepository();
+  const { repository, isCloud } = useRepository();
 
   const handleExport = async () => {
-    const data = await repository.exportAll();
+    let data;
+    try {
+      data = await repository.exportAll();
+    } catch (err) {
+      addToast(describeStorageError(err, 'Export failed. Please try again.'), 'error');
+      return;
+    }
     const json = JSON.stringify(data, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -26,7 +33,10 @@ export function DataPortability() {
     a.download = `myscrumbudget-export-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    addToast('Export complete', 'success');
+    // Criterion 6 — see page.tsx reportExport for why an export must say so.
+    const omission = describeExportOmission(isCloud);
+    if (omission) addToast(`Export complete. ${omission}`, 'info');
+    else addToast('Export complete', 'success');
   };
 
   return (

@@ -14,6 +14,7 @@ import { ensureOriginRef, appendToChangeLog } from '@/lib/storage/fingerprint';
 import { cancelByKey } from '@/lib/storage/pendingSaveRegistry';
 import { nextCopyName, cloneProjectData } from '@/features/projects/lib/dashboardCard';
 import { addToastGlobal } from '@/components/Toast';
+import { describeStorageError } from '@/lib/storage/localStorage';
 
 export function useProjects() {
   const { repository } = useRepository();
@@ -63,7 +64,15 @@ export function useProjects() {
         reforecasts: [baseline],
         activeReforecastId: baseline.id,
       };
-      await repository.createProject(project);
+      try {
+        await repository.createProject(project);
+      } catch (err) {
+        addToastGlobal(
+          describeStorageError(err, 'Failed to create project. Please check your connection.'),
+          'error',
+        );
+        throw err;
+      }
       ensureOriginRef();
       appendToChangeLog({ op: 'add', entity: 'project', id: project.id });
       await reload();
@@ -79,7 +88,15 @@ export function useProjects() {
       // setDoc(merge:true). Limitation: cancels the timer only; a setDoc
       // already in-flight over the network is not aborted (~200ms residual).
       cancelByKey(id);
-      await repository.deleteProject(id);
+      try {
+        await repository.deleteProject(id);
+      } catch (err) {
+        addToastGlobal(
+          describeStorageError(err, 'Failed to delete project. Please check your connection.'),
+          'error',
+        );
+        return;
+      }
       appendToChangeLog({ op: 'delete', entity: 'project', id });
       await reload();
     },
@@ -95,7 +112,19 @@ export function useProjects() {
           .map((id) => byId.get(id))
           .filter((p): p is Project => p !== undefined);
       });
-      await repository.reorderProjects(orderedIds);
+      try {
+        await repository.reorderProjects(orderedIds);
+      } catch (err) {
+        addToastGlobal(
+          describeStorageError(err, 'Failed to reorder projects. Please check your connection.'),
+          'error',
+        );
+        // ⚠️ The optimistic update above already moved the tiles. Re-read so the
+        // screen goes back to what is actually stored — otherwise the user is
+        // looking at an order that was never written.
+        await reload();
+        return;
+      }
       // ⚠️ A RELOAD, not a second append inside the optimistic update above.
       // In the two-tab case `prev` NEVER held the foreign project — it was
       // created in another tab and this tab never loaded it — so there is
@@ -121,15 +150,23 @@ export function useProjects() {
    */
   const setProjectColor = useCallback(
     async (id: string, color: ProjectColor | undefined) => {
-      const target = await repository.getProject(id);
-      if (!target) return;
-      const next: Project = { ...target };
-      if (color) {
-        next.color = color;
-      } else {
-        delete next.color;
+      try {
+        const target = await repository.getProject(id);
+        if (!target) return;
+        const next: Project = { ...target };
+        if (color) {
+          next.color = color;
+        } else {
+          delete next.color;
+        }
+        await repository.saveProject(next);
+      } catch (err) {
+        addToastGlobal(
+          describeStorageError(err, 'Failed to update project colour. Please check your connection.'),
+          'error',
+        );
+        return;
       }
-      await repository.saveProject(next);
       await reload();
     },
     [reload, repository]
@@ -146,9 +183,17 @@ export function useProjects() {
    */
   const archiveProject = useCallback(
     async (id: string) => {
-      const target = await repository.getProject(id);
-      if (!target) return;
-      await repository.saveProject({ ...target, archived: true });
+      try {
+        const target = await repository.getProject(id);
+        if (!target) return;
+        await repository.saveProject({ ...target, archived: true });
+      } catch (err) {
+        addToastGlobal(
+          describeStorageError(err, 'Failed to archive project. Please check your connection.'),
+          'error',
+        );
+        return;
+      }
       appendToChangeLog({ op: 'archive', entity: 'project', id });
       await reload();
     },
@@ -163,11 +208,19 @@ export function useProjects() {
    */
   const unarchiveProject = useCallback(
     async (id: string) => {
-      const target = await repository.getProject(id);
-      if (!target) return;
-      const next: Project = { ...target };
-      delete next.archived;
-      await repository.saveProject(next);
+      try {
+        const target = await repository.getProject(id);
+        if (!target) return;
+        const next: Project = { ...target };
+        delete next.archived;
+        await repository.saveProject(next);
+      } catch (err) {
+        addToastGlobal(
+          describeStorageError(err, 'Failed to unarchive project. Please check your connection.'),
+          'error',
+        );
+        return;
+      }
       appendToChangeLog({ op: 'unarchive', entity: 'project', id });
       await reload();
     },
@@ -183,12 +236,21 @@ export function useProjects() {
    */
   const cloneProject = useCallback(
     async (id: string): Promise<Project | null> => {
-      const source = await repository.getProject(id);
-      if (!source) return null;
-      const all = await repository.getProjects();
-      const newName = nextCopyName(source.name, all.map((p) => p.name));
-      const clone = cloneProjectData(source, newName);
-      await repository.createProject(clone);
+      let clone: Project;
+      try {
+        const source = await repository.getProject(id);
+        if (!source) return null;
+        const all = await repository.getProjects();
+        const newName = nextCopyName(source.name, all.map((p) => p.name));
+        clone = cloneProjectData(source, newName);
+        await repository.createProject(clone);
+      } catch (err) {
+        addToastGlobal(
+          describeStorageError(err, 'Failed to clone project. Please check your connection.'),
+          'error',
+        );
+        return null;
+      }
       ensureOriginRef();
       appendToChangeLog({ op: 'add', entity: 'project', id: clone.id });
       await reload();
@@ -206,7 +268,16 @@ export function useProjects() {
    */
   const exportProject = useCallback(
     async (id: string): Promise<AppState | null> => {
-      const data = await repository.exportAll();
+      let data: AppState;
+      try {
+        data = await repository.exportAll();
+      } catch (err) {
+        addToastGlobal(
+          describeStorageError(err, 'Failed to export project. Please check your connection.'),
+          'error',
+        );
+        return null;
+      }
       const one = data.projects.find((p) => p.id === id);
       if (!one) return null;
       return { ...data, projects: [one] };

@@ -11,6 +11,7 @@ import { useDebouncedSave } from '@/hooks/useDebouncedSave';
 import { cloudSyncBus } from '@/lib/firebase/cloudSyncBus';
 import { UNDO_STACK_LIMIT } from '@/lib/constants';
 import { addToastGlobal } from '@/components/Toast';
+import { describeStorageError } from '@/lib/storage/localStorage';
 
 function pushBounded(stack: Project[], snapshot: Project): Project[] {
   const next = [...stack, snapshot];
@@ -61,9 +62,23 @@ export function useProject(id: string) {
   }, []);
 
   const reload = useCallback(async () => {
-    const p = await repository.getProject(id);
-    applyProject(p);
-    setLoading(false);
+    // v0.38.0: `getProject` reads through `getProjects`, which now THROWS when
+    // stored data is unreadable rather than silently reporting an empty list.
+    // Without this catch that rejection is unhandled and the page sits on the
+    // skeleton forever with nothing said. There is no error boundary in this
+    // app, so a read that can throw needs its handler at the call site.
+    try {
+      const p = await repository.getProject(id);
+      applyProject(p);
+    } catch (err) {
+      addToastGlobal(
+        describeStorageError(err, 'Failed to load project. Please check your connection.'),
+        'error',
+      );
+      applyProject(null);
+    } finally {
+      setLoading(false);
+    }
   }, [id, applyProject, repository]);
 
   // Fetch-on-mount + cloudSyncBus subscription — externally driven, not cascading.
@@ -86,7 +101,10 @@ export function useProject(id: string) {
     try {
       await repository.saveProject(p);
     } catch (err) {
-      addToastGlobal('Failed to save project. Please check your connection.', 'error');
+      addToastGlobal(
+        describeStorageError(err, 'Failed to save project. Please check your connection.'),
+        'error',
+      );
       throw err;
     }
   }, [repository]);
