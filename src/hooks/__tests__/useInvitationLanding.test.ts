@@ -56,9 +56,8 @@ describe('captureInviteTokenFromUrl', () => {
   });
 });
 
-// Note: full state-machine tests for the hook itself (Effect 2/3/4/5) require
-// rendering the hook with a mock AuthProvider. These are deferred to the
-// BulkSharingSection test file (next iteration) since they share the same
-// AuthProvider mocking infrastructure. The captureInviteTokenFromUrl tests
-// above cover the IIFE-equivalent capture logic in isolation, which is the
-// most fragile part of the hook.
+// The hook's state machine (Effects 2–6) is characterised in the sibling file
+// `useInvitationLanding.hook.test.tsx` since v0.38.1, when a shipped defect
+// re-opened the 2026-08-16 coverage decline recorded at the hook. This file
+// keeps the module-scope capture helper in isolation, which needs no
+// provider mocks and runs at import time.

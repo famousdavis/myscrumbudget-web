@@ -28,7 +28,8 @@ export function InvitationBanner() {
 }
 
 function InvitationBannerInner() {
-  const { state, claimedNames, dismiss } = useInvitationLanding();
+  const { state, claimedNames, claimedElsewhereApps, failureMessage, dismiss } =
+    useInvitationLanding();
   if (state === 'idle') return null;
 
   return (
@@ -48,7 +49,8 @@ function InvitationBannerInner() {
         {state === 'pre_auth' && <PreAuthContent />}
         {state === 'claiming' && <ClaimingContent />}
         {state === 'claimed'  && <ClaimedContent names={claimedNames} />}
-        {state === 'failed'   && <FailedContent />}
+        {state === 'claimed_elsewhere' && <ClaimedElsewhereContent apps={claimedElsewhereApps} />}
+        {state === 'failed'   && <FailedContent message={failureMessage} />}
       </div>
       {/* Scoped live region — announces state transitions without re-reading
           the entire card. role="status" on the card without aria-live keeps
@@ -56,7 +58,8 @@ function InvitationBannerInner() {
       <span aria-live="polite" className="sr-only">
         {state === 'claiming' && 'Verifying your invitation.'}
         {state === 'claimed'  && `You now have access to ${claimedNames.join(', ')}.`}
-        {state === 'failed'   && 'This invite link did not match your account.'}
+        {state === 'claimed_elsewhere' && `Your invitation was accepted in ${listNames(claimedElsewhereApps)}.`}
+        {state === 'failed'   && failureMessage}
       </span>
     </div>
   );
@@ -133,15 +136,40 @@ function ClaimedContent({ names }: { names: string[] }) {
   );
 }
 
-function FailedContent() {
-  // Known v1 UX limitation: MS personal accounts (@outlook.com) reach this
-  // state because emailVerified === false short-circuits the claim. Also
-  // hit on the cross-app token edge case (link for non-MSB app, landed on
-  // MSB by mistake). Both documented as backlog items.
+/** "A" · "A and B" · "A, B and C" — for the one-to-many app list. */
+function listNames(names: string[]): string {
+  if (names.length <= 1) return names[0] ?? '';
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
+function ClaimedElsewhereContent({ apps }: { apps: string[] }) {
+  // v0.38.1 (WI-2 PC3): the claim SUCCEEDED, but every row it claimed belongs
+  // to another SPERT app — the student opened, say, a Story Map invite and
+  // landed here. Before this state existed the banner waited 30 seconds and
+  // then reported the link "didn't match your account", after a claim that
+  // had worked. Names come from the CF's `claimed[].appId` through the same
+  // map the invitation email uses.
+  const where = listNames(apps);
+  const plural = apps.length > 1;
+  return (
+    <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+      Your invitation was accepted in {where}, not in MyScrumBudget. Open{' '}
+      {plural ? 'those apps' : where} to see the {plural ? 'projects' : 'project'}.
+    </p>
+  );
+}
+
+function FailedContent({ message }: { message: string | null }) {
+  // v0.38.1 — three distinct copies now reach this state, all built by the
+  // hook from the claim callable's settlement (rejected → mapped by code;
+  // resolved with no rows → "no pending invitation for <email>"; no answer in
+  // 30 s → "couldn't confirm"). None is a read of the invitation document
+  // (WI-2 PC4). The previous single copy here blamed "MS personal accounts"
+  // and `emailVerified === false`; that model was wrong — every Microsoft
+  // sign-in is unverified in Firebase — and it is what hid this defect.
   return (
     <p className="text-sm text-amber-800 dark:text-amber-300">
-      This invite link didn&rsquo;t match your account. Check that you signed in
-      with the right email.
+      {message}
     </p>
   );
 }
