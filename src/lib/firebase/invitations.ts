@@ -156,8 +156,29 @@ export async function callResendInvite(tokenId: string): Promise<ResendInviteRes
  * means different things per call site (Lesson 13). Tests assert the same
  * code produces different messages across contexts.
  */
-export function mapInvitationError(err: unknown, context: 'send' | 'resend' | 'revoke'): string {
+export function mapInvitationError(
+  err: unknown,
+  context: 'send' | 'resend' | 'revoke' | 'claim',
+): string {
   const code = (err as { code?: string }).code ?? '';
+  if (context === 'claim') {
+    // v0.38.1 (WI-2 PC2/PC4). Keyed on the CODE the claim callable rejects
+    // with; the server's message text is never rendered. 'failed-precondition'
+    // here means the CF refused the caller's IDENTITY — after WI-1 that is a
+    // sign-in whose provider is not allowlisted AND whose email is unverified,
+    // which no Google or Microsoft account is. The same code means "not
+    // verified to SEND" in 'send' and "resend cap hit" in 'resend' (Lesson 13).
+    if (code === 'functions/failed-precondition')
+      return "Invitations can't be accepted with this sign-in method because its email address isn't verified. Sign in with Google or Microsoft instead.";
+    if (code === 'functions/unauthenticated')
+      return 'Your session expired before the invitation could be accepted. Sign in again, then open the link from your invitation email.';
+    if (
+      code === 'functions/unavailable' ||
+      code === 'functions/internal' ||
+      code === 'functions/deadline-exceeded'
+    )
+      return 'A temporary problem stopped the invitation from being accepted. Open the link from your invitation email to try again — the invitation is still pending.';
+  }
   if (context === 'send') {
     if (code === 'functions/resource-exhausted')
       return "You've reached today's invitation limit (25/day). Try again tomorrow.";

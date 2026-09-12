@@ -47,6 +47,51 @@ export interface ClaimPendingInvitationsResult {
   claimed: { appId: string; modelId: string; modelName: string }[];
 }
 
+/**
+ * v0.38.1 — the claim's SETTLED channel, dispatched by
+ * `claimPendingInvitationsAndNotify` exactly when `spert:models-changed` is
+ * NOT: the callable rejected, or it resolved with no rows at all. One event
+ * per settlement, never two — `spert:models-changed` is byte-identical to
+ * v0.28.0 when `claimed.length > 0`, which is what the PC1 test pins.
+ *
+ * The name and the detail type live HERE, in the module both the dispatcher
+ * and the consumer already import, so the two cannot spell the event
+ * differently. Nothing at either end can pin that the event dispatched is the
+ * event consumed; the shared constant plus the integration test in
+ * `useInvitationLanding.hook.test.tsx` are what close that gap.
+ *
+ * `email` on the 'none' arm is the signed-in account's address from Firebase
+ * Auth — client auth state, NOT a read of the invitation document. Reading
+ * the document as invitee hits `email_verified == true` in the rules and
+ * re-breaks exactly the users WI-1 fixed (WI-2 PC4).
+ */
+export const INVITE_CLAIM_SETTLED_EVENT = 'spert:invite-claim-settled';
+export type InviteClaimSettledDetail =
+  | { outcome: 'none'; email: string | null }
+  | { outcome: 'error'; code: string };
+
+/**
+ * Mirrors `APP_NAMES_BY_APP_ID` in spert-landing-page
+ * `functions/src/invitationMailer.tsx` — the names the invitation EMAIL uses,
+ * so the banner and the email a student is holding agree. Keyed by the
+ * `appId` the claim CF returns in `claimed[]`. `Partial` so an id the CF
+ * onboards before this map learns it falls back to the raw id rather than
+ * to `undefined` in copy.
+ */
+export const SPERT_APP_DISPLAY_NAMES: Readonly<Partial<Record<string, string>>> = {
+  spertahp: 'SPERT AHP',
+  spertcfd: 'SPERT CFD',
+  ganttapp: 'GanttApp',
+  spertforecaster: 'SPERT Forecaster',
+  spertstorymap: 'SPERT Story Map',
+  spertscheduler: 'SPERT Scheduler',
+  myscrumbudget: 'MyScrumBudget',
+};
+
+export function spertAppDisplayName(appId: string): string {
+  return SPERT_APP_DISPLAY_NAMES[appId] ?? appId;
+}
+
 export interface RevokeInviteResult { success: boolean; }
 export interface ResendInviteResult { success: boolean; }
 

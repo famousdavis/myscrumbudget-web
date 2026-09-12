@@ -51,6 +51,41 @@ beforeEach(() => {
 });
 
 describe('mapInvitationError', () => {
+  // v0.38.1 (WI-2 PC2/PC4): the 'claim' context. Keyed on the callable's
+  // code; the server's message text is never consulted, which is why every
+  // fixture here carries a `message` the assertions must NOT find.
+  it("'claim' failed-precondition is its own copy — not send's, not resend's (Lesson 13)", async () => {
+    const { mapInvitationError } = await import('../invitations');
+    const err = { code: 'functions/failed-precondition', message: 'SERVER TEXT MUST NOT LEAK' };
+    const claimMsg = mapInvitationError(err, 'claim');
+    expect(claimMsg).not.toEqual(mapInvitationError(err, 'send'));
+    expect(claimMsg).not.toEqual(mapInvitationError(err, 'resend'));
+    expect(claimMsg).toMatch(/Sign in with Google or Microsoft/);
+    expect(claimMsg).not.toContain('SERVER TEXT');
+  });
+
+  it("'claim' unauthenticated tells the student to sign in again and re-open the link", async () => {
+    const { mapInvitationError } = await import('../invitations');
+    const msg = mapInvitationError({ code: 'functions/unauthenticated', message: 'x' }, 'claim');
+    expect(msg).toMatch(/session expired/);
+    expect(msg).toMatch(/link from your invitation email/);
+  });
+
+  it("'claim' maps the three transient codes to ONE retry copy that says the invitation is still pending", async () => {
+    const { mapInvitationError } = await import('../invitations');
+    const msgs = ['functions/unavailable', 'functions/internal', 'functions/deadline-exceeded']
+      .map(code => mapInvitationError({ code, message: 'x' }, 'claim'));
+    expect(new Set(msgs).size, 'identical copy for all three').toBe(1);
+    expect(msgs[0]).toMatch(/still pending/);
+    expect(msgs[0]).toMatch(/link from your invitation email/);
+  });
+
+  it("'claim' falls through to sanitizeFirebaseError for a code it does not enumerate", async () => {
+    const { mapInvitationError } = await import('../invitations');
+    // sanitizeFirebaseError is mocked at the top of this file to echo `message`.
+    expect(mapInvitationError({ code: 'functions/aborted', message: 'fell through' }, 'claim')).toBe('fell through');
+  });
+
   it('produces context-specific messages for the same error code (Lesson 13)', async () => {
     const { mapInvitationError } = await import('../invitations');
     const err = { code: 'functions/failed-precondition' };

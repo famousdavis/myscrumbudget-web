@@ -11,7 +11,13 @@ import { createLocalStorageRepository } from '@/lib/storage/localStorage';
 import { useRepository } from '@/components/RepositoryProvider';
 import { setHasUploaded } from '@/lib/storage/cloudFlipHelpers';
 import { setOriginRef } from '@/lib/storage/fingerprint';
-import type { ClaimPendingInvitationsResult } from '@/lib/firebase/invitation-types';
+import { mapInvitationError } from '@/lib/firebase/invitations';
+import {
+  INVITE_CLAIM_SETTLED_EVENT,
+  spertAppDisplayName,
+  type ClaimPendingInvitationsResult,
+  type InviteClaimSettledDetail,
+} from '@/lib/firebase/invitation-types';
 
 export const INVITE_SESSION_KEY = 'msb:invite-session';
 
@@ -32,7 +38,17 @@ export const INVITE_SESSION_KEY = 'msb:invite-session';
  * explicitly to avoid ES module binding fragility.
  */
 /**
- * COVERAGE DISPOSITION — DECLINED, and this is a FINISHED ITEM, not a TODO.
+ * COVERAGE DISPOSITION — DECLINED 2026-08-16, RE-OPENED 2026-09-12 BY A SHIPPED
+ * DEFECT, which is one of the three reasons the decline below named as
+ * sufficient. The hook is now characterised in
+ * `src/hooks/__tests__/useInvitationLanding.hook.test.tsx` (v0.38.1). The
+ * decline record is kept unedited beneath this paragraph as history: its
+ * measurement was correct, its band was correct, and the reason it re-opened
+ * is exactly the reason it said would count. What it over-stated is the cost —
+ * the hook never calls the Cloud Function, it consumes window events, so the
+ * "CF mock that does not exist" was never required here; the callable mock in
+ * `claimPendingInvitations.test.ts` already existed, and the genuine gap was
+ * that nothing pinned the dispatched event to the consumed one.
  *
  * DECISION: characterising this hook was measured, scoped, and declined by the
  * owner on 2026-08-16. It was closed on measured grounds, not abandoned for
@@ -86,31 +102,74 @@ export function captureInviteTokenFromUrl(enabled: boolean = INVITATIONS_ENABLED
 // Module-load auto-call. Runs once when the client bundle evaluates this module.
 captureInviteTokenFromUrl();
 
-export type InviteLandingState = 'idle' | 'pre_auth' | 'claiming' | 'claimed' | 'failed';
+export type InviteLandingState =
+  | 'idle'
+  | 'pre_auth'
+  | 'claiming'
+  | 'claimed'
+  | 'claimed_elsewhere'
+  | 'failed';
 
 interface UseInvitationLandingResult {
   state: InviteLandingState;
   claimedNames: string[];
+  /** Display names of the apps a cross-app claim landed in ('claimed_elsewhere'). */
+  claimedElsewhereApps: string[];
+  /** Copy for the 'failed' state; null in every other state. */
+  failureMessage: string | null;
   dismiss: () => void;
+}
+
+/**
+ * v0.38.1 — the three 'failed' copies, exported so tests pin the STRING a
+ * student reads rather than a substring that three different messages share.
+ * Each is built from the claim callable's settlement and nothing else; none
+ * reads the invitation document (WI-2 PC4).
+ */
+export const CLAIM_TIMEOUT_MESSAGE =
+  "We couldn't confirm your invitation. Check your connection, then open the link from your invitation email to try again.";
+
+export function claimNoneMessage(email: string | null): string {
+  const who = email ? email : 'the account you signed in with';
+  return `No pending invitation was found for ${who}. Check that this is the address the invitation was sent to, or ask the project owner to send a new one.`;
+}
+
+/**
+ * Turns a settlement into the copy for the 'failed' state.
+ *   null            → the 30-second timer fired with NO settlement (the CF was
+ *                     never reached, or never answered)
+ *   outcome 'none'  → the CF answered and found nothing for this email
+ *   outcome 'error' → the CF rejected; mapped by code, never by message text
+ */
+export function describeClaimFailure(settled: InviteClaimSettledDetail | null): string {
+  if (settled === null) return CLAIM_TIMEOUT_MESSAGE;
+  if (settled.outcome === 'none') return claimNoneMessage(settled.email);
+  return mapInvitationError({ code: settled.code }, 'claim');
 }
 
 /**
  * Drives the InvitationBanner state machine.
  *
  * State transitions:
- *   idle      → pre_auth   (Effect 1: SESSION_KEY present on mount)
- *   pre_auth  → claiming   (Effect 3: user becomes non-null)
- *   claiming  → claimed    (Effect 5: spert:models-changed with MSB items)
- *   claiming  → failed     (Effect 4: 30s timer fires)
- *   any       → idle       (dismiss())
+ *   idle      → pre_auth           (lazy init: SESSION_KEY present on mount)
+ *   pre_auth  → claiming           (Effect 3: user becomes non-null)
+ *   claiming  → claimed            (Effect 5: spert:models-changed with MSB items)
+ *   claiming  → claimed_elsewhere  (Effect 5: spert:models-changed with items, none MSB)
+ *   claiming  → failed             (Effect 6: the claim SETTLED — rejected, or
+ *                                   resolved with no rows; copy from the settlement)
+ *   claiming  → failed             (Effect 4: 30s timer fires with no settlement)
+ *   any       → idle               (dismiss())
  *
  * SESSION_KEY consumption:
- *   - Removed on 'claimed' transition (Effect 5)
- *   - Removed on 'failed' auto-fail (Effect 4)
+ *   - Removed on 'claimed' / 'claimed_elsewhere' (Effect 5)
+ *   - Removed on 'failed' via settlement (Effect 6) and via auto-fail (Effect 4)
  *   - Removed on dismiss() (any state)
  *
- * Page reload after dismissal or auto-fail does NOT re-show the banner.
- * Retry path: user re-clicks the email link (IIFE sets a new SESSION_KEY).
+ * Page reload after dismissal or any failure does NOT re-show the banner.
+ * Retry path: user re-clicks the email link (IIFE sets a new SESSION_KEY),
+ * and every failure copy says so. The key is consumed on EVERY settled
+ * outcome deliberately — a kept key would let a later, unrelated
+ * `spert:models-changed` in the same tab raise a banner for this token.
  */
 export function useInvitationLanding(): UseInvitationLandingResult {
   const { mode, switchMode } = useRepository();
@@ -128,6 +187,11 @@ export function useInvitationLanding(): UseInvitationLandingResult {
     } catch { return 'idle'; }
   });
   const [claimedNames, setClaimedNames] = useState<string[]>([]);
+  const [claimedElsewhereApps, setClaimedElsewhereApps] = useState<string[]>([]);
+  // The claim's settlement, when one arrived. null in 'failed' means the
+  // timer fired first. Copy is derived at render (describeClaimFailure), so no
+  // handler closes over anything but stable setters (Lesson 27).
+  const [settled, setSettled] = useState<InviteClaimSettledDetail | null>(null);
 
   // ---- (Effect 1 was the SESSION_KEY check; folded into the lazy initial
   //       state above to avoid setState-in-effect.) -------------------------
@@ -201,6 +265,12 @@ export function useInvitationLanding(): UseInvitationLandingResult {
   }, [state, user]);
 
   // ---- Effect 4: 30-second grace timer ------------------------------------
+  // Since v0.38.1 this is the path of LAST resort, not the failure channel:
+  // every answer the CF gives — rows, no rows, or a rejection — settles the
+  // banner through Effect 5 or Effect 6 within one round trip. The timer
+  // fires only when no answer arrived at all (Firebase not initialised, the
+  // kill switch off, or a call that never returned), and its copy says that
+  // rather than "didn't match your account", which it cannot know.
   useEffect(() => {
     if (state !== 'claiming') return;
     const timer = setTimeout(() => {
@@ -222,19 +292,25 @@ export function useInvitationLanding(): UseInvitationLandingResult {
         .detail?.claimed ?? [];
       if (allClaimed.length === 0) return;  // payload gate (Lesson 27)
 
-      // Filter to MSB-only — other apps' claims happen server-side but
-      // aren't surfaced here. Each app's banner is self-referential.
+      // The CF claims across EVERY SPERT app for the caller's email and
+      // returns all of it; each app's banner reports its own rows.
       const msbClaimed = allClaimed.filter(c => c.appId === 'myscrumbudget');
 
+      sessionStorage.removeItem(INVITE_SESSION_KEY);  // consume on any claim
+
       if (msbClaimed.length === 0) {
-        // Known v1 limitation: if user clicked a non-MSB invite link and
-        // landed on MSB, msbClaimed is empty. The 30s timer → 'failed' copy
-        // ("didn't match your account") is misleading because access WAS
-        // granted in the other app. Documented in plan as a backlog item.
+        // v0.38.1 (WI-2 PC3): a SUCCESSFUL cross-app claim — the student
+        // clicked, say, a Story Map link and landed here. Before this the
+        // handler returned and left the 30s timer running, so a claim that
+        // had WORKED was reported as "didn't match your account". Measured
+        // 2026-09-12: three students hold pending rows in two apps each.
+        setClaimedElsewhereApps(
+          Array.from(new Set(allClaimed.map(c => spertAppDisplayName(c.appId)))),
+        );
+        setState('claimed_elsewhere');
         return;
       }
 
-      sessionStorage.removeItem(INVITE_SESSION_KEY);  // consume on claimed
       setClaimedNames(msbClaimed.map(c => c.modelName).filter(Boolean));
       setState('claimed');
     };
@@ -242,10 +318,31 @@ export function useInvitationLanding(): UseInvitationLandingResult {
     return () => window.removeEventListener('spert:models-changed', handler);
   }, []); // empty deps — SESSION_KEY + payload gates sufficient
 
+  // ---- Effect 6: the claim SETTLED without changing any model (v0.38.1) ---
+  // Dispatched by claimPendingInvitationsAndNotify exactly when
+  // spert:models-changed is not: the callable rejected, or resolved with no
+  // rows. Same gate discipline as Effect 5 — SESSION_KEY first, no state
+  // gate (Lesson 27), deps [] because only stable setters are captured.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      if (!sessionStorage.getItem(INVITE_SESSION_KEY)) return;
+      const detail = (e as CustomEvent<InviteClaimSettledDetail>).detail;
+      if (!detail) return;
+      sessionStorage.removeItem(INVITE_SESSION_KEY);  // consume on settled failure
+      setSettled(detail);
+      setState('failed');
+    };
+    window.addEventListener(INVITE_CLAIM_SETTLED_EVENT, handler);
+    return () => window.removeEventListener(INVITE_CLAIM_SETTLED_EVENT, handler);
+  }, []);
+
   const dismiss = (): void => {
     sessionStorage.removeItem(INVITE_SESSION_KEY);
+    setSettled(null);
     setState('idle');
   };
 
-  return { state, claimedNames, dismiss };
+  const failureMessage = state === 'failed' ? describeClaimFailure(settled) : null;
+
+  return { state, claimedNames, claimedElsewhereApps, failureMessage, dismiss };
 }

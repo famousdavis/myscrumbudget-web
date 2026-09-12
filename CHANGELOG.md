@@ -4,6 +4,13 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.38.1] - 2026-09-12
+
+### Fixed
+- **Accepting an invitation now works when you signed in with Microsoft.** Firebase records every Microsoft sign-in — work and school accounts included, not only personal ones — as having an unverified email address, and the app refused to even ask the server to look for your invitation in that state. It then waited thirty seconds and told you the link "didn't match your account". Your email was never compared. The app no longer makes that decision at all: it always asks the server, which is the only place that knows whether an invitation matches you. The matching server-side change that accepts Microsoft accounts ships separately; until it is live, a Microsoft sign-in is refused there instead, and the banner now says that plainly rather than blaming your address.
+- **The invitation banner now tells you what actually happened, as soon as it is known.** There are four outcomes and each has its own message. The invitation was accepted here, with the project names, as before. It was accepted in a *different* SPERT app — which is what happens when you open, say, a Story Map invitation and land in MyScrumBudget — and the message names that app so you know where to go. No pending invitation was found for the address you signed in with, which is shown so you can check it against the address the invitation was sent to, or ask the owner to send a new one. Or the server refused or could not be reached, with a message specific to the reason. Previously only the first of these had a message of its own; every other case waited thirty seconds and then showed the same "didn't match" text — including the second case, where the invitation had in fact been accepted. The thirty-second wait remains only as a fallback for when no answer arrives at all, and its message now says that instead of guessing.
+- **One thing this release cannot yet claim.** It has been verified in tests and in the browser with simulated server answers. The first real Microsoft sign-in that accepts an invitation after both halves are live is the proof that the whole chain works, and that has not happened yet.
+
 ## [0.38.0] - 2026-09-06
 
 ### Changed
