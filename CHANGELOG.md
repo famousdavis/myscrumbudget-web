@@ -4,6 +4,12 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.38.3] - 2026-09-12
+
+### Notes
+- **No change to how the app behaves.** This release corrects statements in the source code that were wrong, and records one thing v0.38.2 changed without saying so.
+- **If you use cloud storage, the file you get from Export gained a field in v0.38.2.** Each project now carries the copy of team-member names and roles that v0.38.2 started reading, so a project exported from the cloud is a little more self-describing than it was. It is harmless: importing such a file ignores the field, older versions of the app ignore it too, and exports made in local-only mode are unchanged. It was not mentioned at the time because the release notes said the export format was unchanged, which was true for local storage and not true for cloud.
+
 ## [0.38.2] - 2026-09-12
 
 ### Fixed

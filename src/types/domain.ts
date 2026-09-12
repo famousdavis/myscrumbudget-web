@@ -188,7 +188,26 @@ export interface Project {
   /**
    * Last-known display names for this project's assignees, keyed by
    * `poolMemberId` (v0.38.2). Populated ONLY on the Firestore read path
-   * (`docToProject`); absent in local mode and absent from JSON exports.
+   * (`docToProject`).
+   *
+   * ⚠️ CORRECTED v0.38.3 — this said "absent in local mode and absent from
+   * JSON exports". The second half was FALSE and the first was unverified.
+   * Measured 2026-09-12:
+   *   - LOCAL MODE: genuinely absent. Nothing in local mode sets it, the
+   *     import sanitizer strips it, and there is no cloud-to-local copy path
+   *     (all four `importAll` call sites write INTO cloud, or are internal to
+   *     `localStorage.ts`). ⚠️ It is nonetheless PERSISTABLE by construction —
+   *     `localStorage.saveProject` stores the Project verbatim — so adding a
+   *     cloud-to-local path would land it in local storage.
+   *   - JSON EXPORTS: a CLOUD-mode export DOES carry it. `sanitizeAppState`
+   *     runs on the IMPORT path only (`useImportState.ts:151`); export writes
+   *     `repository.exportAll()` straight to the file, and the Firestore
+   *     `exportAll` returns `docToProject` output. Local-mode exports do not.
+   *
+   * That asymmetry — emitted, never ingested — is INTENDED, not an oversight:
+   * emitting costs nothing and can only help a reader, while ingesting a
+   * snapshot would import a map that is stale by construction and could mask a
+   * genuinely unresolvable member behind an out-of-date name.
    *
    * WHY IT EXISTS: `resolveAssignments` joins `ProjectAssignment.poolMemberId`
    * against the VIEWER's own team pool. A collaborator on a shared project has
