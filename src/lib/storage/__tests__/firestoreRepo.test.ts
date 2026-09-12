@@ -316,9 +316,20 @@ describe('getProjects / getProject — the docToProject round-trip', () => {
     const project = await repo.getProject('p1');
 
     expect(project).not.toBeNull();
+    // ⚠️ RECLASSIFIED 2026-09-12 (v0.38.2): `_teamSnapshot` was in the EXCLUDED
+    // half of this assertion, alongside owner/members/order/_originRef/
+    // _changeLog. That grouping is what made this test — whose own comment
+    // above names the exact defect class — assert the defect as correct for
+    // three releases. The other six really are cloud-only bookkeeping; this one
+    // is the display-name fallback `resolveAssignments` consults for a SHARED
+    // project, so it has to reach the domain object or a collaborator sees
+    // "(Unknown)" for every row. The excluded six are still pinned, by the
+    // exactness of this list.
     expect(Object.keys(project!).sort()).toEqual([
+      '_teamSnapshot',
       'activeReforecastId', 'archived', 'color', 'endDate', 'id', 'name', 'reforecasts', 'startDate',
     ]);
+    expect(project!._teamSnapshot).toEqual({ a1: { name: 'Alice', role: 'BA' } });
     expect(project!.id).toBe('p1');
     expect(project!.color).toBe('teal');
     expect(project!.archived).toBe(true);
@@ -655,5 +666,108 @@ describe('saveSettingsAndTeamPool — one document, one write (PR C1)', () => {
     for (const field of options?.mergeFields ?? []) {
       expect(Object.keys(data)).toContain(field);
     }
+  });
+});
+
+describe('_teamSnapshot — the shared-project team-name fallback (v0.38.2)', () => {
+  /**
+   * These pin the WRITE half. The read half is in firestoreUtils.test.ts and the
+   * end-to-end wiring is in useTeam.test.ts; all three are required, because a
+   * correct snapshot that nothing hydrates is exactly the defect this release
+   * fixes, and it was green here for three releases.
+   */
+
+  /** Two reforecasts with DIFFERENT rosters. rf1 is active; Bob is only on rf2. */
+  function twoRosterProject(over: Partial<Project> = {}): Project {
+    const base = makeProject();
+    const rf1 = base.reforecasts[0];
+    return {
+      ...base,
+      reforecasts: [
+        rf1,
+        { ...rf1, id: 'rf2', name: 'August', assignments: [{ id: 'a2', poolMemberId: 'pm2' }] },
+      ],
+      activeReforecastId: 'rf1',
+      ...over,
+    };
+  }
+
+  function seedPool(pool: PoolMember[]) {
+    existingDocs.set(UID, { teamPool: pool });
+  }
+
+  it('covers EVERY reforecast roster, not just the active one', async () => {
+    // [FAILS-TODAY] At HEAD all three write sites pass
+    // getActiveReforecast(project)?.assignments, so pm2 — assigned only on the
+    // non-active rf2 — is absent. A collaborator switching the reforecast
+    // dropdown to "August" then saw "(Unknown)" for the whole roster.
+    seedPool([
+      { id: 'pm1', name: 'Alice', role: 'BA' },
+      { id: 'pm2', name: 'Bob', role: 'IT-SoftEng' },
+    ]);
+    const repo = createFirestoreRepository(UID);
+    await repo.saveProject(twoRosterProject());
+
+    expect(setDocCalls[0].data._teamSnapshot).toEqual({
+      pm1: { name: 'Alice', role: 'BA' },
+      pm2: { name: 'Bob', role: 'IT-SoftEng' },
+    });
+  });
+
+  it('carries forward entries the WRITER\'s own pool cannot resolve', async () => {
+    // [FAILS-TODAY] The load-bearing case for a shared project. An editor who
+    // is not the owner has none of the owner's pool members, so rebuilding the
+    // map from their pool alone DELETES every name — for every other
+    // collaborator, not just themselves. Their own additions still land.
+    seedPool([{ id: 'pm-editor', name: 'Editor Eve', role: 'PM' }]);
+    const repo = createFirestoreRepository(UID);
+    await repo.saveProject(twoRosterProject({
+      _teamSnapshot: {
+        pm1: { name: 'Alice', role: 'BA' },
+        pm2: { name: 'Bob', role: 'IT-SoftEng' },
+      },
+      reforecasts: [
+        { ...makeProject().reforecasts[0], assignments: [
+          { id: 'a1', poolMemberId: 'pm1' },
+          { id: 'a2', poolMemberId: 'pm2' },
+          { id: 'a3', poolMemberId: 'pm-editor' },
+        ] },
+      ],
+    }));
+
+    expect(setDocCalls[0].data._teamSnapshot).toEqual({
+      pm1: { name: 'Alice', role: 'BA' },
+      pm2: { name: 'Bob', role: 'IT-SoftEng' },
+      'pm-editor': { name: 'Editor Eve', role: 'PM' },
+    });
+  });
+
+  it('lets a freshly resolved entry WIN over a stale carried-forward one', async () => {
+    // The writer's own pool is authoritative for members they actually have,
+    // so a rename propagates rather than being pinned by the old snapshot.
+    seedPool([{ id: 'pm1', name: 'Alice Renamed', role: 'Business Analyst' }]);
+    const repo = createFirestoreRepository(UID);
+    await repo.saveProject(makeProject({
+      _teamSnapshot: { pm1: { name: 'Alice', role: 'BA' } },
+    }));
+
+    expect(setDocCalls[0].data._teamSnapshot).toEqual({
+      pm1: { name: 'Alice Renamed', role: 'Business Analyst' },
+    });
+  });
+
+  it('prunes carried-forward entries for members no longer assigned anywhere', async () => {
+    // Without the prune, the map only ever grows — every member ever assigned
+    // to the project stays in the document forever.
+    seedPool([{ id: 'pm1', name: 'Alice', role: 'BA' }]);
+    const repo = createFirestoreRepository(UID);
+    await repo.saveProject(makeProject({
+      _teamSnapshot: {
+        pm1: { name: 'Alice', role: 'BA' },
+        'pm-departed': { name: 'Gone', role: 'QA' },
+      },
+    }));
+
+    expect(setDocCalls[0].data._teamSnapshot).toEqual({ pm1: { name: 'Alice', role: 'BA' } });
   });
 });

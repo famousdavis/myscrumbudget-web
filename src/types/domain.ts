@@ -185,6 +185,26 @@ export interface Project {
    * stripped back to undefined on unarchive (mirrors PoolMember.archived).
    */
   archived?: boolean;
+  /**
+   * Last-known display names for this project's assignees, keyed by
+   * `poolMemberId` (v0.38.2). Populated ONLY on the Firestore read path
+   * (`docToProject`); absent in local mode and absent from JSON exports.
+   *
+   * WHY IT EXISTS: `resolveAssignments` joins `ProjectAssignment.poolMemberId`
+   * against the VIEWER's own team pool. A collaborator on a shared project has
+   * none of the owner's pool members, so every row resolved to "(Unknown)".
+   * This is the fallback that names them.
+   *
+   * ⚠️ DERIVED CACHE, NOT AUTHORED DATA — this is why it carries no
+   * DATA_VERSION bump and no migration, unlike `color` (v0.33.0) and
+   * `archived` (v0.34.0), which are user-authored and did. It is regenerated
+   * from the writer's pool on every cloud write, so there is nothing to
+   * backfill and nothing a migration could repair. It is also deliberately
+   * excluded from the import allowlist (`PROJECT_FIELD_SET`): an imported JSON
+   * dataset carries its own `teamPool`, so the fallback is never needed there,
+   * and a snapshot that survived an import would be stale by construction.
+   */
+  _teamSnapshot?: Record<string, { name: string; role: string }>;
 }
 
 // Calculated Values

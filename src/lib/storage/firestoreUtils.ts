@@ -23,6 +23,71 @@ export function buildTeamSnapshot(
 }
 
 /**
+ * Build the snapshot a project's Firestore doc should carry, covering EVERY
+ * reforecast's roster.
+ *
+ * ⚠️ ALL REFORECASTS, NOT THE ACTIVE ONE (v0.38.2). All three write sites
+ * previously passed `getActiveReforecast(project)?.assignments`. Since v0.24.0
+ * each reforecast owns its own roster, so that snapshotted ONE roster out of N:
+ * a collaborator who switched the dropdown to any other reforecast got
+ * "(Unknown)" for every row. The dashboard tile had the same hole from the
+ * other side — `ProjectCard` resolves against `getMostRecentReforecast`, which
+ * is not necessarily the active one. The map is keyed by `poolMemberId`, not by
+ * reforecast, so widening it is a pure superset: no doc-shape change, no
+ * migration, and no Firestore rules change (`_teamSnapshot` is already in
+ * `myScrumBudgetProjectFields()`).
+ *
+ * ⚠️ PRIOR ENTRIES ARE CARRIED FORWARD, and this clause is load-bearing — do
+ * not "simplify" it to a bare `buildTeamSnapshot` call. The snapshot is rebuilt
+ * from the WRITER's pool, and an editor on a shared project has none of the
+ * owner's pool members. Without the carry-forward, that editor saving the
+ * project would rebuild the map from their own pool alone and silently DELETE
+ * every entry they cannot resolve — destroying the names for all other
+ * collaborators. Freshly resolved entries still win (the writer's pool is
+ * authoritative for members they actually have), and entries for members no
+ * longer assigned anywhere are pruned rather than accumulating.
+ */
+export function buildProjectTeamSnapshot(
+  project: Project,
+  pool: PoolMember[],
+): Record<string, { name: string; role: string }> {
+  const assignments = project.reforecasts.flatMap((rf) => rf.assignments ?? []);
+  const fresh = buildTeamSnapshot(assignments, pool);
+  const prior = project._teamSnapshot;
+  if (!prior) return fresh;
+
+  const merged: Record<string, { name: string; role: string }> = {};
+  new Set(assignments.map((a) => a.poolMemberId)).forEach((id) => {
+    const entry = fresh[id] ?? prior[id];
+    if (entry) merged[id] = entry;
+  });
+  return merged;
+}
+
+/**
+ * Validate a `_teamSnapshot` value read back from Firestore.
+ *
+ * Returns `undefined` for a missing, malformed, or empty map so that "no
+ * snapshot" and "an empty snapshot" collapse to the same absent state — which
+ * is what makes the field `conditional` in `_docToProjectCoverage` and keeps
+ * `resolveAssignments` falling through to its "(Unknown)" branch rather than
+ * consulting an object that can tell it nothing. Individual malformed entries
+ * are dropped rather than poisoning the whole map.
+ */
+function sanitizeTeamSnapshot(
+  value: unknown,
+): Record<string, { name: string; role: string }> | undefined {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
+  const out: Record<string, { name: string; role: string }> = {};
+  Object.entries(value as Record<string, unknown>).forEach(([key, entry]) => {
+    if (typeof entry !== 'object' || entry === null) return;
+    const { name, role } = entry as { name?: unknown; role?: unknown };
+    if (typeof name === 'string' && typeof role === 'string') out[key] = { name, role };
+  });
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+/**
  * Strip undefined values from an object for Firestore compatibility.
  * Firestore rejects explicit undefined — omit those fields entirely.
  */
@@ -72,6 +137,7 @@ const _docToProjectCoverage: { [K in keyof Project]-?: 'required' | 'conditional
   activeReforecastId: 'required',
   color: 'conditional',
   archived: 'conditional',
+  _teamSnapshot: 'conditional',
 };
 void _docToProjectCoverage;
 
@@ -98,5 +164,15 @@ export function docToProject(id: string, data: Record<string, unknown>): Project
   // Optional archiving flag (v0.34.0). Stored as null when cleared; only `true`
   // hydrates — null/false/missing all collapse back to "absent" (active) on read.
   if (data.archived === true) project.archived = true;
+  // Shared-project team names (v0.38.2). This field was written to every
+  // project doc from v0.16.0 and hydrated by NOTHING until v0.38.2: the map
+  // reached the browser inside the document and was discarded here, so
+  // `resolveAssignments`' snapshot fallback — which exists, and is unit-tested
+  // — could never receive it, and every collaborator saw "(Unknown)" for the
+  // owner's whole team. Do not remove this line without also removing the
+  // third argument at the four `resolveAssignments` call sites; a silent
+  // read-path drop is invisible to every write-side test and to local mode.
+  const snapshot = sanitizeTeamSnapshot(data._teamSnapshot);
+  if (snapshot) project._teamSnapshot = snapshot;
   return project;
 }
