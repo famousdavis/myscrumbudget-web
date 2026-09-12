@@ -36,7 +36,9 @@ export function useTeam({ project, updateProject, pool }: UseTeamOptions) {
   const members: TeamMember[] = useMemo(() => {
     if (!project) return [];
     const activeRf = getActiveReforecast(project);
-    return resolveAssignments(activeRf?.assignments ?? [], pool);
+    // Third argument (v0.38.2): names the owner's team on a SHARED project,
+    // where the viewer's own pool resolves none of these poolMemberIds.
+    return resolveAssignments(activeRf?.assignments ?? [], pool, project._teamSnapshot);
   }, [project, pool]);
 
   const addAssignment = useCallback(
@@ -86,7 +88,7 @@ export function useTeam({ project, updateProject, pool }: UseTeamOptions) {
   const sortAssignments = useCallback(
     (mode: 'name' | 'role-name') => {
       const activeRf = project ? getActiveReforecast(project) : undefined;
-      const resolved = resolveAssignments(activeRf?.assignments ?? [], pool);
+      const resolved = resolveAssignments(activeRf?.assignments ?? [], pool, project?._teamSnapshot);
       const sorted = [...resolved].sort((a, b) => {
         if (mode === 'role-name') {
           const roleCmp = a.role.localeCompare(b.role);

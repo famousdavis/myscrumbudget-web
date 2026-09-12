@@ -132,11 +132,37 @@ const REFORECAST_FIELD_SET: Record<keyof Reforecast, true> = {
 };
 const REFORECAST_FIELDS = Object.keys(REFORECAST_FIELD_SET) as ReadonlyArray<keyof Reforecast>;
 
-const PROJECT_FIELD_SET: Record<keyof Project, true> = {
+/**
+ * ⚠️ THE ONLY ALLOWLIST IN THIS FILE WITH A `false` ENTRY, AND THE VALUE TYPE
+ * IS `boolean` RATHER THAN `true` DELIBERATELY (v0.38.2).
+ *
+ * The other 13 sets are `Record<keyof T, true>`, where every key is carried
+ * through. This one has to express a field that is a `Project` field and is
+ * deliberately NOT imported, so it needs somewhere to say "no" — and silently
+ * omitting the key is exactly what the completeness guard exists to forbid.
+ *
+ * The guard is NOT weakened by the wider value type: `Record<keyof Project, V>`
+ * requires every key whatever `V` is, so adding a field to `Project` is still a
+ * TS2741 naming it (measured — that is how `_teamSnapshot` arrived here). What
+ * changes is only that the answer may now be "excluded, on purpose" instead of
+ * forcing a field into the export to satisfy the type.
+ *
+ * `_teamSnapshot` is excluded because it is a DERIVED CACHE of the cloud read
+ * path, not authored data: an imported JSON dataset carries its own `teamPool`,
+ * so the pool lookup never misses and the fallback is never consulted, while a
+ * snapshot that survived an import would be stale by construction and could
+ * mask a genuinely unresolvable member behind an out-of-date name. Excluding it
+ * also keeps the export format byte-identical to v0.38.1, which is why this
+ * release needs no DATA_VERSION bump — see the field's own note in domain.ts.
+ */
+const PROJECT_FIELD_SET: Record<keyof Project, boolean> = {
   id: true, name: true, startDate: true, endDate: true,
   reforecasts: true, activeReforecastId: true, color: true, archived: true,
+  _teamSnapshot: false,
 };
-const PROJECT_FIELDS = Object.keys(PROJECT_FIELD_SET) as ReadonlyArray<keyof Project>;
+const PROJECT_FIELDS = (Object.entries(PROJECT_FIELD_SET) as [keyof Project, boolean][])
+  .filter(([, included]) => included)
+  .map(([field]) => field) as ReadonlyArray<keyof Project>;
 
 const APP_STATE_FIELD_SET: Record<keyof AppState, true> = {
   version: true, msbExportKind: true, settings: true, teamPool: true, projects: true,

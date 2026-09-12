@@ -4,6 +4,17 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.38.2] - 2026-09-12
+
+### Fixed
+- **A project shared with you now shows the owner's team members by name.** Every row of the allocation grid read "(Unknown)" with an empty role. Team members belong to each person's own Team Pool, and a shared project stores only a reference to the owner's pool members — which you do not have and cannot be given, because a pool is private to its owner. The app has always written a copy of the names and roles into the shared project for exactly this purpose, and has done so since cloud storage shipped; it was simply discarded again when the project was read back, so nothing was ever able to use it. It is now read, and the grid, the dashboard tile and the project summary all fall back to it whenever your own pool does not recognise a member. Your own pool still wins where it does know someone, so a person who is in both keeps the name and role *you* gave them.
+- **The forecast on a shared project was being costed at zero.** This is the same defect and the more consequential half of it, so it is stated separately. Hourly rates are looked up by a member's role, an unresolved member has no role, and a role that matches nothing is charged at $0 per hour. A shared project therefore showed a full allocation grid and an Estimate to Complete of $0, with nothing on screen indicating that the team had failed to resolve — the numbers simply looked finished and were wrong. Roles now resolve, so the forecast is calculated.
+- **Every reforecast, not just one of them.** Each reforecast keeps its own team, but the copy written into the shared project only ever covered whichever reforecast the owner happened to have selected. Selecting any other one from the dropdown showed "(Unknown)" again, and the dashboard tile — which reads the most recent reforecast rather than the selected one — could disagree with the project page for the same reason. The copy now covers every reforecast in the project.
+- **Collaborators can no longer erase the names for each other.** Where you have edit access to someone else's project, saving it used to rewrite that stored copy of the names using *your* pool, silently dropping every member you do not have — which is all of them, and for everyone else viewing the project, not just for you. Saving now preserves names it cannot resolve and only updates the ones it can.
+
+### Notes
+- **Costs on a shared project are still calculated with your own labor rates, not the owner's — a known limitation, not a settled design.** The stored copy of the team carries names and roles but no rates. So the same project can show a different Estimate to Complete to two people, and if your rate table has no entry for one of the owner's roles, that person is still costed at $0 per hour. Until this is addressed, reviewing someone's figures as they see them means matching their rate table in your own Settings. Making a shared project read identically for everyone it is shared with — one source of truth, in the owner's stored project — is being looked at as its own piece of work.
+
 ## [0.38.1] - 2026-09-12
 
 ### Fixed

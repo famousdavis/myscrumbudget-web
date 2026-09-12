@@ -17,8 +17,7 @@ import {
   getChangeLog, getExportAttribution,
   setOriginRef, setChangeLog,
 } from './fingerprint';
-import { buildTeamSnapshot, stripUndefined, docToProject } from './firestoreUtils';
-import { getActiveReforecast } from '@/lib/utils/teamResolution';
+import { buildProjectTeamSnapshot, stripUndefined, docToProject } from './firestoreUtils';
 
 /** Firestore document shape for projects (extends Project with cloud metadata). */
 interface FirestoreProjectDoc {
@@ -90,6 +89,7 @@ const _projectKeyCoverage: ProjectKeyCoverage = {
   activeReforecastId: 'activeReforecastId',
   color: 'color',
   archived: 'archived',
+  _teamSnapshot: '_teamSnapshot',
 };
 void _projectKeyCoverage;
 
@@ -370,7 +370,7 @@ export function createFirestoreRepository(uid: string): Repository {
         // null (not undefined) when cleared so mergeFields actually unsets them.
         color: project.color ?? null,
         archived: project.archived ?? null,
-        _teamSnapshot: buildTeamSnapshot(getActiveReforecast(project)?.assignments ?? [], pool),
+        _teamSnapshot: buildProjectTeamSnapshot(project, pool),
         updatedAt: now,
       }), { mergeFields: SAVE_PROJECT_MERGE_FIELDS });
     },
@@ -395,7 +395,7 @@ export function createFirestoreRepository(uid: string): Repository {
         owner: uid,
         members: { [uid]: 'owner' },
         order: projects.length,
-        _teamSnapshot: buildTeamSnapshot(getActiveReforecast(project)?.assignments ?? [], pool),
+        _teamSnapshot: buildProjectTeamSnapshot(project, pool),
         _originRef: uid,
         _changeLog: [],
         createdAt: now,
@@ -490,7 +490,7 @@ export function createFirestoreRepository(uid: string): Repository {
           owner: uid,
           members: { [uid]: 'owner' },
           order: i,
-          _teamSnapshot: buildTeamSnapshot(getActiveReforecast(project)?.assignments ?? [], pool),
+          _teamSnapshot: buildProjectTeamSnapshot(project, pool),
           _originRef: state._originRef ?? uid,
           _changeLog: state._changeLog ?? [],
           createdAt: now,

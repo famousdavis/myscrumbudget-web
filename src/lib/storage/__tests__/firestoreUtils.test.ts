@@ -3,8 +3,8 @@
 // See LICENSE file in the project root for full license text.
 
 import { describe, it, expect } from 'vitest';
-import { buildTeamSnapshot, stripUndefined, docToProject } from '../firestoreUtils';
-import type { ProjectAssignment, PoolMember } from '@/types/domain';
+import { buildTeamSnapshot, buildProjectTeamSnapshot, stripUndefined, docToProject } from '../firestoreUtils';
+import type { Project, ProjectAssignment, PoolMember } from '@/types/domain';
 
 describe('buildTeamSnapshot', () => {
   const pool: PoolMember[] = [
@@ -216,5 +216,113 @@ describe('docToProject', () => {
       const project = docToProject('legacy-empty', legacy);
       expect(project.reforecasts[0].assignments).toEqual([]);
     });
+  });
+});
+
+describe('buildProjectTeamSnapshot', () => {
+  const pool: PoolMember[] = [
+    { id: 'pm-1', name: 'Alice', role: 'BA' },
+    { id: 'pm-2', name: 'Bob', role: 'IT-SoftEng' },
+  ];
+
+  function projectWith(
+    rosters: ProjectAssignment[][],
+    prior?: Record<string, { name: string; role: string }>,
+  ): Project {
+    return {
+      id: 'p1',
+      name: 'P',
+      startDate: '2026-01-01',
+      endDate: '2026-12-31',
+      activeReforecastId: 'rf0',
+      ...(prior ? { _teamSnapshot: prior } : {}),
+      reforecasts: rosters.map((assignments, i) => ({
+        id: `rf${i}`,
+        name: `RF${i}`,
+        createdAt: '2026-01-01T00:00:00Z',
+        reforecastDate: '2026-01-01',
+        startDate: '2026-01-01',
+        endDate: '2026-12-31',
+        assignments,
+        allocations: [],
+        productivityWindows: [],
+        actualCost: 0,
+        baselineBudget: 0,
+      })),
+    };
+  }
+
+  it('unions the rosters of every reforecast', () => {
+    const p = projectWith([
+      [{ id: 'a1', poolMemberId: 'pm-1' }],
+      [{ id: 'a2', poolMemberId: 'pm-2' }],
+    ]);
+    expect(buildProjectTeamSnapshot(p, pool)).toEqual({
+      'pm-1': { name: 'Alice', role: 'BA' },
+      'pm-2': { name: 'Bob', role: 'IT-SoftEng' },
+    });
+  });
+
+  it('returns the freshly built map verbatim when there is no prior snapshot', () => {
+    const p = projectWith([[{ id: 'a1', poolMemberId: 'pm-1' }]]);
+    expect(buildProjectTeamSnapshot(p, pool)).toEqual({ 'pm-1': { name: 'Alice', role: 'BA' } });
+  });
+
+  it('tolerates a reforecast whose assignments array is absent', () => {
+    // docToProject always supplies one, but legacy/partial docs reach the
+    // write path too and a throw here would block the save entirely.
+    const p = projectWith([[{ id: 'a1', poolMemberId: 'pm-1' }]]);
+    delete (p.reforecasts[0] as { assignments?: unknown }).assignments;
+    expect(buildProjectTeamSnapshot(p, pool)).toEqual({});
+  });
+});
+
+describe('docToProject — _teamSnapshot hydration (v0.38.2)', () => {
+  const base = {
+    name: 'P', startDate: '2026-01-01', endDate: '2026-12-31',
+    reforecasts: [], activeReforecastId: 'rf1',
+  };
+
+  it('hydrates a well-formed snapshot onto the domain object', () => {
+    // [FAILS-TODAY] docToProject discarded this field from v0.16.0 to v0.38.1.
+    // It was written to every project doc and read by nothing, so the fallback
+    // in resolveAssignments — which exists and is unit-tested — could never
+    // receive it.
+    const project = docToProject('p1', {
+      ...base,
+      _teamSnapshot: { 'pm-1': { name: 'Alice', role: 'BA' } },
+    });
+    expect(project._teamSnapshot).toEqual({ 'pm-1': { name: 'Alice', role: 'BA' } });
+  });
+
+  it('leaves the field ABSENT when the document has no snapshot', () => {
+    expect(docToProject('p1', { ...base })).not.toHaveProperty('_teamSnapshot');
+  });
+
+  it('collapses an EMPTY map to absent', () => {
+    // "no snapshot" and "an empty snapshot" must be the same state, or
+    // resolveAssignments consults an object that can tell it nothing.
+    expect(docToProject('p1', { ...base, _teamSnapshot: {} })).not.toHaveProperty('_teamSnapshot');
+  });
+
+  it('drops malformed ENTRIES without discarding the whole map', () => {
+    const project = docToProject('p1', {
+      ...base,
+      _teamSnapshot: {
+        'pm-1': { name: 'Alice', role: 'BA' },
+        'pm-bad': { name: 42, role: 'QA' },
+        'pm-null': null,
+        'pm-str': 'nope',
+      },
+    });
+    expect(project._teamSnapshot).toEqual({ 'pm-1': { name: 'Alice', role: 'BA' } });
+  });
+
+  it.each([
+    ['a string', 'nope'],
+    ['an array', [{ name: 'Alice', role: 'BA' }]],
+    ['null', null],
+  ])('ignores a snapshot field that is %s', (_label, value) => {
+    expect(docToProject('p1', { ...base, _teamSnapshot: value })).not.toHaveProperty('_teamSnapshot');
   });
 });
