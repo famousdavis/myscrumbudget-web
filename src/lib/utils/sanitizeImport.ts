@@ -151,9 +151,17 @@ const REFORECAST_FIELDS = Object.keys(REFORECAST_FIELD_SET) as ReadonlyArray<key
  * path, not authored data: an imported JSON dataset carries its own `teamPool`,
  * so the pool lookup never misses and the fallback is never consulted, while a
  * snapshot that survived an import would be stale by construction and could
- * mask a genuinely unresolvable member behind an out-of-date name. Excluding it
- * also keeps the export format byte-identical to v0.38.1, which is why this
- * release needs no DATA_VERSION bump — see the field's own note in domain.ts.
+ * mask a genuinely unresolvable member behind an out-of-date name.
+ *
+ * ⚠️ CORRECTED v0.38.3 — this continued "excluding it also keeps the export
+ * format byte-identical to v0.38.1, which is why this release needs no
+ * DATA_VERSION bump". THAT REASONING WAS WRONG IN BOTH HALVES. This allowlist
+ * governs INGEST, not emission: `sanitizeAppState` is called only on the import
+ * path, so a CLOUD-mode export at v0.38.2 does carry `_teamSnapshot` and the
+ * format was NOT byte-identical. The no-bump DECISION stands, on the reason
+ * that actually supports it — the field is additive and optional, is stripped
+ * on ingest, and is never read from an imported file, so no stored data needs
+ * migrating and an older app importing a newer export simply drops it.
  */
 const PROJECT_FIELD_SET: Record<keyof Project, boolean> = {
   id: true, name: true, startDate: true, endDate: true,
