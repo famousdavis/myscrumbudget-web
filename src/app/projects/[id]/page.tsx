@@ -24,6 +24,7 @@ import { ReforecastNotes } from '@/features/reforecast/components/ReforecastNote
 import { ResourcePlanExcelPanel } from '@/features/reforecast/components/ResourcePlanExcelPanel';
 import { ProductivityWindowPanel } from '@/features/reforecast/components/ProductivityWindowPanel';
 import { ForecastMetricsPanel } from '@/features/projects/components/ForecastMetricsPanel';
+import { effectiveLaborRates } from '@/lib/utils/costSnapshot';
 import { useProjectMetrics } from '@/features/projects/hooks/useProjectMetrics';
 import { MonthlyCostBarChart } from '@/components/charts/MonthlyCostBarChart';
 import { CumulativeCostLineChart } from '@/components/charts/CumulativeCostLineChart';
@@ -320,12 +321,18 @@ export default function ProjectDetailPage({
           </div>
         )}
         <div className="mt-3">
-          {/* ⚠️ `laborRates` is passed as `settings?.laborRates` and deliberately NOT
-              `?? []`. This page discards useSettings' `loading` and the grid below has
-              no `settings &&` guard (the one further down wraps the Excel panel), so
-              `settings` really is null on the first render. Defaulting to an empty
-              list would flag EVERY member's role as rate-less mid-fetch; `undefined`
-              means "not loaded yet" and flags nobody. */}
+          {/* ⚠️ `laborRates` comes from `effectiveLaborRates` (v0.39.0): the
+              project's own cost snapshot when it carries one, otherwise the
+              reader's `settings?.laborRates`. It is deliberately NOT `?? []`,
+              and that rule is unchanged and still load-bearing — this page
+              discards useSettings' `loading` and the grid below has no
+              `settings &&` guard (the one further down wraps the Excel panel),
+              so `settings` really is null on the first render. Defaulting to an
+              empty list would flag EVERY member's role as rate-less mid-fetch;
+              `undefined` means "not loaded yet" and flags nobody.
+              ⚠️ The helper preserves that: it returns `undefined` when there is
+              neither a snapshot nor loaded settings. Do not add `?? []` to it
+              or here. */}
           <AllocationGrid
             months={months}
             teamMembers={members}
@@ -340,9 +347,18 @@ export default function ProjectDetailPage({
             monthlyData={metrics?.monthlyData}
             productivityWindows={productivityWindows}
             actualsThroughDate={actualsThroughDate}
-            laborRates={settings?.laborRates}
+            laborRates={effectiveLaborRates(project, settings)}
           />
         </div>
+        {/* ⚠️ v0.39.0 DELIBERATELY passes the READER's `settings` here, not
+            `effectiveSettings(project, settings)`. This panel's Excel import
+            writes roles into the reader's GLOBAL, cross-project team pool — a
+            per-user store that lives outside the project — so feeding it the
+            owner's rate card would let one project's snapshot decide what goes
+            into another user's pool. That is a semantic change nobody has
+            decided, and it costs nothing to defer: no snapshot exists in this
+            release, so the site is inert either way. OPEN QUESTION for v0.40.0,
+            when a writer exists. */}
         {activeReforecast && settings && (
           <ResourcePlanExcelPanel
             project={project}

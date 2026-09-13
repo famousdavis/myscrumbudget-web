@@ -167,6 +167,14 @@ const PROJECT_FIELD_SET: Record<keyof Project, boolean> = {
   id: true, name: true, startDate: true, endDate: true,
   reforecasts: true, activeReforecastId: true, color: true, archived: true,
   _teamSnapshot: false,
+  // `_costSnapshot` (v0.39.0) is excluded for the same reason as
+  // `_teamSnapshot`: it is a derived cache of the cloud read path, not authored
+  // data. An imported dataset carries its own settings, so the fallback is
+  // never consulted there; a snapshot that survived an import would be stale by
+  // construction and would price the importer's projects from a stranger's rate
+  // card with no way to clear it. With `false` an imported project falls back
+  // to the importer's own settings, which is today's behaviour.
+  _costSnapshot: false,
 };
 const PROJECT_FIELDS = (Object.entries(PROJECT_FIELD_SET) as [keyof Project, boolean][])
   .filter(([, included]) => included)

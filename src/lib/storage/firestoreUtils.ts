@@ -2,7 +2,9 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import type { Project, ProjectAssignment, PoolMember } from '@/types/domain';
+import type {
+  Project, ProjectAssignment, PoolMember, LaborRate, Holiday, CostSnapshot,
+} from '@/types/domain';
 import { isProjectColor } from '@/features/projects/lib/projectColors';
 
 /**
@@ -88,6 +90,89 @@ function sanitizeTeamSnapshot(
 }
 
 /**
+ * Is this a usable `LaborRate`? Both fields checked, and the rate by
+ * `Number.isFinite` rather than truthiness.
+ *
+ * ⚠️ `hourlyRate: 0` IS VALID and must stay valid — a $0 role is the deliberate
+ * v0.37.4 feature for infrastructure that carries no cost (`RateTable` and
+ * `validation.ts` both accept `>= 0`). The truthy spelling `!hourlyRate` would
+ * drop such a rate, and under drop semantics that silently unprices the role.
+ */
+function isLaborRate(value: unknown): value is LaborRate {
+  if (typeof value !== 'object' || value === null) return false;
+  const { role, hourlyRate } = value as { role?: unknown; hourlyRate?: unknown };
+  return typeof role === 'string' && Number.isFinite(hourlyRate);
+}
+
+/**
+ * Is this a usable `Holiday`? ALL FOUR fields, not just the two dates.
+ *
+ * The snapshot's own consumer (`countHolidayWorkdays`) reads only
+ * `startDate`/`endDate`, but the rebuilt object is typed `Holiday`, and letting
+ * a `{id: 42}` through would put a value on a typed array that does not satisfy
+ * it. Four is also exactly what the app's own `validateHoliday` requires, so
+ * this rejects nothing the app calls legitimate.
+ */
+function isHoliday(value: unknown): value is Holiday {
+  if (typeof value !== 'object' || value === null) return false;
+  const { id, name, startDate, endDate } = value as {
+    id?: unknown; name?: unknown; startDate?: unknown; endDate?: unknown;
+  };
+  return typeof id === 'string' && typeof name === 'string'
+    && typeof startDate === 'string' && typeof endDate === 'string';
+}
+
+/**
+ * Validate a stored `_costSnapshot` (v0.39.0) and rebuild it from exactly the
+ * three keys `CostSnapshot` declares, so a fourth key on the stored object
+ * cannot reach a reader.
+ *
+ * ⚠️⚠️ THE DISPOSITION, AND IT IS ONE RULE:
+ *   an ELEMENT-level defect DROPS the element;
+ *   a structurally UNUSABLE FIELD rejects the whole snapshot.
+ * The three fields are validated INDEPENDENTLY — a mistyped holiday must not
+ * discard the owner's rate card.
+ *
+ * ⚠️ WHY DROP AND NOT REJECT-WHOLE, because an earlier draft had it backwards
+ * and the reason is measurable. Dropping a `LaborRate` removes that role from
+ * the array, so `AllocationGridRow`'s v0.37.5 red "Role not in labor rates"
+ * marker FIRES — the reader sees $0 AND sees why. Rejecting the whole snapshot
+ * falls back to the READER's own card, which reprices roles the bad element
+ * never touched, silently: measured on the real population, 32 of 67 owner
+ * roles (48%) across 14 owner/reader pairs are names the reader also has, three
+ * pairs at 100%. Reject-whole is the silent one.
+ *
+ * ⚠️ THE COST OF WHOLE-REJECTION IS NOT ZERO, and rejecting on a bad
+ * `discountRateAnnual` pays it: it discards `laborRates` and `holidays` too, so
+ * that same silent repricing applies. It is ACCEPTED, not absent — a scalar has
+ * no element to drop and a sanitizer must never invent a number. Revisit in
+ * v0.40.0, where a writer exists and a surface could report it.
+ *
+ * ⚠️ Deliberately NOT copying `sanitizeTeamSnapshot`'s "empty ⇒ undefined" rule:
+ * `holidays: []` is a legitimate owner value. Note the boundary this creates —
+ * if EVERY `LaborRate` is malformed, dropping leaves `laborRates: []`, so every
+ * role is unpriced and every row is red. That is loud, which is why it is
+ * acceptable, and it is pinned by a test.
+ */
+export function sanitizeCostSnapshot(value: unknown): CostSnapshot | undefined {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
+  const { laborRates, holidays, discountRateAnnual } = value as {
+    laborRates?: unknown; holidays?: unknown; discountRateAnnual?: unknown;
+  };
+  // A FIELD that is structurally unusable rejects the whole snapshot: there is
+  // nothing to construct, and `Number.isFinite` is what makes `0` a valid rate
+  // while NaN and Infinity are not.
+  if (!Array.isArray(laborRates) || !Array.isArray(holidays)) return undefined;
+  if (!Number.isFinite(discountRateAnnual)) return undefined;
+  // An ELEMENT that is defective is dropped; its siblings survive.
+  return {
+    laborRates: laborRates.filter(isLaborRate),
+    holidays: holidays.filter(isHoliday),
+    discountRateAnnual: discountRateAnnual as number,
+  };
+}
+
+/**
  * Strip undefined values from an object for Firestore compatibility.
  * Firestore rejects explicit undefined — omit those fields entirely.
  */
@@ -138,6 +223,7 @@ const _docToProjectCoverage: { [K in keyof Project]-?: 'required' | 'conditional
   color: 'conditional',
   archived: 'conditional',
   _teamSnapshot: 'conditional',
+  _costSnapshot: 'conditional',
 };
 void _docToProjectCoverage;
 
@@ -174,5 +260,17 @@ export function docToProject(id: string, data: Record<string, unknown>): Project
   // read-path drop is invisible to every write-side test and to local mode.
   const snapshot = sanitizeTeamSnapshot(data._teamSnapshot);
   if (snapshot) project._teamSnapshot = snapshot;
+  // Cost inputs the project was costed with (v0.39.0). Only a snapshot that
+  // validates hydrates, so null/missing/malformed all collapse to absent and a
+  // domain Project carries a usable snapshot or none.
+  //
+  // ⚠️ NOTHING WRITES ONE AT v0.39.0 — the writer is v0.40.0 — so this line is
+  // unreachable today. Do NOT delete it as dead: a field written correctly by
+  // every save and never hydrated here is invisible in the UI and green in
+  // every local-mode test. `_teamSnapshot` above was exactly that for
+  // twenty-two minors, which is why this one is wired up before a writer
+  // exists rather than after.
+  const cost = sanitizeCostSnapshot(data._costSnapshot);
+  if (cost) project._costSnapshot = cost;
   return project;
 }

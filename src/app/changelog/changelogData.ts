@@ -13,6 +13,26 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.39.0',
+    date: '2026-09-13',
+    sections: [
+      {
+        title: 'Added',
+        items: [
+          'Groundwork so that everyone looking at a shared project can eventually see the same costs. Today, when someone shares a project with you, the app prices it using YOUR labor rates, holidays and discount rate — not theirs, so six people can open the same project and see six different totals. This release adds the ability for a project to carry the cost settings it was actually budgeted with, along with the code that reads and checks them.',
+          'Nothing writes those settings yet, so nothing changes for you in this release. No figure on any screen moves, no screen looks different, and no project behaves differently. The part that saves the settings onto a project comes in a later release; this one puts the reading and checking in place first, so that when the saving arrives it lands on ground that has already been tested.',
+          'Your exported files are unchanged. This release adds nothing to the JSON you download, and importing a file behaves exactly as before. If a file somehow arrives carrying these settings, they are ignored on import — an imported project keeps using your own rates, which is what it does today.',
+        ],
+      },
+      {
+        title: 'Changed',
+        items: [
+          'Cloud-stored projects now include one empty placeholder field. Newly created and newly imported cloud projects record this cost-settings field as empty. It is invisible in the app and changes no number; its purpose is to confirm that the matching permission rules, which were published first, accept it.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.38.5',
     date: '2026-09-13',
     sections: [

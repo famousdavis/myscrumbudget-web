@@ -50,6 +50,43 @@ describe('sanitizeAppState', () => {
     expect(out).toEqual(clean);
   });
 
+  /**
+   * ⚠️ F1'S VICTIM. Before this test, NOTHING in the repository pinned that a
+   * derived cloud cache is stripped on import — `_teamSnapshot` has been
+   * excluded from this allowlist since v0.38.2 and this file mentioned it ZERO
+   * times, so flipping either field to `true` failed nothing at all. Both are
+   * pinned here now.
+   *
+   * Why they are excluded: an imported dataset carries its own `teamPool` and
+   * its own settings, so neither fallback is ever consulted; a snapshot that
+   * survived an import would be stale by construction and would price the
+   * importer's projects from a stranger's rate card with no way to clear it.
+   */
+  it('STRIPS _costSnapshot and _teamSnapshot from an imported project', () => {
+    const state = baseState();
+    const tampered = {
+      ...state,
+      projects: [
+        {
+          ...state.projects[0],
+          _costSnapshot: {
+            laborRates: [{ role: 'BA', hourlyRate: 999 }],
+            holidays: [],
+            discountRateAnnual: 0.99,
+          },
+          _teamSnapshot: { 'pm-1': { name: 'Alice', role: 'BA' } },
+        },
+      ],
+    } as unknown as AppState;
+    const out = sanitizeAppState(tampered);
+    expect(out.projects[0], 'a stale owner rate card must not ride in on an import')
+      .not.toHaveProperty('_costSnapshot');
+    expect(out.projects[0], 'nor a stale team-name map')
+      .not.toHaveProperty('_teamSnapshot');
+    expect(out.projects[0].name, 'while the authored fields survive')
+      .toBe(state.projects[0].name);
+  });
+
   it('preserves project color and archived through the strip pass, dropping unknown siblings', () => {
     const state = baseState();
     const tampered = {
