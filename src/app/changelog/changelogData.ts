@@ -13,6 +13,27 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.38.4',
+    date: '2026-09-13',
+    sections: [
+      {
+        title: 'Changed',
+        items: [
+          'The licence\u2019s trademark clause now names famousdavis, LLC. The SPERT\u00ae Suite business \u2014 the spertsuite.com website, the hosting it runs on, and the SPERT\u00ae, Statistical PERT\u00ae and Estimation Made Easy\u00ae trademarks \u2014 transferred to that company on September 12, 2026. The clause still named the previous owner while the newly published Terms of Service named the company, so two published legal documents disagreed about who owns the marks.',
+        ],
+      },
+      {
+        title: 'Notes',
+        items: [
+          'No change to how the app behaves. Licence text only: no application code, no data, no appearance.',
+          '\u26a0\ufe0f Copyright in the software did not transfer, and the licence still says so. It is held by William W. Davis, MSPM, PMP personally and licensed to the company. The clauses requiring his name to be kept as the author, and withholding his name from promotional use, are unchanged \u2014 as are the copyright notices in every source file, the footer, and the About page\u2019s credit. Two different names now appear in the licence and both are correct: the company operates the service, the individual owns the code.',
+          'Nothing you may do with this software changed. It is still the GNU General Public License v3 with the same additional terms \u2014 the code is free to take, change and share, a modified version must still be released under a different name, and credit to the original author must still travel with it.',
+          'The licence is one file copied byte-for-byte into eight projects, each of which pins a checksum of it, so changing it in one place alone fails the other seven at once. All eight were updated in the same pass and are released separately.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.38.3',
     date: '2026-09-12',
     sections: [
