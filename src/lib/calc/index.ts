@@ -17,6 +17,7 @@ import {
 import { calculateNPV } from './npv';
 import { getProductivityFactor } from './productivity';
 import { generateMonthRange, getMonthlyWorkHours, getEtcStartDate } from '@/lib/utils/dates';
+import { effectiveSettings } from '@/lib/utils/costSnapshot';
 import { getActiveReforecast } from '@/lib/utils/teamResolution';
 
 /**
@@ -30,6 +31,15 @@ export function calculateProjectMetrics(
   settings: Settings,
   teamMembers: TeamMember[],
 ): ProjectMetrics {
+  // v0.39.0: price from the project's own cost inputs when it carries them, so
+  // every collaborator on a shared project gets the same figures.
+  //
+  // ⚠️ RESOLVED HERE, NOT AT THE CALLERS, AND DELIBERATELY. There are two
+  // callers — useProjectMetrics (the project page) and ProjectCard (the
+  // dashboard tile). Resolving in either one would give two different EACs for
+  // the same project on two screens. This is the single site where cost inputs
+  // become concrete, which is why it is the right place.
+  const costInputs = effectiveSettings(project, settings);
   const reforecast = getActiveReforecast(project);
 
   if (!reforecast) {
@@ -72,10 +82,10 @@ export function calculateProjectMetrics(
     // (verified at dates.ts:169-184). Mid-month reforecast.startDate values
     // produce partial first-month hour totals — see D22 and CHANGELOG.
     const availableHours = getMonthlyWorkHours(
-      month, reforecast.startDate, reforecast.endDate, settings.holidays, etcStartDate,
+      month, reforecast.startDate, reforecast.endDate, costInputs.holidays, etcStartDate,
     );
     const cost = calculateTotalMonthlyCost(
-      month, allocationMap, teamMembers, settings, availableHours, factor,
+      month, allocationMap, teamMembers, costInputs, availableHours, factor,
     );
     const hours = calculateTotalMonthlyHours(
       month, allocationMap, availableHours, factor,
@@ -106,7 +116,7 @@ export function calculateProjectMetrics(
     weeklyBurnRate: calculateWeeklyBurnRate(
       etc, burnRateStartDate, burnRateActiveMonths,
     ),
-    npv: calculateNPV(settings.discountRateAnnual, monthlyCostValues),
+    npv: calculateNPV(costInputs.discountRateAnnual, monthlyCostValues),
     totalHours: monthlyHourValues.reduce((sum, h) => sum + h, 0),
     monthlyData,
   };

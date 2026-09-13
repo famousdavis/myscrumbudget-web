@@ -33,6 +33,40 @@ export interface Settings {
   trafficLightThresholds: TrafficLightThresholds;
 }
 
+/**
+ * The cost inputs a project was costed with, carried ON the project so every
+ * reader prices it the same way (v0.39.0).
+ *
+ * ⚠️ NOTHING WRITES ONE AT v0.39.0. This release ships the field, the read path
+ * and the validator; the writer is v0.40.0 (an owner-only refresh at
+ * `saveProject`). Until then `docToProject` never sees a snapshot, so every
+ * behaviour below is unreachable — the point is to get the read path right
+ * BEFORE anything writes, not to change a number today.
+ *
+ * WHY IT EXISTS: `calculateProjectMetrics` prices a project from the READER's
+ * `Settings`. On a shared project that is the reader's own rate card, so six
+ * collaborators can see six different ETCs for one project. This is the field
+ * that lets them agree.
+ *
+ * ⚠️ `trafficLightThresholds` is DELIBERATELY ABSENT. It is a per-user display
+ * preference, not a cost input — how red you want "over budget" to look is
+ * yours, while what the project costs is the owner's. `effectiveSettings`
+ * constructs its result field by field rather than spreading, so that choice is
+ * stated at the site instead of being implied by key order.
+ *
+ * ⚠️ DERIVED CACHE, NOT AUTHORED DATA — like `_teamSnapshot` and unlike `color`
+ * (v0.33.0) or `archived` (v0.34.0), which are user-authored and bumped
+ * DATA_VERSION. It is excluded from the import allowlist (`PROJECT_FIELD_SET`):
+ * an imported dataset carries its own settings, so the fallback is never needed
+ * there, and a snapshot that survived an import would be stale by construction
+ * with no way for the importer to clear it.
+ */
+export interface CostSnapshot {
+  laborRates: LaborRate[];
+  holidays: Holiday[];
+  discountRateAnnual: number;
+}
+
 // Global Team Member Pool
 export interface PoolMember {
   id: string;
@@ -224,6 +258,15 @@ export interface Project {
    * and a snapshot that survived an import would be stale by construction.
    */
   _teamSnapshot?: Record<string, { name: string; role: string }>;
+  /**
+   * The cost inputs this project was costed with (v0.39.0). See `CostSnapshot`.
+   * Populated ONLY on the Firestore read path (`docToProject`), and only when
+   * the stored value validates — so a domain `Project` carries a usable
+   * snapshot or none, and no read site needs a defensive check.
+   *
+   * ⚠️ NOTHING WRITES ONE AT v0.39.0; the writer is v0.40.0.
+   */
+  _costSnapshot?: CostSnapshot;
 }
 
 // Calculated Values

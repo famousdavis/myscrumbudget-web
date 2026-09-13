@@ -771,3 +771,73 @@ describe('_teamSnapshot — the shared-project team-name fallback (v0.38.2)', ()
     expect(setDocCalls[0].data._teamSnapshot).toEqual({ pm1: { name: 'Alice', role: 'BA' } });
   });
 });
+
+describe('_costSnapshot — the machinery ships with no writer (v0.39.0)', () => {
+  /**
+   * ⚠️⚠️ THE PAYLOAD-KEY ASSERTION. This is the ONLY thing that pins what this
+   * release buys, and it must assert on the setDoc PAYLOAD KEY SET rather than
+   * on the hydrated Project — `docToProject` deliberately does NOT hydrate a
+   * null, so a round-trip assertion sees nothing and passes whether or not the
+   * key was ever written.
+   *
+   * Why it matters: the field is REQUIRED on FirestoreProjectDoc so that `tsc`
+   * forces both write sites to decide, both answer null, and an explicit null
+   * is a PRESENT key. That present key is what exercises the cross-repo rules
+   * change (spert-landing v2.5.38). Make the doc field optional and drop the
+   * nulls and the typecheck stays clean, the suite stays green, and the rules
+   * change is never exercised — these two tests are what refuse that.
+   *
+   * ⚠️ Neither write site uses a mask: both are full setDoc calls, so there is
+   * no mergeFields step to apply here. Do not go looking for one.
+   */
+  function projectPayload() {
+    const call = setDocCalls.find((c) => c.ref.col === 'myscrumbudget_projects');
+    expect(call, 'a myscrumbudget_projects document was written').toBeDefined();
+    return call!;
+  }
+
+  it('createProject writes a payload whose KEYS include _costSnapshot, value null', async () => {
+    const repo = createFirestoreRepository(UID);
+    await repo.createProject(makeProject());
+    const call = projectPayload();
+    expect(Object.keys(call.data), 'the key is present in the create payload')
+      .toContain('_costSnapshot');
+    expect(call.data._costSnapshot, 'and it is an explicit null, not undefined')
+      .toBeNull();
+    expect(call.options?.mergeFields, 'createProject uses no mask').toBeUndefined();
+  });
+
+  it('importAll writes a payload whose KEYS include _costSnapshot, value null', async () => {
+    const repo = createFirestoreRepository(UID);
+    await repo.importAll({
+      version: '0.16.0',
+      settings: {
+        discountRateAnnual: 0.03,
+        laborRates: [],
+        holidays: [],
+        trafficLightThresholds: { amberPercent: 5, redPercent: 15, violetPercent: 20 },
+      },
+      teamPool: [{ id: 'pm1', name: 'Alice', role: 'BA' }],
+      projects: [makeProject()],
+    } as unknown as Parameters<ReturnType<typeof createFirestoreRepository>['importAll']>[0]);
+    const call = projectPayload();
+    expect(Object.keys(call.data), 'the key is present in the import payload')
+      .toContain('_costSnapshot');
+    expect(call.data._costSnapshot, 'and it is an explicit null, not undefined')
+      .toBeNull();
+    expect(call.options?.mergeFields, 'importAll uses no mask').toBeUndefined();
+  });
+
+  it('saveProject does NOT write it — the mask stays at nine fields', async () => {
+    // The ordinary editor save must not claim an owner-only field. `saveProject`
+    // is mergeFields-gated, so even a stray key would be dropped — but it is
+    // not there at all, and that is what keeps SAVE_PROJECT_MERGE_SET honest.
+    const repo = createFirestoreRepository(UID);
+    await repo.saveProject(makeProject());
+    const call = projectPayload();
+    expect(Object.keys(call.data), 'saveProject writes no cost snapshot')
+      .not.toContain('_costSnapshot');
+    expect(call.options?.mergeFields, 'and its mask is unchanged at nine')
+      .toHaveLength(9);
+  });
+});

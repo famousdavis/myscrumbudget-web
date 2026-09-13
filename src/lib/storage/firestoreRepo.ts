@@ -9,7 +9,9 @@ import {
 import { db } from '@/lib/firebase/config';
 import { PROJECTS_COL, SETTINGS_COL } from '@/lib/firebase/collections';
 import type { Repository } from './repository';
-import type { Settings, PoolMember, Project, ProjectColor, AppState } from '@/types/domain';
+import type {
+  Settings, PoolMember, Project, ProjectColor, AppState, CostSnapshot,
+} from '@/types/domain';
 import { DEFAULT_SETTINGS } from './localStorage';
 import { DATA_VERSION } from './migrations';
 import type { ChangeLogEntry } from './fingerprint';
@@ -34,6 +36,24 @@ interface FirestoreProjectDoc {
   members: Record<string, string>;
   order: number;
   _teamSnapshot: Record<string, { name: string; role: string }>;
+  /**
+   * Cost inputs the project was costed with (v0.39.0). null when absent, so
+   * mergeFields can unset it — same shape as `color`/`archived`.
+   *
+   * ⚠️ REQUIRED, NOT OPTIONAL, AND THAT IS THE WHOLE POINT. Optional would let
+   * both literals below supply nothing, so nothing would ever be written and
+   * the cross-repo rules change (spert-landing v2.5.38) would never be
+   * exercised by a real write. Required makes `tsc` force a decision at each
+   * write site, both answer `null`, and the ruleset is proven by a live write
+   * with an inert payload.
+   *
+   * ⚠️ An explicit `null` IS a present key — `stripUndefined` removes undefined,
+   * not null — so this field REQUIRES the allowlist entry deployed in
+   * spert-landing v2.5.38. Without it every cloud create and import is
+   * PERMISSION_DENIED. That is the v0.33.0 `color` incident verbatim, which is
+   * why the ruleset shipped first.
+   */
+  _costSnapshot: CostSnapshot | null;
   _originRef: string;
   _changeLog: ChangeLogEntry[];
   createdAt: string;
@@ -90,6 +110,7 @@ const _projectKeyCoverage: ProjectKeyCoverage = {
   color: 'color',
   archived: 'archived',
   _teamSnapshot: '_teamSnapshot',
+  _costSnapshot: '_costSnapshot',
 };
 void _projectKeyCoverage;
 
@@ -396,6 +417,13 @@ export function createFirestoreRepository(uid: string): Repository {
         members: { [uid]: 'owner' },
         order: projects.length,
         _teamSnapshot: buildProjectTeamSnapshot(project, pool),
+        // v0.39.0: written as an explicit null, never invented here. This
+        // path has no business deciding what a project was costed with —
+        // the writer is v0.40.0, an owner-only refresh at saveProject.
+        // The null is not ceremonial: it makes the key PRESENT in the
+        // payload, which is what exercises the spert-landing v2.5.38
+        // allowlist entry with a real write.
+        _costSnapshot: null,
         _originRef: uid,
         _changeLog: [],
         createdAt: now,
@@ -491,6 +519,13 @@ export function createFirestoreRepository(uid: string): Repository {
           members: { [uid]: 'owner' },
           order: i,
           _teamSnapshot: buildProjectTeamSnapshot(project, pool),
+          // v0.39.0: written as an explicit null, never invented here. This
+          // path has no business deciding what a project was costed with —
+          // the writer is v0.40.0, an owner-only refresh at saveProject.
+          // The null is not ceremonial: it makes the key PRESENT in the
+          // payload, which is what exercises the spert-landing v2.5.38
+          // allowlist entry with a real write.
+          _costSnapshot: null,
           _originRef: state._originRef ?? uid,
           _changeLog: state._changeLog ?? [],
           createdAt: now,

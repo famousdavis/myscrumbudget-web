@@ -3,7 +3,10 @@
 // See LICENSE file in the project root for full license text.
 
 import { describe, it, expect } from 'vitest';
-import { buildTeamSnapshot, buildProjectTeamSnapshot, stripUndefined, docToProject } from '../firestoreUtils';
+import {
+  buildTeamSnapshot, buildProjectTeamSnapshot, stripUndefined, docToProject,
+  sanitizeCostSnapshot,
+} from '../firestoreUtils';
 import type { Project, ProjectAssignment, PoolMember } from '@/types/domain';
 
 describe('buildTeamSnapshot', () => {
@@ -324,5 +327,162 @@ describe('docToProject — _teamSnapshot hydration (v0.38.2)', () => {
     ['null', null],
   ])('ignores a snapshot field that is %s', (_label, value) => {
     expect(docToProject('p1', { ...base, _teamSnapshot: value })).not.toHaveProperty('_teamSnapshot');
+  });
+});
+
+describe('sanitizeCostSnapshot (v0.39.0)', () => {
+  const RATES = [{ role: 'BA', hourlyRate: 75 }];
+  const HOLIDAY = { id: 'h1', name: 'Independence Day', startDate: '2026-07-03', endDate: '2026-07-03' };
+  const valid = { laborRates: RATES, holidays: [HOLIDAY], discountRateAnnual: 0.05 };
+
+  describe('top level', () => {
+    it('accepts a well-formed snapshot and returns exactly the three keys', () => {
+      const out = sanitizeCostSnapshot(valid);
+      expect(out).toEqual(valid);
+      expect(Object.keys(out!).sort())
+        .toEqual(['discountRateAnnual', 'holidays', 'laborRates']);
+    });
+
+    it('DROPS a fourth key rather than passing the stored object through', () => {
+      // The rebuild is what stops an unknown key reaching a reader. A sanitizer
+      // that returned its input would pass every other test in this block.
+      const out = sanitizeCostSnapshot({ ...valid, trafficLightThresholds: { amberPercent: 99 } });
+      expect(out).not.toHaveProperty('trafficLightThresholds');
+      expect(out).toEqual(valid);
+    });
+
+    it.each([
+      ['laborRates', { holidays: [HOLIDAY], discountRateAnnual: 0.05 }],
+      ['holidays', { laborRates: RATES, discountRateAnnual: 0.05 }],
+      ['discountRateAnnual', { laborRates: RATES, holidays: [HOLIDAY] }],
+    ])('REJECTS WHOLE when %s is missing — there is nothing to construct', (_f, partial) => {
+      expect(sanitizeCostSnapshot(partial)).toBeUndefined();
+    });
+
+    it.each([
+      ['null', null], ['a string', 'nope'], ['a number', 7], ['an array', [valid]], ['undefined', undefined],
+    ])('rejects %s', (_l, v) => {
+      expect(sanitizeCostSnapshot(v)).toBeUndefined();
+    });
+
+    it('ACCEPTS holidays: [] — an owner with no holidays is a legitimate value', () => {
+      // ⚠️ Deliberately NOT copying sanitizeTeamSnapshot's "empty ⇒ undefined"
+      // rule. An empty holiday list is a real answer, not a missing one.
+      expect(sanitizeCostSnapshot({ ...valid, holidays: [] })?.holidays).toEqual([]);
+    });
+
+    it('ACCEPTS discountRateAnnual: 0 — zero is falsy and must not be rejected', () => {
+      expect(sanitizeCostSnapshot({ ...valid, discountRateAnnual: 0 })?.discountRateAnnual).toBe(0);
+    });
+  });
+
+  describe('element level — one rule: a bad ELEMENT drops, an unusable FIELD rejects', () => {
+    it('DROPS a null holiday and keeps the rest of the snapshot', () => {
+      // ⚠️ Under a top-level-only sanitizer this was ADMITTED and threw a
+      // TypeError out of calculateProjectMetrics (countHolidayWorkdays reads
+      // holiday.startDate). Dropping is what closes that.
+      const out = sanitizeCostSnapshot({ ...valid, holidays: [null, HOLIDAY] });
+      expect(out?.holidays).toEqual([HOLIDAY]);
+      expect(out?.laborRates, 'the rate card is untouched by a bad holiday').toEqual(RATES);
+    });
+
+    it('DROPS a null labor rate and keeps the rest', () => {
+      const out = sanitizeCostSnapshot({ ...valid, laborRates: [null, ...RATES] });
+      expect(out?.laborRates).toEqual(RATES);
+      expect(out?.holidays, 'holidays are untouched by a bad rate').toEqual([HOLIDAY]);
+    });
+
+    it('DROPS a holiday whose startDate is not a string', () => {
+      const out = sanitizeCostSnapshot({ ...valid, holidays: [{ ...HOLIDAY, startDate: 42 }] });
+      expect(out?.holidays).toEqual([]);
+    });
+
+    it('DROPS a holiday missing id or name — all four fields are validated', () => {
+      const out = sanitizeCostSnapshot({
+        ...valid,
+        holidays: [{ startDate: '2026-07-03', endDate: '2026-07-03' }, HOLIDAY],
+      });
+      expect(out?.holidays).toEqual([HOLIDAY]);
+    });
+
+    it.each([['NaN', NaN], ['Infinity', Infinity], ['a string', '75']])(
+      'DROPS a labor rate whose hourlyRate is %s, keeping its siblings',
+      (_l, bad) => {
+        const out = sanitizeCostSnapshot({
+          ...valid,
+          laborRates: [{ role: 'Broken', hourlyRate: bad }, ...RATES],
+        });
+        expect(out?.laborRates).toEqual(RATES);
+      },
+    );
+
+    it('KEEPS hourlyRate: 0 — a $0 role is a deliberate feature, not a defect', () => {
+      // ⚠️ v0.37.4 accepts `>= 0` for infrastructure roles that carry no cost.
+      // The truthy spelling `!hourlyRate` would drop this rate and silently
+      // unprice the role. Number.isFinite is the only correct spelling.
+      const zero = { role: 'Shared Infrastructure', hourlyRate: 0 };
+      const out = sanitizeCostSnapshot({ ...valid, laborRates: [zero, ...RATES] });
+      expect(out?.laborRates).toEqual([zero, ...RATES]);
+    });
+
+    it.each([['NaN', NaN], ['Infinity', Infinity], ['a string', '0.05'], ['null', null]])(
+      'REJECTS WHOLE when discountRateAnnual is %s — a scalar has no element to drop',
+      (_l, bad) => {
+        // ⚠️ THE COST IS NOT ZERO AND IS ACCEPTED, NOT ABSENT: this discards the
+        // owner's laborRates and holidays too, so the reader falls back to their
+        // own card and 48% of owner roles reprice silently. A sanitizer must
+        // never invent a number, and a partial snapshot would carry mixed,
+        // unrecorded provenance no read site could attribute. Revisit in v0.40.0.
+        expect(sanitizeCostSnapshot({ ...valid, discountRateAnnual: bad })).toBeUndefined();
+      },
+    );
+
+    it.each([['laborRates'], ['holidays']])(
+      'REJECTS WHOLE when %s is present but not an array',
+      (field) => {
+        expect(sanitizeCostSnapshot({ ...valid, [field]: 'nope' })).toBeUndefined();
+      },
+    );
+
+    it('BOUNDARY: every labor rate malformed leaves laborRates: [] rather than rejecting', () => {
+      // ⚠️ This is the boundary between the two dispositions, and it is loud
+      // rather than silent — which is why drop semantics are acceptable. With
+      // an empty rate card every role is unpriced, so AllocationGridRow's
+      // v0.37.5 red "Role not in labor rates" marker fires on every row. The
+      // alternative (reject whole) would silently reprice at the reader's card.
+      const out = sanitizeCostSnapshot({ ...valid, laborRates: [null, 42, { role: 'X' }] });
+      expect(out, 'the snapshot survives').toBeDefined();
+      expect(out?.laborRates, 'with nothing in it').toEqual([]);
+      expect(out?.holidays, 'and the holidays are still the owner’s').toEqual([HOLIDAY]);
+    });
+  });
+});
+
+describe('docToProject — _costSnapshot hydration (v0.39.0)', () => {
+  const base = {
+    name: 'P', startDate: '2026-01-01', endDate: '2026-12-31',
+    reforecasts: [], activeReforecastId: 'rf1',
+  };
+  const valid = {
+    laborRates: [{ role: 'BA', hourlyRate: 75 }],
+    holidays: [],
+    discountRateAnnual: 0.05,
+  };
+
+  it('hydrates a valid snapshot onto the domain object', () => {
+    // ⚠️ A field written correctly by every save and never hydrated here is
+    // invisible in the UI and green in every local-mode test — `_teamSnapshot`
+    // was exactly that for twenty-two minors. This is wired up BEFORE a writer
+    // exists so that cannot happen twice.
+    expect(docToProject('p1', { ...base, _costSnapshot: valid })._costSnapshot).toEqual(valid);
+  });
+
+  it.each([
+    ['null', null],
+    ['missing', undefined],
+    ['malformed', { laborRates: 'nope', holidays: [], discountRateAnnual: 0.05 }],
+  ])('leaves the field ABSENT when the stored value is %s', (_l, stored) => {
+    const doc = stored === undefined ? { ...base } : { ...base, _costSnapshot: stored };
+    expect(docToProject('p1', doc)).not.toHaveProperty('_costSnapshot');
   });
 });
