@@ -275,4 +275,72 @@ describe('useProjects', () => {
       expect(data).toBeNull();
     });
   });
+
+  /**
+   * v0.41.0 — a rejected WRITE names permission; a rejected READ does not.
+   *
+   * ⚠️ THE ASYMMETRY IS THE SUBJECT, so the three rows belong together: any one
+   * of them alone reads as an arbitrary choice of wording. Its reason is at
+   * `describeWriteError` — a failed read evicts data and is recoverable by
+   * reloading, a failed save loses the edit the user just made.
+   */
+  describe('permission-denied wording (v0.41.0)', () => {
+    const PERMISSION_COPY =
+      'You do not have permission to make this change. ' +
+      'If this is a shared project, ask its owner for edit access.';
+
+    it('[C1] a rejected WRITE names permission, not the connection', async () => {
+      // ⚠️ THE LIVE INSTANCE, not a hypothetical. The MSB delete rule is
+      // `resource.data.members[request.auth.uid] == 'owner'`, so an EDITOR
+      // pressing Delete gets exactly this rejection today and was told to check
+      // their connection — the one diagnosis that is definitely wrong when a
+      // security rule refused the write.
+      mocks.getProjects.mockResolvedValue([makeProject('p1')]);
+      const { result } = renderHook(() => useProjects());
+      await act(async () => {});
+      mocks.addToastGlobal.mockClear();
+
+      mocks.deleteProject.mockRejectedValueOnce({ code: 'permission-denied' });
+      await act(async () => { await result.current.deleteProject('p1'); });
+
+      // EXACT string: `describeStorageError`'s verbatim fallback is the wrong
+      // build, and it also contains the word "project", so a loose match on that
+      // would pass against it.
+      expect(mocks.addToastGlobal).toHaveBeenCalledWith(PERMISSION_COPY, 'error');
+    });
+
+    it('[C2] a rejected READ at a non-I2 site keeps its copy BYTE-IDENTICAL', async () => {
+      // ⚠️ `exportProject` is a READ that toasts, and it is deliberately still on
+      // `describeStorageError`. The wrong build is option C — branching inside
+      // the shared helper — which would reword this site too. The exact original
+      // sentence is the assertion; anything else means the helper was widened.
+      mocks.getProjects.mockResolvedValue([]);
+      const { result } = renderHook(() => useProjects());
+      await act(async () => {});
+      mocks.addToastGlobal.mockClear();
+
+      mocks.exportAll.mockRejectedValueOnce({ code: 'permission-denied' });
+      await act(async () => {
+        await expect(result.current.exportProject('p1')).rejects.toBeTruthy();
+      });
+
+      expect(mocks.addToastGlobal).toHaveBeenCalledWith(
+        'Failed to export project. Please check your connection.',
+        'error',
+      );
+    });
+
+    it('[C3] I2’s silence on a permission-denied LOAD is intact — no toast at all', async () => {
+      // ⚠️ v0.31.0 (I2) decided this deliberately. The guard branches on the
+      // error code and returns BEFORE any describe* helper, so the write-path
+      // change cannot reach it — but "cannot reach it" is a claim about code
+      // until something asserts the silence.
+      mocks.getProjects.mockRejectedValueOnce({ code: 'permission-denied' });
+      const { result } = renderHook(() => useProjects());
+      await act(async () => {});
+
+      expect(result.current.projects, 'evicted').toEqual([]);
+      expect(mocks.addToastGlobal, 'and silent').not.toHaveBeenCalled();
+    });
+  });
 });

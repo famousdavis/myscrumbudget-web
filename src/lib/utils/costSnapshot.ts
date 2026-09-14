@@ -5,6 +5,31 @@
 import type { Project, Settings, LaborRate } from '@/types/domain';
 
 /**
+ * A `Project` as returned by `getProject`, which may carry the ownership flag.
+ *
+ * ⚠️ DEFINED HERE RATHER THAN IN `firestoreRepo.ts`, AND THE REASON IS THE
+ * MODULE GRAPH, NOT TIDINESS (v0.41.0). `firestoreRepo.ts` imports
+ * `firebase/firestore` and `@/lib/firebase/config` AT RUNTIME. Its first
+ * consumer outside the repository layer is a React component, and a plain
+ * (non-`type`) import of this alias from there would pull both into the
+ * component's graph — measured to pass `tsc` 0 AND lint 13/0, because
+ * `isolatedModules` is on and `verbatimModuleSyntax` is not. So the type lives
+ * in this firebase-free module and `firestoreRepo.ts` re-exports it; every
+ * existing importer is unchanged.
+ *
+ * ⚠️ `_isOwner` is DELIBERATELY NOT A `Project` FIELD and NOT a
+ * `FirestoreProjectDoc` field. It follows the `_memberCount` precedent: an
+ * ad-hoc intersection attached by the repository for a consumer that needs it,
+ * never part of the domain type. Putting it on `Project` would fire TS2741 in
+ * `sanitizeImport.ts`'s `PROJECT_FIELD_SET` and demand an entry in
+ * `FirestoreProjectDoc` for a field that is never written to a document — the
+ * flag describes the READER's relationship to the document, not the document.
+ *
+ * ⚠️ PRESENT and `true`, or ABSENT. Never `false`.
+ */
+export type ProjectWithOwnership = Project & { _isOwner?: true };
+
+/**
  * Resolve the cost inputs to price a project with (v0.39.0).
  *
  * A project carrying a `_costSnapshot` is priced from the OWNER's inputs, so
@@ -62,4 +87,31 @@ export function effectiveLaborRates(
   settings: Settings | null,
 ): LaborRate[] | undefined {
   return project._costSnapshot?.laborRates ?? settings?.laborRates;
+}
+
+/**
+ * Does this role have no labor rate in the given card? (v0.41.0)
+ *
+ * ⚠️⚠️ `laborRates === undefined` MUST RETURN `false`, AND THAT IS THE WHOLE
+ * REASON THIS FUNCTION EXISTS AS ONE SPELLING. `undefined` means "the rates
+ * have not loaded yet" and must flag NOBODY; `[]` means "loaded, and there are
+ * genuinely no rates" and must flag EVERYBODY. `?? []` collapses the two and
+ * flags every member mid-fetch — that is the v0.37.6 defect, and it had to be
+ * fixed twice because the rule lived in three separate hand-written copies.
+ * DO NOT ADD `?? []`.
+ *
+ * ⚠️ Matching is EXACT and case-sensitive, deliberately, because
+ * `getHourlyRate` (`costs.ts:12`) looks a role up the same way. The two must
+ * agree: a role this returns `true` for is exactly a role the calc engine
+ * prices at $0. A case-insensitive match here would claim a rate exists for a
+ * role the engine will not find.
+ *
+ * ⚠️ THE THIRD CALL SITE IS NOT THIS PREDICATE ALONE. `RoleSelect.tsx` carries
+ * an extra `value !== ''` clause AT ITS CALL SITE and must keep it — an empty
+ * select is the normal unset state, not an orphaned role. Deriving that site
+ * from this function alone re-introduces the v0.37.6 defect. See the note
+ * there.
+ */
+export function roleHasNoRate(role: string, laborRates: LaborRate[] | undefined): boolean {
+  return laborRates !== undefined && !laborRates.some((r) => r.role === role);
 }

@@ -22,6 +22,7 @@ import {
   DEFAULT_SETTINGS,
   StorageIntegrityError,
   describeStorageError,
+  describeWriteError,
   describeExportOmission,
   readStorageResidueCount,
 } from '../localStorage';
@@ -376,6 +377,38 @@ describe('WI-20 — an unreadable stored entry does not destroy the readable one
   });
 
   // ── Criterion 6: where the signal goes ────────────────────────────────────
+
+  it('[C4] describeWriteError still rewords the integrity case, at a WRITE site (v0.41.0)', async () => {
+    // ⚠️⚠️ THE MUTATION THIS REFUSES IS THE OBVIOUS IMPLEMENTATION: a
+    // `describeWriteError` that handles `permission-denied` and otherwise
+    // returns `fallback`. It would SILENTLY DELETE v0.38.0's integrity message
+    // at all TEN write sites, and nothing else in this suite would say so — the
+    // criterion below exercises `describeStorageError` DIRECTLY and never routes
+    // a write site through either helper.
+    //
+    // ⚠️ AND THE WRITE PATH REALLY CAN THROW IT, which is what makes this a
+    // regression rather than a hypothetical: `saveProject`, `saveTeamPool`,
+    // `deleteProject`, `reorderProjects` and `saveSettingsAndTeamPool` all call
+    // `readEntries` UNGUARDED, and `readEntries` throws `StorageIntegrityError`
+    // on a damaged key. So this is reachable on the very path the new helper
+    // serves.
+    const fallback = 'Failed to save project. Please check your connection.';
+    const message = describeWriteError(new StorageIntegrityError(P, 'not valid JSON'), fallback);
+
+    expect(message, 'the write helper must not swallow the integrity case').not.toBe(fallback);
+    expect(message, 'and must say the data is intact').toMatch(/intact/i);
+    expect(
+      message,
+      'it must be the SAME sentence the read path gives — two wordings for one state is the defect',
+    ).toBe(describeStorageError(new StorageIntegrityError(P, 'not valid JSON'), fallback));
+
+    // Positive control: the branch the new helper DOES own still fires, so a
+    // helper that simply delegated everything would not pass this test either.
+    expect(describeWriteError({ code: 'permission-denied' }, fallback))
+      .toContain('permission');
+    // And an ordinary failure still keeps the caller's own wording.
+    expect(describeWriteError(new Error('network down'), fallback)).toBe(fallback);
+  });
 
   it('[CRITERION 6] describeStorageError rewords ONLY the integrity case', () => {
     const fallback = 'Failed to save project. Please check your connection.';

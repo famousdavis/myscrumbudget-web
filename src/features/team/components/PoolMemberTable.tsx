@@ -7,6 +7,7 @@
 import { Fragment, useState, useMemo } from 'react';
 import type { PoolMember, LaborRate } from '@/types/domain';
 import { RoleSelect } from './RoleSelect';
+import { roleHasNoRate } from '@/lib/utils/costSnapshot';
 
 type SortField = 'name' | 'role';
 
@@ -125,12 +126,17 @@ export function PoolMemberTable({
      * visible immediately and on every member at once.
      *
      * `undefined` means "settings not loaded yet" and marks nobody; `[]` means
-     * "loaded, and there are no rates" and marks everybody — which is correct. Same
-     * token as `AllocationGridRow.tsx:106` and `RoleSelect.tsx:54`; keep all three
-     * spelled the same way.
+     * "loaded, and there are no rates" and marks everybody — which is correct.
+     *
+     * ⚠️ v0.41.0: "keep all three spelled the same way" is no longer a request to
+     * a future reader — the rule is ONE SPELLING, `roleHasNoRate` in
+     * `@/lib/utils/costSnapshot`, shared with `AllocationGridRow`, with
+     * `RoleSelect` (which adds its own `value !== ''` guard at the call site) and
+     * with the `CostBasisNotice` aggregate. The local binding is `noRate` because
+     * `const roleHasNoRate = roleHasNoRate(...)` shadows the import inside its own
+     * temporal dead zone — MEASURED: TS2448 + TS7022.
      */
-    const roleHasNoRate =
-      laborRates !== undefined && !laborRates.some((r) => r.role === member.role);
+    const noRate = roleHasNoRate(member.role, laborRates);
     return (
       <Fragment key={member.id}>
         <tr className="border-b border-zinc-100 dark:border-zinc-800">
@@ -173,7 +179,7 @@ export function PoolMemberTable({
             <>
               <td className={`py-1 ${mutedClass}`}>{member.name}</td>
               <td className={`py-1 ${mutedClass}`}>
-                {roleHasNoRate ? (
+                {noRate ? (
                   // Marked on the RESTING row, with no Edit click. Until now the only
                   // way to discover an orphaned role was to open the row for editing,
                   // which is precisely what a user has no reason to do when nothing

@@ -74,31 +74,29 @@ export class StorageIntegrityError extends Error {
  * what they can act on — nothing was lost, and an import restores it — is what
  * the sentence says instead.
  *
- * ⚠️⚠️ DEFERRED BY DECISION 2026-09-13 (v0.40.0 → v0.40.1), NOT AN OVERSIGHT.
- * A Firestore `permission-denied` on a SAVE currently reaches the caller's
- * fallback, which is "Please check your connection." — the one diagnosis that
- * is definitely wrong when a security rule rejected the write, and it sends the
- * user to their router while their edit is lost. That is this function's own
- * founding argument applied to the case the paragraph above set aside.
+ * ⚠️⚠️ RESOLVED 2026-09-14 (v0.41.0). The deferral recorded here — that a
+ * Firestore `permission-denied` on a SAVE reaches the caller's "Please check
+ * your connection.", the one diagnosis that is definitely wrong when a rule
+ * rejected the write — is closed by `describeWriteError` BELOW, not by widening
+ * this function. The reason the deferral gave is the reason the shape is two
+ * functions: this helper has 21 call sites across 9 production files (23 with
+ * tests), and 11 of them are NOT writes ("Failed to load settings", "Could not
+ * read local data", "Export failed", plus `useTeamPool:143`, which returns a
+ * `reason` and never toasts). A permission-denied on a READ is exactly the case
+ * v0.31.0 I2 decided to handle SILENTLY, so widening THIS function would have
+ * made eleven non-write messages start naming permission loudly — a partial
+ * adoption of a convention that was deliberately rejected.
  *
- * It is NOT a one-line branch here, and the measurement is why. This helper has
- * 21 call sites across 10 files, and 11 of them are READ paths ("Failed to load
- * settings", "Could not read local data", "Export failed", "Could not check
- * whether this member is in use"). A permission-denied on a READ is exactly the
- * case v0.31.0 I2 decided to handle SILENTLY. Widening the helper would make
- * eleven read-path messages start naming permission loudly — a partial,
- * inconsistent adoption of a convention that was deliberately rejected.
+ * ⚠️ THIS FUNCTION'S BEHAVIOUR IS UNCHANGED, and that is the point: the ten read
+ * sites keep byte-identical copy. Pinned by row C2.
  *
- * ⚠️ The helper cannot tell the read path it must not touch from the write path
- * it should, so giving the write path a permission-aware message needs either a
- * second helper or a caller-supplied flag. That is a design change, which is
- * why it is its own release rather than a line in the cost-card writer.
- *
- * ⚠️ For the record, one thing that is NOT a reason: widening this cannot
- * un-silence I2. Measured 2026-09-13 — `useProjects.ts:28-36`,
- * `useSettings.ts:26` and `useTeamPool.ts:28` all branch on the error code and
- * return BEFORE reaching this helper; it only ever chooses TEXT for a caller
- * that has already decided to toast.
+ * ⚠️ For the record, one thing that was NOT a reason: widening this could not
+ * have un-silenced I2 either way. Measured 2026-09-13, re-verified 2026-09-14 —
+ * `useProjects.ts:28-36`, `useSettings.ts:26-35` and `useTeamPool.ts:27-36` all
+ * branch on the error code and return BEFORE reaching either helper; they only
+ * ever choose TEXT for a caller that has already decided to toast. Recorded so
+ * the next reader does not re-verify it from scratch, which is what this
+ * campaign keeps paying for.
  */
 export function describeStorageError(err: unknown, fallback: string): string {
   if (err instanceof StorageIntegrityError) {
@@ -106,6 +104,54 @@ export function describeStorageError(err: unknown, fallback: string): string {
       'Your existing data is intact. Importing a previous export will restore it.';
   }
   return fallback;
+}
+
+/**
+ * The same, for the TEN WRITE sites only (v0.41.0).
+ *
+ * ⚠️ A STRICT EXTENSION OF `describeStorageError`, NEVER A REPLACEMENT, AND THE
+ * DELEGATION IS LOAD-BEARING RATHER THAN TIDY. `saveProject` (`:431`),
+ * `saveTeamPool` (`:386`), `deleteProject` (`:447`), `reorderProjects` (`:491`)
+ * and `saveSettingsAndTeamPool` (`:416`) all call `readEntries` UNGUARDED, and
+ * `readEntries` throws `StorageIntegrityError` (`:200`/`:202`). Those are write
+ * paths. A version of this function that handled only `permission-denied` and
+ * otherwise returned `fallback` would SILENTLY DELETE v0.38.0's integrity
+ * message at all ten sites — and nothing in the suite would have said so,
+ * because the existing test exercises `describeStorageError` DIRECTLY and never
+ * routes a write site through it. Row C4 exists for exactly that mutation.
+ *
+ * ⚠️ WHY A SECOND FUNCTION AND NOT A FLAG: measured — an optional flag on the
+ * existing helper typechecks clean, lints 13/0 and is completely silent at every
+ * unconverted site (the `uid?` family); a required one produces 23 × TS2554
+ * across 10 files, at which point the two designs differ only in whether the
+ * decision lives in a parameter or a function name. A name is the readable half.
+ *
+ * ⚠️ ONE SENTENCE FOR ALL TEN SITES, and the conditional clause is what makes it
+ * true at each. Eight are project-scoped, where "ask its owner" is the action;
+ * two (`saveSettings`, `saveTeamPool`) write the user's OWN per-user document,
+ * where a rejection is not a sharing problem at all. It also deliberately
+ * promises nothing about the edit: a rejected save still loses it, and that half
+ * of the finding is NOT closed here.
+ *
+ * ⚠️ THE LIVE INSTANCE: the MSB delete rule is
+ * `resource.data.members[request.auth.uid] == 'owner'`, so an EDITOR pressing
+ * Delete gets `permission-denied` today and is told to check their connection.
+ * Reachable, non-hypothetical, and this is the fix.
+ *
+ * ⚠️ THE ASYMMETRY WITH THE READ PATH IS DELIBERATE. v0.31.0 (I2) made
+ * permission-denied on the READ path silent on purpose — its reason is at
+ * `useProjects.ts:31-34`. A failed READ evicts data the user cannot see anyway
+ * and is recoverable by reloading; a failed WRITE loses the edit the user just
+ * made, so it has to say something true. The three I2 sites were CHECKED and are
+ * unaffected by this either way: they branch on the error code and return before
+ * any helper is reached.
+ */
+export function describeWriteError(err: unknown, fallback: string): string {
+  if ((err as { code?: string })?.code === 'permission-denied') {
+    return 'You do not have permission to make this change. ' +
+      'If this is a shared project, ask its owner for edit access.';
+  }
+  return describeStorageError(err, fallback);
 }
 
 /**

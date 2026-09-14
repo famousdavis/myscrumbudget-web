@@ -10,7 +10,7 @@ import { useRepository } from '@/components/RepositoryProvider';
 import { useDebouncedSave } from '@/hooks/useDebouncedSave';
 import { cloudSyncBus } from '@/lib/firebase/cloudSyncBus';
 import { addToastGlobal } from '@/components/Toast';
-import { describeStorageError } from '@/lib/storage/localStorage';
+import { describeStorageError, describeWriteError } from '@/lib/storage/localStorage';
 
 export function useSettings() {
   const { repository } = useRepository();
@@ -30,6 +30,11 @@ export function useSettings() {
         // toasting in either would produce a confusing duplicate. Silent
         // eviction is intentional — users who lost access (sign-out
         // cascade, admin revocation) typically already know.
+        //
+        // ⚠️ CHECKED 2026-09-14 (v0.41.0) AND UNAFFECTED: the guard above
+        // returns before any describe* helper, so giving the WRITE path a
+        // permission-aware message (`describeWriteError`, used at `:61`) cannot
+        // un-silence this. See the reason for the asymmetry at that helper.
         addToastGlobal(
           describeStorageError(err, 'Failed to load settings. Please check your connection.'),
           'error',
@@ -58,7 +63,7 @@ export function useSettings() {
       await repository.saveSettings(s);
     } catch (err) {
       addToastGlobal(
-        describeStorageError(err, 'Failed to save settings. Please check your connection.'),
+        describeWriteError(err, 'Failed to save settings. Please check your connection.'),
         'error',
       );
       throw err;

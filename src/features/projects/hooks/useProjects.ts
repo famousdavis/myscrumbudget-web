@@ -14,7 +14,7 @@ import { ensureOriginRef, appendToChangeLog } from '@/lib/storage/fingerprint';
 import { cancelByKey } from '@/lib/storage/pendingSaveRegistry';
 import { nextCopyName, cloneProjectData } from '@/features/projects/lib/dashboardCard';
 import { addToastGlobal } from '@/components/Toast';
-import { describeStorageError } from '@/lib/storage/localStorage';
+import { describeStorageError, describeWriteError } from '@/lib/storage/localStorage';
 
 export function useProjects() {
   const { repository } = useRepository();
@@ -32,6 +32,14 @@ export function useProjects() {
         // emitted a bus event that brought us here; user notification is
         // suppressed end-to-end (sign-out cascade, role revocation —
         // the user typically already knows).
+        //
+        // ⚠️ CHECKED 2026-09-14 (v0.41.0) AND UNAFFECTED. That release gave the
+        // WRITE path a permission-aware message (`describeWriteError`). This
+        // branch returns BEFORE any describe* helper is reached, so I2's silence
+        // is untouched here and at the two sibling sites (`useSettings.ts`,
+        // `useTeamPool.ts`). The asymmetry is deliberate and its reason is at
+        // `describeWriteError`: a failed read evicts data and is recoverable by
+        // reloading; a failed save loses the edit. Pinned by row C3.
         setProjects([]);
       } else {
         addToastGlobal('Failed to load projects. Please check your connection.', 'error');
@@ -68,7 +76,7 @@ export function useProjects() {
         await repository.createProject(project);
       } catch (err) {
         addToastGlobal(
-          describeStorageError(err, 'Failed to create project. Please check your connection.'),
+          describeWriteError(err, 'Failed to create project. Please check your connection.'),
           'error',
         );
         throw err;
@@ -92,7 +100,7 @@ export function useProjects() {
         await repository.deleteProject(id);
       } catch (err) {
         addToastGlobal(
-          describeStorageError(err, 'Failed to delete project. Please check your connection.'),
+          describeWriteError(err, 'Failed to delete project. Please check your connection.'),
           'error',
         );
         return;
@@ -116,7 +124,7 @@ export function useProjects() {
         await repository.reorderProjects(orderedIds);
       } catch (err) {
         addToastGlobal(
-          describeStorageError(err, 'Failed to reorder projects. Please check your connection.'),
+          describeWriteError(err, 'Failed to reorder projects. Please check your connection.'),
           'error',
         );
         // ⚠️ The optimistic update above already moved the tiles. Re-read so the
@@ -162,7 +170,7 @@ export function useProjects() {
         await repository.saveProject(next);
       } catch (err) {
         addToastGlobal(
-          describeStorageError(err, 'Failed to update project colour. Please check your connection.'),
+          describeWriteError(err, 'Failed to update project colour. Please check your connection.'),
           'error',
         );
         return;
@@ -189,7 +197,7 @@ export function useProjects() {
         await repository.saveProject({ ...target, archived: true });
       } catch (err) {
         addToastGlobal(
-          describeStorageError(err, 'Failed to archive project. Please check your connection.'),
+          describeWriteError(err, 'Failed to archive project. Please check your connection.'),
           'error',
         );
         return;
@@ -216,7 +224,7 @@ export function useProjects() {
         await repository.saveProject(next);
       } catch (err) {
         addToastGlobal(
-          describeStorageError(err, 'Failed to unarchive project. Please check your connection.'),
+          describeWriteError(err, 'Failed to unarchive project. Please check your connection.'),
           'error',
         );
         return;
@@ -246,7 +254,7 @@ export function useProjects() {
         await repository.createProject(clone);
       } catch (err) {
         addToastGlobal(
-          describeStorageError(err, 'Failed to clone project. Please check your connection.'),
+          describeWriteError(err, 'Failed to clone project. Please check your connection.'),
           'error',
         );
         return null;

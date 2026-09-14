@@ -98,7 +98,13 @@ const {
   SAVE_PROJECT_OWNER_MERGE_FIELDS,
   SAVE_PROJECT_OWNER_EXTRA,
 } = await import('../firestoreRepo');
-type ProjectWithOwnership = Project & { _isOwner?: true };
+// ⚠️ IMPORTED, NOT RE-DECLARED (v0.41.0). This file used to carry its own copy
+// of `type ProjectWithOwnership = Project & { _isOwner?: true }`, which is a
+// silent drift hazard: the duplicate would keep compiling after the real alias
+// changed shape, and every assertion below would still pass against a type the
+// repository no longer returns. The alias now lives in `@/lib/utils/costSnapshot`
+// (firebase-free), so importing it here costs nothing and pins the real one.
+import type { ProjectWithOwnership } from '@/lib/utils/costSnapshot';
 
 const UID = 'uid_1';
 
@@ -362,6 +368,17 @@ describe('getProjects / getProject — the docToProject round-trip', () => {
     // _changeLog/schemaVersion) pinned, and it is why the v0.38.2
     // `_teamSnapshot` reclassification was forced to be explicit rather than
     // slipping in. The NON-owner half of the same assertion is the test below.
+    //
+    // ⚠️⚠️ RECIPROCAL NOTE ADDED 2026-09-14 (v0.41.0). This test and the one
+    // below are the ONLY READ-PATH INSTRUMENTS for the ownership flag in this
+    // file: every write-path row builds its owner BY HAND (`ownedProject()` sets
+    // `_isOwner` itself), so not one of them can see a regression in the attach
+    // inside `getProject`. The test below already says this and names this one;
+    // the reciprocal was missing, so deleting THIS test read as safe from here.
+    // It is not — and the consequence grew in v0.41.0, because the flag now has
+    // a UI consumer: `CostBasisNotice` suppresses the "no published rate card"
+    // line for an owner, so a lost attach would show a refused owner a line
+    // about their own project that they cannot act on.
     expect(Object.keys(project!).sort()).toEqual([
       '_isOwner', '_teamSnapshot',
       'activeReforecastId', 'archived', 'color', 'endDate', 'id', 'name', 'reforecasts', 'startDate',
@@ -965,6 +982,30 @@ describe('_costSnapshot — the field, its two inert write sites, and the owner-
  * attach. The read path is covered by exactly two tests, both far above:
  * `hydrates every domain field…` and `hydrates the same document for a
  * NON-owner…`. Deleting either removes a duty nothing here replaces.
+ */
+/**
+ * ⚠️⚠️ `toBe` IS LOAD-BEARING ACROSS SIX ROWS OF THIS BLOCK, AND RELAXING ANY
+ * SINGLE ONE SILENTLY REMOVES PART OF THE GUARD (noted 2026-09-14, v0.41.0).
+ *
+ * Rows 1, 3a, 3b, 3c, 7 and 8 all assert `options.mergeFields` with `toBe` —
+ * REFERENCE IDENTITY with the module constant, never `toEqual`. Row 8's own
+ * comment explains why for row 8; this note exists because the other five carry
+ * the same duty and four of them (`:1037`, `:1051`, `:1091`, `:1119`) are bare
+ * `toBe(SAVE_PROJECT_MERGE_FIELDS)` calls with no message, so nothing at those
+ * lines says they are anything more than a convenience.
+ *
+ * The wrong build they collectively refuse is one line —
+ * `mergeFields: Object.keys(stripUndefined(payload))` — and it produces THE SAME
+ * NINE STRINGS IN THE SAME ORDER. UNDER `toEqual` EVERY ONE OF THESE ROWS WOULD
+ * PASS. Three separate reviewer probes got through an earlier version of row 8
+ * exactly that way.
+ *
+ * ⚠️ AND NOTHING ELSE CATCHES IT. MEASURED 2026-09-13: the lint ratchet stays at
+ * 13/0 under the dynamic mask BOTH with the mask constants retained and with
+ * them deleted, because they are EXPORTED and ESLint does not report an exported
+ * constant as unused. The brief that shipped this writer claimed the ratchet
+ * would fire; it does not. These `toBe` assertions plus this file's import of
+ * the constants ARE the whole guard.
  */
 describe('saveProject — the owner-only cost-card writer (v0.40.0)', () => {
   /** A project as `getProject` returns it for an OWNER: the flag is attached. */
