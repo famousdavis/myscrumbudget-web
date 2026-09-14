@@ -73,6 +73,32 @@ export class StorageIntegrityError extends Error {
  * for the console; a user reading a toast cannot act on `msb:projects`, and
  * what they can act on — nothing was lost, and an import restores it — is what
  * the sentence says instead.
+ *
+ * ⚠️⚠️ DEFERRED BY DECISION 2026-09-13 (v0.40.0 → v0.40.1), NOT AN OVERSIGHT.
+ * A Firestore `permission-denied` on a SAVE currently reaches the caller's
+ * fallback, which is "Please check your connection." — the one diagnosis that
+ * is definitely wrong when a security rule rejected the write, and it sends the
+ * user to their router while their edit is lost. That is this function's own
+ * founding argument applied to the case the paragraph above set aside.
+ *
+ * It is NOT a one-line branch here, and the measurement is why. This helper has
+ * 21 call sites across 10 files, and 11 of them are READ paths ("Failed to load
+ * settings", "Could not read local data", "Export failed", "Could not check
+ * whether this member is in use"). A permission-denied on a READ is exactly the
+ * case v0.31.0 I2 decided to handle SILENTLY. Widening the helper would make
+ * eleven read-path messages start naming permission loudly — a partial,
+ * inconsistent adoption of a convention that was deliberately rejected.
+ *
+ * ⚠️ The helper cannot tell the read path it must not touch from the write path
+ * it should, so giving the write path a permission-aware message needs either a
+ * second helper or a caller-supplied flag. That is a design change, which is
+ * why it is its own release rather than a line in the cost-card writer.
+ *
+ * ⚠️ For the record, one thing that is NOT a reason: widening this cannot
+ * un-silence I2. Measured 2026-09-13 — `useProjects.ts:28-36`,
+ * `useSettings.ts:26` and `useTeamPool.ts:28` all branch on the error code and
+ * return BEFORE reaching this helper; it only ever chooses TEXT for a caller
+ * that has already decided to toast.
  */
 export function describeStorageError(err: unknown, fallback: string): string {
   if (err instanceof StorageIntegrityError) {

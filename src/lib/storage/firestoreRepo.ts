@@ -154,7 +154,123 @@ const SAVE_PROJECT_MERGE_SET = {
   updatedAt: true,
 } satisfies Partial<Record<keyof FirestoreProjectDoc, true>>;
 
-const SAVE_PROJECT_MERGE_FIELDS = Object.keys(SAVE_PROJECT_MERGE_SET);
+export const SAVE_PROJECT_MERGE_FIELDS = Object.keys(SAVE_PROJECT_MERGE_SET);
+
+/**
+ * The ONE extra field an owner's save adds (v0.40.0), as its own
+ * `satisfies`-guarded set.
+ *
+ * ⚠️⚠️ THE SHAPE IS THE POINT, AND THE OBVIOUS ALTERNATIVE IS A SILENT TRAP.
+ * The rule this release implements — "not owner → nine; owner with a usable
+ * rate card → ten; owner WITHOUT one → nine" — is satisfied literally by:
+ *
+ *     mergeFields: Object.keys(stripUndefined(payload))    // ⚠️ DO NOT.
+ *
+ * That is one line, it produces the right mask in all three states, and it
+ * DELETES the completeness guard: with the mask derived from the payload,
+ * `SAVE_PROJECT_MERGE_SET` and this set become unreferenced.
+ *
+ * ⚠️⚠️ AND NO LINT RATCHET CATCHES THAT — MEASURED 2026-09-13, BOTH WAYS.
+ * The design note this release was built from said the ratchet would fire at 14
+ * against the accepted baseline of 13, so the ship gate would fail and force
+ * the question. It does NOT. That measurement was taken against a build where
+ * these constants were module-PRIVATE; exporting them (which is what lets a
+ * test import them) means ESLint no longer reports them as unused. Measured
+ * under the dynamic mask: lint is 13/0 with the constants retained AND 13/0
+ * with them deleted. The gate is green in both worlds.
+ *
+ * ⚠️ So the protection here is NOT the ratchet. It is the seven tests that
+ * assert `mergeFields` by REFERENCE against these constants, plus the import in
+ * the test file. Weaken either and this becomes a silent one-line change. Do
+ * not reason from "the lint gate would catch it" — it would not.
+ *
+ * ⚠️ A BARE OBJECT LITERAL IS ALSO NOT ENOUGH. Without `satisfies`, a typo
+ * (`_costSnapshott`) typechecks clean and fails only at runtime. With it, the
+ * same typo is TS2561 naming the field and suggesting the right one.
+ *
+ * ⚠️ And it is EXPORTED so a test can import it. That is deliberate: a constant
+ * nothing imports is the one a tidy-up deletes. `SAVE_PROJECT_MERGE_FIELDS` is
+ * exported for the same reason — the mask assertions use `toBe` (reference
+ * identity), because `toEqual` on the array CANNOT refuse the dynamic mask:
+ * `Object.keys` of the payload yields the same nine strings in the same order,
+ * so the two are equal by value.
+ *
+ * ⚠️ `SAVE_PROJECT_MERGE_SET` itself is UNCHANGED, so the nine-element order
+ * pin above is untouched by construction.
+ */
+export const SAVE_PROJECT_OWNER_EXTRA = {
+  _costSnapshot: true,
+} satisfies Partial<Record<keyof FirestoreProjectDoc, true>>;
+
+export const SAVE_PROJECT_OWNER_MERGE_FIELDS = [
+  ...SAVE_PROJECT_MERGE_FIELDS,
+  ...Object.keys(SAVE_PROJECT_OWNER_EXTRA),
+];
+
+/**
+ * A `Project` as returned by `getProject`, which may carry the ownership flag.
+ *
+ * ⚠️ `_isOwner` is DELIBERATELY NOT A `Project` FIELD and NOT a
+ * `FirestoreProjectDoc` field. It follows the `_memberCount` precedent
+ * (`getProjects` below): an ad-hoc intersection attached by the repository for
+ * a consumer that needs it, never part of the domain type. Putting it on
+ * `Project` would fire TS2741 in `sanitizeImport.ts`'s `PROJECT_FIELD_SET` and
+ * demand an entry in `FirestoreProjectDoc` for a field that is never written to
+ * a document — the flag describes the READER's relationship to the document,
+ * not the document.
+ *
+ * ⚠️ PRESENT and `true`, or ABSENT. Never `false`. The write path tests
+ * `=== true`, so a `false` would behave identically at the write site and the
+ * difference would be invisible there — which is why the shape is pinned on the
+ * READ path instead (see the `getProject` tests).
+ */
+export type ProjectWithOwnership = Project & { _isOwner?: true };
+
+/**
+ * Resolve the cost card an owner's save should publish, or `undefined` to
+ * publish nothing (v0.40.0, `DEC-W2`).
+ *
+ * ⚠️⚠️ TAKES THE RAW DOCUMENT DATA, NEVER `getSettings()`, AND THAT IS THE
+ * WHOLE RULE. `getSettings` FABRICATES: it returns `DEFAULT_SETTINGS` when the
+ * document is absent, and `data.laborRates ?? DEFAULT_SETTINGS.laborRates` when
+ * the document exists without that key. Either way it hands back six stock
+ * rates the owner never saved — and stamping those onto a project publishes a
+ * rate card to every collaborator that its supposed author has never seen.
+ * 3 of 13 projects were in that state when this was written.
+ *
+ * ⚠️ "Never SAVED", not "never authored". The rule discriminates on KEY
+ * PRESENCE, and one owner has a present key holding a byte-identical copy of
+ * the stock card — that one publishes, correctly, because they saved it.
+ *
+ * ⚠️ REFUSAL IS ALL-OR-NOTHING ON THE RATES ONLY. `CostSnapshot.laborRates` is
+ * required (`domain.ts:64-68`), so a snapshot without rates is not expressible;
+ * missing rates therefore refuse the whole card. The other two fields are
+ * different: they have meaningful empty values, so a card with real rates and
+ * no holidays publishes with `holidays: []` and the default discount rate
+ * rather than being refused. Refusing on ANY missing field would withhold a
+ * usable rate card because the owner never added a holiday.
+ */
+function resolveOwnerCostSnapshot(
+  data: Record<string, unknown> | undefined,
+): CostSnapshot | undefined {
+  const laborRates = data?.laborRates;
+  // The key must be present AND hold at least one rate. An empty array is a
+  // saved-but-empty card: publishing it would price every role at $0 for every
+  // collaborator, which is loud but wrong. Publishing nothing leaves each
+  // reader on their own rates, which is this release's own status quo.
+  if (!Array.isArray(laborRates) || laborRates.length === 0) return undefined;
+  return {
+    laborRates: laborRates as CostSnapshot['laborRates'],
+    // Copied, not referenced: `DEFAULT_SETTINGS.holidays` is a shared
+    // module-level array and this value goes into a write payload.
+    holidays: Array.isArray(data!.holidays)
+      ? (data!.holidays as CostSnapshot['holidays'])
+      : [...DEFAULT_SETTINGS.holidays],
+    discountRateAnnual: typeof data!.discountRateAnnual === 'number'
+      ? data!.discountRateAnnual
+      : DEFAULT_SETTINGS.discountRateAnnual,
+  };
+}
 
 /**
  * Firestore document shape for the per-user settings doc.
@@ -337,6 +453,32 @@ export function createFirestoreRepository(uid: string): Repository {
         proj._memberCount = members ? Object.keys(members).length : 1;
         projects.push(proj);
       });
+      // ⚠️⚠️ NO `_isOwner` HERE, DELIBERATELY (v0.40.0, 2026-09-13), AND A TEST
+      // ASSERTS ITS ABSENCE. That test's FAILURE IS THE SIGNAL, not a defect:
+      // it fires when someone adds the attach, which is exactly when this needs
+      // to become a conversation. Do not delete it as obsolete.
+      //
+      // TWO reasons, and neither replaces the other:
+      //
+      //   1. `exportAll` returns this method's output VERBATIM as
+      //      `AppState.projects`. Attaching the flag here would put
+      //      `_isOwner: true` into every cloud export — a change to the export
+      //      FORMAT, not merely an extra in-memory key. (This method does not
+      //      PIN that format; `exportAll` is a separate method that merely
+      //      calls it. The point is the consequence, not the coupling.)
+      //   2. `saveProject` is the only consumer of the flag, and every path
+      //      that reaches it sources its project from `getProject`. The
+      //      dashboard never saves a project it listed, so the attach would buy
+      //      nothing here today.
+      //
+      // ⚠️ The asymmetry is SAFE ONLY WHILE `effectiveSettings` has no
+      // ownership input. If a future release makes an owner read live settings
+      // instead of the published card (`DEC-W6` option B), this list and
+      // `getProject` would price the SAME project differently — the dashboard
+      // tile and the detail page disagreeing about one project's EAC. A test
+      // pins that the two paths agree; take that release and you must restore
+      // the attach here at the same time.
+      //
       // Sort by order field for drag-to-reorder persistence
       projects.sort((a, b) => (a._order ?? 0) - (b._order ?? 0));
       // Strip _order but keep _memberCount for shared badge.
@@ -349,7 +491,20 @@ export function createFirestoreRepository(uid: string): Repository {
     async getProject(id: string): Promise<Project | null> {
       const snap = await getDoc(doc(db!, PROJECTS_COL, id));
       if (!snap.exists()) return null;
-      return docToProject(snap.id, snap.data());
+      const data = snap.data();
+      const project = docToProject(snap.id, data) as ProjectWithOwnership;
+      // v0.40.0 (`DEC-W1`): attach the ownership flag HERE, where `uid` is in
+      // the factory closure — NOT in `docToProject`, which takes `(id, data)`
+      // and is called from four places. Giving it a required third parameter
+      // measured 19 × TS2554.
+      //
+      // ⚠️ PRESENT-or-ABSENT, never `false`. `saveProject` tests `=== true`.
+      //
+      // ⚠️ DELIBERATELY NOT DONE IN `getProjects` — see the note there. It is
+      // not an oversight and removing this asymmetry has consequences.
+      const members = data.members as Record<string, string> | undefined;
+      if (members?.[uid] === 'owner') project._isOwner = true;
+      return project;
     },
 
     /**
@@ -373,8 +528,38 @@ export function createFirestoreRepository(uid: string): Repository {
 
      */
     async saveProject(project: Project): Promise<void> {
-      const pool = await impl.getTeamPool();
+      // v0.40.0: ONE raw read of the settings document, serving BOTH the team
+      // pool and the owner's rate card.
+      //
+      // ⚠️⚠️ THIS REPLACED `await impl.getTeamPool()` RATHER THAN ADDING TO IT,
+      // and that is what makes the writer cost +0 round-trips: `getTeamPool` is
+      // itself `getDoc(settingsRef)`, and `teamPool` lives in the same document
+      // as `laborRates`. Calling `getTeamPool()` and then reading the card
+      // separately would be two reads of one document on every save.
+      //
+      // ⚠️ THE COST: `saveProject` no longer follows a future change to
+      // `getTeamPool`. That coupling loss is deliberate and is PINNED rather
+      // than argued — a test asserts this derivation equals `getTeamPool()`'s
+      // output for the same document, including the absent-document case,
+      // because "they are behaviourally identical today" is the kind of claim
+      // that decays silently.
+      const settingsSnap = await getDoc(settingsRef);
+      const settingsData = settingsSnap.exists() ? settingsSnap.data() : undefined;
+      const pool = ((settingsData?.teamPool as PoolMember[]) ?? []);
       const now = new Date().toISOString();
+
+      // v0.40.0 (`DEC-W4`): the owner republishes their cost card on every save.
+      //
+      // ⚠️⚠️ BOTH THE PAYLOAD AND THE MASK DERIVE FROM THE RESOLVED SNAPSHOT,
+      // NEVER FROM `isOwner`. There are THREE states, not two: not owner →
+      // nine fields; owner WITH a usable card → ten; owner WITHOUT one → nine.
+      // Keying the mask on ownership instead would give an owner with no saved
+      // rates a ten-field mask over a nine-key payload, which Firestore rejects
+      // with INVALID_ARGUMENT — a mask entry absent from the data is the LOUD
+      // direction (see the mask comment above), so every save would throw.
+      const ownerSnapshot = (project as ProjectWithOwnership)._isOwner === true
+        ? resolveOwnerCostSnapshot(settingsData)
+        : undefined;
 
       // v0.31.0 (C1): explicit mergeFields instead of merge:true. The
       // listed fields are the only ones written every save; ownership /
@@ -393,7 +578,16 @@ export function createFirestoreRepository(uid: string): Repository {
         archived: project.archived ?? null,
         _teamSnapshot: buildProjectTeamSnapshot(project, pool),
         updatedAt: now,
-      }), { mergeFields: SAVE_PROJECT_MERGE_FIELDS });
+        // Absent (not null) when there is nothing to publish: `stripUndefined`
+        // removes it, so the payload carries nine keys and the nine-field mask
+        // below leaves any stored card untouched. A `null` here would be a
+        // PRESENT key and would UNSET the card — the opposite of refusing.
+        ...(ownerSnapshot ? { _costSnapshot: ownerSnapshot } : {}),
+      }), {
+        mergeFields: ownerSnapshot
+          ? SAVE_PROJECT_OWNER_MERGE_FIELDS
+          : SAVE_PROJECT_MERGE_FIELDS,
+      });
     },
 
     /**

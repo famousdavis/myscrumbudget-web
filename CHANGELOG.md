@@ -4,6 +4,22 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.40.0] - 2026-09-13
+
+### Added
+- **Shared projects can now show everyone the same costs — but only after you save each one.** When the *owner* of a project saves it, the app now records the labor rates, holidays and discount rate that project is being budgeted with onto the project itself. Anyone you have shared it with is then priced with *your* rates instead of their own, so the Estimate at Completion you see and the one they see finally agree. Before this, six collaborators could open one project and see six different totals.
+- ⚠️ **Owners must open and save each project once for this to take effect.** Nothing is applied retroactively — a project you never open again keeps behaving as it did. Any ordinary edit counts as a save, so most projects will pick this up simply through normal use.
+- **Only the owner publishes.** If an editor or viewer saves a shared project, the rates on it are left exactly as the owner set them. Their own rate card is never written to someone else's project.
+- **If you have never saved a labor rate table, nothing is published.** The app deliberately does not fall back to the six example roles it ships with — stamping those onto your project would tell your collaborators you had chosen rates you have never seen. Your project keeps working as it does today, with each person pricing it from their own settings.
+
+### Changed
+- **Exported cloud data now includes the saved cost settings.** If you export from cloud storage, projects that have been saved by their owner will carry the rates, holidays and discount rate they were priced with. This is benign: importing ignores the field entirely, and older versions of the app ignore it too. Local-storage exports are unchanged. *(v0.39.0's notes stated that cloud exports were unchanged; that was corrected in v0.38.3 and this release is where the field genuinely starts carrying content.)*
+
+### Known limitations
+- **Roles missing from the owner's rate card show as `$0`, and only the allocation grid marks them.** In the allocation grid, a team member whose role has no matching rate has their role shown in red with a "Role not in labor rates" tooltip. The dashboard tile and the project summary do **not** carry that marker — they simply show the lower number. A future release adds a summary that says how many roles were affected.
+- **A project whose owner has never saved a rate table gives no signal at all.** It quietly keeps the old behaviour, and nothing on screen says so. This is a known gap and is the next release's first item.
+- **The rates a collaborator sees can lag the owner's.** They are refreshed when the owner saves the *project*, not when they edit their *settings*. A project not saved since a rate change still shows the older rate.
+
 ## [0.39.0] - 2026-09-13
 
 ### Added
