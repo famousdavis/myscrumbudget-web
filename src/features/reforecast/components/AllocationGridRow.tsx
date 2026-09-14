@@ -11,6 +11,7 @@ import {
   getAllocationColor,
   isCellInFillPreview,
 } from '../lib/gridHelpers';
+import { roleHasNoRate } from '@/lib/utils/costSnapshot';
 
 interface AllocationGridRowProps {
   member: TeamMember;
@@ -108,9 +109,15 @@ export function AllocationGridRow({
    * pinned in AllocationGrid.test.tsx.
    *
    * `laborRates === undefined` means "not loaded yet" and flags nobody — see the prop.
+   *
+   * ⚠️ v0.41.0: the rule is now ONE SPELLING in `@/lib/utils/costSnapshot`,
+   * shared with `PoolMemberTable` and (with its own extra guard) `RoleSelect`,
+   * and with the `CostBasisNotice` aggregate that counts exactly the members
+   * this marks. The local binding is `noRate` rather than `roleHasNoRate`
+   * because `const roleHasNoRate = roleHasNoRate(...)` shadows the import
+   * inside its own temporal dead zone — MEASURED: TS2448 + TS7022.
    */
-  const roleHasNoRate =
-    laborRates !== undefined && !laborRates.some((r) => r.role === member.role);
+  const noRate = roleHasNoRate(member.role, laborRates);
 
   /*
    * A pre-filled editor selects its value, so the first keystroke REPLACES it -
@@ -160,8 +167,8 @@ export function AllocationGridRow({
           <span>
             {member.name}
             <span
-              className={`ml-1 ${roleHasNoRate ? 'text-red-600 dark:text-red-400' : 'text-zinc-400'}`}
-              title={roleHasNoRate ? 'Role not in labor rates' : undefined}
+              className={`ml-1 ${noRate ? 'text-red-600 dark:text-red-400' : 'text-zinc-400'}`}
+              title={noRate ? 'Role not in labor rates' : undefined}
             >
               ({member.role})
             </span>

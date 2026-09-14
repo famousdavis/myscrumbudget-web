@@ -12,7 +12,7 @@ import { generateId } from '@/lib/utils/id';
 import { ensureOriginRef, appendToChangeLog } from '@/lib/storage/fingerprint';
 import { cloudSyncBus } from '@/lib/firebase/cloudSyncBus';
 import { addToastGlobal } from '@/components/Toast';
-import { describeStorageError } from '@/lib/storage/localStorage';
+import { describeStorageError, describeWriteError } from '@/lib/storage/localStorage';
 
 export function useTeamPool() {
   const { repository } = useRepository();
@@ -29,6 +29,12 @@ export function useTeamPool() {
         // v0.31.0 (I2): see useSettings.reload for rationale. Silent on
         // permission-denied to avoid double-toasting with useSettings,
         // since both react to the same settings-listener bus emit.
+        //
+        // ⚠️ CHECKED 2026-09-14 (v0.41.0) AND UNAFFECTED: the guard above
+        // returns before any describe* helper, so the write path's new
+        // permission-aware message (`describeWriteError`, used at `:60`) cannot
+        // un-silence this. `:143` also stays on `describeStorageError` — it
+        // returns a `reason` and never toasts, so it is neither path.
         addToastGlobal(
           describeStorageError(err, 'Failed to load team pool. Please check your connection.'),
           'error',
@@ -57,7 +63,7 @@ export function useTeamPool() {
       await repository.saveTeamPool(p);
     } catch (err) {
       addToastGlobal(
-        describeStorageError(err, 'Failed to save team pool. Please check your connection.'),
+        describeWriteError(err, 'Failed to save team pool. Please check your connection.'),
         'error',
       );
       throw err;

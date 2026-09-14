@@ -11,7 +11,7 @@ import { useDebouncedSave } from '@/hooks/useDebouncedSave';
 import { cloudSyncBus } from '@/lib/firebase/cloudSyncBus';
 import { UNDO_STACK_LIMIT } from '@/lib/constants';
 import { addToastGlobal } from '@/components/Toast';
-import { describeStorageError } from '@/lib/storage/localStorage';
+import { describeStorageError, describeWriteError } from '@/lib/storage/localStorage';
 
 function pushBounded(stack: Project[], snapshot: Project): Project[] {
   const next = [...stack, snapshot];
@@ -102,7 +102,7 @@ export function useProject(id: string) {
       await repository.saveProject(p);
     } catch (err) {
       addToastGlobal(
-        describeStorageError(err, 'Failed to save project. Please check your connection.'),
+        describeWriteError(err, 'Failed to save project. Please check your connection.'),
         'error',
       );
       throw err;

@@ -25,6 +25,7 @@ import { ResourcePlanExcelPanel } from '@/features/reforecast/components/Resourc
 import { ProductivityWindowPanel } from '@/features/reforecast/components/ProductivityWindowPanel';
 import { ForecastMetricsPanel } from '@/features/projects/components/ForecastMetricsPanel';
 import { effectiveLaborRates } from '@/lib/utils/costSnapshot';
+import { CostBasisNotice } from '@/features/projects/components/CostBasisNotice';
 import { useProjectMetrics } from '@/features/projects/hooks/useProjectMetrics';
 import { MonthlyCostBarChart } from '@/components/charts/MonthlyCostBarChart';
 import { CumulativeCostLineChart } from '@/components/charts/CumulativeCostLineChart';
@@ -333,6 +334,18 @@ export default function ProjectDetailPage({
               ⚠️ The helper preserves that: it returns `undefined` when there is
               neither a snapshot nor loaded settings. Do not add `?? []` to it
               or here. */}
+          {/* ⚠️ v0.41.0: the two cost-basis signals, read-only and adjacent to
+              the grid on purpose — NOT in ProjectSummary's fixed tile row,
+              because the aggregate is only trustworthy beside the per-row
+              markers it agrees with. It takes `project` and `settings` and
+              resolves `effectiveLaborRates` ITSELF rather than being handed the
+              value computed below: that is what makes "evaluates against the
+              PUBLISHED card" a testable property of the component instead of a
+              property of this line. There is no project-detail-page test host
+              (v0.37.5 measured that standing one up costs more than the item),
+              so this line is the untested residual — one typechecked prop
+              triple, deliberately smaller than the expression v0.37.5 left. */}
+          <CostBasisNotice project={project} settings={settings} members={members} />
           <AllocationGrid
             months={months}
             teamMembers={members}

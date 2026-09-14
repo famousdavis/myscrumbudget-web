@@ -13,6 +13,37 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.41.0',
+    date: '2026-09-14',
+    sections: [
+      {
+        title: 'Added',
+        items: [
+          'A project now tells you when roles on its team have no labor rate. Above the allocation grid, a line says how many team members’ roles have no rate and are therefore being costed at $0 — for example, "2 team members\' roles have no labor rate, so they are costed at $0." It appears only when there is at least one, and it counts against the rates the project is actually being priced with (the owner’s published rate card when it has one, otherwise your own).',
+          'It is still only the allocation grid that shows you WHICH roles. The count tells you how many; the red role names in the grid tell you who. The dashboard tile and the project summary carry neither — they show the lower number with nothing beside it. That is the same limitation v0.40.0 recorded, narrowed rather than removed.',
+          'Collaborators are now told when a project has no published rate card. If someone shares a project with you and its owner has not yet published their rates onto it, the app says so: "This project has no published rate card, so you are seeing your own rates." Until now that situation was completely silent, and two people could see different totals for the same project with nothing on screen to explain it.',
+          'The owner still is not told. This retires only HALF of v0.40.0’s known limitation. A project whose owner has never saved a rate table now gives a signal to COLLABORATORS; the owner themselves still sees nothing prompting them to save. That remains open.',
+          'Neither line appears when you are working on your own. In local storage, and on any project you own, your rates are simply your rates and there is nothing to disambiguate.',
+        ],
+      },
+      {
+        title: 'Fixed',
+        items: [
+          'A change that is refused for permission reasons no longer blames your connection. Saving, deleting, archiving, cloning or reordering something you do not have permission to change used to report "Please check your connection." — the one explanation that is definitely wrong when a permission rule refused the write. It now says "You do not have permission to make this change. If this is a shared project, ask its owner for edit access." This was reachable today: the delete rule requires you to be the project’s owner, so an editor pressing Delete on a shared project was told to check their router.',
+          'Reading is deliberately left alone. A failed READ keeps its existing wording, and the cases that were intentionally silent stay silent. The two are different: a read that fails can be recovered by reloading, while a save that fails loses the edit you just made, so only the save has to say something true.',
+        ],
+      },
+      {
+        title: 'Known limitations',
+        items: [
+          'Being told your permission was refused does not save your edit. The message is now accurate, but a rejected save still loses the change, and it is retried only when you next edit something. That half is not fixed here.',
+          'The dashboard does not carry the new line. A shared project with no published rate card shows the same numbers on its dashboard tile with nothing beside it, and the explanation only on the project’s own page. That is an inconsistency for one release, not a wrong number.',
+          'After you save your own project, your screen is the last to update. Your collaborators get your rates on their next load; your own view of what you just published refreshes when you reload.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.40.0',
     date: '2026-09-13',
     sections: [

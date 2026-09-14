@@ -6,6 +6,7 @@
 
 import { useRef } from 'react';
 import type { LaborRate } from '@/types/domain';
+import { roleHasNoRate } from '@/lib/utils/costSnapshot';
 
 interface RoleSelectProps {
   value: string;
@@ -50,10 +51,42 @@ export function RoleSelect({ value, laborRates, onChange, id }: RoleSelectProps)
    * settings are unresolved, revisit this — the choice is sufficient because of that
    * measurement, not independently of it.
    */
+  /*
+   * ⚠️⚠️ THE `value !== ''` CLAUSE IS THIS SITE'S OWN AND MUST STAY AT THE CALL
+   * SITE (v0.41.0). The shared `roleHasNoRate` carries the other two clauses and
+   * nothing more; an empty select is the normal UNSET state, not an orphaned
+   * role. Deriving this line from `roleHasNoRate(value, laborRates)` ALONE makes
+   * the placeholder render "(rate removed)" the moment any rates are loaded —
+   * which is the v0.37.6 defect, in the component v0.37.6 fixed.
+   *
+   * ⚠️⚠️ AND THE MEASUREMENT SAYS THIS GUARD IS NOT WHAT IS PROTECTING YOU TODAY
+   * — 2026-09-14, v0.41.0. I predicted that removing it would fail two named
+   * tests. It fails NONE: the suite runs 1797/1797, and the rendered DOM is
+   * BYTE-IDENTICAL across all seven states of (`value` x `laborRates`), with a
+   * negative control confirming the probe can see a real change.
+   *
+   * THE REASON, and it is the part worth keeping: without the guard
+   * `orphanedRole` becomes `''` rather than `null` — and `''` IS FALSY, so
+   * `{orphanedRole && <option/>}` renders nothing and the amber-class ternary is
+   * false anyway. The empty-string falsiness at those two JSX sites is doing the
+   * same job the guard names.
+   *
+   * ⚠️ SO THE REAL PROTECTION IS AN ACCIDENT OF TRUTHINESS, AND IT IS ONE EDIT
+   * FROM GONE. Change `orphanedRole` to a boolean, or write
+   * `{orphanedRole !== null && ...}`, and the empty placeholder starts rendering
+   * "(rate removed)" while this guard still READS as though it were preventing
+   * it. That is why the clause stays: it is the explicit statement of a rule
+   * currently enforced by something that does not look like a rule.
+   *
+   * ⚠️ NO TEST WAS ADDED, and now for a stronger reason than "a duplicate is
+   * vacuous": the two builds are BEHAVIOURALLY INDISTINGUISHABLE, so any test
+   * written against the observable passes under both. There is nothing here for
+   * a test to refuse. The v0.37.6 defect CLASS is pinned elsewhere and properly
+   * — the `?? []` mutation inside `roleHasNoRate` fails nine tests, two of them
+   * in this component's own file.
+   */
   const orphanedRole =
-    value !== '' && laborRates !== undefined && !laborRates.some((rate) => rate.role === value)
-      ? value
-      : null;
+    value !== '' && roleHasNoRate(value, laborRates) ? value : null;
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLSelectElement>) => {
     if (e.key === 'Enter' && !value) {

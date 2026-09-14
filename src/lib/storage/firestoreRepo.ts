@@ -20,6 +20,7 @@ import {
   setOriginRef, setChangeLog,
 } from './fingerprint';
 import { buildProjectTeamSnapshot, stripUndefined, docToProject } from './firestoreUtils';
+import type { ProjectWithOwnership } from '@/lib/utils/costSnapshot';
 
 /** Firestore document shape for projects (extends Project with cloud metadata). */
 interface FirestoreProjectDoc {
@@ -210,21 +211,18 @@ export const SAVE_PROJECT_OWNER_MERGE_FIELDS = [
 /**
  * A `Project` as returned by `getProject`, which may carry the ownership flag.
  *
- * ⚠️ `_isOwner` is DELIBERATELY NOT A `Project` FIELD and NOT a
- * `FirestoreProjectDoc` field. It follows the `_memberCount` precedent
- * (`getProjects` below): an ad-hoc intersection attached by the repository for
- * a consumer that needs it, never part of the domain type. Putting it on
- * `Project` would fire TS2741 in `sanitizeImport.ts`'s `PROJECT_FIELD_SET` and
- * demand an entry in `FirestoreProjectDoc` for a field that is never written to
- * a document — the flag describes the READER's relationship to the document,
- * not the document.
+ * ⚠️ MOVED to `@/lib/utils/costSnapshot` in v0.41.0 and RE-EXPORTED here, so
+ * every existing importer is unchanged. The reason is the module graph and it
+ * is written at the definition: this file imports `firebase/firestore` at
+ * runtime, and the flag's first consumer outside the repository layer is now a
+ * React component.
  *
  * ⚠️ PRESENT and `true`, or ABSENT. Never `false`. The write path tests
  * `=== true`, so a `false` would behave identically at the write site and the
  * difference would be invisible there — which is why the shape is pinned on the
  * READ path instead (see the `getProject` tests).
  */
-export type ProjectWithOwnership = Project & { _isOwner?: true };
+export type { ProjectWithOwnership };
 
 /**
  * Resolve the cost card an owner's save should publish, or `undefined` to

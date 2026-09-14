@@ -3,7 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import { describe, it, expect } from 'vitest';
-import { effectiveSettings, effectiveLaborRates } from '../costSnapshot';
+import { effectiveSettings, effectiveLaborRates, roleHasNoRate } from '../costSnapshot';
 import type { Project, Settings, CostSnapshot } from '@/types/domain';
 
 const READER_RATES = [{ role: 'BA', hourlyRate: 200 }];
@@ -122,5 +122,54 @@ describe('the pair agrees on laborRates for every input BOTH accept', () => {
   ])('%s', (_label, p) => {
     expect(effectiveLaborRates(p, readerSettings))
       .toEqual(effectiveSettings(p, readerSettings).laborRates);
+  });
+});
+
+/**
+ * `roleHasNoRate` — the one spelling of a rule that used to live in three
+ * hand-written copies (v0.41.0).
+ *
+ * ⚠️ No `beforeEach` exists in this file, so appending here inherits nothing and
+ * loses nothing. (Checked before appending, because a `describe` that lands
+ * outside an outer block's setup is how v0.37.11's new tests passed on
+ * carried-over state.)
+ */
+describe('roleHasNoRate', () => {
+  const RATES = [{ role: 'BA', hourlyRate: 75 }];
+
+  it('is FALSE for undefined — "not loaded yet" flags nobody', () => {
+    // ⚠️ THE DISCRIMINATING ROW, and it is only evidence against the row below:
+    // the wrong build is `?? []`, and a test with either case ALONE passes under
+    // both implementations. The pair is what refuses it.
+    expect(roleHasNoRate('BA', undefined)).toBe(false);
+    expect(roleHasNoRate('Anything At All', undefined)).toBe(false);
+  });
+
+  it('is TRUE for an empty list — "loaded, and there are none" flags everybody', () => {
+    expect(roleHasNoRate('BA', [])).toBe(true);
+  });
+
+  it('is FALSE when the role is priced and TRUE when it is not', () => {
+    expect(roleHasNoRate('BA', RATES)).toBe(false);
+    expect(roleHasNoRate('Dev', RATES)).toBe(true);
+  });
+
+  it('matches EXACTLY, because getHourlyRate does', () => {
+    // `costs.ts:12` looks a role up with `find(r => r.role === role)`. A
+    // case-insensitive match here would claim a rate exists for a role the calc
+    // engine will not find, and price at $0 while reporting the role as priced.
+    expect(roleHasNoRate('ba', RATES), 'case-sensitive').toBe(true);
+    expect(roleHasNoRate('BA ', RATES), 'whitespace is not trimmed').toBe(true);
+  });
+
+  it('is TRUE for the empty role an unresolved assignment carries', () => {
+    // ⚠️ A BOUND, PINNED RATHER THAN FIXED. `resolveAssignments` renders an
+    // unresolvable member as `{ name: '(Unknown)', role: '' }`, and an empty role
+    // matches no rate. Counting them is TRUE about the cost — it really is $0 —
+    // but the cause is an unresolved assignment, not a missing rate. The grid's
+    // per-row marker makes the identical claim about the identical member, and
+    // an aggregate disagreeing with the markers beside it would be worse than
+    // one that inherits their bound. v0.38.2's standing residual.
+    expect(roleHasNoRate('', RATES)).toBe(true);
   });
 });
