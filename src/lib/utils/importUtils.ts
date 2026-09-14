@@ -449,6 +449,18 @@ export async function applyImportMerge(
         // identity fields (owner, members, order, createdAt, _originRef, etc.)
         // that live on FirestoreProjectDoc but are absent from the Project domain type.
         // _teamSnapshot is regenerated (written) from the current pool.
+        //
+        // ⚠️⚠️ THIS IS THE ONE `saveProject` CALL SITE THAT NEVER CARRIES
+        // `_isOwner`, AND THAT IS CORRECT — DO NOT "FIX" IT (v0.40.0).
+        // `project` here is the loop variable of `for (const project of
+        // incomingState.projects)` — it comes out of the IMPORT FILE, not from
+        // `getProject`, so it has no ownership context attached and no cost
+        // card is published. The other four app-layer call sites all source
+        // from `getProject` and so carry the flag through their spreads.
+        // Seeding here would publish the IMPORTER's rate card onto a project
+        // they may not own, and it composes badly with the deferred re-upload
+        // un-share defect: one action would un-share the project AND republish
+        // a wrong card. A test pins this absence.
         await repository.saveProject({ ...project, id: existingId });
         replacedCount++;
       }
