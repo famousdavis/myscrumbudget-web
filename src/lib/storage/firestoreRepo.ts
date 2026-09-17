@@ -20,6 +20,10 @@ import {
   setOriginRef, setChangeLog,
 } from './fingerprint';
 import { buildProjectTeamSnapshot, stripUndefined, docToProject } from './firestoreUtils';
+import {
+  applyPrefsToProject, orderProjects, readReaderPrefs, readStoredOrder,
+  type OrderableProject, type ReaderPrefs,
+} from './projectPrefs';
 import type { ProjectWithOwnership } from '@/lib/utils/costSnapshot';
 
 /** Firestore document shape for projects (extends Project with cloud metadata). */
@@ -512,16 +516,36 @@ export function createFirestoreRepository(uid: string): Repository {
         collection(db!, PROJECTS_COL),
         where(`members.${uid}`, 'in', ['owner', 'editor', 'viewer']),
       );
-      const snap = await getDocs(q);
-      const projects: (Project & { _order?: number; _memberCount?: number })[] = [];
+      // v0.42.0: the reader's own preferences are read alongside the list, and
+      // they decide colour, archive state and order.
+      //
+      // ⚠️ A FAILED SETTINGS READ IS AN ERROR, NOT "UNSEEDED". `Promise.all`
+      // rejects, and the caller reports it exactly as it already reports a failed
+      // project query. Treating the failure as "no preferences" would show a
+      // seeded reader the document values this release exists to stop showing —
+      // and, worse, would let a seed run from them.
+      const [snap, settingsSnap] = await Promise.all([
+        getDocs(q),
+        getDoc(settingsRef),
+      ]);
+      const prefs = readReaderPrefs(settingsSnap.exists() ? settingsSnap.data() : undefined);
+      const rows: OrderableProject<Project & { _memberCount?: number }>[] = [];
       snap.forEach((d) => {
         const data = d.data();
-        const project = docToProject(d.id, data);
-        const proj = project as Project & { _order?: number; _memberCount?: number };
-        proj._order = (data.order as number) ?? 0;
+        const project = applyPrefsToProject(docToProject(d.id, data), prefs);
+        const proj = project as Project & { _memberCount?: number };
         const members = data.members as Record<string, string> | undefined;
         proj._memberCount = members ? Object.keys(members).length : 1;
-        projects.push(proj);
+        // ⚠️ `order` and `createdAt` are read from the RAW document and never
+        // attached to the Project: `createdAt` is not a domain field, and
+        // `exportAll` returns this method's output verbatim, so anything left on
+        // the object becomes part of the export format.
+        rows.push({
+          id: d.id,
+          order: readStoredOrder(data.order),
+          createdAt: typeof data.createdAt === 'string' ? data.createdAt : '',
+          value: proj,
+        });
       });
       // ⚠️⚠️ NO `_isOwner` HERE, DELIBERATELY (v0.40.0, 2026-09-13), AND A TEST
       // ASSERTS ITS ABSENCE. That test's FAILURE IS THE SIGNAL, not a defect:
@@ -549,20 +573,34 @@ export function createFirestoreRepository(uid: string): Repository {
       // pins that the two paths agree; take that release and you must restore
       // the attach here at the same time.
       //
-      // Sort by order field for drag-to-reorder persistence
-      projects.sort((a, b) => (a._order ?? 0) - (b._order ?? 0));
-      // Strip _order but keep _memberCount for shared badge.
-      return projects.map(({ _order: _stripOrder, ...p }) => {
-        void _stripOrder;
-        return p as Project;
-      });
+      // ⚠️ THE ORDER RULE MOVED (v0.42.0) and it is written down once, in
+      // `orderProjects`: a seeded reader's `projectOrder` first, then documents
+      // by stored `order` (ties by document id), then documents with no usable
+      // order by `createdAt`. Until v0.41.0 this was `(a._order ?? 0) - …`, which
+      // sorted an order-less document FIRST — and every project created from
+      // v0.42.0 on has no stored order, so that default would have put every new
+      // project at the top of every dashboard.
+      // _memberCount is kept (the dashboard's "Shared" badge reads it).
+      return orderProjects(rows, prefs);
     },
 
     async getProject(id: string): Promise<Project | null> {
-      const snap = await getDoc(doc(db!, PROJECTS_COL, id));
+      // v0.42.0: the same overlay as `getProjects`, for the same reason — the
+      // detail page, Clone and the per-tile export all read through here, and a
+      // reader must see one set of values whichever path they arrive by.
+      const [snap, settingsSnap] = await Promise.all([
+        getDoc(doc(db!, PROJECTS_COL, id)),
+        getDoc(settingsRef),
+      ]);
       if (!snap.exists()) return null;
       const data = snap.data();
-      const project = docToProject(snap.id, data) as ProjectWithOwnership;
+      const prefs: ReaderPrefs = readReaderPrefs(
+        settingsSnap.exists() ? settingsSnap.data() : undefined,
+      );
+      const project = applyPrefsToProject(
+        docToProject(snap.id, data),
+        prefs,
+      ) as ProjectWithOwnership;
       // v0.40.0 (`DEC-W1`): attach the ownership flag HERE, where `uid` is in
       // the factory closure — NOT in `docToProject`, which takes `(id, data)`
       // and is called from four places. Giving it a required third parameter

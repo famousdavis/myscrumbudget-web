@@ -1581,3 +1581,229 @@ describe('per-user preferences — the write paths (v0.42.0)', () => {
     }
   });
 });
+
+/**
+ * v0.42.0 — THE READ OVERLAY.
+ *
+ * A reader who has been seeded sees their OWN colour, archive state and order.
+ * A reader who has not sees the document's, exactly as v0.41.0 did — that is
+ * what makes the one-time seed "what you saw yesterday" instead of a reset.
+ */
+describe('per-user preferences — the read overlay (v0.42.0)', () => {
+  /** A settings document for a SEEDED reader. */
+  function seededSettings(over: Record<string, unknown> = {}) {
+    return { projectPrefsSeed: 1, projectPrefs: {}, projectOrder: [], ...over };
+  }
+  /** A project document with no stored `order` — every project created from v0.42.0 on. */
+  function noOrderDoc(over: Record<string, unknown> = {}) {
+    const d = fullDoc(over);
+    delete d.order;
+    return d;
+  }
+
+  it('[P7] a SEEDED reader with no entry sees neither the document colour nor its archive — getProjects', async () => {
+    existingDocs.set(UID, seededSettings());
+    queryDocs.set('p1', fullDoc({ color: 'blue', archived: true }));
+
+    const repo = createFirestoreRepository(UID);
+    const [project] = await repo.getProjects();
+
+    expect('color' in project, 'the document colour is not this reader’s').toBe(false);
+    expect('archived' in project, 'and neither is its archive state').toBe(false);
+  });
+
+  it('[P8] the same on the OTHER read path — getProject', async () => {
+    // ⚠️ BOTH PATHS OR NEITHER. The detail page, Clone and the per-tile export
+    // all read through `getProject`; a reader must not see one set of values on
+    // the dashboard and another on the project.
+    existingDocs.set(UID, seededSettings());
+    existingDocs.set('p1', fullDoc({ color: 'blue', archived: true }));
+
+    const repo = createFirestoreRepository(UID);
+    const project = (await repo.getProject('p1'))!;
+
+    expect('color' in project).toBe(false);
+    expect('archived' in project).toBe(false);
+  });
+
+  it('[P9] a SEEDED reader WITH an entry sees their own values, over different document values', async () => {
+    // ⚠️ THE POSITIVE HALF, AND WITHOUT IT P7/P8 REFUSE ALMOST NOTHING: a build
+    // that dropped colour and archive for every seeded reader would pass both.
+    existingDocs.set(UID, seededSettings({
+      projectPrefs: { p1: { color: 'teal', archived: true } },
+    }));
+    const document = fullDoc({ color: 'blue', archived: null });
+    queryDocs.set('p1', document);
+    existingDocs.set('p1', document);
+
+    const repo = createFirestoreRepository(UID);
+    const [fromList] = await repo.getProjects();
+    const fromOne = (await repo.getProject('p1'))!;
+
+    expect(fromList.color, 'the reader’s colour, not the document’s').toBe('teal');
+    expect(fromList.archived).toBe(true);
+    expect(fromOne.color).toBe('teal');
+    expect(fromOne.archived).toBe(true);
+  });
+
+  it('[P10] an UNSEEDED reader sees the document’s values, through the real docToProject — both paths', async () => {
+    // ⚠️ THIS IS WHAT THE SEED COPIES. Delete `docToProject`'s colour/archive
+    // hydration and this test fails — and so does every seed, silently, because
+    // it would then copy nothing.
+    const document = fullDoc({ color: 'teal', archived: true });
+    queryDocs.set('p1', document);
+    existingDocs.set('p1', document);
+
+    const repo = createFirestoreRepository(UID);
+    const [fromList] = await repo.getProjects();
+    const fromOne = (await repo.getProject('p1'))!;
+
+    expect(fromList.color).toBe('teal');
+    expect(fromList.archived).toBe(true);
+    expect(fromOne.color).toBe('teal');
+    expect(fromOne.archived).toBe(true);
+  });
+
+  it('[P11] a document with NO order sorts LAST, by createdAt — not first', async () => {
+    // ⚠️ THE ORDER-LESS DOCUMENTS ARE INSERTED FIRST, deliberately: under
+    // v0.41.0's `(a._order ?? 0)` they sort to the TOP, and every project created
+    // from v0.42.0 on has no stored order. A fixture that listed them last would
+    // pass against that build by accident.
+    queryDocs.set('b-new', noOrderDoc({ name: 'B', createdAt: '2026-05-02T00:00:00Z' }));
+    queryDocs.set('a-new', noOrderDoc({ name: 'A', createdAt: '2026-05-01T00:00:00Z' }));
+    queryDocs.set('p-two', fullDoc({ name: 'Two', order: 2 }));
+    queryDocs.set('p-one', fullDoc({ name: 'One', order: 1 }));
+
+    const repo = createFirestoreRepository(UID);
+    const projects = await repo.getProjects();
+
+    expect(projects.map((p) => p.name)).toEqual(['One', 'Two', 'A', 'B']);
+  });
+
+  it('[P12] equal orders tie by DOCUMENT ID; a non-number order is treated as absent', async () => {
+    // ⚠️ TIES ARE THE COMMON CASE, not an edge: every reader's first project was
+    // written with `order: 0`, so a dashboard of projects from several owners is
+    // full of them. Document-id order is what v0.41.0's query returned and its
+    // stable sort preserved, so this is "what they saw yesterday" — which is what
+    // the seed then freezes. The fixture inserts m-b BEFORE m-a, so a build that
+    // keeps insertion order gets them backwards.
+    queryDocs.set('m-b', fullDoc({ name: 'B', order: 5 }));
+    queryDocs.set('m-a', fullDoc({ name: 'A', order: 5 }));
+    queryDocs.set('x-str', fullDoc({ name: 'X', order: 'nope', createdAt: '2020-01-01T00:00:00Z' }));
+
+    const repo = createFirestoreRepository(UID);
+    const projects = await repo.getProjects();
+
+    expect(projects.map((p) => p.name),
+      'A before B on id; X last because its order is not a number').toEqual(['A', 'B', 'X']);
+  });
+
+  it('[P19] an entry left at {} by a cleared preference reads as NO colour and NOT archived', async () => {
+    // Clearing writes `deleteField()` at the field path, which leaves the entry
+    // itself behind as `{}` (measured on the emulator). It must read as nothing.
+    existingDocs.set(UID, seededSettings({ projectPrefs: { p1: {} } }));
+    const document = fullDoc({ color: 'blue', archived: true });
+    queryDocs.set('p1', document);
+    existingDocs.set('p1', document);
+
+    const repo = createFirestoreRepository(UID);
+    const [fromList] = await repo.getProjects();
+    const fromOne = (await repo.getProject('p1'))!;
+
+    expect('color' in fromList).toBe(false);
+    expect('archived' in fromList).toBe(false);
+    expect('color' in fromOne).toBe(false);
+    expect('archived' in fromOne).toBe(false);
+  });
+
+  it('[P20] a cloud export carries the READER’s values and no preference keys — exact key set', async () => {
+    // ⚠️ `exportAll` returns `getProjects`' output VERBATIM, so this is also the
+    // export FORMAT. Two things could go wrong and only one of them is about
+    // names: a preference key could leak into the file, or an internal sort key
+    // (`order`, `createdAt`) could be left on the project object. The key set is
+    // asserted exactly, which refuses both.
+    existingDocs.set(UID, seededSettings({
+      projectPrefs: { 'p-pref': { color: 'teal' } },
+      projectOrder: ['p-pref', 'p-plain'],
+    }));
+    queryDocs.set('p-pref', fullDoc({ name: 'Preferred', color: 'blue' }));
+    queryDocs.set('p-plain', fullDoc({ name: 'Plain', color: 'blue', archived: true }));
+
+    const repo = createFirestoreRepository(UID);
+    const state = await repo.exportAll();
+
+    const preferred = state.projects.find((p) => p.name === 'Preferred')!;
+    const plain = state.projects.find((p) => p.name === 'Plain')!;
+    expect(preferred.color, 'the reader’s colour is exported').toBe('teal');
+    expect('color' in plain, 'and a project they never coloured carries none').toBe(false);
+    expect('archived' in plain, 'nor the document’s archive state').toBe(false);
+    expect(Object.keys(preferred).sort(), 'no order/createdAt/preference key rides along').toEqual([
+      '_memberCount', '_teamSnapshot', 'activeReforecastId', 'color',
+      'endDate', 'id', 'name', 'reforecasts', 'startDate',
+    ]);
+    const serialised = JSON.stringify(state);
+    for (const key of ['projectPrefs', 'projectOrder', 'projectPrefsSeed']) {
+      expect(serialised, `${key} must not appear anywhere in an export`).not.toContain(key);
+    }
+  });
+
+  it('[P22] malformed preference values are IGNORED, never thrown', async () => {
+    // ⚠️ A THROW HERE IS NOT A CRASH, IT IS A BLANK DASHBOARD: `useProjects`
+    // catches it, leaves `projects` at [], and the page renders the Getting
+    // Started guide to a user who has projects. Nothing bounds what can land in
+    // a settings document, so every read of it is total.
+    existingDocs.set(UID, seededSettings({
+      projectPrefs: {
+        p1: { color: 'chartreuse', archived: 'yes' },
+        p2: 'not-an-object',
+        p3: null,
+      },
+    }));
+    queryDocs.set('p1', noOrderDoc({ name: 'One' }));
+    queryDocs.set('p2', noOrderDoc({ name: 'Two' }));
+    queryDocs.set('p3', noOrderDoc({ name: 'Three' }));
+
+    const repo = createFirestoreRepository(UID);
+    const projects = await repo.getProjects();
+
+    expect(projects).toHaveLength(3);
+    for (const project of projects) {
+      expect('color' in project, `${project.name}: an unknown colour is not adopted`).toBe(false);
+      expect('archived' in project, `${project.name}: "yes" is not true`).toBe(false);
+    }
+  });
+
+  it('[P23] a malformed or stale projectOrder is ignored, entry by entry', async () => {
+    existingDocs.set(UID, seededSettings({ projectOrder: { not: 'an array' } }));
+    queryDocs.set('p1', fullDoc({ name: 'One', order: 1 }));
+    queryDocs.set('p2', fullDoc({ name: 'Two', order: 2 }));
+
+    const repo = createFirestoreRepository(UID);
+    expect((await repo.getProjects()).map((p) => p.name),
+      'a non-array order falls back to the documents').toEqual(['One', 'Two']);
+
+    // Now a real array holding a number and an id that no longer exists.
+    existingDocs.set(UID, seededSettings({ projectOrder: ['p2', 42, 'ghost', 'p1'] }));
+    expect((await repo.getProjects()).map((p) => p.name),
+      'the usable ids order the list; the rest are ignored').toEqual(['Two', 'One']);
+  });
+
+  it('[P24] the three read paths write NOTHING — no transaction, no settings write', async () => {
+    // ⚠️ THE SEED MUST NEVER LIVE IN A READ. `getProjects` runs inside sign-out
+    // cleanup before credentials are revoked, inside `exportAll`, inside the
+    // import's stale-data guard and inside the team-pool delete guard. A read
+    // that writes turns each of those into a writer.
+    queryDocs.set('p1', fullDoc());
+    existingDocs.set('p1', fullDoc());
+
+    const repo = createFirestoreRepository(UID);
+    await repo.getProjects();
+    await repo.getProject('p1');
+    await repo.exportAll();
+
+    expect(runTransactionCalls, 'no read opens a transaction').toBe(0);
+    expect(txSetCalls, 'and none writes through one').toHaveLength(0);
+    expect(setDocCalls.filter((c) => c.ref.col === 'myscrumbudget_settings'),
+      'nor writes the settings document directly').toHaveLength(0);
+  });
+});
