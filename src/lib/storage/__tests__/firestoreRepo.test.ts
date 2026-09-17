@@ -37,8 +37,36 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { PoolMember, Project, Settings, TeamMember } from '@/types/domain';
 import { calculateProjectMetrics } from '@/lib/calc';
 
+/**
+ * A `FieldPath` as this harness builds it (v0.42.0).
+ *
+ * ⚠️ THE SEGMENTS ARE THE POINT. A preference write addresses
+ * `projectPrefs.<id>.color`, and an id can legitimately contain a dot
+ * (`validation.ts:430-432` validates an imported id as a string only), so the
+ * production code must pass a real `FieldPath` and never a dot-string. A string
+ * path would nest `a.b` as `a → b`; measured on the emulator against MSB's own
+ * SDK 12.12.1, 2026-09-17. Keeping the segments here is what lets a test tell
+ * the two apart — `toEqual(['projectPrefs', 'a.b', 'color'])` fails against a
+ * string, loudly.
+ */
+class MockFieldPath {
+  readonly segments: string[];
+  constructor(...segments: string[]) {
+    this.segments = segments;
+  }
+}
+
+/**
+ * What `deleteField()` returns in this harness: a unique object, so a test can
+ * assert identity rather than matching a string that real data could hold.
+ */
+const DELETE_FIELD = { __deleteField: true } as const;
+
+/** A `mergeFields` entry: a plain key, or a `FieldPath` into the prefs map. */
+type MergePath = string | MockFieldPath;
+
 /** Every setDoc call, in order: { ref, data, options }. */
-type SetDocCall = { ref: { col: string; id: string }; data: Record<string, unknown>; options?: { mergeFields?: string[] } };
+type SetDocCall = { ref: { col: string; id: string }; data: Record<string, unknown>; options?: { mergeFields?: MergePath[] } };
 const setDocCalls: SetDocCall[] = [];
 /** Documents the mocked getDoc will claim exist, keyed by id. */
 const existingDocs = new Map<string, Record<string, unknown>>();
@@ -60,6 +88,25 @@ const queryDocs = new Map<string, Record<string, unknown>>();
 const batchOps: { op: 'update' | 'delete' | 'set'; id: string; data?: unknown }[] = [];
 /** Every deleteDoc call, by id. */
 const deletedIds: string[] = [];
+/** Every `tx.set` call, in order — the transaction's own record (v0.42.0). */
+const txSetCalls: SetDocCall[] = [];
+/** Every `tx.get` target id, in order. */
+const txGetIds: string[] = [];
+/** How many `runTransaction` calls were made. */
+let runTransactionCalls = 0;
+/**
+ * How many times `runTransaction` invokes its callback (v0.42.0).
+ *
+ * ⚠️ ONE BY DEFAULT, AND A RETRY IS NOT A REAL RETRY. Firestore discards the
+ * writes of an aborted attempt; this mock cannot, so it RECORDS every
+ * invocation's writes and a test that drives a retry asserts on the LAST one.
+ * The real retry semantics were measured on the emulator instead (2026-09-17:
+ * a second client wrote the marker between `tx.get` and commit, the callback
+ * ran twice, and the retry saw the marker).
+ */
+let txInvocations = 1;
+/** Runs before each callback invocation — lets a test change `existingDocs` between them. */
+let beforeTxInvocation: ((invocation: number) => void) | null = null;
 
 vi.mock('@/lib/firebase/config', () => ({ db: {} }));
 
@@ -90,6 +137,40 @@ vi.mock('firebase/firestore', () => ({
     delete: (ref: { id: string }) => { batchOps.push({ op: 'delete', id: ref.id }); },
     commit: async () => {},
   }),
+  // v0.42.0. The callback-invoking shape, copied from the one working
+  // precedent in this repo (`invitations.test.ts:13-21`) rather than invented:
+  // a `runTransaction` that never calls its callback is the repo's own
+  // documented scar — the boundary is reached, nothing inside it runs, and the
+  // suite is green.
+  //
+  // ⚠️ `tx.get` IGNORES `getDocThrows` DELIBERATELY. That flag models a DENIED
+  // read of a PROJECT document (measured: a `get` of a non-existent
+  // myscrumbudget_projects doc is denied because the rule dereferences
+  // `resource.data`), which is why `importAll` catches it and mints a new id.
+  // The settings document is the reader's own and never fails that way, so
+  // letting the flag reach `tx.get` would model a state the rules cannot
+  // produce.
+  runTransaction: async (_db: unknown, callback: (tx: unknown) => Promise<unknown>) => {
+    runTransactionCalls += 1;
+    const tx = {
+      get: async (ref: { id: string }) => {
+        txGetIds.push(ref.id);
+        const data = existingDocs.get(ref.id);
+        return { exists: () => data !== undefined, data: () => data, id: ref.id };
+      },
+      set: (ref: SetDocCall['ref'], data: Record<string, unknown>, options?: SetDocCall['options']) => {
+        txSetCalls.push({ ref, data, options });
+      },
+    };
+    let result: unknown;
+    for (let invocation = 1; invocation <= txInvocations; invocation++) {
+      beforeTxInvocation?.(invocation);
+      result = await callback(tx);
+    }
+    return result;
+  },
+  deleteField: () => DELETE_FIELD,
+  FieldPath: MockFieldPath,
 }));
 
 const {
@@ -142,6 +223,11 @@ beforeEach(() => {
   batchOps.length = 0;
   deletedIds.length = 0;
   getDocThrows = false;
+  txSetCalls.length = 0;
+  txGetIds.length = 0;
+  runTransactionCalls = 0;
+  txInvocations = 1;
+  beforeTxInvocation = null;
 });
 
 describe('mock self-check — read this before any coverage number', () => {

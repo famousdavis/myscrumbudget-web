@@ -14,9 +14,19 @@ const mocks = vi.hoisted(() => ({
   createProject: vi.fn().mockResolvedValue(undefined),
   deleteProject: vi.fn<(id: string) => Promise<void>>().mockResolvedValue(undefined),
   exportAll: vi.fn(),
+  // v0.42.0 — the two preference methods. ⚠️ This mock repository is UNTYPED, so
+  // a method the hook calls and the mock lacks is NOT a compile error: it is a
+  // runtime TypeError inside the hook's own try/catch, surfacing as a toast and
+  // an assertion failure three lines from the cause. Declaring them here is what
+  // keeps that failure legible (measured at v0.42.0 pre-flight: adding a
+  // Repository method costs 2 tsc errors and ZERO in test files).
+  writeProjectPrefs: vi.fn().mockResolvedValue(undefined),
+  ensureProjectPrefsSeeded: vi.fn().mockResolvedValue(undefined),
   appendToChangeLog: vi.fn(),
   ensureOriginRef: vi.fn(),
   addToastGlobal: vi.fn(),
+  /** Every cloudSyncBus handler the hook registers, so a test can fire one. */
+  busHandlers: [] as ((event: string) => void)[],
 }));
 
 vi.mock('@/lib/storage/pendingSaveRegistry', () => ({
@@ -38,8 +48,13 @@ vi.mock('@/components/RepositoryProvider', () => {
       createProject: mocks.createProject,
       deleteProject: mocks.deleteProject,
       exportAll: mocks.exportAll,
+      writeProjectPrefs: mocks.writeProjectPrefs,
+      ensureProjectPrefsSeeded: mocks.ensureProjectPrefsSeeded,
     },
     mode: 'local' as const,
+    // ⚠️ MUTATED PER TEST by the cloud cases below (the seed trigger is gated on
+    // it), and reset in beforeEach. The object itself must stay the SAME
+    // reference — see the stability note above.
     isCloud: false,
     switchMode: vi.fn(),
   };
@@ -50,7 +65,17 @@ vi.mock('@/lib/storage/fingerprint', () => ({
   ensureOriginRef: mocks.ensureOriginRef,
 }));
 vi.mock('@/lib/firebase/cloudSyncBus', () => ({
-  cloudSyncBus: { subscribe: vi.fn(() => () => {}), emit: vi.fn() },
+  cloudSyncBus: {
+    // Captures the handler so a test can fire a real bus event (v0.42.0).
+    subscribe: vi.fn((handler: (event: string) => void) => {
+      mocks.busHandlers.push(handler);
+      return () => {
+        const i = mocks.busHandlers.indexOf(handler);
+        if (i >= 0) mocks.busHandlers.splice(i, 1);
+      };
+    }),
+    emit: vi.fn(),
+  },
 }));
 vi.mock('@/lib/utils/reforecast', () => ({
   createBaselineReforecast: vi.fn(() => ({
@@ -78,9 +103,13 @@ describe('useProjects', () => {
     mocks.saveProject.mockReset().mockResolvedValue(undefined);
     mocks.createProject.mockReset().mockResolvedValue(undefined);
     mocks.exportAll.mockReset();
+    mocks.writeProjectPrefs.mockReset().mockResolvedValue(undefined);
+    mocks.ensureProjectPrefsSeeded.mockReset().mockResolvedValue(undefined);
     mocks.appendToChangeLog.mockReset();
     mocks.ensureOriginRef.mockReset();
     mocks.addToastGlobal.mockReset();
+    mocks.busHandlers.length = 0;
+    (repositoryContext.value as { isCloud: boolean }).isCloud = false;
   });
 
   describe('deleteProject', () => {
