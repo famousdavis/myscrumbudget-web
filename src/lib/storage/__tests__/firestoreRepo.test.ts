@@ -1755,6 +1755,14 @@ describe('per-user preferences — the read overlay (v0.42.0)', () => {
     // catches it, leaves `projects` at [], and the page renders the Getting
     // Started guide to a user who has projects. Nothing bounds what can land in
     // a settings document, so every read of it is total.
+    //
+    // ⚠️ CORRECTED 2026-09-17: this note claimed the documents below carry no
+    // colour. They DO — `fullDoc()` sets `color: 'teal'` and `archived: true`,
+    // and `noOrderDoc()` spreads it. Found by falsification: the mutation that
+    // makes a seeded reader fall back to document values was predicted to fail
+    // four tests and failed FIVE, this being the fifth. The row is stronger than
+    // the claim was: it refuses BOTH an overlay that adopts a malformed value and
+    // one that falls back to the document when an entry is unusable.
     existingDocs.set(UID, seededSettings({
       projectPrefs: {
         p1: { color: 'chartreuse', archived: 'yes' },
