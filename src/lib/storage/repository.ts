@@ -45,10 +45,15 @@ export interface Repository {
    *
    * ⚠️ Stated here as of v0.37.12 because this interface had NO contract and the
    * two implementations disagreed. Firestore had already implemented end-placement
-   * all along, undocumented (`createProject` sets `order: projects.length` and
-   * `getProjects` sorts on it, so an unseen project keeps the highest `order`);
+   * all along, undocumented — `createProject` SET `order: projects.length` and
+   * `getProjects` SORTED on it, so an unseen project kept the highest `order`;
    * localStorage instead rebuilt storage from exactly the ids it was handed and
    * PERMANENTLY DESTROYED the rest. The method is named *reorder*, not *replace*.
+   *
+   * ⚠️ PAST TENSE SINCE v0.42.0: no project document carries `order` any more.
+   * End-placement survives as a READ rule — a document with no stored order sorts
+   * after the ordered ones — and the contract above is now kept by the
+   * read-modify-write of the reader's own `projectOrder`.
    *
    * ⚠️ THE EXTRA-ID DIVERGENCE IS GONE (v0.42.0), and the reason is worth
    * keeping because the old one was load-bearing for four releases. Cloud used

@@ -1119,6 +1119,17 @@ export function createFirestoreRepository(uid: string): Repository {
     },
 
     async clear(): Promise<void> {
+      // ⚠️ THIS ALSO DESTROYS THE READER'S PREFERENCES AND THEIR SEED MARKER
+      // (v0.42.0), because both live in the settings document deleted below. The
+      // next load then finds no marker and re-seeds from whatever the remaining
+      // project documents still carry, so the reader gets their pre-release
+      // colours and archive state back. An admin restore that writes this
+      // document whole has the same effect.
+      //
+      // ⚠️ This method has NO CALLER today — the "clear local data" button uses
+      // the localStorage `clear()` — which is the only reason that is a footnote
+      // rather than a defect. If one is added, decide what it should do with the
+      // marker before shipping it.
       // Delete all owned projects
       // ⚠️ This lists by `owner` alone, and firestore.rules keeps a DISJUNCTIVE
       // list rule on this collection — members[uid] in [...] || owner == uid —

@@ -111,8 +111,9 @@ export function describeStorageError(err: unknown, fallback: string): string {
  *
  * ⚠️ A STRICT EXTENSION OF `describeStorageError`, NEVER A REPLACEMENT, AND THE
  * DELEGATION IS LOAD-BEARING RATHER THAN TIDY. `saveProject` (`:431`),
- * `saveTeamPool` (`:386`), `deleteProject` (`:447`), `reorderProjects` (`:491`)
- * and `saveSettingsAndTeamPool` (`:416`) all call `readEntries` UNGUARDED, and
+ * `saveTeamPool` (`:386`), `deleteProject` (`:447`), `reorderProjects` (`:491`),
+ * `saveSettingsAndTeamPool` (`:416`) and, since v0.42.0, `writeProjectPrefs` all
+ * call `readEntries` UNGUARDED, and
  * `readEntries` throws `StorageIntegrityError` (`:200`/`:202`). Those are write
  * paths. A version of this function that handled only `permission-denied` and
  * otherwise returned `fallback` would SILENTLY DELETE v0.38.0's integrity
@@ -534,11 +535,17 @@ export function createLocalStorageRepository(): Repository {
      * `msb:projects` (`FirstRunBanner.tsx:57` is the only one, for another key).
      *
      * ⚠️ End-placement is not an arbitrary pick. `saveProject` pushes (:142),
-     * so new projects already go last here; and Firestore has implemented the
-     * same rule all along — `createProject` sets `order: projects.length` and
-     * `getProjects` sorts on `order`, so a project a stale tab never saw keeps
-     * the highest `order` and sorts last. The interface is named *reorder*, not
+     * so new projects already go last here; and Firestore implemented the same
+     * rule all along — `createProject` SET `order: projects.length` and
+     * `getProjects` SORTED on it, so a project a stale tab never saw kept the
+     * highest `order` and sorted last. The interface is named *reorder*, not
      * *replace*. THIS implementation was the outlier; the fix makes it conform.
+     *
+     * ⚠️ PAST TENSE SINCE v0.42.0: no project document carries `order` any more,
+     * and a cloud reorder is a read-modify-write of the READER's own
+     * `projectOrder`. End-placement survives there as a read rule (a document
+     * with no stored order sorts after the ordered ones), so both clauses of the
+     * contract still hold on both sides; only the cloud mechanism changed.
      *
      * ⚠⚠ HISTORY, kept because the bound it records is what this file was
      * missing. Until v0.38.0 this carried a stated bound — "never drops a
