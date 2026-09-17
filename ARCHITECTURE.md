@@ -220,10 +220,31 @@ interface Project {
   reforecasts: Reforecast[];
   activeReforecastId: string | null;
   color?: ProjectColor; // optional Dashboard tile tint (v0.33.0, data version 0.15.0); absent = no tint
+  archived?: boolean;   // v0.34.0 — undefined or false = active; true = hidden from the Dashboard grid by default
 }
 ```
 
 > **ProjectColor** (`'blue' | 'teal' | 'slate' | 'purple' | 'pink'`) is a curated Dashboard-tile tint palette that deliberately avoids the traffic-light status hues (red/amber/green/violet) so a user's organizing tint can never be mistaken for a health indicator. Palette class mappings live in `src/features/projects/lib/projectColors.ts`.
+
+> **Where `color`, `archived` and dashboard order PERSIST (v0.42.0):** they are
+> per-user **preferences**, not project data. In LOCAL mode they sit on the stored
+> project object, as they always have — one browser, one reader. In CLOUD mode they
+> live in the reader's own `myscrumbudget_settings/{uid}` document, under
+> `projectPrefs` (keyed by project id), `projectOrder` (an array of ids) and a
+> one-time `projectPrefsSeed` marker; **no project document carries any of the three
+> any more**. They remain fields on the `Project` domain type because that is what
+> every consumer reads — the cloud read path fills them in for the reader who asked.
+>
+> Until v0.42.0 all three lived on the shared project document, so one member's
+> colour, archive or drag changed what every other member saw, and an archive hid
+> the project from the owner's own dashboard. On a reader's first load after the
+> release, what they can see is copied once into their own preferences (the marker
+> records that it happened) and no document value is read for them again.
+>
+> ⚠️ The Firestore rules still ALLOW `color`, `archived` and `order` on project
+> documents, deliberately: dropping them from the allowlist before the stored
+> documents are cleaned would deny any full replace of a document that still carries
+> them and leave the fields undeletable by any client.
 
 > **Per-reforecast windows (v0.29.0):** Each `Reforecast` now owns its `startDate` and
 > `endDate` (both YYYY-MM-DD). These fields drive the allocation grid columns, the calc
@@ -1058,7 +1079,7 @@ Delivered:
 - **Debounced save hardening** — `cancel()` method added to `useDebouncedSave` hook
 - **HMR-safe Firebase init** — `try initializeFirestore() / catch getFirestore()` with `memoryLocalCache()`
 - **Data-loss guards** — empty cloud results never overwrite non-empty local data
-- **Firestore security rules** — `myscrumbudget_projects`, `myscrumbudget_profiles`, `myscrumbudget_settings` with membership-based access control
+- **Firestore security rules** — `myscrumbudget_projects`, `myscrumbudget_profiles`, `myscrumbudget_settings` with membership-based access control (the settings document is owner-only and carries each reader's per-project preferences since v0.42.0)
 - **CSP headers** — Firebase domains in script-src, frame-src, connect-src via `next.config.ts`
 - **Separate `createProject` vs `saveProject`** — only `createProject` sets owner/members; `saveProject` uses `merge:true`
 - 13 bug prevention patterns from 4 completed SPERT suite migrations incorporated
