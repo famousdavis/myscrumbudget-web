@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { AppState, Project, ProjectColor } from '@/types/domain';
 import { useRepository } from '@/components/RepositoryProvider';
 import { cloudSyncBus } from '@/lib/firebase/cloudSyncBus';
@@ -17,14 +17,65 @@ import { addToastGlobal } from '@/components/Toast';
 import { describeStorageError, describeWriteError } from '@/lib/storage/localStorage';
 
 export function useProjects() {
-  const { repository } = useRepository();
+  const { repository, isCloud } = useRepository();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+
+  /**
+   * One preference seed per repository instance (v0.42.0).
+   *
+   * ⚠️ A REF, NOT STATE: this must not re-render anything, and it must reset when
+   * the repository does — a sign-out, a mode flip or a different uid is a
+   * different reader, and their seed is their own.
+   */
+  const seedRef = useRef<{ repository: unknown; status: 'idle' | 'running' | 'done' }>({
+    repository: null,
+    status: 'idle',
+  });
+
+  /**
+   * Copy what this reader currently sees into their own preferences, once
+   * (v0.42.0).
+   *
+   * ⚠️ AFTER A SUCCESSFUL LOAD, NEVER INSIDE THE REPOSITORY READ. `getProjects`
+   * also runs inside sign-out cleanup before credentials are revoked, inside
+   * `exportAll`, inside the import's stale-data guard and inside the team-pool
+   * delete guard; a read that writes would turn every one of those into a writer.
+   *
+   * ⚠️ GATED ON `isCloud` FROM THE PROVIDER, never on `getStorageMode()`. The
+   * stored mode can say "cloud" while nobody is signed in, and in that state the
+   * provider hands out the LOCAL repository — the v0.41.0 finding. Seeding is a
+   * no-op locally anyway; this keeps it from being attempted at all.
+   *
+   * ⚠️ A FAILURE IS LOGGED, NOT TOASTED, and leaves the reader unseeded: they go
+   * on seeing the documents' values, which is what they saw yesterday, and the
+   * next successful load tries again. The code only — never the payload
+   * (v0.28.2 log hygiene).
+   */
+  const seedProjectPrefs = useCallback(() => {
+    const state = seedRef.current;
+    if (state.repository !== repository) {
+      state.repository = repository;
+      state.status = 'idle';
+    }
+    if (state.status !== 'idle') return;
+    state.status = 'running';
+    repository.ensureProjectPrefsSeeded()
+      .then(() => { state.status = 'done'; })
+      .catch((err) => {
+        state.status = 'idle';
+        console.warn(
+          '[useProjects] preference seed failed:',
+          (err as { code?: string })?.code ?? 'unknown',
+        );
+      });
+  }, [repository]);
 
   const reload = useCallback(async () => {
     try {
       const all = await repository.getProjects();
       setProjects(all);
+      if (isCloud) seedProjectPrefs();
     } catch (err) {
       const code = (err as { code?: string })?.code;
       if (code === 'permission-denied') {
@@ -47,7 +98,7 @@ export function useProjects() {
     } finally {
       setLoading(false);
     }
-  }, [repository]);
+  }, [repository, isCloud, seedProjectPrefs]);
 
   // Fetch-on-mount + cloudSyncBus subscription — externally driven, not cascading.
   useEffect(() => {
@@ -55,10 +106,18 @@ export function useProjects() {
     reload();
   }, [reload]);
 
-  // Subscribe to cloud sync events for projects
+  // Subscribe to cloud sync events for projects — and, since v0.42.0, settings.
+  //
+  // ⚠️ 'settings' TOO, BECAUSE THE PREFERENCES LIVE THERE NOW. Colour, archive
+  // state and order are in the reader's settings document, and the settings
+  // listener is the only event a change to it produces. Without this line a
+  // preference changed in one tab or on another device never reaches this one —
+  // the dashboard would keep showing the old colours until a manual reload.
+  // (`useProject`, the detail page, is deliberately NOT subscribed: it displays
+  // neither, and `saveProject` no longer writes either.)
   useEffect(() => {
     return cloudSyncBus.subscribe((event) => {
-      if (event === 'projects') reload();
+      if (event === 'projects' || event === 'settings') reload();
     });
   }, [reload]);
 
@@ -159,15 +218,12 @@ export function useProjects() {
   const setProjectColor = useCallback(
     async (id: string, color: ProjectColor | undefined) => {
       try {
-        const target = await repository.getProject(id);
-        if (!target) return;
-        const next: Project = { ...target };
-        if (color) {
-          next.color = color;
-        } else {
-          delete next.color;
-        }
-        await repository.saveProject(next);
+        // ⚠️ NO `getProject` FIRST, AND NO `saveProject` (v0.42.0). The colour is
+        // this reader's own preference now: writing it through the project would
+        // change it for every member of a shared project, and reading the project
+        // first only ever existed to avoid clobbering a concurrent edit with a
+        // whole-object save. A patch clobbers nothing.
+        await repository.writeProjectPrefs([{ id, color: color ?? null }]);
       } catch (err) {
         addToastGlobal(
           describeWriteError(err, 'Failed to update project colour. Please check your connection.'),
@@ -192,9 +248,9 @@ export function useProjects() {
   const archiveProject = useCallback(
     async (id: string) => {
       try {
-        const target = await repository.getProject(id);
-        if (!target) return;
-        await repository.saveProject({ ...target, archived: true });
+        // v0.42.0: archiving hides the project from THIS reader's dashboard. It
+        // used to hide it from everyone's, the owner's included.
+        await repository.writeProjectPrefs([{ id, archived: true }]);
       } catch (err) {
         addToastGlobal(
           describeWriteError(err, 'Failed to archive project. Please check your connection.'),
@@ -217,11 +273,9 @@ export function useProjects() {
   const unarchiveProject = useCallback(
     async (id: string) => {
       try {
-        const target = await repository.getProject(id);
-        if (!target) return;
-        const next: Project = { ...target };
-        delete next.archived;
-        await repository.saveProject(next);
+        // `null` CLEARS the preference — the same "strip, never store false"
+        // semantic the field has always had on a stored project.
+        await repository.writeProjectPrefs([{ id, archived: null }]);
       } catch (err) {
         addToastGlobal(
           describeWriteError(err, 'Failed to unarchive project. Please check your connection.'),
@@ -252,6 +306,15 @@ export function useProjects() {
         const newName = nextCopyName(source.name, all.map((p) => p.name));
         clone = cloneProjectData(source, newName);
         await repository.createProject(clone);
+        // v0.42.0: the clone keeps the colour the CLONER sees on the source —
+        // `createProject` no longer carries it — while `archived` is dropped by
+        // `cloneProjectData`, so a clone of an archived project is born active.
+        // In local mode this is a second write of a value `createProject` already
+        // stored, and harmless; in cloud mode it is the only thing that carries
+        // the colour at all.
+        if (clone.color) {
+          await repository.writeProjectPrefs([{ id: clone.id, color: clone.color }]);
+        }
       } catch (err) {
         addToastGlobal(
           describeWriteError(err, 'Failed to clone project. Please check your connection.'),

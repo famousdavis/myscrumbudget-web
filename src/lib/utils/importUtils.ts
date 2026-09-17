@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import type { AppState, Project, PoolMember } from '@/types/domain';
+import type { AppState, Project, PoolMember, ProjectPrefPatch } from '@/types/domain';
 import type { StorageMode } from '@/lib/storage/storageMode';
 import type { Repository } from '@/lib/storage/repository';
 import { generateId } from '@/lib/utils/id';
@@ -230,12 +230,17 @@ export function buildBannerText(result: ImportMergeResult): string {
  * reflects actual completed writes. Sign-out still implies abandonment of
  * in-flight work; it no longer implies redirected writes.
  *
- * Sequential writes (not Promise.allSettled): required because
- * firestoreRepo.createProject reads its own getProjects() to assign display order.
- * Parallel creates would assign identical order values.
+ * Sequential writes (not Promise.allSettled). ⚠️ THE ORIGINAL REASON IS GONE:
+ * `firestoreRepo.createProject` used to read its own `getProjects()` to assign a
+ * display order, and parallel creates would have collided on it. v0.42.0 removed
+ * both the field and the read. Sequential is kept because each create stamps its
+ * own `createdAt`, which is what orders projects a reader has no explicit order
+ * for, and because parallel transactions on one settings document would contend.
  *
  * Cloud 'add': generates a new Project.id via generateId() to avoid Firestore
  * collision with another workspace's document (unreadable due to security rules).
+ * ⚠️ The importer's colour / archive preferences are keyed off THAT id, not the
+ * file's — see prefPatchFor.
  * Internal IDs (Reforecast.id, Assignment.id, Allocation.memberId) are NOT
  * regenerated — they are document-internal references with no cross-document
  * addressing in MSB's data model. Pitfall #3 does not apply here.
@@ -297,6 +302,43 @@ export function buildBannerText(result: ImportMergeResult): string {
  * name index, and the changelog gate's `addedCount + replacedCount > 0`.
  * ───────────────────────────────────────────────────────────────────────────
  */
+/**
+ * The preference patch one imported project leaves for the IMPORTER (v0.42.0).
+ *
+ * ⚠️ `replace` IS EXACT AND `add` IS NOT, and the difference is deliberate. A
+ * replace asserts the file's state over whatever the importer had, so an absent
+ * colour CLEARS one (`archived: false` and an absent flag both mean "not
+ * archived", so both clear). An add lands on a brand-new id where there is
+ * nothing to clear, so it writes only what the file actually carries rather than
+ * leaving an empty entry behind.
+ *
+ * Returns null when there is nothing to write.
+ */
+function prefPatchFor(project: Project, id: string, exact: boolean): ProjectPrefPatch | null {
+  if (exact) {
+    return {
+      id,
+      color: project.color ?? null,
+      archived: project.archived === true ? true : null,
+    };
+  }
+  const patch: ProjectPrefPatch = { id };
+  if (project.color) patch.color = project.color;
+  if (project.archived === true) patch.archived = true;
+  return patch.color || patch.archived ? patch : null;
+}
+
+/** Collect a patch, if the project has anything to say. */
+function collectPrefPatch(
+  patches: ProjectPrefPatch[],
+  project: Project,
+  id: string,
+  exact: boolean,
+): void {
+  const patch = prefPatchFor(project, id, exact);
+  if (patch) patches.push(patch);
+}
+
 export async function applyImportMerge(
   preview: MergePreview,
   repository: Repository,
@@ -312,6 +354,16 @@ export async function applyImportMerge(
 
   let addedCount = 0;
   let replacedCount = 0;
+  /**
+   * The importer's own colour / archive preferences, collected as projects land
+   * and written ONCE at the end (v0.42.0).
+   *
+   * ⚠️ ONE WRITE, NOT ONE PER PROJECT. Each preference write is a transaction on
+   * the settings document, and every one of them reaches the settings listener —
+   * which reloads the dashboard, the settings hook and the team-pool hook. A
+   * ten-project import would pay that thirty times over.
+   */
+  const prefPatches: ProjectPrefPatch[] = [];
   let skippedCount = 0;
   let errorCount = 0;
   const errorMessages: string[] = [];
@@ -392,6 +444,7 @@ export async function applyImportMerge(
         const targetProject: Project =
           mode === 'cloud' ? { ...project, id: generateId() } : project;
         await repository.createProject(targetProject);
+        collectPrefPatch(prefPatches, project, targetProject.id, false);
         addedCount++;
       } else {
         // decision === 'replace'
@@ -408,6 +461,7 @@ export async function applyImportMerge(
             const targetProject: Project =
               mode === 'cloud' ? { ...project, id: generateId() } : project;
             await repository.createProject(targetProject);
+            collectPrefPatch(prefPatches, project, targetProject.id, false);
             addedCount++;
             continue;
           }
@@ -419,6 +473,7 @@ export async function applyImportMerge(
             const targetProject: Project =
               mode === 'cloud' ? { ...project, id: generateId() } : project;
             await repository.createProject(targetProject);
+            collectPrefPatch(prefPatches, project, targetProject.id, false);
             addedCount++;
             continue;
           }
@@ -428,6 +483,7 @@ export async function applyImportMerge(
           const targetProject: Project =
             mode === 'cloud' ? { ...project, id: generateId() } : project;
           await repository.createProject(targetProject);
+          collectPrefPatch(prefPatches, project, targetProject.id, false);
           addedCount++;
           continue;
         }
@@ -441,6 +497,7 @@ export async function applyImportMerge(
               ? { ...project, id: generateId() }
               : { ...project, id: existingId };
           await repository.createProject(targetProject);
+          collectPrefPatch(prefPatches, project, targetProject.id, false);
           addedCount++;
           continue;
         }
@@ -452,6 +509,10 @@ export async function applyImportMerge(
         //
         // ⚠️⚠️ THIS IS THE ONE `saveProject` CALL SITE THAT NEVER CARRIES
         // `_isOwner`, AND THAT IS CORRECT — DO NOT "FIX" IT (v0.40.0).
+        // ⚠️ CORRECTED v0.42.0: the sentence below said "the other four
+        // app-layer call sites all source from `getProject`". Three of those four
+        // were `useProjects`' colour and archive writers, which no longer call
+        // `saveProject` at all — `useProject.ts` is the only other one left.
         // `project` here is the loop variable of `for (const project of
         // incomingState.projects)` — it comes out of the IMPORT FILE, not from
         // `getProject`, so it has no ownership context attached and no cost
@@ -462,12 +523,32 @@ export async function applyImportMerge(
         // un-share defect: one action would un-share the project AND republish
         // a wrong card. A test pins this absence.
         await repository.saveProject({ ...project, id: existingId });
+        // ⚠️ EXACT for a replace: the file's colour and archive state are applied
+        // to the IMPORTER's view, and an absent value CLEARS. `saveProject` no
+        // longer carries either field, so without this a replace would leave the
+        // importer looking at their old colour on the file's data.
+        collectPrefPatch(prefPatches, project, existingId, true);
         replacedCount++;
       }
     } catch (err) {
       errorCount++;
       errorMessages.push(
         `"${project.name}": ${err instanceof Error ? err.message : 'Unknown error'}`,
+      );
+    }
+  }
+
+  // ── 3b. The importer's own preferences (v0.42.0) ──
+  // ⚠️ CLOUD ONLY. In local mode colour and archive state ride on the stored
+  // project objects, exactly as they always have, and `createProject` /
+  // `saveProject` have already written them.
+  if (mode === 'cloud' && prefPatches.length > 0) {
+    try {
+      await repository.writeProjectPrefs(prefPatches);
+    } catch (err) {
+      errorCount++;
+      errorMessages.push(
+        `Project colours: ${err instanceof Error ? err.message : 'Unknown error'}`,
       );
     }
   }
