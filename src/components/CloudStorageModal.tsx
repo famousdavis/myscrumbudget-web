@@ -20,6 +20,7 @@ import { createFirestoreRepository } from '@/lib/storage/firestoreRepo';
 import { sanitizeFirebaseError } from '@/lib/firebase/errors';
 import { setOriginRef } from '@/lib/storage/fingerprint';
 import { setHasUploaded } from '@/lib/storage/cloudFlipHelpers';
+import { beginCloudUpload, endCloudUpload } from '@/lib/auth/signOutCleanup';
 import { useSignInWithTosGate } from '@/hooks/useSignInWithTosGate';
 import { normalizeDisplayName } from '@/lib/utils/getFirstName';
 
@@ -118,7 +119,19 @@ export function CloudStorageModal({ onClose }: CloudStorageModalProps) {
     if (!user) return;
     setShowUploadConfirm(false);
     setMigrating(true);
-
+    // ⚠️ THIS PAIRING WAS MISSING UNTIL v0.42.0, and `CloudStorageSection` has
+    // had it since v0.37.11 — the same upload, started from the other surface.
+    // `switchMode('cloud')` below runs BEFORE the upload finishes, so from here
+    // until the `finally` the cloud holds only a PREFIX of the local data. A
+    // sign-out in that window would confirm the partial copy and delete the
+    // local original.
+    //
+    // ⚠️ THE `disabled={migrating}` ON THE SIGN-OUT BUTTON IS NOT A SUBSTITUTE,
+    // which is exactly why `CloudStorageSection` carries both. Disabling covers
+    // the CLICK. It cannot cover the PASSIVE path: a token expiring mid-upload
+    // drives `AuthProvider` to a null user and runs the same cleanup with no
+    // click anywhere.
+    beginCloudUpload();
     try {
       const localData = await repository.exportAll();
       // A one-shot UPLOAD TARGET, not the app's active store — switchMode is
@@ -136,6 +149,11 @@ export function CloudStorageModal({ onClose }: CloudStorageModalProps) {
       addToast(`Upload failed: ${msg}`, 'error');
       switchMode('local');
     } finally {
+      // ⚠️ IN THE `finally`, AND IT MUST STAY THERE: a failed upload is exactly
+      // when the flag is most dangerous to leave set, because it would tell
+      // every later sign-out to keep local data that is already safely in the
+      // cloud — and the flag is per page session, so nothing else would clear it.
+      endCloudUpload();
       setMigrating(false);
     }
   };
