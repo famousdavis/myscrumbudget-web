@@ -3,14 +3,14 @@
 // See LICENSE file in the project root for full license text.
 
 import {
-  doc, getDoc, setDoc, deleteDoc,
+  doc, getDoc, setDoc, deleteDoc, deleteField, runTransaction, FieldPath,
   collection, query, where, getDocs, writeBatch,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { PROJECTS_COL, SETTINGS_COL } from '@/lib/firebase/collections';
 import type { Repository } from './repository';
 import type {
-  Settings, PoolMember, Project, AppState, CostSnapshot, ProjectPrefsEntry,
+  Settings, PoolMember, Project, AppState, CostSnapshot, ProjectPrefsEntry, ProjectPrefPatch,
 } from '@/types/domain';
 import { DEFAULT_SETTINGS } from './localStorage';
 import { DATA_VERSION } from './migrations';
@@ -21,8 +21,8 @@ import {
 } from './fingerprint';
 import { buildProjectTeamSnapshot, stripUndefined, docToProject } from './firestoreUtils';
 import {
-  applyPrefsToProject, orderProjects, readReaderPrefs, readStoredOrder,
-  type OrderableProject, type ReaderPrefs,
+  applyPrefsToProject, buildSeedEntries, EMPTY_READER_PREFS, isSeeded, orderProjects,
+  readReaderPrefs, readStoredOrder, type OrderableProject, type ReaderPrefs,
 } from './projectPrefs';
 import type { ProjectWithOwnership } from '@/lib/utils/costSnapshot';
 
@@ -411,10 +411,243 @@ const SETTINGS_AND_POOL_MERGE_SET = {
 const SETTINGS_MERGE_FIELDS = Object.keys(SETTINGS_MERGE_SET);
 const SETTINGS_AND_POOL_MERGE_FIELDS = Object.keys(SETTINGS_AND_POOL_MERGE_SET);
 
+/** What one preference transaction should do. */
+interface PrefsWrite {
+  /** Per-project changes. `null` clears; an absent key leaves that preference alone. */
+  patches?: ProjectPrefPatch[];
+  /** These ids take the front of the order; everything else keeps its relative order. */
+  reorder?: string[];
+  /** These ids move to the END, in this order (the upload). */
+  appendLast?: string[];
+  /** Ids the seed's view must EXCLUDE — the upload's own, which it places itself. */
+  excludeFromSeed?: string[];
+  /** Seed only. The ONE write that may legitimately do nothing. */
+  seedOnly?: boolean;
+}
+
+/**
+ * Fold one patch into the field map, overwriting whatever the seed put there.
+ *
+ * ⚠️ THE PATCH WINS, AND THAT ORDERING IS THE POINT. An unseeded reader's first
+ * action is often un-archiving a project somebody else archived: the seed wants
+ * `archived: true` at that exact path (it is copying what they see) and the
+ * patch wants it gone. One payload holds one value per path, so the patch is
+ * folded in AFTER the seed and the reader's own action stands.
+ */
+function collectPatch(fields: Map<string, Map<string, unknown>>, patch: ProjectPrefPatch): void {
+  const entry = fields.get(patch.id) ?? new Map<string, unknown>();
+  if (patch.color !== undefined) {
+    entry.set('color', patch.color === null ? deleteField() : patch.color);
+  }
+  if (patch.archived !== undefined) {
+    entry.set('archived', patch.archived === null ? deleteField() : true);
+  }
+  if (entry.size > 0) fields.set(patch.id, entry);
+}
+
+/** The seed's own field map: one entry per project that has a value to copy. */
+function seedFields(view: Project[]): Map<string, Map<string, unknown>> {
+  const fields = new Map<string, Map<string, unknown>>();
+  for (const [id, entry] of buildSeedEntries(view)) {
+    const entryFields = new Map<string, unknown>();
+    if (entry.color) entryFields.set('color', entry.color);
+    if (entry.archived) entryFields.set('archived', true);
+    fields.set(id, entryFields);
+  }
+  return fields;
+}
+
+/**
+ * Turn the collected fields and order into ONE payload and ONE mask.
+ *
+ * ⚠️ FIELD-LEVEL PATHS ONLY — `projectPrefs.<id>.color`, never
+ * `projectPrefs.<id>`. Measured on MSB's own SDK: a mask path for the ENTRY
+ * replaces that entry whole, so clearing an archive flag through an entry-level
+ * path would delete the reader's colour with it. And never the whole
+ * `projectPrefs` map, which would drop every project this write does not name.
+ *
+ * ⚠️ A REAL `FieldPath`, NEVER A DOT-STRING: an imported project id is validated
+ * as a string only, so an id CAN contain a dot, and a dot-string path would nest
+ * `a.b` as `a → b` — measured.
+ *
+ * ⚠️ Every path named here is present in the payload by construction, because
+ * both come from the same map. A mask entry missing from the data throws
+ * INVALID_ARGUMENT client-side and writes nothing at all.
+ */
+function buildPrefsWrite(
+  fields: Map<string, Map<string, unknown>>,
+  order: string[] | null,
+  seed: { needed: boolean; stampVersion: boolean },
+): { payload: Record<string, unknown>; mergeFields: (string | FieldPath)[] } {
+  const payload: Record<string, unknown> = {};
+  const mergeFields: (string | FieldPath)[] = [];
+  if (fields.size > 0) {
+    payload.projectPrefs = Object.fromEntries(
+      [...fields].map(([id, entryFields]) => [id, Object.fromEntries(entryFields)]),
+    );
+    for (const [id, entryFields] of fields) {
+      for (const field of entryFields.keys()) {
+        mergeFields.push(new FieldPath('projectPrefs', id, field));
+      }
+    }
+  }
+  if (order) {
+    payload.projectOrder = order;
+    mergeFields.push('projectOrder');
+  }
+  if (seed.needed) {
+    payload.projectPrefsSeed = 1;
+    mergeFields.push('projectPrefsSeed');
+    // ⚠️ Only when this write CREATES the document, so a seed-created settings
+    // document carries the same version a `saveSettings`-created one does.
+    // Nothing reads it today; `getSettings` holds the comment that anticipates a
+    // reader.
+    if (seed.stampVersion) {
+      payload.schemaVersion = 2;
+      mergeFields.push('schemaVersion');
+    }
+  }
+  return { payload, mergeFields };
+}
+
+/** Apply a write's ordering instructions to the order it starts from. */
+function nextProjectOrder(base: string[], write: PrefsWrite): string[] {
+  let order = base;
+  if (write.reorder) {
+    const handled = new Set(write.reorder);
+    // The Repository contract: handled ids take that order, and ids the caller
+    // did not name follow in their existing relative order.
+    order = [...write.reorder, ...order.filter((id) => !handled.has(id))];
+  }
+  if (write.appendLast) {
+    // ⚠️ REMOVE-THEN-APPEND, NOT "SKIP THE ONES ALREADY THERE". An upload flips
+    // the app to cloud BEFORE `importAll` runs, so a mounted dashboard can seed
+    // from a PARTLY uploaded cloud: those ids are already in the order, in
+    // document-id order, because uploaded documents share one `createdAt`.
+    // Skipping them would freeze that accidental order and the uploader's local
+    // order would be lost for the first few projects. Removing them first makes
+    // both interleavings produce the same array.
+    const appended = new Set(write.appendLast);
+    order = [...order.filter((id) => !appended.has(id)), ...write.appendLast];
+  }
+  return order;
+}
+
 export function createFirestoreRepository(uid: string): Repository {
   if (!db) throw new Error('Firestore is not initialized');
 
   const settingsRef = doc(db, SETTINGS_COL, uid);
+
+  /** A listed project document, with the two raw values the order rule uses. */
+  type ProjectRow = OrderableProject<Project> & { memberCount: number };
+
+  /**
+   * Every project this reader can see, as rows (v0.42.0).
+   *
+   * ⚠️ ONE QUERY SHAPE, TWO CALLERS: `getProjects` and the seed. The seed's
+   * input has to be the SAME view the reader would see unseeded, or the values
+   * it freezes are not the values they were looking at.
+   *
+   * ⚠️ This filter's SHAPE is a security boundary, not a convenience.
+   * firestore.rules constrains `list` on this collection to
+   * members[request.auth.uid] in ['owner', 'editor', 'viewer'], and Firestore
+   * permits a list query ONLY when its filter PROVES that constraint. Drop or
+   * change this filter and you do not get more rows — you get
+   * PERMISSION_DENIED, and no project loads at all.
+   * Until 2026-08-19 the rule was `allow list: if isAuth()`, which let any
+   * signed-in SPERT user read every project in this collection.
+   * ⚠️ The rule and this query are pinned together by
+   * rules-tests/project-collections-list.test.ts in the spert-landing-page
+   * repo (`npm run test:rules`). That test encodes this query AS WRITTEN and
+   * lives in a DIFFERENT repository, so it will NOT fail when you edit this
+   * line. Change one, change the other.
+   */
+  async function listProjectRows(): Promise<ProjectRow[]> {
+    const q = query(
+      collection(db!, PROJECTS_COL),
+      where(`members.${uid}`, 'in', ['owner', 'editor', 'viewer']),
+    );
+    const snap = await getDocs(q);
+    const rows: ProjectRow[] = [];
+    snap.forEach((d) => {
+      const data = d.data();
+      const members = data.members as Record<string, string> | undefined;
+      // ⚠️ `order` and `createdAt` are read from the RAW document and never
+      // attached to the Project: `createdAt` is not a domain field, and
+      // `exportAll` returns `getProjects`' output verbatim, so anything left on
+      // the object becomes part of the export FORMAT.
+      rows.push({
+        id: d.id,
+        order: readStoredOrder(data.order),
+        createdAt: typeof data.createdAt === 'string' ? data.createdAt : '',
+        memberCount: members ? Object.keys(members).length : 1,
+        value: docToProject(d.id, data),
+      });
+    });
+    return rows;
+  }
+
+  /**
+   * ONE transaction that seeds this reader if they are unseeded, and applies
+   * whatever the caller wants to change (v0.42.0).
+   *
+   * ⚠️ EVERY PREFERENCE WRITER GOES THROUGH HERE, so "seed first if unseeded" is
+   * a property of the mechanism rather than something six call sites remember.
+   * The first colour a reader picks must not leave them seeded with a one-entry
+   * map: everything they could see at that moment is copied in the same
+   * transaction.
+   *
+   * ⚠️ THE MARKER IS DECIDED INSIDE THE TRANSACTION, by this `tx.get`. That is
+   * what makes a concurrent seed safe: measured on the emulator, a second client
+   * writing the marker between the read and the commit makes the callback run
+   * AGAIN, and the retry sees the marker.
+   *
+   * ⚠️ ONLY `seedOnly` MAY FINISH WITHOUT WRITING. A retry of any other writer
+   * must still write its patch — the marker suppresses the SEED half, never the
+   * caller's own change. Getting this wrong loses one colour change per
+   * concurrent write, silently.
+   *
+   * ⚠️ The list query inside the callback is deliberate and measured: a client
+   * transaction cannot run a query through `tx`, but an ordinary query inside
+   * the callback works, and it re-runs on a retry. The marker check is what makes
+   * a stale view safe.
+   */
+  async function runPrefsTransaction(write: PrefsWrite): Promise<void> {
+    await runTransaction(db!, async (tx) => {
+      const snap = await tx.get(settingsRef);
+      const data = snap.exists() ? (snap.data() as Record<string, unknown>) : undefined;
+      const seeded = isSeeded(data);
+      if (seeded && write.seedOnly) return;
+
+      let fields: Map<string, Map<string, unknown>>;
+      let order: string[] | null;
+      if (seeded) {
+        fields = new Map();
+        const reordering = write.reorder !== undefined || write.appendLast !== undefined;
+        order = reordering ? nextProjectOrder(readReaderPrefs(data).order, write) : null;
+      } else {
+        // The seed's input is the view this reader would see UNSEEDED — the same
+        // rows, in the same order, `getProjects` would return for them today.
+        const excluded = new Set(write.excludeFromSeed ?? []);
+        const view = orderProjects(await listProjectRows(), EMPTY_READER_PREFS)
+          .filter((project) => !excluded.has(project.id));
+        fields = seedFields(view);
+        order = nextProjectOrder(view.map((project) => project.id), write);
+      }
+
+      for (const patch of write.patches ?? []) collectPatch(fields, patch);
+
+      const { payload, mergeFields } = buildPrefsWrite(fields, order, {
+        needed: !seeded,
+        stampVersion: !snap.exists(),
+      });
+      // Nothing to write: a caller asked for no change at all.
+      if (mergeFields.length === 0) return;
+      // ⚠️ `mergeFields`, ALWAYS. An unmerged set would wipe `laborRates`,
+      // `teamPool` and every preference this write does not mention.
+      tx.set(settingsRef, payload, { mergeFields });
+    });
+  }
 
   // ⚠️ NAMED `impl`, NOT `repo`, DELIBERATELY (v0.37.0).
   // Until v0.36.16 this const was called `repo` — the same identifier as the
@@ -499,23 +732,6 @@ export function createFirestoreRepository(uid: string): Repository {
 
     // ── Projects ──
     async getProjects(): Promise<Project[]> {
-      // ⚠️ This filter's SHAPE is a security boundary, not a convenience.
-      // firestore.rules constrains `list` on this collection to
-      // members[request.auth.uid] in ['owner', 'editor', 'viewer'], and Firestore
-      // permits a list query ONLY when its filter PROVES that constraint. Drop or
-      // change this filter and you do not get more rows — you get
-      // PERMISSION_DENIED, and no project loads at all.
-      // Until 2026-08-19 the rule was `allow list: if isAuth()`, which let any
-      // signed-in SPERT user read every project in this collection.
-      // ⚠️ The rule and this query are pinned together by
-      // rules-tests/project-collections-list.test.ts in the spert-landing-page
-      // repo (`npm run test:rules`). That test encodes this query AS WRITTEN and
-      // lives in a DIFFERENT repository, so it will NOT fail when you edit this
-      // line. Change one, change the other.
-      const q = query(
-        collection(db!, PROJECTS_COL),
-        where(`members.${uid}`, 'in', ['owner', 'editor', 'viewer']),
-      );
       // v0.42.0: the reader's own preferences are read alongside the list, and
       // they decide colour, archive state and order.
       //
@@ -524,28 +740,16 @@ export function createFirestoreRepository(uid: string): Repository {
       // project query. Treating the failure as "no preferences" would show a
       // seeded reader the document values this release exists to stop showing —
       // and, worse, would let a seed run from them.
-      const [snap, settingsSnap] = await Promise.all([
-        getDocs(q),
+      const [rows, settingsSnap] = await Promise.all([
+        listProjectRows(),
         getDoc(settingsRef),
       ]);
       const prefs = readReaderPrefs(settingsSnap.exists() ? settingsSnap.data() : undefined);
-      const rows: OrderableProject<Project & { _memberCount?: number }>[] = [];
-      snap.forEach((d) => {
-        const data = d.data();
-        const project = applyPrefsToProject(docToProject(d.id, data), prefs);
-        const proj = project as Project & { _memberCount?: number };
-        const members = data.members as Record<string, string> | undefined;
-        proj._memberCount = members ? Object.keys(members).length : 1;
-        // ⚠️ `order` and `createdAt` are read from the RAW document and never
-        // attached to the Project: `createdAt` is not a domain field, and
-        // `exportAll` returns this method's output verbatim, so anything left on
-        // the object becomes part of the export format.
-        rows.push({
-          id: d.id,
-          order: readStoredOrder(data.order),
-          createdAt: typeof data.createdAt === 'string' ? data.createdAt : '',
-          value: proj,
-        });
+      const withPrefs = rows.map((row) => {
+        const project = applyPrefsToProject(row.value, prefs) as Project & { _memberCount?: number };
+        // _memberCount is kept (the dashboard's "Shared" badge reads it).
+        project._memberCount = row.memberCount;
+        return { ...row, value: project as Project };
       });
       // ⚠️⚠️ NO `_isOwner` HERE, DELIBERATELY (v0.40.0, 2026-09-13), AND A TEST
       // ASSERTS ITS ABSENCE. That test's FAILURE IS THE SIGNAL, not a defect:
@@ -580,8 +784,7 @@ export function createFirestoreRepository(uid: string): Repository {
       // sorted an order-less document FIRST — and every project created from
       // v0.42.0 on has no stored order, so that default would have put every new
       // project at the top of every dashboard.
-      // _memberCount is kept (the dashboard's "Shared" badge reads it).
-      return orderProjects(rows, prefs);
+      return orderProjects(withPrefs, prefs);
     },
 
     async getProject(id: string): Promise<Project | null> {
@@ -744,19 +947,46 @@ export function createFirestoreRepository(uid: string): Repository {
     },
 
     async reorderProjects(orderedIds: string[]): Promise<void> {
-      // ⚠️ UNCHANGED by v0.37.12 — deletion is structurally impossible here, and
-      // end-placement already falls out of `order: projects.length` + the sort in
-      // `getProjects`. But note the MIRROR-IMAGE failure, which that fix does NOT
-      // close: `batch.update` carries `Precondition.exists(true)`, so an
-      // `orderedIds` naming a project deleted in another tab rejects the batch
-      // WHOLE — nothing is reordered, the hook's optimistic update has already
-      // been applied, and the rejection is unhandled. Cloud's window is narrower
-      // than local's because the onSnapshot listener reloads the stale tab.
-      const batch = writeBatch(db!);
-      orderedIds.forEach((id, index) => {
-        batch.update(doc(db!, PROJECTS_COL, id), { order: index });
-      });
-      await batch.commit();
+      // ⚠️ ZERO PROJECT-DOCUMENT WRITES SINCE v0.42.0, and that is the whole
+      // change. This used to be one `writeBatch` of `{order: index}` over EVERY
+      // project on the dragger's dashboard — so an editor's drag rewrote the
+      // order inside documents belonging to other people, scrambling their
+      // dashboards; and a VIEWER on any one of those projects had the whole
+      // batch refused, which meant they could not reorder their own dashboard at
+      // all. The order is now one array in the reader's own settings document.
+      //
+      // ⚠️ READ-MODIFY-WRITE, which is what the interface contract requires: ids
+      // the caller did not hand us keep their existing relative order rather than
+      // vanishing. `nextProjectOrder` does that; a plain `projectOrder =
+      // orderedIds` would silently drop every project a stale caller had not
+      // seen.
+      await runPrefsTransaction({ reorder: orderedIds });
+    },
+
+    async writeProjectPrefs(patches: ProjectPrefPatch[]): Promise<void> {
+      // A patch with neither key asks for nothing; filtering them here keeps the
+      // "a write always writes" rule below honest.
+      const meaningful = patches.filter(
+        (patch) => patch.color !== undefined || patch.archived !== undefined,
+      );
+      if (meaningful.length === 0) return;
+      // ⚠️ NO EXISTENCE CHECK, DELIBERATELY. An entry for a project that is no
+      // longer listed is inert — the reader ignores unknown ids, exactly as it
+      // ignores unknown ids in `projectOrder` — and checking would cost a list
+      // query on every colour click. Checking INSIDE the transaction is not an
+      // option either: a `get` of a deleted project document is DENIED by the
+      // rules (they dereference `resource.data`), which would abort the whole
+      // transaction with a permission error.
+      await runPrefsTransaction({ patches: meaningful });
+    },
+
+    async ensureProjectPrefsSeeded(): Promise<void> {
+      // Fast path: one read, no transaction, for the overwhelmingly common case
+      // of an already-seeded reader. The transaction below re-checks the marker,
+      // and THAT check is the authority.
+      const snap = await getDoc(settingsRef);
+      if (isSeeded(snap.exists() ? (snap.data() as Record<string, unknown>) : undefined)) return;
+      await runPrefsTransaction({ seedOnly: true });
     },
 
     // ── Export/Import ──
@@ -791,6 +1021,14 @@ export function createFirestoreRepository(uid: string): Repository {
       // Full replace for each project (no merge — import overwrites entirely)
       const pool = state.teamPool;
       const now = new Date().toISOString();
+
+      // The RESULTING document ids, in local order — what the preference write
+      // below keys off. ⚠️ NOT the local ids: `targetId` is regenerated whenever
+      // the existence check does not find a document this user is a member of,
+      // and a `get` of a document that does not exist is DENIED by the rules, so
+      // a FIRST upload regenerates EVERY id. Keying preferences off the file's
+      // ids would leave every one of them orphaned.
+      const uploaded: { id: string; project: Project }[] = [];
 
       for (let i = 0; i < state.projects.length; i++) {
         const project = state.projects[i];
@@ -837,6 +1075,30 @@ export function createFirestoreRepository(uid: string): Repository {
 
         // Full setDoc (no merge) for imports — old fields are replaced entirely
         await setDoc(doc(db!, PROJECTS_COL, targetId), stripUndefined(docData));
+        uploaded.push({ id: targetId, project });
+      }
+
+      // v0.42.0: the uploader's own colour, archive state and local order move
+      // into THEIR preferences — the documents no longer carry any of it.
+      //
+      // ⚠️ EXACT, NOT "WHEN PRESENT": a local project with no colour CLEARS any
+      // colour the uploader had for that id, mirroring the full document replace
+      // above. The upload is the local copy asserting itself.
+      //
+      // ⚠️ THIS IS ALSO THE SEED for a first-time cloud user, in the same
+      // transaction — and its view EXCLUDES the ids just uploaded, so they are
+      // placed by `appendLast` in local order rather than by the accident of
+      // document id that a shared `createdAt` would give them.
+      if (uploaded.length > 0) {
+        await runPrefsTransaction({
+          patches: uploaded.map(({ id, project }) => ({
+            id,
+            color: project.color ?? null,
+            archived: project.archived === true ? true : null,
+          })),
+          appendLast: uploaded.map(({ id }) => id),
+          excludeFromSeed: uploaded.map(({ id }) => id),
+        });
       }
 
       // Preserve origin ref from imported file; use UID as fallback

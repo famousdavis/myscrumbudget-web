@@ -3,7 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import type { Repository } from './repository';
-import type { Settings, Project, AppState } from '@/types/domain';
+import type { Settings, Project, AppState, ProjectPrefPatch } from '@/types/domain';
 import { STORAGE_KEYS } from '@/types/storage';
 import { runMigrations, DATA_VERSION } from './migrations';
 import { isValidSettings, isValidProjectEntry, isValidPoolMemberEntry } from '@/lib/utils/validation';
@@ -381,6 +381,29 @@ function set(key: string, value: unknown): void {
   }
 }
 
+/**
+ * Apply one preference patch to a stored project, in place. Returns whether it
+ * changed anything, so a patch naming nothing writes nothing.
+ *
+ * ⚠️ CLEARING STRIPS THE FIELD rather than storing `null` or `false`: that is how
+ * "no tint" and "not archived" have always been stored, and it is what keeps a
+ * round-trip export clean.
+ */
+function applyPatchToProject(project: Project, patch: ProjectPrefPatch): boolean {
+  let changed = false;
+  if (patch.color !== undefined) {
+    if (patch.color === null) delete project.color;
+    else project.color = patch.color;
+    changed = true;
+  }
+  if (patch.archived !== undefined) {
+    if (patch.archived === null) delete project.archived;
+    else project.archived = true;
+    changed = true;
+  }
+  return changed;
+}
+
 export function createLocalStorageRepository(): Repository {
   const repo: Repository = {
     /**
@@ -533,6 +556,47 @@ export function createLocalStorageRepository(): Repository {
      * residue element has no readable `id` and so can never appear in
      * `orderedIds`. The contract above already covers it; nothing was widened.
      */
+    /**
+     * Local mode keeps colour and archive state ON the stored project objects,
+     * exactly as every release before v0.42.0 did (v0.42.0).
+     *
+     * ⚠️ NOTHING BECOMES PER-USER HERE, and that is not an oversight: local mode
+     * has ONE reader. The defect this release fixes — one member's colour or
+     * archive changing what every other member sees — needs a shared document,
+     * which local storage does not have.
+     *
+     * ⚠️ A patch for an id that is not stored writes NOTHING. That is where the
+     * hooks' old "no-op when the project does not exist" behaviour now lives:
+     * they used to read the project first and bail, and they no longer read at
+     * all.
+     *
+     * ⚠️ CLEARING STRIPS THE FIELD rather than storing `null` or `false`, which
+     * is what keeps a round-trip export clean and matches how `unarchive` and
+     * "no tint" have always been stored.
+     */
+    async writeProjectPrefs(patches) {
+      const { entries, residue } = readEntries(STORAGE_KEYS.projects, isValidProjectEntry);
+      let changed = false;
+      for (const patch of patches) {
+        const project = entries.find((p) => p.id === patch.id);
+        if (project && applyPatchToProject(project, patch)) changed = true;
+      }
+      if (!changed) return;
+      // Residue carried forward, like every other write in this file: the read
+      // above returns only the entries it could parse.
+      writeEntries(STORAGE_KEYS.projects, entries, residue);
+    },
+
+    /**
+     * A no-op in local mode (v0.42.0) — there is one reader and their values are
+     * already on the projects. Declared rather than omitted so the two
+     * implementations answer the same interface and a caller never has to ask
+     * which mode it is in.
+     */
+    async ensureProjectPrefsSeeded() {
+      // Intentionally empty.
+    },
+
     async reorderProjects(orderedIds) {
       const { entries, residue } = readEntries(STORAGE_KEYS.projects, isValidProjectEntry);
       const byId = new Map(entries.map((p) => [p.id, p]));

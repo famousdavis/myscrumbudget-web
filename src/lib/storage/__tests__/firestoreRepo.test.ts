@@ -721,17 +721,20 @@ describe('the remaining repository operations', () => {
     expect(deletedIds).toEqual(['p_gone']);
   });
 
-  it('reorderProjects writes the array INDEX as order, not the id order alone', async () => {
-    // The dashboard persists drag-to-reorder through this. Asserting the
-    // index values (not just that N updates happened) is what pins it.
+  it('[v0.42.0] reorderProjects writes NO project document at all', async () => {
+    // ⚠️ INVERTED at v0.42.0. This asserted a `writeBatch` of `{order: index}`
+    // over every id — which is precisely the defect: an editor's drag rewrote
+    // `order` inside documents other people own, scrambling their dashboards,
+    // and a viewer on any one of those projects had the whole batch refused, so
+    // they could not reorder their own dashboard at all. The order now goes to
+    // the reader's own settings document; the writes are pinned in the
+    // preference-writer block below.
     const repo = createFirestoreRepository(UID);
     await repo.reorderProjects(['pC', 'pA', 'pB']);
 
-    expect(batchOps).toEqual([
-      { op: 'update', id: 'pC', data: { order: 0 } },
-      { op: 'update', id: 'pA', data: { order: 1 } },
-      { op: 'update', id: 'pB', data: { order: 2 } },
-    ]);
+    expect(batchOps, 'no batch, so nothing needs every project to still exist').toHaveLength(0);
+    expect(setDocCalls.filter((c) => c.ref.col === 'myscrumbudget_projects'),
+      'and no project document is written').toHaveLength(0);
   });
 
   it('exportAll stamps the dataset discriminant and both provenance refs', async () => {
@@ -1805,5 +1808,463 @@ describe('per-user preferences — the read overlay (v0.42.0)', () => {
     expect(txSetCalls, 'and none writes through one').toHaveLength(0);
     expect(setDocCalls.filter((c) => c.ref.col === 'myscrumbudget_settings'),
       'nor writes the settings document directly').toHaveLength(0);
+  });
+});
+
+/**
+ * v0.42.0 — THE PER-USER WRITER.
+ *
+ * One transaction per write, on the reader's OWN settings document, addressing
+ * individual preference fields. It seeds the reader first if they have never
+ * been seeded, so a first colour change cannot mark them seeded with a one-entry
+ * map and silently drop everything else they were looking at.
+ */
+describe('per-user preferences — the writer (v0.42.0)', () => {
+  /** The settings document of a reader who has been seeded. */
+  function seeded(over: Record<string, unknown> = {}) {
+    return { projectPrefsSeed: 1, projectPrefs: {}, projectOrder: [], ...over };
+  }
+  /** The single settings write a preference transaction makes. */
+  function prefsWrite() {
+    expect(txSetCalls, 'exactly one transactional write').toHaveLength(1);
+    expect(txSetCalls[0].ref, 'to the reader’s own settings document')
+      .toEqual({ col: 'myscrumbudget_settings', id: UID });
+    return txSetCalls[0];
+  }
+  /** A mergeFields entry as a comparable value: a FieldPath becomes its segments. */
+  function maskOf(call: SetDocCall): (string | string[])[] {
+    return (call.options?.mergeFields ?? []).map(
+      (entry) => (entry instanceof MockFieldPath ? entry.segments : entry),
+    );
+  }
+  /** Read a path out of a payload, so "present in the data" can be checked. */
+  function valueAt(data: Record<string, unknown>, path: string | string[]): unknown {
+    const segments = typeof path === 'string' ? [path] : path;
+    let current: unknown = data;
+    for (const segment of segments) {
+      if (typeof current !== 'object' || current === null) return undefined;
+      if (!Object.prototype.hasOwnProperty.call(current, segment)) return MISSING;
+      current = (current as Record<string, unknown>)[segment];
+    }
+    return current;
+  }
+  const MISSING = Symbol('missing');
+  /** ⚠️ A mask entry absent from the payload throws INVALID_ARGUMENT and writes nothing. */
+  function expectMaskMatchesPayload(call: SetDocCall) {
+    for (const path of maskOf(call)) {
+      expect(valueAt(call.data, path), `the mask names ${JSON.stringify(path)}, so the payload must carry it`)
+        .not.toBe(MISSING);
+    }
+  }
+  function projectDoc(id: string, over: Record<string, unknown> = {}) {
+    queryDocs.set(id, fullDoc({ name: id, ...over }));
+  }
+
+  it('[P4] a SEEDED reorder writes projectOrder and nothing else', async () => {
+    existingDocs.set(UID, seeded({ projectOrder: ['pA', 'pB', 'pC'] }));
+    const repo = createFirestoreRepository(UID);
+    await repo.reorderProjects(['pC', 'pA', 'pB']);
+
+    const call = prefsWrite();
+    expect(runTransactionCalls, 'one transaction').toBe(1);
+    expect(maskOf(call), 'exactly one path — no preference entry is touched')
+      .toEqual(['projectOrder']);
+    expect(call.data.projectOrder).toEqual(['pC', 'pA', 'pB']);
+    expect(getDocsCalls, 'a seeded reorder needs no project list').toBe(0);
+    expectMaskMatchesPayload(call);
+  });
+
+  it('[P5] an UNSEEDED reorder seeds in the SAME transaction', async () => {
+    // ⚠️ The document carries a colour, so a build that wrote the marker without
+    // the entries would lose it — and lose it permanently, because a seeded
+    // reader never reads document values again.
+    projectDoc('pA', { color: 'teal', order: 1 });
+    projectDoc('pB', { color: null, archived: null, order: 2 });
+
+    const repo = createFirestoreRepository(UID);
+    await repo.reorderProjects(['pB', 'pA']);
+
+    const call = prefsWrite();
+    expect(maskOf(call)).toEqual([
+      ['projectPrefs', 'pA', 'color'],
+      ['projectPrefs', 'pA', 'archived'],
+      'projectOrder',
+      'projectPrefsSeed',
+      'schemaVersion',
+    ]);
+    expect(call.data.projectPrefs).toEqual({ pA: { color: 'teal', archived: true } });
+    expect(call.data.projectOrder, 'the caller’s order, seeded in one step').toEqual(['pB', 'pA']);
+    expect(call.data.projectPrefsSeed).toBe(1);
+    expect(call.data.schemaVersion, 'the document did not exist, so it is stamped').toBe(2);
+    expectMaskMatchesPayload(call);
+  });
+
+  it('[P6] the reorder contract: ids the caller did not hand us keep their relative order', async () => {
+    // ⚠️ TWO UNHANDLED IDS, in an order the fallback would NOT produce. With one
+    // there is no relative order to observe, and if the two were already in
+    // document order a whole-array write would pass by luck. Here the previous
+    // order is z2 before z1, which is the reverse of both the id order and the
+    // createdAt order the documents would give.
+    existingDocs.set(UID, seeded({ projectOrder: ['z2', 'a', 'z1', 'c'] }));
+    const repo = createFirestoreRepository(UID);
+    await repo.reorderProjects(['c', 'a']);
+
+    expect(prefsWrite().data.projectOrder).toEqual(['c', 'a', 'z2', 'z1']);
+  });
+
+  it('[P13] ensureProjectPrefsSeeded on a SEEDED reader writes nothing and lists nothing', async () => {
+    existingDocs.set(UID, seeded({ projectPrefs: { p1: { color: 'teal' } } }));
+    projectDoc('p1');
+
+    const repo = createFirestoreRepository(UID);
+    await repo.ensureProjectPrefsSeeded();
+
+    expect(txSetCalls, 'no write').toHaveLength(0);
+    expect(setDocCalls, 'none at all, transactional or not').toHaveLength(0);
+    expect(getDocsCalls, 'and no project list is read to decide it').toBe(0);
+  });
+
+  it('[P14] the seed of an UNSEEDED reader with NO settings document', async () => {
+    projectDoc('p-colour', { color: 'teal', archived: null, order: 1 });
+    projectDoc('p-archived', { color: null, archived: true, order: 2 });
+    projectDoc('p-plain', { color: null, archived: null, order: 3 });
+
+    const repo = createFirestoreRepository(UID);
+    await repo.ensureProjectPrefsSeeded();
+
+    const call = prefsWrite();
+    expect(call.data.projectPrefs, 'an entry ONLY for a project that has a value').toEqual({
+      'p-colour': { color: 'teal' },
+      'p-archived': { archived: true },
+    });
+    expect(call.data.projectOrder, 'every listed project, in the order they saw')
+      .toEqual(['p-colour', 'p-archived', 'p-plain']);
+    expect(call.data.projectPrefsSeed).toBe(1);
+    expect(call.data.schemaVersion).toBe(2);
+    expect(maskOf(call)).toEqual([
+      ['projectPrefs', 'p-colour', 'color'],
+      ['projectPrefs', 'p-archived', 'archived'],
+      'projectOrder',
+      'projectPrefsSeed',
+      'schemaVersion',
+    ]);
+    expectMaskMatchesPayload(call);
+  });
+
+  it('[P15] the seed of a reader whose settings document EXISTS leaves it alone', async () => {
+    // ⚠️ NO schemaVersion here: the document already has whatever version it has,
+    // and re-stamping it would be this writer deciding something that is not its
+    // business. And laborRates/teamPool must appear in neither payload nor mask —
+    // a mask entry missing from the data throws and writes nothing at all.
+    existingDocs.set(UID, {
+      laborRates: [{ role: 'BA', hourlyRate: 175 }],
+      teamPool: [{ id: 'pm1', name: 'Alice', role: 'BA' }],
+    });
+    projectDoc('p1', { color: 'pink', archived: null });
+
+    const repo = createFirestoreRepository(UID);
+    await repo.ensureProjectPrefsSeeded();
+
+    const call = prefsWrite();
+    expect(maskOf(call)).toEqual([
+      ['projectPrefs', 'p1', 'color'],
+      'projectOrder',
+      'projectPrefsSeed',
+    ]);
+    expect(Object.keys(call.data).sort()).toEqual(['projectOrder', 'projectPrefs', 'projectPrefsSeed']);
+    expectMaskMatchesPayload(call);
+  });
+
+  it('[P16] a first colour change SEEDS everything else the reader can see', async () => {
+    // ⚠️ THE WRONG BUILD THIS REFUSES: write the patch, set the marker, and skip
+    // the seed. The reader is then "seeded" with one entry, and every other
+    // colour and archive state they could see a moment ago is gone for good.
+    projectDoc('p-other', { color: 'teal', archived: null });
+    projectDoc('p-target', { color: null, archived: null });
+
+    const repo = createFirestoreRepository(UID);
+    await repo.writeProjectPrefs([{ id: 'p-target', color: 'pink' }]);
+
+    const call = prefsWrite();
+    expect(call.data.projectPrefs).toEqual({
+      'p-other': { color: 'teal' },
+      'p-target': { color: 'pink' },
+    });
+    expect(call.data.projectPrefsSeed).toBe(1);
+    expectMaskMatchesPayload(call);
+  });
+
+  it('[P17] an UNSEEDED un-archive: the patch WINS over the seed on the same path', async () => {
+    // ⚠️ THE OWNER'S LIKELIEST FIRST ACTION, and the one place the seed and the
+    // reader's own change collide. The document says archived; the seed is
+    // copying exactly that; the reader is un-archiving it in the same breath.
+    // One payload holds one value per path, so the patch has to be folded in
+    // last — otherwise the project stays archived and the click did nothing.
+    projectDoc('p1', { color: 'teal', archived: true });
+
+    const repo = createFirestoreRepository(UID);
+    await repo.writeProjectPrefs([{ id: 'p1', archived: null }]);
+
+    const call = prefsWrite();
+    const entry = (call.data.projectPrefs as Record<string, Record<string, unknown>>).p1;
+    expect(entry.archived, 'a delete, not the seed’s true').toBe(DELETE_FIELD);
+    expect(entry.color, 'and the colour the seed found is kept').toBe('teal');
+    expect(maskOf(call), 'field-level paths only — never the entry itself').toEqual([
+      ['projectPrefs', 'p1', 'color'],
+      ['projectPrefs', 'p1', 'archived'],
+      'projectOrder',
+      'projectPrefsSeed',
+      'schemaVersion',
+    ]);
+  });
+
+  it('[P18] a SEEDED clear writes deleteField at FIELD paths, and the whole mask by value', async () => {
+    // ⚠️ THE MASK IS ASSERTED BY VALUE because this one write serves five of the
+    // six writers. An entry-level path (`projectPrefs.<id>`) would REPLACE the
+    // entry — measured on MSB's own SDK — so clearing a colour that way would
+    // delete the archive flag with it. And a write with no mergeFields at all
+    // would wipe laborRates and teamPool.
+    existingDocs.set(UID, seeded({
+      projectPrefs: { p1: { color: 'teal', archived: true }, p2: { color: 'pink' } },
+      projectOrder: ['p1', 'p2'],
+    }));
+
+    const repo = createFirestoreRepository(UID);
+    await repo.writeProjectPrefs([
+      { id: 'p1', color: null },
+      { id: 'p2', archived: null },
+    ]);
+
+    const call = prefsWrite();
+    expect(maskOf(call)).toEqual([
+      ['projectPrefs', 'p1', 'color'],
+      ['projectPrefs', 'p2', 'archived'],
+    ]);
+    expect(call.data).toEqual({
+      projectPrefs: { p1: { color: DELETE_FIELD }, p2: { archived: DELETE_FIELD } },
+    });
+    expect(call.options?.mergeFields, 'never an unmerged write').toBeDefined();
+    expectMaskMatchesPayload(call);
+  });
+
+  it('[P21] the three settings writes name none of the preference keys', async () => {
+    // ⚠️ THE WRONG DISPOSITION IS TO ADD THEM TO THESE MASKS. Their payloads do
+    // not carry the keys, and a mask entry missing from the data throws
+    // INVALID_ARGUMENT client-side — every settings save in the app would fail.
+    const repo = createFirestoreRepository(UID);
+    const settings: Settings = {
+      discountRateAnnual: 0.03,
+      laborRates: [],
+      holidays: [],
+      trafficLightThresholds: { amberPercent: 5, redPercent: 15, violetPercent: 20 },
+    };
+    await repo.saveSettings(settings);
+    await repo.saveTeamPool([]);
+    await repo.saveSettingsAndTeamPool(settings, []);
+
+    expect(setDocCalls).toHaveLength(3);
+    for (const call of setDocCalls) {
+      const mask = call.options?.mergeFields ?? [];
+      for (const key of ['projectPrefs', 'projectOrder', 'projectPrefsSeed']) {
+        expect(mask, `a settings write must not name ${key}`).not.toContain(key);
+        expect(Object.keys(call.data), `nor carry ${key}`).not.toContain(key);
+      }
+    }
+  });
+
+  it('[P29] a RETRY still writes the caller’s patch — only the seed half is suppressed', async () => {
+    // ⚠️ A transaction callback can run more than once, and the second run sees
+    // what the first could not. Measured on the emulator: a second client writing
+    // the marker between the read and the commit makes the callback run again and
+    // the retry sees it. The wrong build returns early "because it is already
+    // seeded" and the reader's colour change is lost with no error anywhere.
+    //
+    // ⚠️ The mock records BOTH invocations because it cannot discard the aborted
+    // one the way Firestore does; the last write is the one that would land.
+    projectDoc('p1', { color: 'teal', archived: null });
+    txInvocations = 2;
+    beforeTxInvocation = (invocation) => {
+      if (invocation === 2) existingDocs.set(UID, seeded({ projectOrder: ['p1'] }));
+    };
+
+    const repo = createFirestoreRepository(UID);
+    await repo.writeProjectPrefs([{ id: 'p1', color: 'pink' }]);
+
+    expect(txSetCalls, 'both invocations wrote').toHaveLength(2);
+    const retry = txSetCalls[1];
+    expect(retry.data.projectPrefs, 'the retry still carries the patch')
+      .toEqual({ p1: { color: 'pink' } });
+    expect('projectPrefsSeed' in retry.data, 'and drops the seed half it no longer owns').toBe(false);
+    expect(maskOf(retry)).toEqual([['projectPrefs', 'p1', 'color']]);
+  });
+
+  it('[P28] a project id containing a dot addresses ONE entry, not a nested path', async () => {
+    // ⚠️ REACHABLE, not theoretical: an imported id is validated as a string
+    // only, and a local JSON import keeps the file's ids. A dot-string path would
+    // store `a.b` as a → b and the preference would never be found again.
+    existingDocs.set(UID, seeded());
+    const repo = createFirestoreRepository(UID);
+    await repo.writeProjectPrefs([{ id: 'a.b', color: 'teal' }]);
+
+    const call = prefsWrite();
+    expect(maskOf(call)).toEqual([['projectPrefs', 'a.b', 'color']]);
+    expect(call.data.projectPrefs, 'one key, literally "a.b"').toEqual({ 'a.b': { color: 'teal' } });
+  });
+});
+
+/**
+ * v0.42.0 — THE LOCAL→CLOUD UPLOAD, which is the path every migrating user takes.
+ *
+ * ⚠️ THE UPLOADED IDS ARE NOT THE LOCAL IDS. `importAll` regenerates `targetId`
+ * whenever its existence check does not find a document this user is a member
+ * of — and a `get` of a document that does not exist is DENIED by the rules
+ * (they dereference `resource.data`), so a FIRST upload regenerates EVERY id.
+ * `getDocThrows` models exactly that, and `randomUUID` is stubbed below so the
+ * resulting ids are known.
+ *
+ * ⚠️ THE STUBBED IDS ARE CHOSEN SO DOCUMENT-ID ORDER IS THE REVERSE OF LOCAL
+ * ORDER. Uploaded documents all share one `createdAt`, so the read rule falls
+ * through to document id: a build that let the uploaded ids be placed by the
+ * document view instead of by local order would pass against ids that happened
+ * to sort the right way.
+ */
+describe('per-user preferences — the upload (v0.42.0)', () => {
+  /** Local project A gets the LAST id by document order; B gets the first. */
+  const UP_A = 'zz-first-locally';
+  const UP_B = 'aa-second-locally';
+
+  function uploadState(projects: Project[]) {
+    return {
+      version: '0.16.0',
+      settings: {
+        discountRateAnnual: 0.03,
+        laborRates: [],
+        holidays: [],
+        trafficLightThresholds: { amberPercent: 5, redPercent: 15, violetPercent: 20 },
+      },
+      teamPool: [],
+      projects,
+    } as unknown as Parameters<ReturnType<typeof createFirestoreRepository>['importAll']>[0];
+  }
+  function localProjects() {
+    return [
+      makeProject({ id: 'local-a', name: 'A', color: 'teal' }),
+      makeProject({ id: 'local-b', name: 'B', archived: true }),
+    ];
+  }
+  function stubUploadIds() {
+    // ⚠️ Every id is regenerated on a first upload, so the order these are
+    // handed out IS local order.
+    const ids = [UP_A, UP_B];
+    return vi.spyOn(crypto, 'randomUUID').mockImplementation(
+      () => (ids.shift() ?? 'unexpected-extra-id') as `${string}-${string}-${string}-${string}-${string}`,
+    );
+  }
+  function prefsWrite() {
+    expect(txSetCalls, 'one preference transaction for the whole upload').toHaveLength(1);
+    return txSetCalls[0];
+  }
+
+  it('[P25] an UNSEEDED uploader: the seed EXCLUDES the uploaded ids and places them in LOCAL order', async () => {
+    const spy = stubUploadIds();
+    getDocThrows = true;
+    // What the reader can already see in the cloud, plus the two documents the
+    // upload is writing as it runs — the list can and does contain them.
+    // ⚠️ `archived: null` explicitly — `fullDoc()` archives by default, and an
+    // archived fixture would make the seed entry carry a value this row is not about.
+    queryDocs.set('cloud-1', fullDoc({ name: 'Cloud', color: 'teal', archived: null, order: 5 }));
+    const uploadedShape = fullDoc({ color: null, archived: null, createdAt: '2026-09-17T00:00:00Z' });
+    delete uploadedShape.order;
+    queryDocs.set(UP_B, { ...uploadedShape, name: 'B' });
+    queryDocs.set(UP_A, { ...uploadedShape, name: 'A' });
+
+    const repo = createFirestoreRepository(UID);
+    await repo.importAll(uploadState(localProjects()));
+    spy.mockRestore();
+
+    const call = prefsWrite();
+    expect(call.data.projectOrder,
+      'the reader’s own projects first, then the upload in LOCAL order').toEqual([
+      'cloud-1', UP_A, UP_B,
+    ]);
+    expect(call.data.projectPrefs, 'the seed’s entry plus one per uploaded project').toEqual({
+      'cloud-1': { color: 'teal' },
+      [UP_A]: { color: 'teal', archived: DELETE_FIELD },
+      [UP_B]: { color: DELETE_FIELD, archived: true },
+    });
+    expect(call.data.projectPrefsSeed, 'the upload IS the seed for a first-time cloud user').toBe(1);
+  });
+
+  it('[P26] a SEEDED uploader: per-entry writes, and the uploaded ids appended in local order', async () => {
+    const spy = stubUploadIds();
+    getDocThrows = true;
+    existingDocs.set(UID, {
+      projectPrefsSeed: 1,
+      projectPrefs: { x: { color: 'pink' } },
+      projectOrder: ['x', 'y'],
+    });
+
+    const repo = createFirestoreRepository(UID);
+    await repo.importAll(uploadState(localProjects()));
+    spy.mockRestore();
+
+    const call = prefsWrite();
+    expect(call.data.projectOrder).toEqual(['x', 'y', UP_A, UP_B]);
+    expect(call.data.projectPrefs, 'only the uploaded ids — x is untouched').toEqual({
+      [UP_A]: { color: 'teal', archived: DELETE_FIELD },
+      [UP_B]: { color: DELETE_FIELD, archived: true },
+    });
+    expect('projectPrefsSeed' in call.data, 'an already-seeded reader is not re-seeded').toBe(false);
+  });
+
+  it('[P27] interleaving: a dashboard seed that already captured PART of the upload', async () => {
+    // ⚠️ THE COMMON RACE, not an exotic one. The upload flips the app to cloud
+    // BEFORE `importAll` runs and the dashboard stays mounted, so it reloads and
+    // seeds from a cloud that holds some of the uploaded documents — which carry
+    // no order and share one `createdAt`, so they land in document-id order,
+    // here the REVERSE of local order.
+    //
+    // ⚠️ THE WRONG BUILD IS "APPEND, SKIPPING IDS ALREADY PRESENT": it leaves
+    // those two frozen in the accidental order and the uploader's real order is
+    // lost. Removing them first makes this interleaving agree with the other one.
+    const spy = stubUploadIds();
+    getDocThrows = true;
+    existingDocs.set(UID, {
+      projectPrefsSeed: 1,
+      projectPrefs: {},
+      projectOrder: ['cloud-1', UP_B, UP_A],
+    });
+
+    const repo = createFirestoreRepository(UID);
+    await repo.importAll(uploadState(localProjects()));
+    spy.mockRestore();
+
+    expect(prefsWrite().data.projectOrder).toEqual(['cloud-1', UP_A, UP_B]);
+  });
+
+  it('[P27b] the other interleaving: the upload seeded first, so the dashboard’s seed does nothing', async () => {
+    const spy = stubUploadIds();
+    getDocThrows = true;
+    const repo = createFirestoreRepository(UID);
+    await repo.importAll(uploadState(localProjects()));
+    spy.mockRestore();
+
+    // ⚠️ The denied-read flag models PROJECT documents the uploader cannot see;
+    // the settings document is their own and is read normally from here on.
+    getDocThrows = false;
+    // The upload's own write is what a real settings document would now hold.
+    const afterUpload = prefsWrite();
+    existingDocs.set(UID, {
+      projectPrefsSeed: afterUpload.data.projectPrefsSeed,
+      projectOrder: afterUpload.data.projectOrder,
+      projectPrefs: { [UP_A]: { color: 'teal' } },
+    });
+    txSetCalls.length = 0;
+
+    await repo.ensureProjectPrefsSeeded();
+
+    expect(txSetCalls, 'the marker is there, so the dashboard’s seed writes nothing').toHaveLength(0);
+    expect(afterUpload.data.projectOrder, 'and the order the upload wrote stands')
+      .toEqual([UP_A, UP_B]);
   });
 });
