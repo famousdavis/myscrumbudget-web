@@ -84,6 +84,8 @@ const getDocIds: string[] = [];
 let getDocThrows = false;
 /** Documents the mocked getDocs query will return, as [id, data] pairs. */
 const queryDocs = new Map<string, Record<string, unknown>>();
+/** How many list queries were run (v0.42.0 — `createProject` must run none). */
+let getDocsCalls = 0;
 /** Every writeBatch operation, in order. */
 const batchOps: { op: 'update' | 'delete' | 'set'; id: string; data?: unknown }[] = [];
 /** Every deleteDoc call, by id. */
@@ -126,6 +128,7 @@ vi.mock('firebase/firestore', () => ({
   query: (...args: unknown[]) => ({ args }),
   where: (...args: unknown[]) => ({ args }),
   getDocs: async () => {
+    getDocsCalls += 1;
     // getProjects uses snap.forEach, not snap.docs — a `{ docs: [] }` mock
     // would throw rather than return an empty result.
     const entries = [...queryDocs.entries()].map(([id, data]) => ({ id, data: () => data, ref: { col: 'myscrumbudget_projects', id } }));
@@ -223,6 +226,7 @@ beforeEach(() => {
   batchOps.length = 0;
   deletedIds.length = 0;
   getDocThrows = false;
+  getDocsCalls = 0;
   txSetCalls.length = 0;
   txGetIds.length = 0;
   runTransactionCalls = 0;
@@ -255,13 +259,21 @@ describe('mock self-check — read this before any coverage number', () => {
 });
 
 describe('saveProject — the v0.30.0 import-replace invariant', () => {
-  /** The nine fields saveProject is allowed to write, in resolved order. */
+  /**
+   * The seven fields saveProject is allowed to write, in resolved order.
+   *
+   * ⚠️ NINE UNTIL v0.42.0. `color` and `archived` left this mask when they
+   * stopped being document fields; a save by any member used to rewrite both for
+   * every member. A LITERAL on purpose — importing the source constant would
+   * make this agree with whatever the constant says, which is the change it
+   * exists to catch.
+   */
   const EXPECTED_MERGE_FIELDS = [
     'name', 'startDate', 'endDate', 'reforecasts',
-    'activeReforecastId', 'color', 'archived', '_teamSnapshot', 'updatedAt',
+    'activeReforecastId', '_teamSnapshot', 'updatedAt',
   ];
 
-  it('writes exactly its nine mergeFields, in order', async () => {
+  it('writes exactly its seven mergeFields, in order', async () => {
     // PROBE SUCCESSOR (1 of 2). v0.36.10 replaced an inline string[] with a
     // `satisfies`-checked constant resolved via Object.keys; the throwaway probe
     // that proved the ORDER unchanged is gone, so this is the only check of it.
@@ -285,24 +297,34 @@ describe('saveProject — the v0.30.0 import-replace invariant', () => {
     expect(setDocCalls[0].options?.mergeFields).not.toContain('owner');
   });
 
-  it('writes color and archived as null — not undefined — when absent', async () => {
-    // `mergeFields` only unsets a listed field if the payload carries an
-    // explicit null; `undefined` is stripped before the write and the stale
-    // cloud value survives. So "cleared" must serialise as null.
+  it('[v0.42.0] writes NEITHER color NOR archived — the keys are absent, not null', async () => {
+    // ⚠️ INVERTED at v0.42.0. This test used to assert that both were written as
+    // an explicit `null` so `mergeFields` would unset them. They are now per-user
+    // preferences and this document is shared, so the save must not carry them
+    // at all: an absent key leaves whatever the document holds for the readers
+    // who have not been seeded yet.
     const repo = createFirestoreRepository(UID);
     await repo.saveProject(makeProject({ color: undefined, archived: undefined }));
 
-    expect(setDocCalls[0].data.color).toBeNull();
-    expect(setDocCalls[0].data.archived).toBeNull();
-    expect('color' in setDocCalls[0].data).toBe(true);
+    expect('color' in setDocCalls[0].data, 'no color key in the payload').toBe(false);
+    expect('archived' in setDocCalls[0].data, 'no archived key either').toBe(false);
+    expect(setDocCalls[0].options?.mergeFields, 'and neither is in the mask')
+      .toEqual(EXPECTED_MERGE_FIELDS);
   });
 
-  it('round-trips a set color and archived unchanged', async () => {
+  it('[v0.42.0] writes neither even when the project CARRIES both — the stale-copy path', async () => {
+    // ⚠️ THE DEFECT THIS RELEASE CLOSES, and the reachable path is not exotic:
+    // `useProject.undo` re-saves a pre-change snapshot immediately
+    // (`persistProject(snapshot); flush();`), so one Ctrl+Z on the detail page
+    // used to rewrite colour and archive for EVERY member of a shared project.
+    // A second tab and the detail page's own debounce do the same thing more
+    // slowly. The project object still carries both fields — it is what the
+    // reader sees — and the save must simply not write them.
     const repo = createFirestoreRepository(UID);
     await repo.saveProject(makeProject({ color: 'teal', archived: true }));
 
-    expect(setDocCalls[0].data.color).toBe('teal');
-    expect(setDocCalls[0].data.archived).toBe(true);
+    expect('color' in setDocCalls[0].data).toBe(false);
+    expect('archived' in setDocCalls[0].data).toBe(false);
   });
 });
 
@@ -366,8 +388,11 @@ describe('getSettings — the v0.27.0 field-wise merge', () => {
 });
 
 describe('createProject — ownership is set here and nowhere else', () => {
-  it('stamps owner, members, order and schemaVersion', async () => {
-    // order is assigned from the CURRENT project count, so seed two.
+  it('stamps owner, members and schemaVersion — and NO order (v0.42.0)', async () => {
+    // ⚠️ The two seeded projects used to be the fixture for `order:
+    // projects.length`. They stay: with `order` gone, they are what makes
+    // "createProject ran no list query" (below) a real assertion rather than one
+    // against an empty collection.
     queryDocs.set('existing1', { name: 'A', members: { [UID]: 'owner' }, order: 0 });
     queryDocs.set('existing2', { name: 'B', members: { [UID]: 'owner' }, order: 1 });
 
@@ -377,7 +402,7 @@ describe('createProject — ownership is set here and nowhere else', () => {
     const call = setDocCalls.find((c) => c.ref.id === 'p_new')!;
     expect(call.data.owner).toBe(UID);
     expect(call.data.members).toEqual({ [UID]: 'owner' });
-    expect(call.data.order).toBe(2);
+    expect('order' in call.data, 'order is a per-reader preference now').toBe(false);
     expect(call.data.schemaVersion).toBe(2);
   });
 
@@ -603,9 +628,10 @@ describe('importAll — RECORDED TECH DEBT, characterised and deliberately not f
 
     const write = projectWrites()[0];
     expect(write.data.createdAt).not.toBe(original);
-    // Same for order: the imported index wins over whatever was stored.
-    expect(write.data.order).not.toBe(7);
-    expect(write.data.order).toBe(0);
+    // ⚠️ `order` used to be asserted here too — the imported index overwrote
+    // whatever was stored. v0.42.0 writes no `order` at all; the uploader's
+    // local order is carried in their own `projectOrder` instead.
+    expect('order' in write.data, 'no order is written by an import').toBe(false);
   });
 
   it('overwrites _originRef with the UID when the import carries none', async () => {
@@ -665,13 +691,20 @@ describe('importAll — RECORDED TECH DEBT, characterised and deliberately not f
     expect(cols.indexOf('myscrumbudget_settings')).toBeLessThan(cols.indexOf('myscrumbudget_projects'));
   });
 
-  it('assigns order by array position across multiple projects', async () => {
+  it('[v0.42.0] assigns NO order — the uploader\u2019s order is their own preference', async () => {
+    // ⚠️ INVERTED at v0.42.0. This asserted `order: 0,1,2` by array position,
+    // which wrote the uploader's local order into documents every other member
+    // reads. The local order still survives the upload — it goes into the
+    // uploader's own `projectOrder`, pinned by the upload tests further down —
+    // but nothing about it is written here.
     const repo = createFirestoreRepository(UID);
     await repo.importAll(makeState({
       projects: [makeProject({ id: 'pA' }), makeProject({ id: 'pB' }), makeProject({ id: 'pC' })],
     }));
 
-    expect(projectWrites().map((c) => c.data.order)).toEqual([0, 1, 2]);
+    expect(projectWrites()).toHaveLength(3);
+    expect(projectWrites().every((c) => !('order' in c.data)),
+      'no uploaded document carries an order').toBe(true);
   });
 });
 
@@ -1021,7 +1054,7 @@ describe('_costSnapshot — the field, its two inert write sites, and the owner-
     expect(call.options?.mergeFields, 'importAll uses no mask').toBeUndefined();
   });
 
-  it('a NON-owner saveProject still writes nothing — the mask stays at nine fields', async () => {
+  it('a NON-owner saveProject still writes nothing — the mask stays at seven fields', async () => {
     // ⚠️ SPLIT 2026-09-13 (v0.40.0). This was
     // `saveProject does NOT write it — the mask stays at nine fields`, inside a
     // container named `the machinery ships with no writer`. v0.40.0 ships the
@@ -1041,8 +1074,8 @@ describe('_costSnapshot — the field, its two inert write sites, and the owner-
     const call = projectPayload();
     expect(Object.keys(call.data), 'a non-owner save writes no cost snapshot')
       .not.toContain('_costSnapshot');
-    expect(call.options?.mergeFields, 'and its mask is unchanged at nine')
-      .toHaveLength(9);
+    expect(call.options?.mergeFields, 'and its mask is unchanged at seven')
+      .toHaveLength(7);
     expect(call.options?.mergeFields, 'and it is the module constant ITSELF, not an equal array')
       .toBe(SAVE_PROJECT_MERGE_FIELDS);
   });
@@ -1123,7 +1156,7 @@ describe('saveProject — the owner-only cost-card writer (v0.40.0)', () => {
     await repo.saveProject(ownedProject());
     const call = projectWrite();
 
-    expect(call.options?.mergeFields, 'nine plus the one owner-only field')
+    expect(call.options?.mergeFields, 'seven plus the one owner-only field')
       .toEqual([...SAVE_PROJECT_MERGE_FIELDS, '_costSnapshot']);
     expect(call.data._costSnapshot, 'and the payload carries the OWNER’s own values, verbatim')
       .toEqual({
@@ -1192,7 +1225,7 @@ describe('saveProject — the owner-only cost-card writer (v0.40.0)', () => {
     await repo.saveProject(ownedProject());
     const call = projectWrite();
 
-    expect(call.options?.mergeFields, 'ten — this state publishes').toHaveLength(10);
+    expect(call.options?.mergeFields, 'eight — this state publishes').toHaveLength(8);
     expect(call.data._costSnapshot).toEqual({
       laborRates: [{ role: 'BA', hourlyRate: 175 }],
       holidays: [],
@@ -1454,5 +1487,97 @@ describe('saveProject — the owner-only cost-card writer (v0.40.0)', () => {
     expect(detailEac, 'and they agree on the CARD’s number, $100/h').toBe(17600);
     expect(detailEac, 'NOT on the reader’s own $50/h — which is what a dead read path gives')
       .not.toBe(8800);
+  });
+});
+
+/**
+ * v0.42.0 — COLOUR, ARCHIVE AND ORDER STOP BEING WRITTEN TO THE SHARED DOCUMENT.
+ *
+ * The three were per-user preferences kept on a document every member can see,
+ * so one member's choice changed everyone's dashboard, and an archive hid the
+ * project from the owner's own. The write half is here; the read half and the
+ * per-user writer are in the blocks that follow.
+ *
+ * ⚠️ THE RULES STILL PERMIT ALL THREE, deliberately (see `FirestoreProjectDoc`).
+ * Nothing below asserts a rules change, because there is none: measured against
+ * the real ruleset on 2026-09-17, a create carrying exactly the fields this
+ * release writes is ALLOWED, and so is a full replace that omits all three.
+ */
+describe('per-user preferences — the write paths (v0.42.0)', () => {
+  /** A project as `getProject` returns it for an OWNER: the flag is attached. */
+  function ownedProject(over: Partial<Project> = {}): Project {
+    const p = makeProject(over) as ProjectWithOwnership;
+    p._isOwner = true;
+    return p;
+  }
+
+  it('[P1] an OWNER save writes the seven content keys plus the card — by value, and the mask by identity', async () => {
+    // ⚠️ THE KEY SET IS ASSERTED BY VALUE, not by counting. A count cannot tell
+    // "seven keys, one of them colour" from "seven keys, none of them colour",
+    // and the wrong build this refuses writes exactly as many keys as the right
+    // one.
+    existingDocs.set(UID, {
+      laborRates: [{ role: 'BA', hourlyRate: 175 }],
+      teamPool: [{ id: 'pm1', name: 'Alice', role: 'BA' }],
+    });
+    const repo = createFirestoreRepository(UID);
+    await repo.saveProject(ownedProject({ color: 'teal', archived: true }));
+
+    const call = setDocCalls.find((c) => c.ref.col === 'myscrumbudget_projects')!;
+    expect(Object.keys(call.data)).toEqual([
+      'name', 'startDate', 'endDate', 'reforecasts',
+      'activeReforecastId', '_teamSnapshot', 'updatedAt', '_costSnapshot',
+    ]);
+    expect(call.options?.mergeFields, 'the module constant ITSELF, never a derived array')
+      .toBe(SAVE_PROJECT_OWNER_MERGE_FIELDS);
+    expect(call.options?.mergeFields, 'and its value is the seven plus the owner field')
+      .toEqual([
+        'name', 'startDate', 'endDate', 'reforecasts',
+        'activeReforecastId', '_teamSnapshot', 'updatedAt', '_costSnapshot',
+      ]);
+  });
+
+  it('[P2] createProject writes none of the three AND runs no list query', async () => {
+    // ⚠️ THE LIST QUERY IS HALF THE ASSERTION. `createProject` read the whole
+    // project list for one purpose — `order: projects.length` — so the read must
+    // go with the field. The fixture holds two listable projects, so a build
+    // that still reads them would count them.
+    queryDocs.set('existing1', { name: 'A', members: { [UID]: 'owner' }, order: 0 });
+    queryDocs.set('existing2', { name: 'B', members: { [UID]: 'owner' }, order: 1 });
+
+    const repo = createFirestoreRepository(UID);
+    await repo.createProject(makeProject({ id: 'p_new', color: 'pink', archived: true }));
+
+    const call = setDocCalls.find((c) => c.ref.id === 'p_new')!;
+    for (const field of ['color', 'archived', 'order']) {
+      expect(Object.keys(call.data), `a create must not write ${field}`).not.toContain(field);
+    }
+    expect(getDocsCalls, 'no project list is read to place a new project').toBe(0);
+  });
+
+  it('[P3] importAll writes none of the three, for every uploaded project', async () => {
+    const repo = createFirestoreRepository(UID);
+    await repo.importAll({
+      version: '0.16.0',
+      settings: {
+        discountRateAnnual: 0.03,
+        laborRates: [],
+        holidays: [],
+        trafficLightThresholds: { amberPercent: 5, redPercent: 15, violetPercent: 20 },
+      },
+      teamPool: [],
+      projects: [
+        makeProject({ id: 'pA', color: 'blue' }),
+        makeProject({ id: 'pB', archived: true }),
+      ],
+    } as unknown as Parameters<ReturnType<typeof createFirestoreRepository>['importAll']>[0]);
+
+    const writes = setDocCalls.filter((c) => c.ref.col === 'myscrumbudget_projects');
+    expect(writes, 'both projects were written').toHaveLength(2);
+    for (const write of writes) {
+      for (const field of ['color', 'archived', 'order']) {
+        expect(Object.keys(write.data), `an upload must not write ${field}`).not.toContain(field);
+      }
+    }
   });
 });

@@ -10,7 +10,7 @@ import { db } from '@/lib/firebase/config';
 import { PROJECTS_COL, SETTINGS_COL } from '@/lib/firebase/collections';
 import type { Repository } from './repository';
 import type {
-  Settings, PoolMember, Project, ProjectColor, AppState, CostSnapshot,
+  Settings, PoolMember, Project, AppState, CostSnapshot, ProjectPrefsEntry,
 } from '@/types/domain';
 import { DEFAULT_SETTINGS } from './localStorage';
 import { DATA_VERSION } from './migrations';
@@ -29,17 +29,37 @@ interface FirestoreProjectDoc {
   endDate: string;
   reforecasts: Project['reforecasts'];
   activeReforecastId: string | null;
-  /** Dashboard tile tint (v0.33.0). null when cleared (so mergeFields can unset). */
-  color: ProjectColor | null;
-  /** Project-archiving flag (v0.34.0). null when cleared (so mergeFields can unset). */
-  archived: boolean | null;
+  /**
+   * ⚠️ `color`, `archived` and `order` ARE DELIBERATELY ABSENT (v0.42.0).
+   *
+   * All three were per-user preferences stored on a SHARED document, so one
+   * member's choice changed every member's dashboard: an editor's colour or
+   * archive was written to the document (and an archive hid the project from
+   * the owner's own dashboard), and an editor's drag wrote `order` into every
+   * document they could see. They now live in each reader's own settings
+   * document under `projectPrefs` / `projectOrder` — see `Repository`.
+   *
+   * ⚠️ The rules still ALLOW all three (spert-landing `myScrumBudgetProjectFields`).
+   * That is on purpose and must stay until the stored documents are cleaned:
+   * dropping them from the allowlist first would deny any full replace of a
+   * document that still carries them (`importAll`'s kept-id branch, and every
+   * pre-release client's create) and leave the fields undeletable by any client.
+   *
+   * ⚠️ `docToProject` STILL HYDRATES `color` and `archived`, and that is not
+   * dead code: a reader who has not yet been seeded sees the document's values,
+   * which is what makes the one-time seed "what you saw yesterday" rather than
+   * a reset. Deleting the hydration empties every seed.
+   */
   owner: string;
   members: Record<string, string>;
-  order: number;
   _teamSnapshot: Record<string, { name: string; role: string }>;
   /**
    * Cost inputs the project was costed with (v0.39.0). null when absent, so
-   * mergeFields can unset it — same shape as `color`/`archived`.
+   * mergeFields can unset it.
+   *
+   * ⚠️ This used to read "same shape as `color`/`archived`". Those two fields
+   * left this type in v0.42.0 (see the note above), so the comparison now points
+   * at nothing; the shape is stated on its own terms instead.
    *
    * ⚠️ REQUIRED, NOT OPTIONAL, AND THAT IS THE WHOLE POINT. Optional would let
    * both literals below supply nothing, so nothing would ever be written and
@@ -63,13 +83,20 @@ interface FirestoreProjectDoc {
 }
 
 /**
- * Compile-time edge from `Project` to `FirestoreProjectDoc`.
+ * Compile-time edge from `Project` to WHERE EACH FIELD PERSISTS.
  *
- * `FirestoreProjectDoc` is a hand-maintained duplicate of `Project` plus cloud
- * metadata; nothing in the type system linked the two. Adding a field to
+ * `FirestoreProjectDoc` is a hand-maintained near-duplicate of `Project` plus
+ * cloud metadata; nothing in the type system linked the two. Adding a field to
  * `Project` therefore left this doc silently short, and the three write literals
  * still compiled, because they are checked against the duplicate rather than
  * against `Project`.
+ *
+ * ⚠️ SINCE v0.42.0 THE ANSWER IS NO LONGER ALWAYS "THE DOCUMENT". `color` and
+ * `archived` persist in the READER's own settings document, so this map has a
+ * second legal answer, `'reader-prefs'`, and a new `Project` field must be
+ * dispositioned into one of the two. It is RESTRUCTURED, not relieved: the
+ * tempting `Omit<Project, 'color' | 'archived'>` would make the map silent about
+ * exactly the fields this release moved.
  *
  * ⚠️ This is a SECOND gate, not the only one. Adding `Project.foo?` already fails
  * `npm run typecheck` at `sanitizeImport.ts`'s `PROJECT_FIELD_SET` (TS2741,
@@ -99,8 +126,14 @@ interface FirestoreProjectDoc {
  * v0.35.2 took the same trade after rejecting a generic `fieldsOf<T>()` helper
  * that needed an `as unknown as` double cast.
  */
+/** The keys of one reader's preference entry — the second legal destination. */
+type ReaderPrefKey = keyof ProjectPrefsEntry;
+
 type ProjectKeyCoverage = {
-  [K in keyof Omit<Project, 'id'>]-?: K extends keyof FirestoreProjectDoc ? K : never;
+  [K in keyof Omit<Project, 'id'>]-?:
+    K extends keyof FirestoreProjectDoc ? K
+      : K extends ReaderPrefKey ? 'reader-prefs'
+        : never;
 };
 const _projectKeyCoverage: ProjectKeyCoverage = {
   name: 'name',
@@ -108,8 +141,8 @@ const _projectKeyCoverage: ProjectKeyCoverage = {
   endDate: 'endDate',
   reforecasts: 'reforecasts',
   activeReforecastId: 'activeReforecastId',
-  color: 'color',
-  archived: 'archived',
+  color: 'reader-prefs',
+  archived: 'reader-prefs',
   _teamSnapshot: '_teamSnapshot',
   _costSnapshot: '_costSnapshot',
 };
@@ -136,12 +169,16 @@ void _projectKeyCoverage;
  *
  * ⚠️ `Partial` is deliberate and it bounds what this catches: it rejects a key
  * that is NOT a doc field, and it does NOT require completeness. It cannot,
- * because ownership/identity fields — owner, members, order, createdAt,
- * _originRef, _changeLog, schemaVersion — are excluded ON PURPOSE so existing
- * Firestore values survive a save, which is load-bearing for the v0.30.0 import
- * `replace` path. A newly added Project field is caught by
- * `_projectKeyCoverage` above, which is the prompt to decide whether it also
- * belongs here.
+ * because ownership/identity fields — owner, members, createdAt, _originRef,
+ * _changeLog, schemaVersion — are excluded ON PURPOSE so existing Firestore
+ * values survive a save, which is load-bearing for the v0.30.0 import `replace`
+ * path. A newly added Project field is caught by `_projectKeyCoverage` above,
+ * which is the prompt to decide whether it also belongs here.
+ *
+ * ⚠️ SEVEN SINCE v0.42.0, not nine: `color` and `archived` left this set with
+ * the document fields themselves. A save by ANY member used to rewrite both for
+ * EVERY member — including an ordinary Ctrl+Z on the detail page, which
+ * re-saves a pre-change snapshot immediately.
  */
 const SAVE_PROJECT_MERGE_SET = {
   name: true,
@@ -149,8 +186,6 @@ const SAVE_PROJECT_MERGE_SET = {
   endDate: true,
   reforecasts: true,
   activeReforecastId: true,
-  color: true,
-  archived: true,
   _teamSnapshot: true,
   updatedAt: true,
 } satisfies Partial<Record<keyof FirestoreProjectDoc, true>>;
@@ -162,8 +197,9 @@ export const SAVE_PROJECT_MERGE_FIELDS = Object.keys(SAVE_PROJECT_MERGE_SET);
  * `satisfies`-guarded set.
  *
  * ⚠️⚠️ THE SHAPE IS THE POINT, AND THE OBVIOUS ALTERNATIVE IS A SILENT TRAP.
- * The rule this release implements — "not owner → nine; owner with a usable
- * rate card → ten; owner WITHOUT one → nine" — is satisfied literally by:
+ * The rule this release implements — "not owner → seven; owner with a usable
+ * rate card → eight; owner WITHOUT one → seven" (nine/ten until v0.42.0 moved
+ * `color` and `archived` off the document) — is satisfied literally by:
  *
  *     mergeFields: Object.keys(stripUndefined(payload))    // ⚠️ DO NOT.
  *
@@ -193,11 +229,12 @@ export const SAVE_PROJECT_MERGE_FIELDS = Object.keys(SAVE_PROJECT_MERGE_SET);
  * nothing imports is the one a tidy-up deletes. `SAVE_PROJECT_MERGE_FIELDS` is
  * exported for the same reason — the mask assertions use `toBe` (reference
  * identity), because `toEqual` on the array CANNOT refuse the dynamic mask:
- * `Object.keys` of the payload yields the same nine strings in the same order,
+ * `Object.keys` of the payload yields the same seven strings in the same order,
  * so the two are equal by value.
  *
- * ⚠️ `SAVE_PROJECT_MERGE_SET` itself is UNCHANGED, so the nine-element order
- * pin above is untouched by construction.
+ * ⚠️ `SAVE_PROJECT_OWNER_EXTRA` extends `SAVE_PROJECT_MERGE_SET` rather than
+ * restating it, so the element-order pin above (seven since v0.42.0) stays the
+ * one place that order is written down.
  */
 export const SAVE_PROJECT_OWNER_EXTRA = {
   _costSnapshot: true,
@@ -283,7 +320,42 @@ interface FirestoreSettingsDoc {
   trafficLightThresholds: Settings['trafficLightThresholds'];
   schemaVersion: number;
   teamPool: PoolMember[];
+  /**
+   * The reader's own display preferences (v0.42.0), keyed by project id.
+   *
+   * ⚠️ DECLARED HERE AND EXCLUDED FROM BOTH MASKS BY NAME — see
+   * `SettingsPrefsKey` below. The three keys have their own writer, which
+   * addresses individual paths with `FieldPath`; they must never join a mask
+   * that `saveSettings` or `saveTeamPool` uses, because those payloads do not
+   * carry them and a mask entry missing from the data throws INVALID_ARGUMENT
+   * client-side — every settings save would fail. Leaving them off this type
+   * is the other wrong answer: then nothing type-checks the writer at all.
+   */
+  projectPrefs?: Record<string, ProjectPrefsEntry>;
+  /** The reader's own dashboard order: project ids, first to last. */
+  projectOrder?: string[];
+  /**
+   * The one-time seed marker (v0.42.0).
+   *
+   * ⚠️ A NEW KEY, NEVER `schemaVersion`. `saveSettings` rewrites
+   * `schemaVersion: 2` on every save, so a marker kept there would be re-stamped
+   * by an ordinary rate edit and could never mean "this reader has been seeded".
+   * Present ⇒ seeded: the reader's preferences are authoritative and no document
+   * `color`/`archived`/`order` is read for them again.
+   */
+  projectPrefsSeed?: 1;
 }
+
+/**
+ * The preference keys, named once (v0.42.0).
+ *
+ * ⚠️ BOTH SETTINGS MASKS EXCLUDE THIS UNION, and the exclusion is what the
+ * masks' `Record<…>` exactness allows. Adding a preference key to
+ * `FirestoreSettingsDoc` ALONE makes both masks demand it (2 × TS1360) — that
+ * is the guard working, and the prompt to decide. Adding it here as well is the
+ * disposition that says "this one has its own writer".
+ */
+type SettingsPrefsKey = 'projectPrefs' | 'projectOrder' | 'projectPrefsSeed';
 
 /**
  * The fields `saveSettings` writes, and its extension carrying `teamPool`.
@@ -317,7 +389,7 @@ interface FirestoreSettingsDoc {
  * obstacle. If you hit it, disposition the new field; do not loosen this to a
  * literal union to make the error go away.
  */
-type SettingsWriteField = Exclude<keyof FirestoreSettingsDoc, 'teamPool'>;
+type SettingsWriteField = Exclude<keyof FirestoreSettingsDoc, 'teamPool' | SettingsPrefsKey>;
 
 const SETTINGS_MERGE_SET = {
   discountRateAnnual: true,
@@ -330,7 +402,7 @@ const SETTINGS_MERGE_SET = {
 const SETTINGS_AND_POOL_MERGE_SET = {
   ...SETTINGS_MERGE_SET,
   teamPool: true,
-} satisfies Record<keyof FirestoreSettingsDoc, true>;
+} satisfies Record<Exclude<keyof FirestoreSettingsDoc, SettingsPrefsKey>, true>;
 
 const SETTINGS_MERGE_FIELDS = Object.keys(SETTINGS_MERGE_SET);
 const SETTINGS_AND_POOL_MERGE_FIELDS = Object.keys(SETTINGS_AND_POOL_MERGE_SET);
@@ -510,13 +582,18 @@ export function createFirestoreRepository(uid: string): Repository {
      *
      * Fields WRITTEN every save (regenerated from current state):
      *   name, startDate, endDate, reforecasts, activeReforecastId,
-     *   color, archived (both coalesced to null when absent so mergeFields
-     *   unsets them), _teamSnapshot (regenerated from the calling user's
-     *   current team pool), updatedAt
+     *   _teamSnapshot (regenerated from the calling user's current team pool),
+     *   updatedAt
      *
      * Fields INTENTIONALLY EXCLUDED (mergeFields omits them; existing Firestore values kept):
-     *   owner, members, order, createdAt, _originRef, _changeLog, schemaVersion
+     *   owner, members, createdAt, _originRef, _changeLog, schemaVersion
      *   (These live on FirestoreProjectDoc, not on the Project domain type.)
+     *
+     * ⚠️ `color` and `archived` ARE NO LONGER WRITTEN HERE (v0.42.0). They are
+     * per-user preferences now, so a save carries the writer's OWN copy of them
+     * nowhere near the shared document. This is what closes the stale-copy
+     * defect: a second tab, the detail page's debounce, or one Ctrl+Z used to
+     * rewrite both fields for every member of the project.
      *
      * The exclusion of createdAt, _originRef, owner, members, and order is
      * load-bearing for the v0.30.0 import 'replace' path: applyImportMerge calls
@@ -550,9 +627,9 @@ export function createFirestoreRepository(uid: string): Repository {
       //
       // ⚠️⚠️ BOTH THE PAYLOAD AND THE MASK DERIVE FROM THE RESOLVED SNAPSHOT,
       // NEVER FROM `isOwner`. There are THREE states, not two: not owner →
-      // nine fields; owner WITH a usable card → ten; owner WITHOUT one → nine.
-      // Keying the mask on ownership instead would give an owner with no saved
-      // rates a ten-field mask over a nine-key payload, which Firestore rejects
+      // seven fields; owner WITH a usable card → eight; owner WITHOUT one →
+      // seven. Keying the mask on ownership instead would give an owner with no
+      // saved rates an eight-field mask over a seven-key payload, which Firestore rejects
       // with INVALID_ARGUMENT — a mask entry absent from the data is the LOUD
       // direction (see the mask comment above), so every save would throw.
       const ownerSnapshot = (project as ProjectWithOwnership)._isOwner === true
@@ -561,7 +638,7 @@ export function createFirestoreRepository(uid: string): Repository {
 
       // v0.31.0 (C1): explicit mergeFields instead of merge:true. The
       // listed fields are the only ones written every save; ownership /
-      // identity fields (owner, members, order, createdAt, _originRef,
+      // identity fields (owner, members, createdAt, _originRef,
       // _changeLog, schemaVersion) are intentionally excluded so the
       // existing Firestore values are preserved (load-bearing for the
       // v0.30.0 import 'replace' path — see JSDoc above).
@@ -571,13 +648,10 @@ export function createFirestoreRepository(uid: string): Repository {
         endDate: project.endDate,
         reforecasts: project.reforecasts,
         activeReforecastId: project.activeReforecastId,
-        // null (not undefined) when cleared so mergeFields actually unsets them.
-        color: project.color ?? null,
-        archived: project.archived ?? null,
         _teamSnapshot: buildProjectTeamSnapshot(project, pool),
         updatedAt: now,
         // Absent (not null) when there is nothing to publish: `stripUndefined`
-        // removes it, so the payload carries nine keys and the nine-field mask
+        // removes it, so the payload carries seven keys and the seven-field mask
         // below leaves any stored card untouched. A `null` here would be a
         // PRESENT key and would UNSET the card — the opposite of refusing.
         ...(ownerSnapshot ? { _costSnapshot: ownerSnapshot } : {}),
@@ -595,19 +669,20 @@ export function createFirestoreRepository(uid: string): Repository {
     async createProject(project: Project): Promise<void> {
       const pool = await impl.getTeamPool();
       const now = new Date().toISOString();
-      const projects = await impl.getProjects();
-
+      // ⚠️ NO `impl.getProjects()` HERE (v0.42.0). It existed for ONE purpose —
+      // `order: projects.length` — and `order` is no longer a document field, so
+      // the read is gone with it. A new project now sorts last for every reader
+      // by the read rule in `getProjects` (no stored `order` → after the ordered
+      // ones, by `createdAt`), which is where placement belongs now that each
+      // reader has their own order.
       const docData: FirestoreProjectDoc = {
         name: project.name,
         startDate: project.startDate,
         endDate: project.endDate,
         reforecasts: project.reforecasts,
         activeReforecastId: project.activeReforecastId,
-        color: project.color ?? null,
-        archived: project.archived ?? null,
         owner: uid,
         members: { [uid]: 'owner' },
-        order: projects.length,
         _teamSnapshot: buildProjectTeamSnapshot(project, pool),
         // v0.39.0: written as an explicit null, never invented here. This
         // path has no business deciding what a project was costed with —
@@ -705,11 +780,8 @@ export function createFirestoreRepository(uid: string): Repository {
           endDate: project.endDate,
           reforecasts: project.reforecasts,
           activeReforecastId: project.activeReforecastId,
-          color: project.color ?? null,
-          archived: project.archived ?? null,
           owner: uid,
           members: { [uid]: 'owner' },
-          order: i,
           _teamSnapshot: buildProjectTeamSnapshot(project, pool),
           // v0.39.0: written as an explicit null, never invented here. This
           // path has no business deciding what a project was costed with —
