@@ -244,11 +244,17 @@ export function docToProject(id: string, data: Record<string, unknown>): Project
     reforecasts,
     activeReforecastId: (data.activeReforecastId as string | null) ?? null,
   };
-  // Optional Dashboard tile tint (v0.33.0). Stored as null when cleared; only
-  // a known key hydrates onto the domain object.
+  // Optional Dashboard tile tint (v0.33.0), and the archiving flag (v0.34.0).
+  //
+  // ⚠️ NO APP VERSION WRITES EITHER FIELD SINCE v0.42.0 — they are per-user
+  // preferences now — so "stored as null when cleared" describes documents
+  // written by v0.41.0 and earlier, which is most of them. THESE TWO LINES ARE
+  // NOT DEAD: a reader who has not been seeded yet sees exactly what the document
+  // holds, and that view is what their one-time seed copies. Delete the hydration
+  // and every seed copies nothing — silently, because the documents still carry
+  // the values and no write-side test can see it.
   if (isProjectColor(data.color)) project.color = data.color;
-  // Optional archiving flag (v0.34.0). Stored as null when cleared; only `true`
-  // hydrates — null/false/missing all collapse back to "absent" (active) on read.
+  // Only `true` hydrates — null/false/missing all collapse back to "absent".
   if (data.archived === true) project.archived = true;
   // Shared-project team names (v0.38.2). This field was written to every
   // project doc from v0.16.0 and hydrated by NOTHING until v0.38.2: the map

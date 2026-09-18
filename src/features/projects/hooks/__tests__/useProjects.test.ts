@@ -14,9 +14,19 @@ const mocks = vi.hoisted(() => ({
   createProject: vi.fn().mockResolvedValue(undefined),
   deleteProject: vi.fn<(id: string) => Promise<void>>().mockResolvedValue(undefined),
   exportAll: vi.fn(),
+  // v0.42.0 — the two preference methods. ⚠️ This mock repository is UNTYPED, so
+  // a method the hook calls and the mock lacks is NOT a compile error: it is a
+  // runtime TypeError inside the hook's own try/catch, surfacing as a toast and
+  // an assertion failure three lines from the cause. Declaring them here is what
+  // keeps that failure legible (measured at v0.42.0 pre-flight: adding a
+  // Repository method costs 2 tsc errors and ZERO in test files).
+  writeProjectPrefs: vi.fn().mockResolvedValue(undefined),
+  ensureProjectPrefsSeeded: vi.fn().mockResolvedValue(undefined),
   appendToChangeLog: vi.fn(),
   ensureOriginRef: vi.fn(),
   addToastGlobal: vi.fn(),
+  /** Every cloudSyncBus handler the hook registers, so a test can fire one. */
+  busHandlers: [] as ((event: string) => void)[],
 }));
 
 vi.mock('@/lib/storage/pendingSaveRegistry', () => ({
@@ -38,8 +48,13 @@ vi.mock('@/components/RepositoryProvider', () => {
       createProject: mocks.createProject,
       deleteProject: mocks.deleteProject,
       exportAll: mocks.exportAll,
+      writeProjectPrefs: mocks.writeProjectPrefs,
+      ensureProjectPrefsSeeded: mocks.ensureProjectPrefsSeeded,
     },
     mode: 'local' as const,
+    // ⚠️ MUTATED PER TEST by the cloud cases below (the seed trigger is gated on
+    // it), and reset in beforeEach. The object itself must stay the SAME
+    // reference — see the stability note above.
     isCloud: false,
     switchMode: vi.fn(),
   };
@@ -50,7 +65,17 @@ vi.mock('@/lib/storage/fingerprint', () => ({
   ensureOriginRef: mocks.ensureOriginRef,
 }));
 vi.mock('@/lib/firebase/cloudSyncBus', () => ({
-  cloudSyncBus: { subscribe: vi.fn(() => () => {}), emit: vi.fn() },
+  cloudSyncBus: {
+    // Captures the handler so a test can fire a real bus event (v0.42.0).
+    subscribe: vi.fn((handler: (event: string) => void) => {
+      mocks.busHandlers.push(handler);
+      return () => {
+        const i = mocks.busHandlers.indexOf(handler);
+        if (i >= 0) mocks.busHandlers.splice(i, 1);
+      };
+    }),
+    emit: vi.fn(),
+  },
 }));
 vi.mock('@/lib/utils/reforecast', () => ({
   createBaselineReforecast: vi.fn(() => ({
@@ -78,9 +103,13 @@ describe('useProjects', () => {
     mocks.saveProject.mockReset().mockResolvedValue(undefined);
     mocks.createProject.mockReset().mockResolvedValue(undefined);
     mocks.exportAll.mockReset();
+    mocks.writeProjectPrefs.mockReset().mockResolvedValue(undefined);
+    mocks.ensureProjectPrefsSeeded.mockReset().mockResolvedValue(undefined);
     mocks.appendToChangeLog.mockReset();
     mocks.ensureOriginRef.mockReset();
     mocks.addToastGlobal.mockReset();
+    mocks.busHandlers.length = 0;
+    (repositoryContext.value as { isCloud: boolean }).isCloud = false;
   });
 
   describe('deleteProject', () => {
@@ -131,73 +160,92 @@ describe('useProjects', () => {
   });
 
   describe('setProjectColor', () => {
-    it('sets the color and persists', async () => {
-      mocks.getProject.mockResolvedValue(makeProject('p1'));
+    // ⚠️ REWRITTEN AT v0.42.0. These asserted `getProject` then `saveProject`
+    // with a whole project object — the route that wrote one member's colour
+    // into a document every member reads. The hook now sends a PATCH and reads
+    // nothing first: there is no whole-object write left to clobber a concurrent
+    // edit, which was the only reason for the pre-read.
+    it('sends a colour patch — no read, no project write', async () => {
       const { result } = renderHook(() => useProjects());
       await act(async () => {});
+
       await act(async () => { await result.current.setProjectColor('p1', 'teal'); });
-      expect(mocks.saveProject).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'p1', color: 'teal' }),
-      );
+
+      expect(mocks.writeProjectPrefs).toHaveBeenCalledWith([{ id: 'p1', color: 'teal' }]);
+      expect(mocks.saveProject, 'the shared document is not touched').not.toHaveBeenCalled();
+      expect(mocks.getProject, 'and nothing is read first').not.toHaveBeenCalled();
     });
 
-    it('strips the color field when cleared (undefined)', async () => {
-      mocks.getProject.mockResolvedValue({ ...makeProject('p1'), color: 'pink' });
+    it('clears with null — the patch says "remove", not "set to nothing"', async () => {
       const { result } = renderHook(() => useProjects());
       await act(async () => {});
+
       await act(async () => { await result.current.setProjectColor('p1', undefined); });
-      const saved = mocks.saveProject.mock.calls[mocks.saveProject.mock.calls.length - 1][0];
-      expect(saved).not.toHaveProperty('color');
+
+      expect(mocks.writeProjectPrefs).toHaveBeenCalledWith([{ id: 'p1', color: null }]);
     });
 
-    it('no-ops when the project does not exist', async () => {
-      mocks.getProject.mockResolvedValue(null);
+    it('reports a rejected write and does not reload', async () => {
+      // ⚠️ REPLACES "no-ops when the project does not exist", which could no
+      // longer fail: it asserted `saveProject` was not called, and the hook does
+      // not call `saveProject` at all now. The "project is gone" case moved to
+      // the repository (localStorage.test.ts [Q2]); what belongs here is that a
+      // failed write is reported rather than swallowed.
+      mocks.writeProjectPrefs.mockRejectedValueOnce({ code: 'permission-denied' });
       const { result } = renderHook(() => useProjects());
       await act(async () => {});
-      await act(async () => { await result.current.setProjectColor('missing', 'blue'); });
-      expect(mocks.saveProject).not.toHaveBeenCalled();
+      mocks.getProjects.mockClear();
+
+      await act(async () => { await result.current.setProjectColor('p1', 'blue'); });
+
+      expect(mocks.addToastGlobal).toHaveBeenCalled();
+      expect(mocks.getProjects, 'a failed write does not reload').not.toHaveBeenCalled();
     });
   });
 
   describe('archiveProject / unarchiveProject', () => {
-    it('archiveProject persists archived: true, logs it, and does NOT call ensureOriginRef', async () => {
-      mocks.getProject.mockResolvedValue(makeProject('p1'));
+    // ⚠️ REWRITTEN AT v0.42.0, and this pair is the defect in miniature:
+    // archiving used to write `archived: true` to the shared document, which hid
+    // the project from EVERY member's dashboard — the owner's included.
+    it('archive sends archived: true, logs it, and does NOT call ensureOriginRef', async () => {
       const { result } = renderHook(() => useProjects());
       await act(async () => {});
+
       await act(async () => { await result.current.archiveProject('p1'); });
-      expect(mocks.saveProject).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'p1', archived: true }),
-      );
+
+      expect(mocks.writeProjectPrefs).toHaveBeenCalledWith([{ id: 'p1', archived: true }]);
+      expect(mocks.saveProject, 'nobody else\u2019s dashboard changes').not.toHaveBeenCalled();
       expect(mocks.appendToChangeLog).toHaveBeenCalledWith(
         expect.objectContaining({ op: 'archive', entity: 'project', id: 'p1' }),
       );
-      // Mutates an existing project — not new identity (same category as delete).
       expect(mocks.ensureOriginRef).not.toHaveBeenCalled();
     });
 
-    it('unarchiveProject strips archived (not archived:false), logs it, no ensureOriginRef', async () => {
-      mocks.getProject.mockResolvedValue({ ...makeProject('p1'), archived: true });
+    it('unarchive sends archived: null — cleared, never false', async () => {
       const { result } = renderHook(() => useProjects());
       await act(async () => {});
+
       await act(async () => { await result.current.unarchiveProject('p1'); });
-      const saved = mocks.saveProject.mock.calls[mocks.saveProject.mock.calls.length - 1][0];
-      expect(saved).not.toHaveProperty('archived');
+
+      expect(mocks.writeProjectPrefs).toHaveBeenCalledWith([{ id: 'p1', archived: null }]);
       expect(mocks.appendToChangeLog).toHaveBeenCalledWith(
         expect.objectContaining({ op: 'unarchive', entity: 'project', id: 'p1' }),
       );
       expect(mocks.ensureOriginRef).not.toHaveBeenCalled();
     });
 
-    it('both no-op when the project does not exist', async () => {
-      mocks.getProject.mockResolvedValue(null);
+    it('a rejected archive is reported and not logged as done', async () => {
+      // The other half of the old "both no-op when the project does not exist":
+      // the hook no longer knows whether a project exists, so what it still owes
+      // the user is an honest report when the write fails.
+      mocks.writeProjectPrefs.mockRejectedValueOnce({ code: 'permission-denied' });
       const { result } = renderHook(() => useProjects());
       await act(async () => {});
-      await act(async () => {
-        await result.current.archiveProject('missing');
-        await result.current.unarchiveProject('missing');
-      });
-      expect(mocks.saveProject).not.toHaveBeenCalled();
-      expect(mocks.appendToChangeLog).not.toHaveBeenCalled();
+
+      await act(async () => { await result.current.archiveProject('p1'); });
+
+      expect(mocks.addToastGlobal).toHaveBeenCalled();
+      expect(mocks.appendToChangeLog, 'nothing happened, so nothing is logged').not.toHaveBeenCalled();
     });
   });
 
@@ -341,6 +389,80 @@ describe('useProjects', () => {
 
       expect(result.current.projects, 'evicted').toEqual([]);
       expect(mocks.addToastGlobal, 'and silent').not.toHaveBeenCalled();
+    });
+  });
+
+  describe('per-user preferences (v0.42.0)', () => {
+    it('[S1] a settings bus event reloads the list', async () => {
+      // ⚠️ THE PREFERENCES LIVE IN THE SETTINGS DOCUMENT NOW, so a colour changed
+      // in another tab or on another device produces a 'settings' event and
+      // nothing else. Without this subscription the dashboard would show the old
+      // colours until someone reloaded the page by hand.
+      const { result } = renderHook(() => useProjects());
+      await act(async () => {});
+      expect(result.current.loading).toBe(false);
+      mocks.getProjects.mockClear();
+
+      await act(async () => { mocks.busHandlers.forEach((handler) => handler('settings')); });
+
+      expect(mocks.getProjects, 'a settings change re-reads the projects').toHaveBeenCalledTimes(1);
+    });
+
+    it('[S2] in cloud mode the seed runs ONCE, after a successful load', async () => {
+      (repositoryContext.value as { isCloud: boolean }).isCloud = true;
+      const { result } = renderHook(() => useProjects());
+      await act(async () => {});
+
+      expect(mocks.ensureProjectPrefsSeeded).toHaveBeenCalledTimes(1);
+
+      // A later reload — a bus event, a mutation, anything — must not re-seed.
+      await act(async () => { mocks.busHandlers.forEach((handler) => handler('projects')); });
+      await act(async () => { await result.current.deleteProject('p1'); });
+
+      expect(mocks.ensureProjectPrefsSeeded,
+        'idempotent in the repository, but not even asked again here').toHaveBeenCalledTimes(1);
+    });
+
+    it('[S3] in local mode the seed is never attempted', async () => {
+      // Gated on `isCloud` from the provider, never on the stored mode: the mode
+      // key can say "cloud" while nobody is signed in, and the provider then
+      // hands out the LOCAL repository.
+      renderHook(() => useProjects());
+      await act(async () => {});
+
+      expect(mocks.ensureProjectPrefsSeeded).not.toHaveBeenCalled();
+    });
+
+    it('[S4] a failed seed is logged with its code only, never toasted', async () => {
+      // ⚠️ A FAILED SEED IS NOT A FAILED ACTION: the reader keeps seeing the
+      // documents' values, which is what they saw yesterday, and the next load
+      // tries again. A toast would report a background step the user did not ask
+      // for. The code only — never the payload (v0.28.2 log hygiene).
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      mocks.ensureProjectPrefsSeeded.mockRejectedValueOnce({ code: 'unavailable', message: 'secret-detail' });
+      (repositoryContext.value as { isCloud: boolean }).isCloud = true;
+
+      renderHook(() => useProjects());
+      await act(async () => {});
+
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('seed failed'), 'unavailable');
+      expect(mocks.addToastGlobal, 'the user is not told about a background step').not.toHaveBeenCalled();
+      warn.mockRestore();
+    });
+
+    it('[S5] a clone carries the CLONER\u2019s colour onto the new id', async () => {
+      // `createProject` no longer writes a colour, so without this the clone of a
+      // coloured project would come out untinted for the person who cloned it.
+      const source = { ...makeProject('p1'), color: 'teal' as const };
+      mocks.getProject.mockResolvedValue(source);
+      mocks.getProjects.mockResolvedValue([source]);
+      const { result } = renderHook(() => useProjects());
+      await act(async () => {});
+
+      await act(async () => { await result.current.cloneProject('p1'); });
+
+      expect(mocks.writeProjectPrefs).toHaveBeenCalledWith([{ id: 'new-id', color: 'teal' }]);
+      expect(mocks.writeProjectPrefs.mock.calls[0][0][0]).not.toHaveProperty('archived');
     });
   });
 });

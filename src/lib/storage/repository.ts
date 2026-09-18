@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import type { Settings, PoolMember, Project, AppState } from '@/types/domain';
+import type { Settings, PoolMember, Project, AppState, ProjectPrefPatch } from '@/types/domain';
 
 export interface Repository {
   getSettings(): Promise<Settings>;
@@ -45,17 +45,30 @@ export interface Repository {
    *
    * ⚠️ Stated here as of v0.37.12 because this interface had NO contract and the
    * two implementations disagreed. Firestore had already implemented end-placement
-   * all along, undocumented (`createProject` sets `order: projects.length` and
-   * `getProjects` sorts on it, so an unseen project keeps the highest `order`);
+   * all along, undocumented — `createProject` SET `order: projects.length` and
+   * `getProjects` SORTED on it, so an unseen project kept the highest `order`;
    * localStorage instead rebuilt storage from exactly the ids it was handed and
    * PERMANENTLY DESTROYED the rest. The method is named *reorder*, not *replace*.
    *
-   * ⚠️ The two implementations converge on the MISSING-id axis only. They still
-   * diverge on the EXTRA-id axis: `WriteBatch.update` carries
-   * `Precondition.exists(true)`, so a cloud batch naming a project deleted
-   * elsewhere is rejected WHOLE — nothing reordered, the optimistic update
-   * already applied, and the rejection unhandled. localStorage tolerates an
-   * extra id (it is filtered out). Do not describe these as equivalent.
+   * ⚠️ PAST TENSE SINCE v0.42.0: no project document carries `order` any more.
+   * End-placement survives as a READ rule — a document with no stored order sorts
+   * after the ordered ones — and the contract above is now kept by the
+   * read-modify-write of the reader's own `projectOrder`.
+   *
+   * ⚠️ THE EXTRA-ID DIVERGENCE IS GONE (v0.42.0), and the reason is worth
+   * keeping because the old one was load-bearing for four releases. Cloud used
+   * to reorder with a `writeBatch` of `{order: index}` per project, and
+   * `WriteBatch.update` carries `Precondition.exists(true)`, so an `orderedIds`
+   * naming a project deleted in another tab rejected the batch WHOLE. Cloud now
+   * writes ONE ARRAY into the reader's own settings document; an array has no
+   * existence precondition, so an id for a project that no longer exists is
+   * simply carried along and ignored on read — which is what localStorage has
+   * always done with an extra id.
+   *
+   * ⚠️ AND THE ORDER IS PER-READER IN CLOUD MODE. Reordering writes nothing to
+   * any project document, so one member's drag no longer moves anybody else's
+   * tiles — and a VIEWER can reorder their own dashboard, which the rules
+   * refused outright while `order` lived on the shared document.
    *
    * ⚠️ DELIBERATE NON-CHOICE (2026-09-03), recorded so the surviving caller-side
    * invariant reads as CHOSEN rather than overlooked. The better shape is move
@@ -73,6 +86,40 @@ export interface Repository {
    * that does it.
    */
   reorderProjects(orderedIds: string[]): Promise<void>;
+
+  /**
+   * Change THIS reader's colour / archive preferences for one or more projects
+   * (v0.42.0). `null` clears a preference; an absent key leaves it alone.
+   *
+   * ⚠️ CLOUD: one transaction on the reader's own settings document, per-field
+   * paths only, and it SEEDS the reader first if they have never been seeded —
+   * so a reader's first colour change cannot leave them marked as seeded with a
+   * one-entry map, which would silently drop every other project's colour and
+   * archive state they could see a moment earlier.
+   *
+   * ⚠️ LOCAL: the fields live on the stored project objects, exactly as they did
+   * before this release, and a patch for an id that is not stored writes
+   * nothing. Local mode has one reader, so there is nothing to make per-user.
+   */
+  writeProjectPrefs(patches: ProjectPrefPatch[]): Promise<void>;
+
+  /**
+   * Copy what this reader currently sees into their own preferences, once
+   * (v0.42.0).
+   *
+   * Idempotent: a marker inside the same transaction decides, so a remount, a
+   * second tab and a concurrent writer all converge on one seed. A failure is
+   * not fatal — the reader keeps seeing the documents' values and the next load
+   * tries again.
+   *
+   * ⚠️ NEVER CALL THIS FROM A READ. `getProjects` runs inside sign-out cleanup
+   * before credentials are revoked, inside `exportAll`, inside the import's
+   * stale-data guard and inside the team-pool delete guard; a read that writes
+   * turns every one of those into a writer.
+   *
+   * LOCAL: a no-op.
+   */
+  ensureProjectPrefsSeeded(): Promise<void>;
 
   exportAll(): Promise<AppState>;
   importAll(state: AppState): Promise<void>;

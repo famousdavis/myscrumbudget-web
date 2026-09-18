@@ -3,7 +3,7 @@
 // See LICENSE file in the project root for full license text.
 
 import type { Repository } from './repository';
-import type { Settings, Project, AppState } from '@/types/domain';
+import type { Settings, Project, AppState, ProjectPrefPatch } from '@/types/domain';
 import { STORAGE_KEYS } from '@/types/storage';
 import { runMigrations, DATA_VERSION } from './migrations';
 import { isValidSettings, isValidProjectEntry, isValidPoolMemberEntry } from '@/lib/utils/validation';
@@ -111,8 +111,9 @@ export function describeStorageError(err: unknown, fallback: string): string {
  *
  * ⚠️ A STRICT EXTENSION OF `describeStorageError`, NEVER A REPLACEMENT, AND THE
  * DELEGATION IS LOAD-BEARING RATHER THAN TIDY. `saveProject` (`:431`),
- * `saveTeamPool` (`:386`), `deleteProject` (`:447`), `reorderProjects` (`:491`)
- * and `saveSettingsAndTeamPool` (`:416`) all call `readEntries` UNGUARDED, and
+ * `saveTeamPool` (`:386`), `deleteProject` (`:447`), `reorderProjects` (`:491`),
+ * `saveSettingsAndTeamPool` (`:416`) and, since v0.42.0, `writeProjectPrefs` all
+ * call `readEntries` UNGUARDED, and
  * `readEntries` throws `StorageIntegrityError` (`:200`/`:202`). Those are write
  * paths. A version of this function that handled only `permission-denied` and
  * otherwise returned `fallback` would SILENTLY DELETE v0.38.0's integrity
@@ -381,6 +382,29 @@ function set(key: string, value: unknown): void {
   }
 }
 
+/**
+ * Apply one preference patch to a stored project, in place. Returns whether it
+ * changed anything, so a patch naming nothing writes nothing.
+ *
+ * ⚠️ CLEARING STRIPS THE FIELD rather than storing `null` or `false`: that is how
+ * "no tint" and "not archived" have always been stored, and it is what keeps a
+ * round-trip export clean.
+ */
+function applyPatchToProject(project: Project, patch: ProjectPrefPatch): boolean {
+  let changed = false;
+  if (patch.color !== undefined) {
+    if (patch.color === null) delete project.color;
+    else project.color = patch.color;
+    changed = true;
+  }
+  if (patch.archived !== undefined) {
+    if (patch.archived === null) delete project.archived;
+    else project.archived = true;
+    changed = true;
+  }
+  return changed;
+}
+
 export function createLocalStorageRepository(): Repository {
   const repo: Repository = {
     /**
@@ -511,11 +535,17 @@ export function createLocalStorageRepository(): Repository {
      * `msb:projects` (`FirstRunBanner.tsx:57` is the only one, for another key).
      *
      * ⚠️ End-placement is not an arbitrary pick. `saveProject` pushes (:142),
-     * so new projects already go last here; and Firestore has implemented the
-     * same rule all along — `createProject` sets `order: projects.length` and
-     * `getProjects` sorts on `order`, so a project a stale tab never saw keeps
-     * the highest `order` and sorts last. The interface is named *reorder*, not
+     * so new projects already go last here; and Firestore implemented the same
+     * rule all along — `createProject` SET `order: projects.length` and
+     * `getProjects` SORTED on it, so a project a stale tab never saw kept the
+     * highest `order` and sorted last. The interface is named *reorder*, not
      * *replace*. THIS implementation was the outlier; the fix makes it conform.
+     *
+     * ⚠️ PAST TENSE SINCE v0.42.0: no project document carries `order` any more,
+     * and a cloud reorder is a read-modify-write of the READER's own
+     * `projectOrder`. End-placement survives there as a read rule (a document
+     * with no stored order sorts after the ordered ones), so both clauses of the
+     * contract still hold on both sides; only the cloud mechanism changed.
      *
      * ⚠⚠ HISTORY, kept because the bound it records is what this file was
      * missing. Until v0.38.0 this carried a stated bound — "never drops a
@@ -533,6 +563,47 @@ export function createLocalStorageRepository(): Repository {
      * residue element has no readable `id` and so can never appear in
      * `orderedIds`. The contract above already covers it; nothing was widened.
      */
+    /**
+     * Local mode keeps colour and archive state ON the stored project objects,
+     * exactly as every release before v0.42.0 did (v0.42.0).
+     *
+     * ⚠️ NOTHING BECOMES PER-USER HERE, and that is not an oversight: local mode
+     * has ONE reader. The defect this release fixes — one member's colour or
+     * archive changing what every other member sees — needs a shared document,
+     * which local storage does not have.
+     *
+     * ⚠️ A patch for an id that is not stored writes NOTHING. That is where the
+     * hooks' old "no-op when the project does not exist" behaviour now lives:
+     * they used to read the project first and bail, and they no longer read at
+     * all.
+     *
+     * ⚠️ CLEARING STRIPS THE FIELD rather than storing `null` or `false`, which
+     * is what keeps a round-trip export clean and matches how `unarchive` and
+     * "no tint" have always been stored.
+     */
+    async writeProjectPrefs(patches) {
+      const { entries, residue } = readEntries(STORAGE_KEYS.projects, isValidProjectEntry);
+      let changed = false;
+      for (const patch of patches) {
+        const project = entries.find((p) => p.id === patch.id);
+        if (project && applyPatchToProject(project, patch)) changed = true;
+      }
+      if (!changed) return;
+      // Residue carried forward, like every other write in this file: the read
+      // above returns only the entries it could parse.
+      writeEntries(STORAGE_KEYS.projects, entries, residue);
+    },
+
+    /**
+     * A no-op in local mode (v0.42.0) — there is one reader and their values are
+     * already on the projects. Declared rather than omitted so the two
+     * implementations answer the same interface and a caller never has to ask
+     * which mode it is in.
+     */
+    async ensureProjectPrefsSeeded() {
+      // Intentionally empty.
+    },
+
     async reorderProjects(orderedIds) {
       const { entries, residue } = readEntries(STORAGE_KEYS.projects, isValidProjectEntry);
       const byId = new Map(entries.map((p) => [p.id, p]));

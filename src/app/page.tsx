@@ -82,6 +82,12 @@ export default function DashboardPage() {
   // archived project moved". The invariant survives as a rule about ORDER rather
   // than existence, and it is pinned by a test that had to have its FIXTURE fixed
   // to see it — see `src/app/__tests__/page.test.tsx`.
+  //
+  // ⚠️ v0.42.0: cloud mode keeps the order in the READER's own settings document
+  // now, and its reorder is a read-modify-write of that array — so the rule and
+  // its weaker consequence apply identically on both sides. The paragraph above
+  // describes localStorage because, until this release, that was the only
+  // implementation which appended the ids it was not handed.
   const archivedProjects = projects.filter((p) => p.archived);
   const visibleProjects = showArchived ? projects : projects.filter((p) => !p.archived);
   const emptyState = getDashboardEmptyState(projects.length, visibleProjects.length);

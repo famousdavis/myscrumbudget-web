@@ -203,6 +203,41 @@ export interface CharterBudgetResult {
 // of the field means "no tint".
 export type ProjectColor = 'blue' | 'teal' | 'slate' | 'purple' | 'pink';
 
+/**
+ * One reader's display preferences for one project (v0.42.0).
+ *
+ * ⚠️ NOT part of `Settings`, deliberately. `sanitizeImport`'s
+ * `SETTINGS_FIELD_SET` is `Record<keyof Settings, true>`, so a preference field
+ * on the domain settings type would be DEMANDED by the import allowlist and
+ * ingested from a file — importing one person's colours, archive flags and seed
+ * marker into another person's account. These two types live here because both
+ * storage implementations and the `Repository` interface need them and this
+ * module is firebase-free — the same reason `ProjectWithOwnership` moved out of
+ * `firestoreRepo.ts` in v0.41.0.
+ *
+ * ⚠️ `archived` is `true`-or-absent, never `false`, matching `Project.archived`,
+ * so "not archived" has exactly one representation.
+ */
+export interface ProjectPrefsEntry {
+  color?: ProjectColor;
+  archived?: true;
+}
+
+/**
+ * A change to one project's preferences (v0.42.0). `null` CLEARS; an absent key
+ * leaves that preference alone.
+ *
+ * ⚠️ The two are different and both are used: `{ id, color: null }` clears the
+ * colour and leaves the archive flag, while `{ id }` changes nothing. A cloud
+ * import's `replace` sends both keys explicitly, because it must apply the
+ * file's state exactly.
+ */
+export interface ProjectPrefPatch {
+  id: string;
+  color?: ProjectColor | null;
+  archived?: true | null;
+}
+
 // Project
 export interface Project {
   id: string;

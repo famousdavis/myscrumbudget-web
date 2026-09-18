@@ -739,4 +739,71 @@ describe('applyImportMerge', () => {
       }
     });
   });
+
+  /**
+   * v0.42.0 — a cloud import writes the file's colour and archive state into the
+   * IMPORTER's own preferences, because the shared document no longer carries
+   * either. The owner ruled that both come from the file.
+   */
+  describe('per-user preferences on import (v0.42.0)', () => {
+    /** A repository that records preference writes and otherwise behaves normally. */
+    function recordingRepo() {
+      const calls: unknown[][] = [];
+      const impl: Repository = {
+        ...createLocalStorageRepository(),
+        writeProjectPrefs: async (patches) => { calls.push(patches); },
+      };
+      switchRepoImpl(impl);
+      return { calls, impl };
+    }
+
+    it('[R1] cloud add: the file\u2019s values, keyed by the NEW id', async () => {
+      // ⚠️ KEYED BY THE ID THAT WAS WRITTEN, not the file's: a cloud add always
+      // mints a new one, and a preference keyed off the file's id would belong to
+      // no project at all.
+      const { calls } = recordingRepo();
+      const incoming = makeProject({ id: 'incoming-id', color: 'teal', archived: true });
+
+      await applyImportMerge(
+        makePreview({ 'incoming-id': 'add' }, [incoming], { mode: 'cloud' }), activeRepo,
+      );
+
+      const storedId = (await repo.getProjects())[0].id;
+      expect(storedId, 'the id really was regenerated').not.toBe('incoming-id');
+      expect(calls, 'one write for the whole import').toHaveLength(1);
+      expect(calls[0]).toEqual([{ id: storedId, color: 'teal', archived: true }]);
+    });
+
+    it('[R2] cloud replace is EXACT — an absent or false value clears', async () => {
+      // ⚠️ `archived: false` and an absent flag both mean "not archived", so both
+      // CLEAR rather than writing anything. A replace asserts the file's state
+      // over whatever the importer had, which is what the owner chose.
+      await repo.saveProject(makeProject({ id: 'p_existing', name: 'Existing', color: 'pink' }));
+      const { calls } = recordingRepo();
+      const incoming = makeProject({ id: 'p_existing', name: 'Existing', archived: false });
+
+      await applyImportMerge(
+        makePreview({ p_existing: 'replace' }, [incoming], {
+          mode: 'cloud',
+          conflicts: { p_existing: { type: 'id', existingId: 'p_existing', existingName: 'Existing' } },
+        }), activeRepo,
+      );
+
+      expect(calls[0]).toEqual([{ id: 'p_existing', color: null, archived: null }]);
+    });
+
+    it('[R3] a LOCAL import writes no preferences at all', async () => {
+      // Local mode keeps both fields on the stored project, exactly as before —
+      // `createProject` has already written them.
+      const { calls } = recordingRepo();
+      const incoming = makeProject({ id: 'incoming-id', color: 'teal' });
+
+      await applyImportMerge(
+        makePreview({ 'incoming-id': 'add' }, [incoming], { mode: 'local' }), activeRepo,
+      );
+
+      expect(calls, 'nothing per-user exists in local mode').toHaveLength(0);
+      expect((await repo.getProjects())[0].color, 'the colour rides on the project').toBe('teal');
+    });
+  });
 });

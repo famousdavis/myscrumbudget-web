@@ -4,6 +4,27 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.42.0] - 2026-09-17
+
+### Changed
+- **A project's colour, whether it is archived, and the order of your dashboard are now yours alone.** Until now all three lived on the project itself, so they were shared: colouring a project changed its colour for everyone it is shared with, archiving it hid it from everyone, and dragging your tiles into a new order rewrote the order for them too. Each person now has their own, kept with their own settings.
+- **Archiving a shared project hides it from your dashboard only.** Before this, archiving hid it from every member's dashboard — the owner's included — and the only way back was for somebody to find it under "Show archived" and un-archive it.
+- **You can reorder your dashboard even when you are only a viewer on one of the projects.** A single view-only project used to make the whole drag fail, so those users could not reorder their own dashboard at all. Nothing on screen said why.
+- **Your first load after this release keeps what you are looking at now.** Your current colours, archive states and tile order are copied once into your own preferences; after that, what you change is yours and what other people change is theirs.
+
+### Fixed
+- **A second tab, a background save or an undo no longer changes a shared project's colour or archive state for everybody else.** Pressing Ctrl+Z on a project page re-saves the version from just before your change, and that copy used to carry both fields with it — so an undo could quietly restore a colour, or an archive, for every member of the project.
+- **Uploading your local data to the cloud from the account menu no longer risks your local copy if your session ends during the upload.** The same upload started from Settings has been protected since v0.37.11; the pop-up version was not, and a session expiring mid-upload could clear the local data while the cloud held only part of it.
+
+### Known limitations
+- A shared project may keep a colour or archived state set with an earlier version of the app until you change it; changes you make now affect only you.
+- An archive somebody else applied before this release stays hidden in your view until you un-archive it — and doing so now affects only you.
+- Importing a file applies that file's colours and archive states to **your** view. A "replace" applies them exactly, so a project with no colour in the file clears the colour you had for it.
+- A browser tab left open from before this release can still change a shared project's colour and archive state for other people, until it is reloaded.
+- In local storage mode there is one set of preferences per browser, exactly as before. Nothing about local mode changes in this release.
+- Changing a colour, archiving a project or reordering your dashboard while offline now reports a failure instead of waiting to sync. The change is not lost — it is simply not applied — and repeating it once you are back online works.
+- Cloud behaviour here was verified with automated tests and against a local Firestore emulator, not in a live account.
+
 ## [0.41.0] - 2026-09-14
 
 ### Added

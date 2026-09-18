@@ -464,3 +464,79 @@ describe('saveSettingsAndTeamPool — one operation, pool written first (PR C1)'
       .toBe('Business Analyst');
   });
 });
+
+/**
+ * v0.42.0 — the two preference methods in LOCAL mode.
+ *
+ * ⚠️ NOTHING BECOMES PER-USER HERE, deliberately: local mode has one reader, and
+ * the defect this release fixes needs a shared document. What these pin is that
+ * the hooks' route through `writeProjectPrefs` reaches the same stored shape the
+ * old `getProject` → `saveProject` route produced — including the two things
+ * that shape depends on: clearing STRIPS the field, and the unreadable entries
+ * beside it survive the write.
+ *
+ * ⚠️ ITS OWN `beforeEach`, because this block sits outside the file's main
+ * `describe` and would otherwise inherit nothing — the trap that let two v0.37.11
+ * tests pass on state left behind by earlier ones.
+ */
+describe('writeProjectPrefs / ensureProjectPrefsSeeded — local mode (v0.42.0)', () => {
+  const P = STORAGE_KEYS.projects;
+  /** An entry no validator can read — the residue every local write must carry. */
+  const MALFORMED = { nope: true };
+
+  let repo: ReturnType<typeof createLocalStorageRepository>;
+  beforeEach(() => {
+    localStorage.clear();
+    repo = createLocalStorageRepository();
+  });
+
+  function seed(...projects: Project[]): void {
+    localStorage.setItem(P, JSON.stringify([...projects, MALFORMED]));
+  }
+  function stored(): Array<Record<string, unknown>> {
+    return JSON.parse(localStorage.getItem(P) ?? 'null');
+  }
+  function storedProject(id: string): Record<string, unknown> {
+    return stored().find((p) => p?.id === id)!;
+  }
+
+  it('[Q1] sets colour and archive on the named projects, and carries the residue forward', async () => {
+    seed(makeProject({ id: 'a' }), makeProject({ id: 'b' }));
+
+    await repo.writeProjectPrefs([
+      { id: 'a', color: 'teal' },
+      { id: 'b', archived: true },
+    ]);
+
+    expect(storedProject('a').color).toBe('teal');
+    expect(storedProject('b').archived).toBe(true);
+    expect(stored().find((p) => p?.id === undefined),
+      'the unreadable entry must survive a preference write like any other').toEqual(MALFORMED);
+  });
+
+  it('[Q2] clearing STRIPS the field, and a patch for an unknown id writes nothing', async () => {
+    // ⚠️ THE SECOND HALF IS WHERE THE HOOKS' OLD BEHAVIOUR LIVES NOW. They used
+    // to read the project first and bail when it was gone; they no longer read at
+    // all, so "a patch for a project that is not there does nothing" has to be
+    // true here instead.
+    seed(makeProject({ id: 'a', color: 'pink', archived: true }));
+
+    await repo.writeProjectPrefs([{ id: 'a', color: null, archived: null }]);
+
+    expect('color' in storedProject('a'), 'stripped, not null').toBe(false);
+    expect('archived' in storedProject('a'), 'stripped, not false').toBe(false);
+
+    const before = localStorage.getItem(P);
+    await repo.writeProjectPrefs([{ id: 'ghost', color: 'teal' }]);
+    expect(localStorage.getItem(P), 'an unknown id leaves storage byte-identical').toBe(before);
+  });
+
+  it('[Q3] ensureProjectPrefsSeeded does nothing at all', async () => {
+    seed(makeProject({ id: 'a', color: 'teal' }));
+    const before = localStorage.getItem(P);
+
+    await repo.ensureProjectPrefsSeeded();
+
+    expect(localStorage.getItem(P), 'local mode has nothing to seed').toBe(before);
+  });
+});
