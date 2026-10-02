@@ -17,6 +17,7 @@ function makeMetrics(variancePercent: number): ProjectMetrics {
     npv: 0,
     totalHours: 0,
     monthlyData: [],
+    plannedCostToDate: null,
   };
 }
 

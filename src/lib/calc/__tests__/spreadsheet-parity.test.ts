@@ -148,14 +148,15 @@ describe('Regression Tests — Workday-Based Calculation Engine', () => {
     });
 
     it('weekly burn rate matches expected value', () => {
-      // Intentional divergence 3 in the fixture header: weeks are counted
-      // from the project's own dates, not the spreadsheet's EDATE formula.
+      // Intentional divergence 3 in the fixture header: weeks of work, not
+      // the spreadsheet's EDATE formula.
+      // No holidays or windows and every month staffed, so the working days
+      // the ETC covers are all the weekdays in the project's dates.
       expect(countWorkdays(FIX.project.startDate, FIX.project.endDate))
-        .toBe(FIX.expected.burnRateDetail.weekdays);
+        .toBe(FIX.expected.burnRateDetail.workDays);
       const burnRate = calculateWeeklyBurnRate(
         FIX.expected.etc,
-        FIX.project.startDate,
-        FIX.project.endDate,
+        FIX.expected.burnRateDetail.workDays,
       );
       expect(burnRate).toBeCloseTo(FIX.expected.weeklyBurnRate, 2);
     });

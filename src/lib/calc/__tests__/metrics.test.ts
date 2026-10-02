@@ -84,42 +84,31 @@ describe('calculateBudgetPerformanceRatio', () => {
 });
 
 describe('calculateWeeklyBurnRate', () => {
-  // Weeks are weekdays ÷ 5 between the two dates, inclusive. Week counts
-  // below were checked by counting weekdays independently (Python datetime).
+  // workDays: the full-capacity working days the ETC covers, as the engine
+  // counts them (holidays out, productivity-weighted, staffed months only).
+  // Weeks of work = workDays ÷ 5. Since v0.44.0.
 
-  it('divides ETC by the calendar weeks counted on the weekday grid', () => {
-    // Mon 2026-10-19 → Tue 2027-02-09: 82 weekdays = 16.4 weeks.
-    expect(calculateWeeklyBurnRate(65_600, '2026-10-19', '2027-02-09')).toBeCloseTo(4_000, 9);
+  it('divides ETC by the weeks of work: working days ÷ 5', () => {
+    // 66 working days = 13.2 weeks.
+    expect(calculateWeeklyBurnRate(52_800, 66)).toBeCloseTo(4_000, 9);
   });
 
-  it('reads sixteen Monday-to-Friday weeks as 16, not 110 calendar days ÷ 7', () => {
-    // Mon 2026-10-19 → Fri 2027-02-05: 80 weekdays.
-    expect(calculateWeeklyBurnRate(64_000, '2026-10-19', '2027-02-05')).toBeCloseTo(4_000, 9);
+  it('accepts fractional days from partial productivity', () => {
+    // 79.5 days (a week at 50%) = 15.9 weeks.
+    expect(calculateWeeklyBurnRate(63_600, 79.5)).toBeCloseTo(4_000, 9);
   });
 
-  it('adds nothing for a weekend at the start of the window', () => {
-    // Sat 2026-11-07 → Fri 2027-02-05: 65 weekdays = 13 weeks, the same as
-    // starting on Mon 2026-11-09.
-    const fromSaturday = calculateWeeklyBurnRate(13_000, '2026-11-07', '2027-02-05');
-    const fromMonday = calculateWeeklyBurnRate(13_000, '2026-11-09', '2027-02-05');
-    expect(fromSaturday).toBeCloseTo(1_000, 9);
-    expect(fromSaturday).toBe(fromMonday);
-  });
-
-  it('counts a partial week by its weekdays, with no one-week floor', () => {
-    // Mon 2027-02-08 → Tue 2027-02-09: 2 weekdays = 0.4 weeks.
-    expect(calculateWeeklyBurnRate(1_600, '2027-02-08', '2027-02-09')).toBeCloseTo(4_000, 9);
+  it('counts a part week by its working days, with no one-week floor', () => {
+    expect(calculateWeeklyBurnRate(1_600, 2)).toBeCloseTo(4_000, 9);
   });
 
   it('returns 0 with zero ETC', () => {
-    expect(calculateWeeklyBurnRate(0, '2026-10-19', '2027-02-09')).toBe(0);
+    expect(calculateWeeklyBurnRate(0, 66)).toBe(0);
   });
 
-  it('returns 0, not Infinity, when the window holds no weekdays', () => {
-    // Sat–Sun, and a start after the end — neither can carry ETC through the
-    // engine, but the division must be guarded regardless.
-    expect(calculateWeeklyBurnRate(1_000, '2026-11-07', '2026-11-08')).toBe(0);
-    expect(calculateWeeklyBurnRate(1_000, '2027-02-10', '2027-02-09')).toBe(0);
+  it('returns 0, not Infinity, when there are no working days', () => {
+    expect(calculateWeeklyBurnRate(1_000, 0)).toBe(0);
+    expect(calculateWeeklyBurnRate(1_000, -1)).toBe(0);
   });
 });
 

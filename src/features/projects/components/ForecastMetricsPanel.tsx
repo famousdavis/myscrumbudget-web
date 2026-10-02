@@ -16,14 +16,16 @@ function MetricCard({
   value,
   colorClass,
   indicator,
+  tooltip,
 }: {
   label: string;
   value: string;
   colorClass?: string;
   indicator?: string;
+  tooltip?: string;
 }) {
   return (
-    <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+    <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800" title={tooltip}>
       <p className="text-sm text-zinc-500 dark:text-zinc-400">{label}</p>
       <p className={`mt-1 text-sm font-medium ${colorClass ?? ''}`}>
         {indicator && <span className="mr-1">{indicator}</span>}
@@ -88,6 +90,7 @@ export function ForecastMetricsPanel({ metrics }: ForecastMetricsPanelProps) {
       <MetricCard
         label="Weekly Burn Rate"
         value={formatCurrency(metrics.weeklyBurnRate)}
+        tooltip="What a full working week of the plan costs: ETC ÷ the weeks of work left, with holidays and productivity windows taken out"
       />
       <MetricCard label="NPV" value={formatCurrency(Math.round(metrics.npv))} />
       <MetricCard

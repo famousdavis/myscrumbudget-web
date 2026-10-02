@@ -8,7 +8,12 @@ import { useState, useEffect, type ReactNode } from 'react';
 import Link from 'next/link';
 import type { Project, ProjectMetrics, Reforecast, TrafficLightThresholds, CharterBudget } from '@/types/domain';
 import { formatCurrency, formatDateMedium } from '@/lib/utils/format';
-import { getTrafficLightStatus, getTrafficLightDisplay, DEFAULT_THRESHOLDS } from '@/lib/calc';
+import {
+  getTrafficLightStatus,
+  getTrafficLightDisplay,
+  calculateSpendToDate,
+  DEFAULT_THRESHOLDS,
+} from '@/lib/calc';
 
 const editableClass =
   'rounded-lg border border-zinc-200 p-4 dark:border-zinc-800 cursor-pointer hover:border-blue-300 hover:bg-blue-50/50 dark:hover:border-blue-800 dark:hover:bg-blue-950/30 transition-colors';
@@ -108,6 +113,37 @@ function InlineEditableField({ label, value, onChange, tooltip, badge }: InlineE
   );
 }
 
+// --- Spend to date (v0.44.0) ---
+
+/**
+ * One line under the Actual Cost figure: actual spend against what the plan
+ * expected through the Actuals Through date. The weekly burn rate is an
+ * average and cannot answer "are we over or under?" for a particular week —
+ * this can, because the planned figure is priced day by day over the same
+ * elapsed period (holidays, part weeks and allocation changes included).
+ */
+function SpendToDateLine({ actual, planned, through }: { actual: number; planned: number; through: string }) {
+  const spend = calculateSpendToDate(actual, planned);
+  const percent = spend.status !== 'on' && spend.variancePercent !== null
+    ? ` · ${Math.abs(spend.variancePercent).toFixed(1)}% ${spend.status}`
+    : '';
+  const title = `Planned through ${formatDateMedium(through)}: ${formatCurrency(planned)} · Actual: ${formatCurrency(actual)}${percent}`;
+
+  if (spend.status === 'on') {
+    return <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400" title={title}>On plan</p>;
+  }
+  const over = spend.status === 'over';
+  return (
+    <p
+      className={`mt-0.5 text-xs ${over ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}
+      title={title}
+    >
+      <span aria-hidden="true">{over ? '\u25B2' : '\u25BC'}</span>
+      {' '}{formatCurrency(Math.abs(spend.variance))} {over ? 'over' : 'under'} plan
+    </p>
+  );
+}
+
 // --- Main component ---
 
 interface ProjectSummaryProps {
@@ -151,6 +187,12 @@ export function ProjectSummary({
     ? getTrafficLightDisplay(
         getTrafficLightStatus(metrics, trafficLightThresholds ?? DEFAULT_THRESHOLDS),
       )
+    : null;
+
+  const actualsThrough = activeReforecast?.actualsThroughDate;
+  const plannedToDate = metrics?.plannedCostToDate ?? null;
+  const spendLine = actualsThrough && plannedToDate !== null
+    ? <SpendToDateLine actual={actualCost} planned={plannedToDate} through={actualsThrough} />
     : null;
 
   // Charter-budget affordance under the Baseline tile. A compact inline badge
@@ -217,6 +259,7 @@ export function ProjectSummary({
           value={actualCost}
           onChange={onActualCostChange}
           tooltip="Actual Cost (AC)"
+          badge={spendLine}
         />
         <div className={readonlyClass} title="Estimate to Complete (ETC)">
           <p className="text-sm text-zinc-500 dark:text-zinc-400">ETC</p>
