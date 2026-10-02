@@ -33,11 +33,11 @@ npm run build     # Production build
 | **EAC** (Estimate at Completion) | Actual Cost + ETC — total expected project spend |
 | **Variance** | EAC - Baseline Budget — positive means over budget |
 | **Budget Ratio** | Baseline / EAC — greater than 1.0 means under budget |
-| **Burn Rate** | ETC / weeks remaining — weekly spending rate |
+| **Burn Rate** | ETC ÷ calendar weeks remaining in the forecast — each Monday–Friday counts as one week, holidays included |
 | **NPV** (Net Present Value) | Time-adjusted value of future cash flows |
 | **Allocation** | Percentage (0-100%) of a team member's time dedicated to a project for a given month |
 | **Reforecast** | A named snapshot of allocations and productivity windows for comparison |
-| **Productivity Window** | A date range with a capacity factor (0-100%) applied at calculation time |
+| **Productivity Window** | A date range with a capacity factor (0-100%) applied at calculation time to the working days it covers |
 | **Pool Member** | A team member in the global pool, reusable across projects |
 | **Project Assignment** | A link from a pool member into a specific project's allocation grid |
 
@@ -47,9 +47,9 @@ npm run build     # Production build
 
 2. **Budget Ratio, not CPI** — This tool does not implement Earned Value Management (EVM). There is no earned value tracking. The "Budget Ratio" (Baseline / EAC) compares the original budget to the current forecast, not earned value to actual cost.
 
-3. **Productivity windows (web-only enhancement)** — The original spreadsheet has no concept of productivity adjustments. This feature allows modeling reduced capacity periods without modifying stored allocation data.
+3. **Productivity windows (web-only enhancement)** — The original spreadsheet has no concept of productivity adjustments. This feature allows modeling reduced capacity periods without modifying stored allocation data. A window applies only to the working days it covers: weekends and holidays are already days off, so a window over them changes nothing, and entering time off as a holiday, a 0% window, or both gives the same result (v0.43.0).
 
-4. **Burn rate uses active months** — Matches the spreadsheet behavior: burn rate is calculated using the last month with allocations, not the project end date.
+4. **Burn rate counts the forecast's calendar weeks** — The spreadsheet divides ETC by the weeks from the start date to `EDATE(start, months with allocations)`, which treats every month the project touches as a full month. We divide by the calendar weeks from the first forecast day (the start, or the day after Actuals Through) to the finish date, counting each Monday–Friday as one week — holidays included, a partial week by its weekdays — so ETC ÷ burn rate equals the time remaining. (Since v0.43.0; earlier versions matched the spreadsheet.)
 
 ## Architecture
 
