@@ -106,7 +106,7 @@ Total remaining forecasted cost across all months and team members.
 
 **Note:** Burn rate uses the last month with allocations, not the project end date.
 
-> **Web app divergence (v0.43.0):** the app no longer follows this formula. `EDATE` counts every month carrying cost as a full month, so a project from Mon 2026-10-19 to Tue 2027-02-09 (16.4 weeks) read 22. The app divides ETC by the calendar weeks from the first forecast day (the reforecast start, or the day after Actuals Through) to the reforecast finish date, counted on the weekday grid: `weekdays / 5`, holidays included, partial weeks by their weekdays. See README "Intentional Divergences" item 4.
+> **Web app divergence (v0.43.0, revised v0.44.0):** the app no longer follows this formula. `EDATE` counts every month carrying cost as a full month, so a project from Mon 2026-10-19 to Tue 2027-02-09 (16.4 weeks) read 22. v0.43.0 divided by calendar weeks (`weekdays / 5`, holidays included). **Since v0.44.0 the burn rate is the cost of a full working week:** ETC ÷ (the productive working days the ETC covers ÷ 5) — holidays out, each day weighted by its productivity factor, months the plan staffs only. See README "Intentional Divergences" item 4.
 
 **Net Present Value (NPV) - P3**
 ```
@@ -302,6 +302,7 @@ interface ProjectMetrics {
   npv: number;
   totalHours: number;
   monthlyData: MonthlyCalculation[];
+  plannedCostToDate: number | null; // plan's cost through Actuals Through (v0.44.0)
 }
 ```
 
@@ -313,7 +314,8 @@ interface ProjectMetrics {
 | EAC | AC + ETC | Total expected spend |
 | Variance | EAC - Baseline | Over/under budget ($) |
 | Budget Ratio | Baseline / EAC | >1 = under budget, <1 = over |
-| Weekly Burn Rate | ETC / (weekdays from first forecast day to finish / 5) | Cost per calendar week remaining; ETC ÷ rate = weeks left |
+| Weekly Burn Rate | ETC / (productive working days the ETC covers / 5) | Cost of a full working week of the plan; ETC ÷ rate = weeks of work left (v0.44.0) |
+| Planned to Date | Plan's cost from reforecast start through Actuals Through | Actual Cost − Planned to Date = spend vs plan, shown on the Actual Cost tile (v0.44.0) |
 
 **Note:** This tool does not implement full Earned Value Management (EVM). 
 There is no earned value tracking or CPI/SPI in the traditional sense. 
@@ -1953,7 +1955,7 @@ Key design decisions:
 - **Global team pool** with per-project assignments (same member can appear multiple times)
 - **Budget Ratio** instead of "CPI" to avoid EVM terminology confusion
 - **Annual discount rate** converted to monthly (diverges from spreadsheet for clarity)
-- **Burn rate uses active months**, not project end date (matches spreadsheet) — *superseded in v0.43.0: ETC ÷ calendar weeks from the first forecast day to the reforecast finish date, counted as weekdays ÷ 5*
+- **Burn rate uses active months**, not project end date (matches spreadsheet) — *superseded in v0.43.0 (calendar weeks), and again in v0.44.0: the cost of a full working week, ETC ÷ (productive working days ÷ 5)*
 - **Productivity is a calculation overlay**, never mutates stored allocations — *and since v0.43.0 is applied per working day, from the same day list as the hours*
 - **Pre-aggregated allocation maps** for efficient reactive UI rendering
 - **Repository is derived state** (`RepositoryProvider` + `useRepository()`) — the active implementation follows from (storage mode, authenticated user); no module global to fall out of step with the UI

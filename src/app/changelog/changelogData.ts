@@ -13,6 +13,33 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.44.0',
+    date: '2026-10-02',
+    sections: [
+      {
+        title: 'Added',
+        items: [
+          'The Actual Cost tile now tells you whether you are under, on or over plan. Whenever an Actuals Through date is set, a line under the actual cost compares it with what the plan expected to spend up to that date — for example "▼ $2,360 under plan" in green, or "▲ $1,640 over plan" in red. Hover over the line to see the planned figure. The plan\u2019s figure is worked out day by day exactly like the ETC, so weeks with holidays, part weeks and months where allocations change are all accounted for. The printed report shows the same comparison as "Planned to Date" and "Spend vs Plan".',
+        ],
+      },
+      {
+        title: 'Changed',
+        items: [
+          'The weekly burn rate is now the cost of a full working week. It is the ETC divided by the weeks of planned work left, with holidays and productivity windows taken out — so for a team whose allocations stay the same, it is exactly what one normal working week costs: the team\u2019s hourly cost × 40. That is the number to compare a week\u2019s actual spend with. Until now it was spread over calendar weeks, holiday weeks included, which made it lower than a normal week\u2019s cost, so a week that came in under plan could look over it. Hover over the Weekly Burn Rate card for a short explanation.',
+          'ETC divided by the weekly burn rate is now the weeks of work remaining, not calendar time. A forecast that includes Thanksgiving week and a two-week Christmas break reads about three weeks shorter than its dates.',
+          'Months with no allocations no longer count toward the burn rate\u2019s weeks, so a team that finishes before the forecast\u2019s end date still shows what its working weeks cost.',
+          'A screen reader now announces the amount on the Actual Cost and Baseline Budget tiles, and the new line under Actual Cost, instead of only "Edit Actual Cost".',
+        ],
+      },
+      {
+        title: 'Known limitations',
+        items: [
+          'The planned figure comes from the allocations the forecast holds for the weeks already elapsed. If you clear past months\u2019 allocations in a later forecast, the planned figure drops with them.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.43.0',
     date: '2026-10-02',
     sections: [
