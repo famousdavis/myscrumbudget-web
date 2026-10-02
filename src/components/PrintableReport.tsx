@@ -25,6 +25,7 @@ import {
 import {
   getTrafficLightStatus,
   getTrafficLightDisplay,
+  calculateSpendToDate,
   DEFAULT_THRESHOLDS,
 } from '@/lib/calc';
 import { APP_NAME, APP_VERSION } from '@/lib/constants';
@@ -188,6 +189,20 @@ export function PrintableReport({
                   {formatCurrency(activeReforecast.baselineBudget)}
                 </td>
               </tr>
+              {/* v0.44.0: spend to date, under the Actuals Through date it is
+                  measured against. Signed like the Variance row: positive is
+                  over plan. */}
+              {activeReforecast.actualsThroughDate && metrics && metrics.plannedCostToDate !== null && (
+                <tr>
+                  <td className={labelCell}>Planned to Date</td>
+                  <td className={valueCell}>{formatCurrency(metrics.plannedCostToDate)}</td>
+                  <td className={gapCell} aria-hidden="true" />
+                  <td className={labelCell}>Spend vs Plan</td>
+                  <td className={valueCell}>
+                    {formatCurrency(calculateSpendToDate(actualCost, metrics.plannedCostToDate).variance)}
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </section>

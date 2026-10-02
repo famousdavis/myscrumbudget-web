@@ -16,7 +16,7 @@
  *   Member hours    = availableHours * allocationPct
  *   ETC             = SUM(all per-member monthly costs)
  *   EAC             = AC + ETC
- *   Burn rate       = ETC / (weekdays from startDate to endDate, inclusive / 5)   — divergence 3
+ *   Burn rate       = ETC / (working days the ETC covers / 5)   — divergence 3
  *
  * INTENTIONAL DIVERGENCE (vs Excel):
  *   1. Excel uses a fixed 160 hours/month; we derive hours from actual workdays.
@@ -24,12 +24,13 @@
  *   2. NPV: Excel uses 0.03 as a per-period (monthly) discount rate.
  *      Our app treats 0.03 as an annual rate and converts to monthly: 0.03 / 12 = 0.0025.
  *      Documented in CLAUDE.md and README.md.
- *   3. Burn rate (v0.43.0): Excel divides ETC by
+ *   3. Burn rate (v0.43.0, refined v0.44.0): Excel divides ETC by
  *      ROUND(DATEDIF(startDate, EDATE(startDate, activeMonthCount), "d") / 7, 0),
  *      which treats every month carrying cost as a full month — 61 weeks here,
- *      for a project that runs 56.8. Our app divides by the project's own
- *      calendar weeks: weekdays in [startDate, endDate] / 5, holidays included.
- *      Documented in README.md.
+ *      for a project that runs 56.8. Our app divides by the weeks of work the
+ *      ETC covers: working days (holidays out, productivity-weighted, staffed
+ *      months only) / 5. This fixture has no holidays or windows and staffs
+ *      every month, so that is all 284 weekdays. Documented in README.md.
  */
 
 import type { Settings, TeamMember, MonthlyAllocation } from '@/types/domain';
@@ -56,9 +57,13 @@ export interface SpreadsheetFixture {
     weeklyBurnRate: number;
     totalHours: number;
     burnRateDetail: {
-      /** Weekdays (Mon–Fri) from project.startDate to project.endDate, inclusive. */
-      weekdays: number;
-      /** weekdays / 5 — the calendar weeks the ETC is spread over. */
+      /**
+       * Working days the ETC covers. No holidays or productivity windows here,
+       * and every month is staffed, so this is every weekday from
+       * project.startDate to project.endDate, inclusive.
+       */
+      workDays: number;
+      /** workDays / 5 — the weeks of work the ETC is spread over. */
       weeks: number;
       /** The original spreadsheet's figure for the same ETC (ETC / 61), for reference. */
       spreadsheetWeeklyBurnRate: number;
@@ -199,7 +204,7 @@ export const SPREADSHEET_FIXTURE: SpreadsheetFixture = {
     // independently of the app: Mon 2026-06-15 → Sun 2027-06-13 is exactly 52
     // weeks (260 weekdays), then Mon Jun 14 → Thu Jul 15 2027 adds 24.
     burnRateDetail: {
-      weekdays: 284,
+      workDays: 284,
       weeks: 56.8,                             // 284 / 5
       spreadsheetWeeklyBurnRate: 14_653.927868852459, // 893889.6 / ROUND(426 / 7, 0) = / 61
     },

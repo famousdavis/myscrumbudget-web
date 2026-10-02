@@ -331,6 +331,14 @@ export interface ProjectMetrics {
   npv: number;
   totalHours: number;
   monthlyData: MonthlyCalculation[];
+  /**
+   * What the active reforecast's plan expected to spend from its start through
+   * the Actuals Through date — computed like the ETC (same allocations, rates,
+   * holidays and productivity windows), over the elapsed part of the window.
+   * Compared with actual cost by `calculateSpendToDate`. Null when no Actuals
+   * Through date is set (v0.44.0).
+   */
+  plannedCostToDate: number | null;
 }
 
 // Theme preference (UI-only, not part of AppState or migrations)

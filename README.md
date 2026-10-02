@@ -33,7 +33,8 @@ npm run build     # Production build
 | **EAC** (Estimate at Completion) | Actual Cost + ETC — total expected project spend |
 | **Variance** | EAC - Baseline Budget — positive means over budget |
 | **Budget Ratio** | Baseline / EAC — greater than 1.0 means under budget |
-| **Burn Rate** | ETC ÷ calendar weeks remaining in the forecast — each Monday–Friday counts as one week, holidays included |
+| **Burn Rate** | ETC ÷ the weeks of planned work left — what a full working week of the plan costs, with holidays and productivity windows taken out |
+| **Planned to Date** | What the plan expected to spend from the reforecast start through the Actuals Through date; the Actual Cost tile compares actual spend with it |
 | **NPV** (Net Present Value) | Time-adjusted value of future cash flows |
 | **Allocation** | Percentage (0-100%) of a team member's time dedicated to a project for a given month |
 | **Reforecast** | A named snapshot of allocations and productivity windows for comparison |
@@ -49,7 +50,7 @@ npm run build     # Production build
 
 3. **Productivity windows (web-only enhancement)** — The original spreadsheet has no concept of productivity adjustments. This feature allows modeling reduced capacity periods without modifying stored allocation data. A window applies only to the working days it covers: weekends and holidays are already days off, so a window over them changes nothing, and entering time off as a holiday, a 0% window, or both gives the same result (v0.43.0).
 
-4. **Burn rate counts the forecast's calendar weeks** — The spreadsheet divides ETC by the weeks from the start date to `EDATE(start, months with allocations)`, which treats every month the project touches as a full month. We divide by the calendar weeks from the first forecast day (the start, or the day after Actuals Through) to the finish date, counting each Monday–Friday as one week — holidays included, a partial week by its weekdays — so ETC ÷ burn rate equals the time remaining. (Since v0.43.0; earlier versions matched the spreadsheet.)
+4. **Burn rate is the cost of a working week** — The spreadsheet divides ETC by the weeks from the start date to `EDATE(start, months with allocations)`, which treats every month the project touches as a full month. We divide ETC by the weeks of planned work it covers: working days after any Actuals Through cutoff, with holidays removed and each day weighted by its productivity factor, in months the plan staffs, ÷ 5. With flat allocations that is exactly the team's hourly cost × 40 — the figure to compare a week's actual spend with — and ETC ÷ burn rate is the weeks of work left, not calendar time. (Since v0.44.0; v0.43.0 used calendar weeks; earlier versions matched the spreadsheet.)
 
 ## Architecture
 
