@@ -13,6 +13,36 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.43.0',
+    date: '2026-10-02',
+    sections: [
+      {
+        title: 'Fixed',
+        items: [
+          'The weekly burn rate now covers the weeks your forecast actually runs. It used to divide ETC by a week count built from whole months — every month the project touched counted as a full month. A project running from Monday, October 19 to Tuesday, February 9 (16 weeks and 2 working days) was spread over 22 weeks, so its burn rate read about a quarter too low. It now divides ETC by the calendar weeks from the start date — or the day after your Actuals Through date — to the finish date, counting each Monday to Friday as one week and a partial week by its working days. ETC divided by the burn rate is now the time remaining: 16.4 weeks for that project. One full-time person at $100 an hour burns exactly $4,000 a week.',
+          'Holiday weeks still count as weeks. Thanksgiving week or a Christmas break lowers the cost, not the number of weeks: the burn rate is what the project costs per calendar week, including the weeks nobody works.',
+          'A productivity window no longer counts a holiday twice. Entering Thanksgiving week both as a company holiday and as a 0% productivity window used to take that week off twice — once as a holiday and again through the window — so the ETC came out too low. A window now reduces only the working days it covers. Weekends and holidays are already days off, so a window over them changes nothing, and you get the same numbers whether you enter time off as holidays, as productivity windows, or as both.',
+          'A productivity window used on its own now takes off exactly the days it covers. A 0% window over one Monday-to-Friday week used to remove 5 of the month\u2019s 30 calendar days rather than 5 of its working days, so the ETC came out too high, and a window over a weekend took hours off even though nobody works weekends. Partial factors such as 50% are weighted the same way.',
+          'A productivity window that falls before your Actuals Through date, or before the reforecast starts, no longer affects the forecast. It used to reduce the rest of that month.',
+          'The percentage shown under a month in the allocation grid is now the one the forecast actually uses. It was worked out separately, so it could disagree with the numbers beside it — for example showing 83% for a holiday week the forecast had already taken off.',
+        ],
+      },
+      {
+        title: 'Changed',
+        items: [
+          'These fixes change the numbers on existing projects. A project that starts or finishes partway through a month will show a higher weekly burn rate — about a third higher for the example above. A project whose allocations stop before its finish date may show a lower one, because the remaining weeks now count. A project that runs whole months changes very little. Projects with productivity windows may show a different ETC, EAC and status colour. Nothing you entered changes; only how it is calculated.',
+          'The Productivity Windows panel now says how windows apply: to working days only.',
+        ],
+      },
+      {
+        title: 'Known limitations',
+        items: [
+          'The weekly burn rate no longer matches the figure the original spreadsheet produces, which used the whole-month formula. That difference is intentional.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.42.0',
     date: '2026-09-17',
     sections: [

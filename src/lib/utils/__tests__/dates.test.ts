@@ -10,6 +10,7 @@ import {
   nextBusinessDay,
   countWorkdays,
   getMonthlyWorkHours,
+  getMonthlyWorkingDays,
   getEtcStartDate,
 } from '../dates';
 import type { Holiday } from '@/types/domain';
@@ -323,5 +324,73 @@ describe('getMonthlyWorkHours with etcStartDate', () => {
     // Actuals through Jun 30 → etcStartDate = Jul 1
     // June should return 0
     expect(getMonthlyWorkHours('2026-06', '2026-01-01', '2026-12-31', [], '2026-07-01')).toBe(0);
+  });
+});
+
+describe('getMonthlyWorkingDays', () => {
+  // The calc engine's one list of working days (v0.43.0): available hours are
+  // its length × 8 and the productivity factor is averaged over it. Expected
+  // dates were counted by hand from a calendar, not read back from the code.
+
+  const THANKSGIVING: Holiday = { id: 'h-tg', name: 'Thanksgiving Week', startDate: '2026-11-23', endDate: '2026-11-27' };
+  const CHRISTMAS: Holiday = { id: 'h-xm', name: 'Christmas Break', startDate: '2026-12-21', endDate: '2027-01-01' };
+  const NEW_YEARS: Holiday = { id: 'h-ny', name: "New Year's Day", startDate: '2027-01-01', endDate: '2027-01-01' };
+  const MLK: Holiday = { id: 'h-mlk', name: 'MLK Day', startDate: '2027-01-18', endDate: '2027-01-18' };
+
+  it('lists the weekdays of a full month, in date order', () => {
+    const days = getMonthlyWorkingDays('2026-11', '2026-01-01', '2026-12-31');
+    expect(days).toHaveLength(21);
+    expect(days.slice(0, 6)).toEqual([
+      '2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06', '2026-11-09',
+    ]);
+    expect(days[20]).toBe('2026-11-30');
+  });
+
+  it('clips the first month to the start date and the last month to the end date', () => {
+    expect(getMonthlyWorkingDays('2026-10', '2026-10-19', '2027-02-09')).toEqual([
+      '2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23',
+      '2026-10-26', '2026-10-27', '2026-10-28', '2026-10-29', '2026-10-30',
+    ]);
+    expect(getMonthlyWorkingDays('2027-02', '2026-10-19', '2027-02-09')).toEqual([
+      '2027-02-01', '2027-02-02', '2027-02-03', '2027-02-04', '2027-02-05',
+      '2027-02-08', '2027-02-09',
+    ]);
+  });
+
+  it('leaves out holidays, counting a day inside two holidays once', () => {
+    // Jan 2027 has 21 weekdays. Jan 1 is in both the Christmas break and
+    // New Year's Day; Jan 18 is MLK Day. 21 − 2 = 19.
+    const days = getMonthlyWorkingDays('2027-01', '2026-10-19', '2027-02-09', [CHRISTMAS, NEW_YEARS, MLK]);
+    expect(days).toHaveLength(19);
+    expect(days).not.toContain('2027-01-01');
+    expect(days).not.toContain('2027-01-18');
+    expect(days[0]).toBe('2027-01-04');
+  });
+
+  it('a holiday on a weekend removes nothing', () => {
+    const saturday: Holiday = { id: 'h', name: 'Sat', startDate: '2026-11-07', endDate: '2026-11-07' };
+    expect(getMonthlyWorkingDays('2026-11', '2026-01-01', '2026-12-31', [saturday])).toHaveLength(21);
+  });
+
+  it('starts no earlier than etcStartDate', () => {
+    // Actuals through Fri Nov 13 → etcStartDate Sat Nov 14. What remains is
+    // Nov 16–20 and Nov 30; Thanksgiving week (Nov 23–27) is a holiday here.
+    expect(getMonthlyWorkingDays('2026-11', '2026-10-19', '2027-02-09', [THANKSGIVING], '2026-11-14')).toEqual([
+      '2026-11-16', '2026-11-17', '2026-11-18', '2026-11-19', '2026-11-20', '2026-11-30',
+    ]);
+  });
+
+  it('returns no days for a month outside the range or fully covered by actuals', () => {
+    expect(getMonthlyWorkingDays('2026-09', '2026-10-19', '2027-02-09')).toEqual([]);
+    expect(getMonthlyWorkingDays('2027-03', '2026-10-19', '2027-02-09')).toEqual([]);
+    expect(getMonthlyWorkingDays('2026-10', '2026-10-19', '2027-02-09', [], '2026-11-01')).toEqual([]);
+  });
+
+  it('is exactly what getMonthlyWorkHours counts', () => {
+    const holidays = [THANKSGIVING, CHRISTMAS, NEW_YEARS, MLK];
+    for (const month of ['2026-10', '2026-11', '2026-12', '2027-01', '2027-02']) {
+      const days = getMonthlyWorkingDays(month, '2026-10-19', '2027-02-09', holidays);
+      expect(getMonthlyWorkHours(month, '2026-10-19', '2027-02-09', holidays), month).toBe(days.length * 8);
+    }
   });
 });

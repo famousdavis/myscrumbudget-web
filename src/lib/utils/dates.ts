@@ -100,6 +100,57 @@ export function countWorkdays(startDate: string, endDate: string): number {
   return count;
 }
 
+/** Format a local Date as YYYY-MM-DD. */
+function formatIsoDate(date: Date): string {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/**
+ * Every weekday (Mon-Fri) between two YYYY-MM-DD dates, inclusive of both
+ * ends, as YYYY-MM-DD strings in date order.
+ */
+function weekdaysBetween(startDate: string, endDate: string): string[] {
+  const [sy, sm, sd] = startDate.split('-').map(Number);
+  const [ey, em, ed] = endDate.split('-').map(Number);
+  const current = new Date(sy, sm - 1, sd);
+  const end = new Date(ey, em - 1, ed);
+
+  const days: string[] = [];
+  while (current <= end) {
+    const dow = current.getDay();
+    if (dow >= 1 && dow <= 5) days.push(formatIsoDate(current));
+    current.setDate(current.getDate() + 1);
+  }
+  return days;
+}
+
+/**
+ * The weekday dates within [startDate, endDate] that any of the holidays
+ * covers. A date inside two overlapping holidays is one date.
+ */
+function holidayWeekdays(
+  startDate: string,
+  endDate: string,
+  holidays: Holiday[],
+): Set<string> {
+  const dates = new Set<string>();
+
+  for (const holiday of holidays) {
+    // Clip holiday range to [startDate, endDate]
+    const effectiveStart = holiday.startDate > startDate ? holiday.startDate : startDate;
+    const effectiveEnd = holiday.endDate < endDate ? holiday.endDate : endDate;
+
+    if (effectiveStart > effectiveEnd) continue;
+
+    for (const day of weekdaysBetween(effectiveStart, effectiveEnd)) dates.add(day);
+  }
+
+  return dates;
+}
+
 /**
  * Count how many of the given holidays fall on workdays (Mon-Fri)
  * within the specified date range [startDate, endDate], inclusive.
@@ -110,32 +161,7 @@ export function countHolidayWorkdays(
   endDate: string,
   holidays: Holiday[],
 ): number {
-  const holidayWorkdays = new Set<string>();
-
-  for (const holiday of holidays) {
-    // Clip holiday range to [startDate, endDate]
-    const effectiveStart = holiday.startDate > startDate ? holiday.startDate : startDate;
-    const effectiveEnd = holiday.endDate < endDate ? holiday.endDate : endDate;
-
-    if (effectiveStart > effectiveEnd) continue;
-
-    const [sy, sm, sd] = effectiveStart.split('-').map(Number);
-    const [ey, em, ed] = effectiveEnd.split('-').map(Number);
-    const start = new Date(sy, sm - 1, sd);
-    const end = new Date(ey, em - 1, ed);
-    const current = new Date(start);
-
-    while (current <= end) {
-      const dow = current.getDay();
-      if (dow >= 1 && dow <= 5) {
-        const key = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}`;
-        holidayWorkdays.add(key);
-      }
-      current.setDate(current.getDate() + 1);
-    }
-  }
-
-  return holidayWorkdays.size;
+  return holidayWeekdays(startDate, endDate, holidays).size;
 }
 
 /**
@@ -154,23 +180,33 @@ export function getEtcStartDate(actualsThroughDate: string): string {
 }
 
 /**
- * Get available workday hours for a YYYY-MM month, clipped to project date range.
- * - First month: count workdays from project startDate to end of month
- * - Last month: count workdays from start of month to project endDate
- * - Middle months: count all workdays in the full month
- * Holidays (non-work days) are subtracted from the workday count.
+ * The working days of a YYYY-MM month that carry forecast hours, as YYYY-MM-DD
+ * strings in date order: the weekdays of the month, clipped to the project
+ * date range, that no holiday covers.
+ * - First month: from project startDate to end of month
+ * - Last month: from start of month to project endDate
+ * - Middle months: the full month
  * When etcStartDate is provided, it acts as an additional lower bound on the
- * effective start date — zeroing out months covered by actuals and prorating
- * the cutoff month.
- * Returns (workdays - holidays) * HOURS_PER_DAY.
+ * start — leaving no days in months covered by actuals and only the days after
+ * the cutoff in the cutoff month.
+ *
+ * ⚠️ This list is the calc engine's ONE definition of a day the team works.
+ * Available hours are its length × HOURS_PER_DAY (getMonthlyWorkHours), and
+ * the productivity factor is averaged over exactly these days (v0.43.0).
+ * Before that release the factor was averaged over every CALENDAR day of the
+ * month and then multiplied into hours that already excluded holidays — so a
+ * window over a holiday took that time off twice, a window over a weekend took
+ * off hours nobody works, and a window on its own took off too little (5 of 30
+ * calendar days instead of 5 of 21 working days). Taking both from one list
+ * makes that disagreement impossible, not merely tested against.
  */
-export function getMonthlyWorkHours(
+export function getMonthlyWorkingDays(
   month: string,
   projectStartDate: string,
   projectEndDate: string,
   holidays: Holiday[] = [],
   etcStartDate?: string,
-): number {
+): string[] {
   const [year, mon] = month.split('-').map(Number);
 
   // Full month boundaries
@@ -185,12 +221,29 @@ export function getMonthlyWorkHours(
   }
   const effectiveEnd = projectEndDate < monthEnd ? projectEndDate : monthEnd;
 
-  if (effectiveStart > effectiveEnd) return 0;
+  if (effectiveStart > effectiveEnd) return [];
 
-  const workdays = countWorkdays(effectiveStart, effectiveEnd);
-  const holidayDays = holidays.length > 0
-    ? countHolidayWorkdays(effectiveStart, effectiveEnd, holidays)
-    : 0;
+  const weekdays = weekdaysBetween(effectiveStart, effectiveEnd);
+  if (holidays.length === 0) return weekdays;
 
-  return Math.max(0, workdays - holidayDays) * HOURS_PER_DAY;
+  const daysOff = holidayWeekdays(effectiveStart, effectiveEnd, holidays);
+  return weekdays.filter((day) => !daysOff.has(day));
+}
+
+/**
+ * Get available workday hours for a YYYY-MM month, clipped to project date
+ * range, with holidays subtracted and etcStartDate as an optional lower bound.
+ * Returns getMonthlyWorkingDays(...).length × HOURS_PER_DAY — see that
+ * function for how the days are chosen.
+ */
+export function getMonthlyWorkHours(
+  month: string,
+  projectStartDate: string,
+  projectEndDate: string,
+  holidays: Holiday[] = [],
+  etcStartDate?: string,
+): number {
+  return getMonthlyWorkingDays(
+    month, projectStartDate, projectEndDate, holidays, etcStartDate,
+  ).length * HOURS_PER_DAY;
 }

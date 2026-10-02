@@ -106,6 +106,8 @@ Total remaining forecasted cost across all months and team members.
 
 **Note:** Burn rate uses the last month with allocations, not the project end date.
 
+> **Web app divergence (v0.43.0):** the app no longer follows this formula. `EDATE` counts every month carrying cost as a full month, so a project from Mon 2026-10-19 to Tue 2027-02-09 (16.4 weeks) read 22. The app divides ETC by the calendar weeks from the first forecast day (the reforecast start, or the day after Actuals Through) to the reforecast finish date, counted on the weekday grid: `weekdays / 5`, holidays included, partial weeks by their weekdays. See README "Intentional Divergences" item 4.
+
 **Net Present Value (NPV) - P3**
 ```
 =NPV(E4, D213:AN213)
@@ -287,6 +289,7 @@ interface MonthlyCalculation {
   hours: number;
   cumulativeCost: number;
   cumulativeHours: number;
+  productivityFactor: number; // factor applied to this month's working days (v0.43.0)
 }
 
 interface ProjectMetrics {
@@ -310,6 +313,7 @@ interface ProjectMetrics {
 | EAC | AC + ETC | Total expected spend |
 | Variance | EAC - Baseline | Over/under budget ($) |
 | Budget Ratio | Baseline / EAC | >1 = under budget, <1 = over |
+| Weekly Burn Rate | ETC / (weekdays from first forecast day to finish / 5) | Cost per calendar week remaining; ETC ÷ rate = weeks left |
 
 **Note:** This tool does not implement full Earned Value Management (EVM). 
 There is no earned value tracking or CPI/SPI in the traditional sense. 
@@ -319,6 +323,15 @@ The "Budget Ratio" compares your forecast to your baseline, not earned value to 
 
 Productivity windows apply a multiplier (0-100%) to a date range. 
 This uniformly reduces both **hours** and **cost** for affected months.
+
+**Applied per working day (v0.43.0).** A month's factor is the average, over the
+same working days its hours come from (`getMonthlyWorkingDays`: weekdays inside the
+reforecast window, after any Actuals Through cutoff, that are not holidays), of the
+lowest window factor covering each day. Weekends and holidays carry no hours, so a
+window over them changes nothing — entering time off as a holiday, a 0% window, or
+both gives identical results. Before v0.43.0 the factor was averaged over all calendar
+days and then multiplied into hours that already excluded holidays, which double-counted
+holidays, reduced hours for weekends, and under-applied a window used on its own.
 
 Use cases:
 - Holiday periods (e.g., December at 50%)
@@ -668,7 +681,7 @@ src/
 - [x] ETC, EAC calculations
 - [x] Variance vs baseline
 - [x] Budget ratio calculation
-- [x] Weekly burn rate (based on active months)
+- [x] Weekly burn rate (based on active months — *since v0.43.0, calendar weeks of the remaining forecast window*)
 - [x] NPV calculation (annual rate converted to monthly)
 - [x] Golden-file spreadsheet parity tests (157 tests)
 
@@ -1141,7 +1154,7 @@ Delivered:
 - **`actualsThroughDate?: string`** optional field added to `Reforecast` interface (YYYY-MM-DD format)
 - **`getEtcStartDate()`** helper in `dates.ts` — computes cutoff + 1 calendar day (handles month/year boundaries)
 - **`getMonthlyWorkHours()` enhanced** — optional 5th `etcStartDate` parameter acts as additional lower bound on effective start date; pre-cutoff months → 0 hours, cutoff month → partial, post-cutoff → unchanged
-- **Burn rate adjustment** — `calculateProjectMetrics` uses cost-based active months (`months.filter(m => costMap.get(m) > 0)`) instead of allocation-based, naturally excluding pre-cutoff months
+- **Burn rate adjustment** — `calculateProjectMetrics` uses cost-based active months (`months.filter(m => costMap.get(m) > 0)`) instead of allocation-based, naturally excluding pre-cutoff months *(superseded in v0.43.0 — the burn rate now spans the whole remaining forecast window, from the day after the cutoff)*
 - **`createNewReforecast()`** copies `actualsThroughDate` from source when present
 - **Validation** — optional `actualsThroughDate` format check in `validateReforecast()`
 - **`updateActualsThroughDate`** callback in `useReforecast` hook — follows existing `updateReforecastDate` pattern; `undefined`/empty clears the field
@@ -1940,8 +1953,8 @@ Key design decisions:
 - **Global team pool** with per-project assignments (same member can appear multiple times)
 - **Budget Ratio** instead of "CPI" to avoid EVM terminology confusion
 - **Annual discount rate** converted to monthly (diverges from spreadsheet for clarity)
-- **Burn rate uses active months**, not project end date (matches spreadsheet)
-- **Productivity is a calculation overlay**, never mutates stored allocations
+- **Burn rate uses active months**, not project end date (matches spreadsheet) — *superseded in v0.43.0: ETC ÷ calendar weeks from the first forecast day to the reforecast finish date, counted as weekdays ÷ 5*
+- **Productivity is a calculation overlay**, never mutates stored allocations — *and since v0.43.0 is applied per working day, from the same day list as the hours*
 - **Pre-aggregated allocation maps** for efficient reactive UI rendering
 - **Repository is derived state** (`RepositoryProvider` + `useRepository()`) — the active implementation follows from (storage mode, authenticated user); no module global to fall out of step with the UI
 - **Generic `useDebouncedSave<T>`** hook for consistent debounced persistence

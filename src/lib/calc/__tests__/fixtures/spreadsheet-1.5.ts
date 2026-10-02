@@ -16,7 +16,7 @@
  *   Member hours    = availableHours * allocationPct
  *   ETC             = SUM(all per-member monthly costs)
  *   EAC             = AC + ETC
- *   Burn rate       = ETC / ROUND(DATEDIF(startDate, EDATE(startDate, activeMonthCount), "d") / 7, 0)
+ *   Burn rate       = ETC / (weekdays from startDate to endDate, inclusive / 5)   — divergence 3
  *
  * INTENTIONAL DIVERGENCE (vs Excel):
  *   1. Excel uses a fixed 160 hours/month; we derive hours from actual workdays.
@@ -24,6 +24,12 @@
  *   2. NPV: Excel uses 0.03 as a per-period (monthly) discount rate.
  *      Our app treats 0.03 as an annual rate and converts to monthly: 0.03 / 12 = 0.0025.
  *      Documented in CLAUDE.md and README.md.
+ *   3. Burn rate (v0.43.0): Excel divides ETC by
+ *      ROUND(DATEDIF(startDate, EDATE(startDate, activeMonthCount), "d") / 7, 0),
+ *      which treats every month carrying cost as a full month — 61 weeks here,
+ *      for a project that runs 56.8. Our app divides by the project's own
+ *      calendar weeks: weekdays in [startDate, endDate] / 5, holidays included.
+ *      Documented in README.md.
  */
 
 import type { Settings, TeamMember, MonthlyAllocation } from '@/types/domain';
@@ -50,10 +56,12 @@ export interface SpreadsheetFixture {
     weeklyBurnRate: number;
     totalHours: number;
     burnRateDetail: {
-      activeMonthCount: number;
-      edateEndDate: string;
-      daysBetween: number;
-      weeksRounded: number;
+      /** Weekdays (Mon–Fri) from project.startDate to project.endDate, inclusive. */
+      weekdays: number;
+      /** weekdays / 5 — the calendar weeks the ETC is spread over. */
+      weeks: number;
+      /** The original spreadsheet's figure for the same ETC (ETC / 61), for reference. */
+      spreadsheetWeeklyBurnRate: number;
     };
     /** Available workday hours per month (workdays × 8), for reference in tests */
     monthlyAvailableHours: number[];
@@ -184,15 +192,16 @@ export const SPREADSHEET_FIXTURE: SpreadsheetFixture = {
     // Key metrics (workday-based)
     etc: 893_889.6,
     eac: 1_093_889.6,                             // 200000 + 893889.6
-    weeklyBurnRate: 14_653.927868852459,           // 893889.6 / 61
+    weeklyBurnRate: 15_737.492957746479,           // 893889.6 / 56.8
     totalHours: 9_092,
 
-    // Burn rate calculation detail (unchanged — same formula)
+    // Burn rate calculation detail (v0.43.0 — divergence 3). Weekdays counted
+    // independently of the app: Mon 2026-06-15 → Sun 2027-06-13 is exactly 52
+    // weeks (260 weekdays), then Mon Jun 14 → Thu Jul 15 2027 adds 24.
     burnRateDetail: {
-      activeMonthCount: 14,
-      edateEndDate: '2027-08-15',              // EDATE(2026-06-15, 14)
-      daysBetween: 426,                        // DATEDIF(2026-06-15, 2027-08-15, "d")
-      weeksRounded: 61,                        // ROUND(426 / 7, 0)
+      weekdays: 284,
+      weeks: 56.8,                             // 284 / 5
+      spreadsheetWeeklyBurnRate: 14_653.927868852459, // 893889.6 / ROUND(426 / 7, 0) = / 61
     },
   },
 };

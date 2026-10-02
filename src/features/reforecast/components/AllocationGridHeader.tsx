@@ -2,15 +2,22 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import type { ProductivityWindow } from '@/types/domain';
+import type { MonthlyCalculation } from '@/types/domain';
 import { formatMonthLabel } from '@/lib/utils/dates';
-import { getProductivityFactor } from '@/lib/calc/productivity';
 
 type SortMode = 'none' | 'name' | 'role-name';
 
 interface AllocationGridHeaderProps {
   months: string[];
-  productivityWindows?: ProductivityWindow[];
+  /**
+   * The calc engine's monthly breakdown. The amber productivity figure under
+   * each month is read from here — the factor the hours and cost were actually
+   * computed with — rather than recomputed from the windows. A header that ran
+   * its own calculation is how the two disagreed before v0.43.0: it showed a
+   * calendar-day average (e.g. 83% for a holiday week the engine then removed
+   * twice). Undefined while metrics are unavailable; no figure is shown then.
+   */
+  monthlyData?: MonthlyCalculation[];
   sortMode: SortMode;
   onSortClick?: () => void;
   hasRowControls: boolean;
@@ -19,12 +26,15 @@ interface AllocationGridHeaderProps {
 
 export function AllocationGridHeader({
   months,
-  productivityWindows,
+  monthlyData,
   sortMode,
   onSortClick,
   hasRowControls,
   sortable,
 }: AllocationGridHeaderProps) {
+  const factorByMonth = new Map(
+    (monthlyData ?? []).map((d) => [d.month, d.productivityFactor]),
+  );
   return (
     <thead>
       <tr>
@@ -44,9 +54,7 @@ export function AllocationGridHeader({
           </span>
         </th>
         {months.map((month) => {
-          const factor = productivityWindows
-            ? getProductivityFactor(month, productivityWindows)
-            : 1;
+          const factor = factorByMonth.get(month) ?? 1;
           return (
             <th
               scope="col"

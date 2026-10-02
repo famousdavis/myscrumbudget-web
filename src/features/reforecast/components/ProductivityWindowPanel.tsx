@@ -110,6 +110,13 @@ export function ProductivityWindowPanel({
 
   return (
     <CollapsibleSection title="Productivity Windows" count={windows.length}>
+          {/* v0.43.0: states the rule the calc engine applies — a window is
+              averaged over working days only (getMonthlyWorkingDays), so one
+              that duplicates a holiday is harmless rather than a double count. */}
+          <p className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
+            A window reduces only the working days it covers. Weekends and
+            holidays are already days off, so a window over them changes nothing.
+          </p>
           {windows.length === 0 && !showAddForm && (
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
               No productivity windows defined. Add one to model reduced capacity

@@ -6,7 +6,7 @@
 
 import { useCallback, useState, useRef, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import type { TeamMember, PoolMember, MonthlyCalculation, ProductivityWindow, LaborRate } from '@/types/domain';
+import type { TeamMember, PoolMember, MonthlyCalculation, LaborRate } from '@/types/domain';
 import { ConfirmDialog } from '@/components/BaseDialog';
 import type { AllocationMap } from '@/lib/calc/allocationMap';
 import { useDragReorder } from '@/hooks/useDragReorder';
@@ -64,7 +64,6 @@ interface AllocationGridProps {
   pool?: PoolMember[];
   readonly?: boolean;
   monthlyData?: MonthlyCalculation[];
-  productivityWindows?: ProductivityWindow[];
   actualsThroughDate?: string;
   /**
    * Forwarded to each row to flag a member whose role has no labor rate.
@@ -87,7 +86,6 @@ export function AllocationGrid({
   pool = [],
   readonly = false,
   monthlyData,
-  productivityWindows,
   actualsThroughDate,
   laborRates,
 }: AllocationGridProps) {
@@ -715,7 +713,7 @@ export function AllocationGrid({
       >
         <AllocationGridHeader
           months={months}
-          productivityWindows={productivityWindows}
+          monthlyData={monthlyData}
           sortMode={sortMode}
           onSortClick={handleSortClick}
           hasRowControls={hasRowControls}

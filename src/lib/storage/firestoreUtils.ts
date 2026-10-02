@@ -107,10 +107,10 @@ function isLaborRate(value: unknown): value is LaborRate {
 /**
  * Is this a usable `Holiday`? ALL FOUR fields, not just the two dates.
  *
- * The snapshot's own consumer (`countHolidayWorkdays`) reads only
- * `startDate`/`endDate`, but the rebuilt object is typed `Holiday`, and letting
- * a `{id: 42}` through would put a value on a typed array that does not satisfy
- * it. Four is also exactly what the app's own `validateHoliday` requires, so
+ * The snapshot's own consumer (`getMonthlyWorkingDays` in dates.ts — until
+ * v0.43.0, `countHolidayWorkdays`) reads only `startDate`/`endDate`, but the
+ * rebuilt object is typed `Holiday`, and letting a `{id: 42}` through would
+ * put a value on a typed array that does not satisfy it. Four is also exactly what the app's own `validateHoliday` requires, so
  * this rejects nothing the app calls legitimate.
  */
 function isHoliday(value: unknown): value is Holiday {

@@ -7,7 +7,7 @@ import { buildChartData } from '../buildChartData';
 import type { HistoricalCostEntry, MonthlyCalculation } from '@/types/domain';
 
 function mc(month: string, cost: number, hours: number, cumCost: number, cumHours: number): MonthlyCalculation {
-  return { month, cost, hours, cumulativeCost: cumCost, cumulativeHours: cumHours };
+  return { month, cost, hours, cumulativeCost: cumCost, cumulativeHours: cumHours, productivityFactor: 1 };
 }
 
 describe('buildChartData', () => {
