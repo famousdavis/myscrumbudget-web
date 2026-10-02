@@ -358,7 +358,6 @@ export default function ProjectDetailPage({
             onSort={sortAssignments}
             pool={pool}
             monthlyData={metrics?.monthlyData}
-            productivityWindows={productivityWindows}
             actualsThroughDate={actualsThroughDate}
             laborRates={effectiveLaborRates(project, settings)}
           />

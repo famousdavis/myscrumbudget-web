@@ -12,8 +12,12 @@ export type ChartSegment = 'historical' | 'blended' | 'forecast';
  * total bar height; `historicalCost` + `forecastCost` always sum to it.
  * The bar chart stacks the two portions; the line chart uses `cost` for
  * cumulative trajectory and `segment` to pick the line/dot style.
+ *
+ * `productivityFactor` is left out on purpose: it describes the forecast's
+ * working days, and a point that blends in historical cost has no single
+ * factor. Nothing on a chart displays it.
  */
-export type ChartDataPoint = MonthlyCalculation & {
+export type ChartDataPoint = Omit<MonthlyCalculation, 'productivityFactor'> & {
   segment: ChartSegment;
   historicalCost: number;
   forecastCost: number;

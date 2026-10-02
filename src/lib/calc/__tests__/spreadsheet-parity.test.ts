@@ -27,12 +27,11 @@ import {
   calculateETC,
   calculateEAC,
   calculateWeeklyBurnRate,
-  getActiveMonths,
   generateMonthlyCalculations,
 } from '../metrics';
 import { calculateNPV } from '../npv';
 import { calculateProjectMetrics } from '../index';
-import { getMonthlyWorkHours } from '@/lib/utils/dates';
+import { countWorkdays, getMonthlyWorkHours } from '@/lib/utils/dates';
 
 const FIX = SPREADSHEET_FIXTURE;
 const allocationMap = buildAllocationMap(FIX.allocations);
@@ -110,7 +109,7 @@ describe('Regression Tests — Workday-Based Calculation Engine', () => {
       const monthlyHours = new Map(
         FIX.months.map((m, i) => [m, FIX.expected.totalMonthlyHours[i]]),
       );
-      const calcs = generateMonthlyCalculations(FIX.months, monthlyCosts, monthlyHours);
+      const calcs = generateMonthlyCalculations(FIX.months, monthlyCosts, monthlyHours, new Map());
       calcs.forEach((calc, i) => {
         expect(calc.cumulativeCost).toBeCloseTo(FIX.expected.cumulativeCosts[i], 1);
       });
@@ -123,7 +122,7 @@ describe('Regression Tests — Workday-Based Calculation Engine', () => {
       const monthlyHours = new Map(
         FIX.months.map((m, i) => [m, FIX.expected.totalMonthlyHours[i]]),
       );
-      const calcs = generateMonthlyCalculations(FIX.months, monthlyCosts, monthlyHours);
+      const calcs = generateMonthlyCalculations(FIX.months, monthlyCosts, monthlyHours, new Map());
       calcs.forEach((calc, i) => {
         expect(calc.cumulativeHours).toBeCloseTo(FIX.expected.cumulativeHours[i], 1);
       });
@@ -149,11 +148,14 @@ describe('Regression Tests — Workday-Based Calculation Engine', () => {
     });
 
     it('weekly burn rate matches expected value', () => {
-      const activeMonths = getActiveMonths(FIX.allocations);
+      // Intentional divergence 3 in the fixture header: weeks are counted
+      // from the project's own dates, not the spreadsheet's EDATE formula.
+      expect(countWorkdays(FIX.project.startDate, FIX.project.endDate))
+        .toBe(FIX.expected.burnRateDetail.weekdays);
       const burnRate = calculateWeeklyBurnRate(
         FIX.expected.etc,
-        new Date(FIX.project.startDate),
-        activeMonths,
+        FIX.project.startDate,
+        FIX.project.endDate,
       );
       expect(burnRate).toBeCloseTo(FIX.expected.weeklyBurnRate, 2);
     });

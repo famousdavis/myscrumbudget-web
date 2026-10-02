@@ -16,7 +16,8 @@ import {
 } from './metrics';
 import { calculateNPV } from './npv';
 import { getProductivityFactor } from './productivity';
-import { generateMonthRange, getMonthlyWorkHours, getEtcStartDate } from '@/lib/utils/dates';
+import { generateMonthRange, getMonthlyWorkingDays, getEtcStartDate } from '@/lib/utils/dates';
+import { HOURS_PER_DAY } from '@/lib/constants';
 import { effectiveSettings } from '@/lib/utils/costSnapshot';
 import { getActiveReforecast } from '@/lib/utils/teamResolution';
 
@@ -75,15 +76,21 @@ export function calculateProjectMetrics(
   const monthlyHourValues: number[] = [];
   const costMap = new Map<string, number>();
   const hourMap = new Map<string, number>();
+  const productivityMap = new Map<string, number>();
 
   for (const month of months) {
-    const factor = getProductivityFactor(month, reforecast.productivityWindows);
-    // getMonthlyWorkHours honors the day component of startDate/endDate
-    // (verified at dates.ts:169-184). Mid-month reforecast.startDate values
-    // produce partial first-month hour totals — see D22 and CHANGELOG.
-    const availableHours = getMonthlyWorkHours(
+    // ⚠️ ONE list of working days drives BOTH the available hours and the
+    // productivity factor (v0.43.0). Computing them separately is how a window
+    // over a holiday came to remove that time twice: the hours excluded the
+    // holiday, and the factor, averaged over calendar days, removed it again.
+    // getMonthlyWorkingDays honors the day component of startDate/endDate, so
+    // mid-month reforecast.startDate values produce partial first-month totals
+    // — see D22 and CHANGELOG.
+    const workingDays = getMonthlyWorkingDays(
       month, reforecast.startDate, reforecast.endDate, costInputs.holidays, etcStartDate,
     );
+    const availableHours = workingDays.length * HOURS_PER_DAY;
+    const factor = getProductivityFactor(workingDays, reforecast.productivityWindows);
     const cost = calculateTotalMonthlyCost(
       month, allocationMap, teamMembers, costInputs, availableHours, factor,
     );
@@ -94,18 +101,20 @@ export function calculateProjectMetrics(
     monthlyHourValues.push(hours);
     costMap.set(month, cost);
     hourMap.set(month, hours);
+    productivityMap.set(month, factor);
   }
 
   const etc = calculateETC(monthlyCostValues);
   const eac = calculateEAC(reforecast.actualCost, etc);
-  const monthlyData = generateMonthlyCalculations(months, costMap, hourMap);
+  const monthlyData = generateMonthlyCalculations(months, costMap, hourMap, productivityMap);
 
-  // For burn rate: use months with non-zero cost (naturally excludes
-  // pre-cutoff months) and actualsThroughDate as the start when set
-  const burnRateActiveMonths = months.filter(m => (costMap.get(m) ?? 0) > 0);
-  const burnRateStartDate = reforecast.actualsThroughDate
-    ? new Date(reforecast.actualsThroughDate)
-    : new Date(reforecast.startDate);
+  // Burn rate covers the whole remaining forecast window: from the first day
+  // the ETC covers (the day after Actuals Through, when that is later than the
+  // reforecast start) to the reforecast's finish date. Weeks with no
+  // allocations still count — they are weeks the project runs.
+  const burnRateStartDate = etcStartDate && etcStartDate > reforecast.startDate
+    ? etcStartDate
+    : reforecast.startDate;
 
   return {
     etc,
@@ -114,7 +123,7 @@ export function calculateProjectMetrics(
     variancePercent: calculateVariancePercent(eac, reforecast.baselineBudget),
     budgetRatio: calculateBudgetPerformanceRatio(reforecast.baselineBudget, eac),
     weeklyBurnRate: calculateWeeklyBurnRate(
-      etc, burnRateStartDate, burnRateActiveMonths,
+      etc, burnRateStartDate, reforecast.endDate,
     ),
     npv: calculateNPV(costInputs.discountRateAnnual, monthlyCostValues),
     totalHours: monthlyHourValues.reduce((sum, h) => sum + h, 0),
@@ -139,7 +148,6 @@ export {
   calculateVariancePercent,
   calculateBudgetPerformanceRatio,
   calculateWeeklyBurnRate,
-  getActiveMonths,
   generateMonthlyCalculations,
 } from './metrics';
 export { calculateNPV } from './npv';

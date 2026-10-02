@@ -10,7 +10,6 @@ import {
   calculateVariancePercent,
   calculateBudgetPerformanceRatio,
   calculateWeeklyBurnRate,
-  getActiveMonths,
   generateMonthlyCalculations,
 } from '../metrics';
 
@@ -85,99 +84,73 @@ describe('calculateBudgetPerformanceRatio', () => {
 });
 
 describe('calculateWeeklyBurnRate', () => {
-  it('matches Excel formula: ETC / ROUND(days / 7)', () => {
-    // 14 active months from June 15, 2026
-    // EDATE(2026-06-15, 14) = 2027-08-15
-    // 426 days / 7 = 60.857 → round = 61
-    const activeMonths = [
-      '2026-06', '2026-07', '2026-08', '2026-09', '2026-10', '2026-11',
-      '2026-12', '2027-01', '2027-02', '2027-03', '2027-04', '2027-05',
-      '2027-06', '2027-07',
-    ];
-    const rate = calculateWeeklyBurnRate(856_656, new Date('2026-06-15'), activeMonths);
-    expect(rate).toBeCloseTo(14_043.54, 1);
+  // Weeks are weekdays ÷ 5 between the two dates, inclusive. Week counts
+  // below were checked by counting weekdays independently (Python datetime).
+
+  it('divides ETC by the calendar weeks counted on the weekday grid', () => {
+    // Mon 2026-10-19 → Tue 2027-02-09: 82 weekdays = 16.4 weeks.
+    expect(calculateWeeklyBurnRate(65_600, '2026-10-19', '2027-02-09')).toBeCloseTo(4_000, 9);
   });
 
-  it('returns 0 with no active months', () => {
-    expect(calculateWeeklyBurnRate(100_000, new Date('2026-06-15'), [])).toBe(0);
+  it('reads sixteen Monday-to-Friday weeks as 16, not 110 calendar days ÷ 7', () => {
+    // Mon 2026-10-19 → Fri 2027-02-05: 80 weekdays.
+    expect(calculateWeeklyBurnRate(64_000, '2026-10-19', '2027-02-05')).toBeCloseTo(4_000, 9);
+  });
+
+  it('adds nothing for a weekend at the start of the window', () => {
+    // Sat 2026-11-07 → Fri 2027-02-05: 65 weekdays = 13 weeks, the same as
+    // starting on Mon 2026-11-09.
+    const fromSaturday = calculateWeeklyBurnRate(13_000, '2026-11-07', '2027-02-05');
+    const fromMonday = calculateWeeklyBurnRate(13_000, '2026-11-09', '2027-02-05');
+    expect(fromSaturday).toBeCloseTo(1_000, 9);
+    expect(fromSaturday).toBe(fromMonday);
+  });
+
+  it('counts a partial week by its weekdays, with no one-week floor', () => {
+    // Mon 2027-02-08 → Tue 2027-02-09: 2 weekdays = 0.4 weeks.
+    expect(calculateWeeklyBurnRate(1_600, '2027-02-08', '2027-02-09')).toBeCloseTo(4_000, 9);
   });
 
   it('returns 0 with zero ETC', () => {
-    expect(calculateWeeklyBurnRate(0, new Date('2026-06-15'), ['2026-06'])).toBe(0);
+    expect(calculateWeeklyBurnRate(0, '2026-10-19', '2027-02-09')).toBe(0);
   });
 
-  it('handles single active month', () => {
-    const rate = calculateWeeklyBurnRate(10_000, new Date('2026-06-15'), ['2026-06']);
-    // EDATE(2026-06-15, 1) = 2026-07-15 → 30 days → round(30/7) = 4 weeks
-    expect(rate).toBeCloseTo(10_000 / 4, 0);
-  });
-});
-
-describe('getActiveMonths', () => {
-  it('returns months with non-zero allocations', () => {
-    const allocs = [
-      { memberId: 'tm1', month: '2026-06', allocation: 0.5 },
-      { memberId: 'tm1', month: '2026-08', allocation: 0.25 },
-    ];
-    const active = getActiveMonths(allocs);
-    expect(active).toContain('2026-06');
-    expect(active).toContain('2026-08');
-    expect(active).toHaveLength(2);
-  });
-
-  it('excludes months with zero allocation', () => {
-    const allocs = [
-      { memberId: 'tm1', month: '2026-06', allocation: 0 },
-      { memberId: 'tm1', month: '2026-07', allocation: 0.5 },
-    ];
-    const active = getActiveMonths(allocs);
-    expect(active).not.toContain('2026-06');
-    expect(active).toContain('2026-07');
-  });
-
-  it('deduplicates months with multiple members', () => {
-    const allocs = [
-      { memberId: 'tm1', month: '2026-06', allocation: 0.5 },
-      { memberId: 'tm2', month: '2026-06', allocation: 0.3 },
-    ];
-    const active = getActiveMonths(allocs);
-    expect(active).toHaveLength(1);
-    expect(active).toContain('2026-06');
-  });
-
-  it('returns empty for no allocations', () => {
-    expect(getActiveMonths([])).toHaveLength(0);
+  it('returns 0, not Infinity, when the window holds no weekdays', () => {
+    // Sat–Sun, and a start after the end — neither can carry ETC through the
+    // engine, but the division must be guarded regardless.
+    expect(calculateWeeklyBurnRate(1_000, '2026-11-07', '2026-11-08')).toBe(0);
+    expect(calculateWeeklyBurnRate(1_000, '2027-02-10', '2027-02-09')).toBe(0);
   });
 });
 
 describe('generateMonthlyCalculations', () => {
-  it('builds cumulative totals', () => {
+  it('builds cumulative totals and carries each month\'s productivity factor', () => {
     const months = ['2026-06', '2026-07', '2026-08'];
     const costs = new Map([['2026-06', 1_000], ['2026-07', 2_000], ['2026-08', 3_000]]);
     const hours = new Map([['2026-06', 100], ['2026-07', 200], ['2026-08', 300]]);
-    const result = generateMonthlyCalculations(months, costs, hours);
+    const productivity = new Map([['2026-06', 1], ['2026-07', 0.75], ['2026-08', 1]]);
+    const result = generateMonthlyCalculations(months, costs, hours, productivity);
 
     expect(result).toHaveLength(3);
     expect(result[0]).toEqual({
       month: '2026-06', cost: 1_000, hours: 100,
-      cumulativeCost: 1_000, cumulativeHours: 100,
+      cumulativeCost: 1_000, cumulativeHours: 100, productivityFactor: 1,
     });
     expect(result[1]).toEqual({
       month: '2026-07', cost: 2_000, hours: 200,
-      cumulativeCost: 3_000, cumulativeHours: 300,
+      cumulativeCost: 3_000, cumulativeHours: 300, productivityFactor: 0.75,
     });
     expect(result[2]).toEqual({
       month: '2026-08', cost: 3_000, hours: 300,
-      cumulativeCost: 6_000, cumulativeHours: 600,
+      cumulativeCost: 6_000, cumulativeHours: 600, productivityFactor: 1,
     });
   });
 
-  it('defaults to 0 for missing months in maps', () => {
+  it('defaults to 0 cost/hours and a factor of 1 for months missing from the maps', () => {
     const months = ['2026-06'];
-    const costs = new Map<string, number>();
-    const hours = new Map<string, number>();
-    const result = generateMonthlyCalculations(months, costs, hours);
+    const result = generateMonthlyCalculations(months, new Map(), new Map(), new Map());
     expect(result[0].cost).toBe(0);
     expect(result[0].hours).toBe(0);
+    expect(result[0].productivityFactor).toBe(1);
   });
 });

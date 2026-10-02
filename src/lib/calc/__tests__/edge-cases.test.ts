@@ -9,6 +9,7 @@ import {
   calculateBudgetPerformanceRatio,
 } from '../metrics';
 import { getProductivityFactor } from '../productivity';
+import { getMonthlyWorkingDays } from '@/lib/utils/dates';
 import type { Project, Settings, TeamMember, Reforecast } from '@/types/domain';
 
 const SETTINGS: Settings = {
@@ -369,15 +370,18 @@ describe('Edge Cases', () => {
     const windows = [
       { id: 'w1', startDate: '2026-12-01', endDate: '2026-12-31', factor: 0.5 },
     ];
+    // Since v0.43.0 the factor is averaged over a month's working days, which
+    // the engine takes from getMonthlyWorkingDays. No holidays here.
+    const days = (month: string) => getMonthlyWorkingDays(month, '2026-01-01', '2027-12-31');
 
     it('returns 1.0 for months entirely outside all windows', () => {
-      expect(getProductivityFactor('2026-06', windows)).toBe(1.0);
-      expect(getProductivityFactor('2027-01', windows)).toBe(1.0);
-      expect(getProductivityFactor('2026-11', windows)).toBe(1.0);
+      expect(getProductivityFactor(days('2026-06'), windows)).toBe(1.0);
+      expect(getProductivityFactor(days('2027-01'), windows)).toBe(1.0);
+      expect(getProductivityFactor(days('2026-11'), windows)).toBe(1.0);
     });
 
     it('applies factor for month inside window', () => {
-      expect(getProductivityFactor('2026-12', windows)).toBe(0.5);
+      expect(getProductivityFactor(days('2026-12'), windows)).toBe(0.5);
     });
 
     it('handles multiple non-overlapping windows', () => {
@@ -385,14 +389,14 @@ describe('Edge Cases', () => {
         { id: 'w1', startDate: '2026-12-01', endDate: '2026-12-31', factor: 0.5 },
         { id: 'w2', startDate: '2027-03-01', endDate: '2027-03-31', factor: 0.75 },
       ];
-      expect(getProductivityFactor('2026-12', multiWindows)).toBe(0.5);
-      expect(getProductivityFactor('2027-01', multiWindows)).toBe(1.0);
-      expect(getProductivityFactor('2027-02', multiWindows)).toBe(1.0);
-      expect(getProductivityFactor('2027-03', multiWindows)).toBe(0.75);
+      expect(getProductivityFactor(days('2026-12'), multiWindows)).toBe(0.5);
+      expect(getProductivityFactor(days('2027-01'), multiWindows)).toBe(1.0);
+      expect(getProductivityFactor(days('2027-02'), multiWindows)).toBe(1.0);
+      expect(getProductivityFactor(days('2027-03'), multiWindows)).toBe(0.75);
     });
 
     it('returns 1.0 when no windows exist', () => {
-      expect(getProductivityFactor('2026-06', [])).toBe(1.0);
+      expect(getProductivityFactor(days('2026-06'), [])).toBe(1.0);
     });
   });
 
@@ -500,7 +504,7 @@ describe('Edge Cases', () => {
       expect(metrics.eac).toBe(20000);
     });
 
-    it('burn rate uses only post-cutoff months', () => {
+    it('burn rate counts only the weeks after the cutoff', () => {
       // 3-month project: Jun-Aug. Cutoff at Jun 30 → only Jul+Aug have cost
       const rf = makeReforecast({
         startDate: '2026-06-01',
@@ -521,11 +525,15 @@ describe('Edge Cases', () => {
       });
 
       const metrics = calculateProjectMetrics(project, SETTINGS, TEAM);
-      // Burn rate should be based on 2 active months, not 3
-      expect(metrics.weeklyBurnRate).toBeGreaterThan(0);
       // ETC should not include June
       const juneCost = metrics.monthlyData[0].cost;
       expect(juneCost).toBe(0);
+      // July 23 + August 21 working days = 44 × 8 h × $100 = $35,200, over the
+      // 44 weekdays from Jul 1 to Aug 31 = 8.8 weeks: one full-time person at
+      // $100/hour, so exactly $4,000 a week. (Asserted exactly since v0.43.0;
+      // this test previously checked only that the rate was positive.)
+      expect(metrics.etc).toBe(35_200);
+      expect(metrics.weeklyBurnRate).toBeCloseTo(4_000, 9);
     });
   });
 });

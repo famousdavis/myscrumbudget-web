@@ -379,8 +379,9 @@ describe('sanitizeCostSnapshot (v0.39.0)', () => {
   describe('element level — one rule: a bad ELEMENT drops, an unusable FIELD rejects', () => {
     it('DROPS a null holiday and keeps the rest of the snapshot', () => {
       // ⚠️ Under a top-level-only sanitizer this was ADMITTED and threw a
-      // TypeError out of calculateProjectMetrics (countHolidayWorkdays reads
-      // holiday.startDate). Dropping is what closes that.
+      // TypeError out of calculateProjectMetrics (its holiday check — now
+      // getMonthlyWorkingDays — reads holiday.startDate). Dropping is what
+      // closes that.
       const out = sanitizeCostSnapshot({ ...valid, holidays: [null, HOLIDAY] });
       expect(out?.holidays).toEqual([HOLIDAY]);
       expect(out?.laborRates, 'the rate card is untouched by a bad holiday').toEqual(RATES);

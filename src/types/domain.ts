@@ -311,6 +311,14 @@ export interface MonthlyCalculation {
   hours: number;
   cumulativeCost: number;
   cumulativeHours: number;
+  /**
+   * The productivity factor this month's hours and cost were computed with:
+   * the average, over the month's forecast working days, of the lowest window
+   * factor covering each day (1 when no window reduces any of them). The
+   * allocation grid's month header displays this value rather than computing
+   * its own, so the figure shown is always the one applied (v0.43.0).
+   */
+  productivityFactor: number;
 }
 
 export interface ProjectMetrics {
