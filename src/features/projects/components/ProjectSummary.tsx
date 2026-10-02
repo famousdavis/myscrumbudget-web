@@ -4,7 +4,7 @@
 
 'use client';
 
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect, useId, type ReactNode } from 'react';
 import Link from 'next/link';
 import type { Project, ProjectMetrics, Reforecast, TrafficLightThresholds, CharterBudget } from '@/types/domain';
 import { formatCurrency, formatDateMedium } from '@/lib/utils/format';
@@ -42,6 +42,7 @@ interface InlineEditableFieldProps {
 function InlineEditableField({ label, value, onChange, tooltip, badge }: InlineEditableFieldProps) {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(String(value));
+  const describedById = useId();
 
   // Sync when prop changes (e.g., reforecast switch)
   useEffect(() => {
@@ -88,6 +89,10 @@ function InlineEditableField({ label, value, onChange, tooltip, badge }: InlineE
       role="button"
       tabIndex={editing ? -1 : 0}
       aria-label={`Edit ${label}`}
+      // The aria-label replaces the tile's content for assistive technology, so
+      // without this a screen reader announced only "Edit Actual Cost" — not
+      // the amount, and not the line under it (v0.44.0: the spend-to-date line).
+      aria-describedby={editing ? undefined : describedById}
       title={tooltip}
     >
       <p className="text-sm text-zinc-500 dark:text-zinc-400">{label}</p>
@@ -106,9 +111,11 @@ function InlineEditableField({ label, value, onChange, tooltip, badge }: InlineE
           className={inputClass}
         />
       ) : (
-        <p className="mt-1 text-base font-medium">{formatCurrency(value)}</p>
+        <div id={describedById}>
+          <p className="mt-1 text-base font-medium">{formatCurrency(value)}</p>
+          {badge}
+        </div>
       )}
-      {!editing && badge}
     </div>
   );
 }

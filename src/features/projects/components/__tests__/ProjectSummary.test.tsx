@@ -98,6 +98,14 @@ describe('Actual Cost tile — spend to date', () => {
     expect(line.getAttribute('title')).toBe('Planned through Oct 31, 2026: $32,360 · Actual: $32,360');
   });
 
+  it('[FAILS-TODAY] a screen reader hears the amount and the spend line, not only "Edit Actual Cost"', () => {
+    // The tile is a button whose aria-label replaces its content; v0.43.0 gave
+    // it no description, so the amount itself was never announced either.
+    renderTile(30_000, 32_360);
+    const tile = screen.getByRole('button', { name: 'Edit Actual Cost' });
+    expect(tile).toHaveAccessibleDescription('$30,000 $2,360 under plan');
+  });
+
   it('[FALSIFY-AFTER] shows no line without an Actuals Through date, or while metrics are unavailable', () => {
     // Paired with the renders above: each of those fails if the line is absent.
     renderTile(30_000, null, undefined).unmount();
