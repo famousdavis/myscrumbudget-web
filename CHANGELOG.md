@@ -4,6 +4,13 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.44.1] - 2026-10-05
+
+### Changed
+- **New Terms of Service and Privacy Policy, which you will be asked to accept again.** The SPERT® Suite Terms of Service and Privacy Policy have new editions — version 1.3 of each, effective October 5, 2026 — published at the same spertsuite.com addresses MyScrumBudget already links to. If you sign in to use cloud storage, MyScrumBudget asks you to accept them again: the acceptance it had recorded was for the April 5, 2026 editions (`TOS_VERSION` and `PRIVACY_VERSION` were `'04-05-2026'` and had never moved); both are now `'10-05-2026'`, so the record names the edition you actually accept. Nothing changes if you use MyScrumBudget without signing in.
+- None of the changes alters what MyScrumBudget collects or does. The documents now describe database backups (daily backups kept for up to 98 days, point-in-time recovery for up to 7 days), that data is stored at rest in the United States, and project sharing and invitation emails.
+- **The copies kept in this repository were out of date.** `legal/TOS.pdf` and `legal/PRIVACY.pdf` still held the April 5 editions, three re-issues behind. Both are now byte-identical to the October 5 editions on spertsuite.com.
+
 ## [0.44.0] - 2026-10-02
 
 ### Added
