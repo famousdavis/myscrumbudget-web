@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.44.1',
+    date: '2026-10-05',
+    sections: [
+      {
+        title: 'Changed',
+        items: [
+          'The SPERT® Suite Terms of Service and Privacy Policy have new editions, version 1.3 of each, effective October 5, 2026. If you sign in to use cloud storage, MyScrumBudget asks you to accept them again: the acceptance it had recorded was for the April 5, 2026 editions, and from now on it records the edition you actually accept. Nothing changes if you use MyScrumBudget without signing in.',
+          'None of the changes alters what MyScrumBudget collects or does. The documents now describe database backups (daily backups kept for up to 98 days, point-in-time recovery for up to 7 days), that data is stored at rest in the United States, and project sharing and invitation emails.',
+          'The copies of the Terms and Privacy Policy kept in this project’s repository still held the April 5 editions, three re-issues behind. Both now match the October 5 editions published on spertsuite.com.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.44.0',
     date: '2026-10-02',
     sections: [
