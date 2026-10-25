@@ -18,7 +18,7 @@ import { performSignOutCleanup } from '@/lib/auth/signOutCleanup';
 import { writeSpertsuiteProfile, writeMyscrumbudgetProfile } from '@/lib/firebase/profileWrites';
 import { claimPendingInvitationsAndNotify } from '@/lib/firebase/claimPendingInvitations';
 import { TOS_VERSION, PRIVACY_VERSION, APP_ID } from '@/lib/tos/tosConstants';
-import { setTosAcceptedVersion } from '@/lib/tos/tosHelpers';
+import { isTosAccepted, setTosAcceptedVersion } from '@/lib/tos/tosHelpers';
 
 interface AuthContextType {
   user: User | null;
@@ -58,15 +58,29 @@ interface AuthContextType {
  * ⚠️ Figures re-derived UNCHANGED from the 2026-08-15 scoping measurement. The
  * re-measure trigger is a change to this file (6 commits at the time of
  * writing), not elapsed time.
+ *
+ * ⚠️ v0.44.4 (2026-10-25): PARTLY SUPERSEDED, on the owner's instruction. The
+ * Terms check on an auth-state change (the subscriber, applyAuthState,
+ * recordTosAcceptance, hasCurrentAcceptanceOnRecord) is now driven by
+ * `__tests__/AuthProvider.tos.test.tsx`, so the figures above, and "zero
+ * functions have ever executed", describe the file BEFORE that release. The
+ * rest of the provider stays as disposed above.
  */
 const AuthContext = createContext<AuthContextType | null>(null);
 
 /**
  * Record ToS acceptance in Firestore (shared users collection).
  * Three-way conditional: create, skip, or update based on existing doc.
+ *
+ * v0.44.4: writes only when this browser already holds the current edition's
+ * acceptance (TosConsentModal sets it before the sign-in popup, or
+ * hasCurrentAcceptanceOnRecord cached it from a current record). Without it,
+ * nobody has accepted the current edition here, so nothing is recorded — this
+ * is what keeps a failed check, which lets the user through, from stamping one.
  */
 async function recordTosAcceptance(user: User): Promise<void> {
   if (!db) return;
+  if (!isTosAccepted()) return;
   try {
     const ref = doc(db, 'users', user.uid);
     const snap = await getDoc(ref);
@@ -97,6 +111,28 @@ async function recordTosAcceptance(user: User): Promise<void> {
   }
 }
 
+/**
+ * For a session restored without the current Terms acceptance in this
+ * browser: true if users/{uid} already names the current edition (accepted on
+ * another device), which is then cached here. Writes nothing. A failed read
+ * lets the user through rather than blocking on a transient error, as GanttApp
+ * and SPERT CFD do.
+ */
+async function hasCurrentAcceptanceOnRecord(user: User): Promise<boolean> {
+  if (!db) return true;
+  try {
+    const snap = await getDoc(doc(db, 'users', user.uid));
+    if (snap.exists() && snap.data()?.tosVersion === TOS_VERSION) {
+      setTosAcceptedVersion(TOS_VERSION);
+      return true;
+    }
+    return false;
+  } catch (e) {
+    console.warn('[AuthProvider] Failed to read ToS acceptance; allowing through:', e);
+    return true;
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   // Only show loading state if Firebase is configured (otherwise no auth to wait for)
@@ -111,7 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isFirebaseAvailable) return;
-    const unsubscribe = subscribeToAuth((firebaseUser) => {
+    const applyAuthState = (firebaseUser: User | null) => {
       // Canonical callback shape — invariants:
       //   1. setLoading(false) is the FIRST synchronous statement.
       //   2. Callback is NOT async. All async work is void-prefixed fire-and-forget.
@@ -119,6 +155,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       //   4. setLoading + setUser land in a single React batch — effects with
       //      deps [user] or [loading] see a clean resolved state, never an
       //      intermediate where loading is true and user is non-null.
+      // v0.44.4: this is applyAuthState, not the subscriber itself. The
+      // subscriber below calls it directly, except for a session restored
+      // without the current Terms acceptance in this browser, where it calls
+      // it from a promise callback once the record is checked. The invariants
+      // hold in both: React batches the two state updates there too.
       setLoading(false);
       // v0.28.2 (L8): passive sign-out detection. Fire performSignOutCleanup
       // when we transition from a non-null user to null without an explicit
@@ -151,6 +192,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         recordTosAcceptance(firebaseUser).catch(() => {});
       }
       setUser(firebaseUser);
+    };
+    // The most recent auth state, so a held check that finishes after a
+    // later event (a sign-out) does not apply a user who is gone.
+    let latestUser: User | null = null;
+    const unsubscribe = subscribeToAuth((firebaseUser) => {
+      latestUser = firebaseUser;
+      // v0.44.4: every sign-in goes through TosConsentModal, which stores the
+      // current edition in this browser before the popup opens, so only a
+      // restored session can reach here without it. Such a session is held
+      // (loading stays true, no user, nothing written) until the record is
+      // checked: it goes ahead only if the record already names the current
+      // edition; otherwise the user is signed out and the next sign-in shows
+      // the modal. recordTosAcceptance above must never stamp the current
+      // edition on a user who has not accepted it.
+      if (firebaseUser && db && !isTosAccepted()) {
+        void hasCurrentAcceptanceOnRecord(firebaseUser).then((current) => {
+          if (latestUser !== firebaseUser) return;
+          if (current) applyAuthState(firebaseUser);
+          else void performSignOutCleanup();
+        });
+        return;
+      }
+      applyAuthState(firebaseUser);
     });
     return unsubscribe;
   }, []);

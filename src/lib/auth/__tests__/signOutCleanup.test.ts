@@ -31,6 +31,7 @@ vi.mock('@/lib/storage/storageMode', () => ({
 }));
 
 import { performSignOutCleanup, beginCloudUpload, endCloudUpload } from '../signOutCleanup';
+import { TOS_VERSION } from '@/lib/tos/tosConstants';
 
 const ALWAYS_CLEAR = ['msb:exportAttribution', 'msb:ratesReviewed', 'msb:hasUploadedToCloud', 'spert_tos_accepted_version'];
 const CLOUD_ONLY_CLEAR = ['msb:projects', 'msb:settings', 'msb:teamPool', 'msb:changeLog', 'msb:originRef'];
@@ -104,7 +105,7 @@ describe('performSignOutCleanup', () => {
     // the sign-in gate let the next person through on the prior user's acceptance.
     // The ALWAYS_CLEAR assertions above cover both modes; this is the named guard.
     mocks.getStorageMode.mockReturnValue('local');
-    localStorage.setItem('spert_tos_accepted_version', '10-05-2026');
+    localStorage.setItem('spert_tos_accepted_version', TOS_VERSION);
     await performSignOutCleanup();
     expect(localStorage.getItem('spert_tos_accepted_version')).toBeNull();
   });
