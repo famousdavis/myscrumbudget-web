@@ -71,9 +71,16 @@ const AuthContext = createContext<AuthContextType | null>(null);
 /**
  * Record ToS acceptance in Firestore (shared users collection).
  * Three-way conditional: create, skip, or update based on existing doc.
+ *
+ * v0.44.4: writes only when this browser already holds the current edition's
+ * acceptance (TosConsentModal sets it before the sign-in popup, or
+ * hasCurrentAcceptanceOnRecord cached it from a current record). Without it,
+ * nobody has accepted the current edition here, so nothing is recorded — this
+ * is what keeps a failed check, which lets the user through, from stamping one.
  */
 async function recordTosAcceptance(user: User): Promise<void> {
   if (!db) return;
+  if (!isTosAccepted()) return;
   try {
     const ref = doc(db, 'users', user.uid);
     const snap = await getDoc(ref);

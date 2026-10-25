@@ -167,6 +167,23 @@ describe('AuthProvider — a session restored without the current acceptance in 
     expect(result.current.user).toBe(USER);
   });
 
+  it('lets the user through without recording an acceptance when only the check’s read fails', async () => {
+    // The check's read fails, so the user is let through; a later read then
+    // finds the October 5 record. Nobody saw the new Terms, so nothing may be
+    // stamped with the current edition, here or in this browser.
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    localStorage.setItem(TOS_STORAGE_KEY, '10-05-2026');
+    h.store.set(ACCEPTANCE_PATH, { tosVersion: '10-05-2026' });
+    h.getDoc.mockRejectedValueOnce(Object.assign(new Error('offline'), { code: 'unavailable' }));
+    const result = await resolveAuth(USER);
+
+    expect(result.current.user).toBe(USER);
+    expect(h.performSignOutCleanup).not.toHaveBeenCalled();
+    expect(acceptanceWrites()).toHaveLength(0);
+    expect(h.store.get(ACCEPTANCE_PATH)).toEqual({ tosVersion: '10-05-2026' });
+    expect(localStorage.getItem(TOS_STORAGE_KEY)).toBe('10-05-2026');
+  });
+
   it('does not sign the user back in when the check finishes after they signed out', async () => {
     let answer: (value: unknown) => void = () => {};
     h.getDoc.mockImplementation(() => new Promise((resolve) => { answer = resolve; }));
