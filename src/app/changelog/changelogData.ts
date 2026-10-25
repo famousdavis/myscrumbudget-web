@@ -19,9 +19,15 @@ export const CHANGELOG: ChangelogEntry[] = [
       {
         title: 'Changed',
         items: [
-          'The SPERT® Suite Terms of Service and Privacy Policy have new editions, version 1.4 of each, effective October 26, 2026. If you use cloud storage, you’ll be asked to accept them the next time you sign in: the acceptance MyScrumBudget had recorded was for the October 5, 2026 editions, and from now on it records the edition you actually accept. Nothing changes if you use MyScrumBudget without signing in.',
+          'The SPERT® Suite Terms of Service and Privacy Policy have new editions, version 1.4 of each, effective October 26, 2026. If you use cloud storage, you’ll be asked to accept them the next time you sign in; if you are signed in, MyScrumBudget signs you out the next time you open it, so that you can. The acceptance MyScrumBudget had recorded was for the October 5, 2026 editions, and from now on it records the edition you actually accept. Nothing changes if you use MyScrumBudget without signing in.',
           'The new editions replace a personal contact address with the SPERT® Suite’s own addresses (privacy@, security@ and contact@spertsuite.com), name Microsoft as the provider for email to those addresses, and clarify several disclosures.',
           'The copies of the Terms and Privacy Policy kept in this project’s repository now match the October 26 editions published on spertsuite.com.',
+        ],
+      },
+      {
+        title: 'Fixed',
+        items: [
+          'If you stay signed in between visits, you are now asked to accept new Terms too. Before, when you came back still signed in from an earlier visit, a new edition of the Terms of Service and Privacy Policy could be recorded as accepted without being shown to you. Now, the next time you open MyScrumBudget, it signs you out, and asks you to accept the new editions when you sign in again — as GanttApp and SPERT® CFD already do. If you have already accepted the current editions on another device, you stay signed in.',
         ],
       },
     ],
