@@ -4,6 +4,13 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.44.3] - 2026-10-25
+
+### Security
+
+- Signing out now clears this browser's record that the Terms of Service were accepted, so the next person who signs in on the same browser is asked to accept the Terms, rather than being let through on an earlier acceptance. This matters most on a shared computer.
+- If you had the first-run Terms notice showing and had not dismissed it, it reappears after you sign out.
+
 ## [0.44.2] - 2026-10-25
 
 ### Security
