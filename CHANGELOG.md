@@ -4,6 +4,13 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.44.2] - 2026-10-25
+
+### Security
+
+- The site now sends a stronger HTTP Strict-Transport-Security header (`max-age=63072000; includeSubDomains; preload`), telling browsers to use HTTPS for this site and its subdomains and making it eligible for the browser preload list. This matches the other SPERT® Suite apps.
+- The release workflow now declares least-privilege permissions (read-only access to the repository). Nothing about how the app works, looks or stores data changed.
+
 ## [0.44.1] - 2026-10-05
 
 ### Changed
