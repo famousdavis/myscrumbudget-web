@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.44.3',
+    date: '2026-10-25',
+    sections: [
+      {
+        title: 'Security',
+        items: [
+          'Signing out now clears the record, kept in this browser, that the Terms of Service were accepted. The next person who signs in on the same browser is asked to accept the Terms, rather than being let through on an earlier acceptance. This matters most on a shared computer.',
+          'If you had the first-run Terms notice showing and had not dismissed it, it reappears after you sign out.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.44.2',
     date: '2026-10-25',
     sections: [

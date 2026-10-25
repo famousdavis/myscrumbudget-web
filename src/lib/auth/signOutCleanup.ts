@@ -37,11 +37,13 @@
 //
 // PRESERVE list (must NOT be cleared on sign-out, either mode):
 //   msb-workspace-id            academic-integrity fingerprint (per-browser)
-//   spert_tos_accepted_version  device-scoped legal acknowledgment
 //   msb:suppressLocalStorageWarning  per-browser UX
 //   msb:theme                   per-browser UX
 //   msb:version                 per-browser schema marker
 //   spert_firstRun_seen         per-browser UX
+//   (spert_tos_accepted_version was preserved here until v0.44.3; it now lives
+//    in ALWAYS_CLEAR_ON_SIGN_OUT per security review B-10, so the next person on
+//    a shared browser is re-prompted for the Terms.)
 //
 // v0.31.0 (E2a): user-created data keys and fingerprint keys (msb:originRef,
 //   msb:changeLog) moved from unconditional clear to CLOUD_ONLY_CLEAR.
@@ -57,11 +59,18 @@ import { createLocalStorageRepository } from '@/lib/storage/localStorage';
 import { createFirestoreRepository } from '@/lib/storage/firestoreRepo';
 import { getStorageMode, setStorageMode } from '@/lib/storage/storageMode';
 
-/** PII and UX-flag keys cleared on every sign-out regardless of storage mode. */
+/** PII, UX-flag and ToS-acceptance keys cleared on every sign-out regardless of storage mode. */
 const ALWAYS_CLEAR_ON_SIGN_OUT: readonly string[] = [
   'msb:exportAttribution',
   'msb:ratesReviewed',
   'msb:hasUploadedToCloud',
+  // B-10 (v0.44.3): the ToS acceptance flag (TOS_STORAGE_KEY in
+  // @/lib/tos/tosConstants). Cleared on every sign-out so the next person on a
+  // shared browser is re-prompted to accept the Terms rather than being let in
+  // on the previous user's acceptance — as SPERT AHP already does. Accepted
+  // side effect: FirstRunBanner reappears for a user who suppressed it only by
+  // accepting the Terms, not by dismissing it.
+  'spert_tos_accepted_version',
 ] as const;
 
 /**

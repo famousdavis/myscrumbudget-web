@@ -32,10 +32,10 @@ vi.mock('@/lib/storage/storageMode', () => ({
 
 import { performSignOutCleanup, beginCloudUpload, endCloudUpload } from '../signOutCleanup';
 
-const ALWAYS_CLEAR = ['msb:exportAttribution', 'msb:ratesReviewed', 'msb:hasUploadedToCloud'];
+const ALWAYS_CLEAR = ['msb:exportAttribution', 'msb:ratesReviewed', 'msb:hasUploadedToCloud', 'spert_tos_accepted_version'];
 const CLOUD_ONLY_CLEAR = ['msb:projects', 'msb:settings', 'msb:teamPool', 'msb:changeLog', 'msb:originRef'];
 const PRESERVE_KEYS = [
-  'msb-workspace-id', 'spert_tos_accepted_version', 'msb:suppressLocalStorageWarning',
+  'msb-workspace-id', 'msb:suppressLocalStorageWarning',
   'msb:theme', 'msb:version', 'spert_firstRun_seen',
 ];
 const ALL_SEEDED = [...ALWAYS_CLEAR, ...CLOUD_ONLY_CLEAR, ...PRESERVE_KEYS];
@@ -97,6 +97,16 @@ describe('performSignOutCleanup', () => {
     sessionStorage.setItem('msb:invite-session', 'tok-cloud');
     await performSignOutCleanup();
     expect(sessionStorage.getItem('msb:invite-session')).toBeNull();
+  });
+
+  it('clears the ToS acceptance flag on sign-out so the next user is re-prompted (B-10)', async () => {
+    // Shared-computer fix: before v0.44.3 this flag was preserved at sign-out, so
+    // the sign-in gate let the next person through on the prior user's acceptance.
+    // The ALWAYS_CLEAR assertions above cover both modes; this is the named guard.
+    mocks.getStorageMode.mockReturnValue('local');
+    localStorage.setItem('spert_tos_accepted_version', '10-05-2026');
+    await performSignOutCleanup();
+    expect(localStorage.getItem('spert_tos_accepted_version')).toBeNull();
   });
 
   describe('cloud mode', () => {
