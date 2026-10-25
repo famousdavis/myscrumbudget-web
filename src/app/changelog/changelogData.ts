@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.44.2',
+    date: '2026-10-25',
+    sections: [
+      {
+        title: 'Security',
+        items: [
+          'The site now sends a stronger HTTP Strict-Transport-Security header (max-age=63072000; includeSubDomains; preload), telling browsers to use HTTPS for this site and its subdomains and making it eligible for the browser preload list. This matches the other SPERT® Suite apps.',
+          'The release workflow now declares least-privilege permissions (read-only access to the repository). Nothing about how the app works, looks or stores data changed.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.44.1',
     date: '2026-10-05',
     sections: [
