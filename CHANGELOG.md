@@ -4,6 +4,11 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.44.5] - 2026-10-25
+
+### Added
+- **A security.txt file (RFC 9116)**, so a security researcher can find where to report a vulnerability: by email to security@spertsuite.com, or privately through MyScrumBudget’s GitHub repository. Nothing about how the app works, looks or stores data changed. A new test checks the file on every release, and fails a month before the file expires, as a reminder to renew it.
+
 ## [0.44.4] - 2026-10-25
 
 ### Changed
