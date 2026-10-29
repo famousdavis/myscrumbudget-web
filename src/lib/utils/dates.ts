@@ -6,11 +6,24 @@ import { HOURS_PER_DAY } from '@/lib/constants';
 import type { Holiday } from '@/types/domain';
 
 /**
- * Generate an array of month strings (YYYY-MM) between two dates inclusive.
+ * The most months `generateMonthRange` returns unless told otherwise
+ * (v0.44.6). No date a browser's date input can produce reaches it: JavaScript
+ * dates end in year 275760, so year 1 to year 275760 is 3,309,120 months. It
+ * exists for strings no input produces — a project document whose end date
+ * reads "9999999-01-01" asked this loop for 120 million months.
+ */
+export const MONTH_RANGE_HARD_LIMIT = 3_400_000;
+
+/**
+ * Generate an array of month strings (YYYY-MM) between two dates inclusive,
+ * at most `limit` of them, earliest first. Display and calculation pass
+ * `MAX_FORECAST_MONTHS`; see that constant for why the default stays far
+ * higher.
  */
 export function generateMonthRange(
   startDate: string,
-  endDate: string
+  endDate: string,
+  limit: number = MONTH_RANGE_HARD_LIMIT,
 ): string[] {
   const months: string[] = [];
   const [startYear, startMonth] = startDate.split('-').map(Number);
@@ -19,7 +32,10 @@ export function generateMonthRange(
   let year = startYear;
   let month = startMonth;
 
-  while (year < endYear || (year === endYear && month <= endMonth)) {
+  while (
+    months.length < limit &&
+    (year < endYear || (year === endYear && month <= endMonth))
+  ) {
     months.push(`${year}-${String(month).padStart(2, '0')}`);
     month++;
     if (month > 12) {
@@ -111,12 +127,28 @@ function formatIsoDate(date: Date): string {
 /**
  * Every weekday (Mon-Fri) between two YYYY-MM-DD dates, inclusive of both
  * ends, as YYYY-MM-DD strings in date order.
+ *
+ * `withinOneMonth` stops at the last day of the start date's month. The month
+ * engine passes it (v0.44.6): its ranges are clipped to one month by STRING
+ * comparison, and a string such as "2026-01-19999999" sorts inside January
+ * while parsing to a date about 55,000 years later — one such end date in a
+ * project document made this loop walk 20 million days. Every date a date
+ * input produces that sorts inside a month is a day of that month, so the
+ * stop never changes their result.
  */
-function weekdaysBetween(startDate: string, endDate: string): string[] {
+function weekdaysBetween(
+  startDate: string,
+  endDate: string,
+  withinOneMonth = false,
+): string[] {
   const [sy, sm, sd] = startDate.split('-').map(Number);
   const [ey, em, ed] = endDate.split('-').map(Number);
   const current = new Date(sy, sm - 1, sd);
-  const end = new Date(ey, em - 1, ed);
+  let end = new Date(ey, em - 1, ed);
+  if (withinOneMonth) {
+    const monthEnd = new Date(current.getFullYear(), current.getMonth() + 1, 0);
+    if (end > monthEnd) end = monthEnd;
+  }
 
   const days: string[] = [];
   while (current <= end) {
@@ -135,20 +167,28 @@ function holidayWeekdays(
   startDate: string,
   endDate: string,
   holidays: Holiday[],
+  withinOneMonth = false,
 ): Set<string> {
   const dates = new Set<string>();
 
   for (const holiday of holidays) {
-    // Clip holiday range to [startDate, endDate]
-    const effectiveStart = holiday.startDate > startDate ? holiday.startDate : startDate;
-    const effectiveEnd = holiday.endDate < endDate ? holiday.endDate : endDate;
-
+    const [effectiveStart, effectiveEnd] = clipHoliday(holiday, startDate, endDate);
     if (effectiveStart > effectiveEnd) continue;
 
-    for (const day of weekdaysBetween(effectiveStart, effectiveEnd)) dates.add(day);
+    for (const day of weekdaysBetween(effectiveStart, effectiveEnd, withinOneMonth)) {
+      dates.add(day);
+    }
   }
 
   return dates;
+}
+
+/** A holiday's range clipped to [startDate, endDate], by string comparison. */
+function clipHoliday(holiday: Holiday, startDate: string, endDate: string): [string, string] {
+  return [
+    holiday.startDate > startDate ? holiday.startDate : startDate,
+    holiday.endDate < endDate ? holiday.endDate : endDate,
+  ];
 }
 
 /**
@@ -223,10 +263,20 @@ export function getMonthlyWorkingDays(
 
   if (effectiveStart > effectiveEnd) return [];
 
-  const weekdays = weekdaysBetween(effectiveStart, effectiveEnd);
+  const weekdays = weekdaysBetween(effectiveStart, effectiveEnd, true);
   if (holidays.length === 0) return weekdays;
 
-  const daysOff = holidayWeekdays(effectiveStart, effectiveEnd, holidays);
+  // A holiday whose clipped range is the whole window takes every day off —
+  // exactly what walking it would find, since the walk is the same call that
+  // built `weekdays`. Checking first keeps a project with thousands of
+  // window-wide holidays from walking each one every month (v0.44.6: 12,000 of
+  // them over ten years took 9.6 s).
+  for (const holiday of holidays) {
+    const [clipStart, clipEnd] = clipHoliday(holiday, effectiveStart, effectiveEnd);
+    if (clipStart === effectiveStart && clipEnd === effectiveEnd) return [];
+  }
+
+  const daysOff = holidayWeekdays(effectiveStart, effectiveEnd, holidays, true);
   return weekdays.filter((day) => !daysOff.has(day));
 }
 

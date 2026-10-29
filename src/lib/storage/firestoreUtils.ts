@@ -6,6 +6,7 @@ import type {
   Project, ProjectAssignment, PoolMember, LaborRate, Holiday, CostSnapshot,
 } from '@/types/domain';
 import { isProjectColor } from '@/features/projects/lib/projectColors';
+import { noteCloudLoadIssue, type CloudLoadRule } from './cloudLoadGuard';
 
 /**
  * Build a team snapshot mapping poolMemberIds to their name/role.
@@ -227,9 +228,55 @@ const _docToProjectCoverage: { [K in keyof Project]-?: 'required' | 'conditional
 };
 void _docToProjectCoverage;
 
+/**
+ * A string field of the document, or `fallback` when it is absent. A present
+ * value of another type is set aside, which no version of the app writes.
+ */
+function readText<T extends string | null>(
+  id: string,
+  value: unknown,
+  fallback: T,
+  rule: CloudLoadRule,
+): string | T {
+  if (typeof value === 'string') return value;
+  if (value !== undefined && value !== null) noteCloudLoadIssue(id, rule);
+  return fallback;
+}
+
+/**
+ * The document's reforecasts, as a list of objects (v0.44.6). Anything else
+ * is set aside — the list path converts every project a reader can see, and a
+ * `.map` on a non-list, or a property read on `null`, used to throw out of the
+ * whole list and leave the dashboard empty.
+ */
+function readReforecastObjects(id: string, value: unknown): Record<string, unknown>[] {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) {
+    noteCloudLoadIssue(id, 'reforecasts-not-a-list');
+    return [];
+  }
+  return value.filter((rf): rf is Record<string, unknown> => {
+    const usable = typeof rf === 'object' && rf !== null && !Array.isArray(rf);
+    if (!usable) noteCloudLoadIssue(id, 'reforecast-not-an-object');
+    return usable;
+  });
+}
+
 export function docToProject(id: string, data: Record<string, unknown>): Project {
-  const rawReforecasts = (data.reforecasts as Record<string, unknown>[]) ?? [];
-  const legacyAssignments = (data.assignments as ProjectAssignment[]) ?? null;
+  // ⚠️ TOTAL BY DESIGN (v0.44.6): this runs for every project on the reader's
+  // list, on documents any member can write, so it never throws. What it
+  // cannot use it sets aside and notes (cloudLoadGuard.ts); everything else
+  // passes through as before. The values it sets aside are ones no version of
+  // the app writes — the next save drops them, so a rule that tripped on real
+  // data would lose it. Field shapes INSIDE a reforecast are not checked here:
+  // an error there is contained by the dashboard tile's and the project page's
+  // error boundaries, which change no data.
+  const rawReforecasts = readReforecastObjects(id, data.reforecasts);
+  let legacyAssignments: ProjectAssignment[] | null = null;
+  if (Array.isArray(data.assignments)) legacyAssignments = data.assignments as ProjectAssignment[];
+  else if (data.assignments !== undefined && data.assignments !== null) {
+    noteCloudLoadIssue(id, 'legacy-assignments-not-a-list');
+  }
   const reforecasts = rawReforecasts.map((rf) => ({
     ...rf,
     assignments: Array.isArray(rf.assignments)
@@ -238,11 +285,11 @@ export function docToProject(id: string, data: Record<string, unknown>): Project
   })) as unknown as Project['reforecasts'];
   const project: Project = {
     id,
-    name: (data.name as string) ?? '',
-    startDate: (data.startDate as string) ?? '',
-    endDate: (data.endDate as string) ?? '',
+    name: readText(id, data.name, '', 'project-name-not-text'),
+    startDate: readText(id, data.startDate, '', 'project-dates-not-text'),
+    endDate: readText(id, data.endDate, '', 'project-dates-not-text'),
     reforecasts,
-    activeReforecastId: (data.activeReforecastId as string | null) ?? null,
+    activeReforecastId: readText(id, data.activeReforecastId, null, 'active-reforecast-id-not-text'),
   };
   // Optional Dashboard tile tint (v0.33.0), and the archiving flag (v0.34.0).
   //

@@ -2276,3 +2276,23 @@ describe('per-user preferences — the upload (v0.42.0)', () => {
       .toEqual([UP_A, UP_B]);
   });
 });
+
+describe('getProjects — one unreadable document does not empty the list (v0.44.6)', () => {
+  it('[FAILS-TODAY] lists every other project when one document cannot be converted', async () => {
+    // Any member can write a project document. Before v0.44.6 a `reforecasts`
+    // value that was not a list threw out of the list read, `getProjects`
+    // rejected, and the dashboard showed no projects at all.
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    queryDocs.set('good', fullDoc({ name: 'Good', order: 0 }));
+    queryDocs.set('odd', fullDoc({ name: 'Odd', order: 1, reforecasts: 'x' }));
+    const unreadable = fullDoc({ name: 'Unreadable', order: 2 });
+    Object.defineProperty(unreadable, 'members', { get() { throw new Error('boom'); } });
+    queryDocs.set('unreadable', unreadable);
+
+    const projects = await createFirestoreRepository(UID).getProjects();
+
+    expect(projects.map((p) => p.name)).toEqual(['Good', 'Odd']);
+    expect(projects[1].reforecasts).toEqual([]);
+    vi.restoreAllMocks();
+  });
+});

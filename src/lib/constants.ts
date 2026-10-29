@@ -15,6 +15,26 @@ export const UNDO_STACK_LIMIT = 50;
 export const REFORECAST_STALE_DAYS = 30;
 
 /**
+ * The most months the calc engine, the allocation grid and the historical-costs
+ * table cover for one reforecast: 100 years (v0.44.6).
+ *
+ * ⚠️ A POINT-OF-USE CLAMP, NOT A RULE ON STORED DATA. A reforecast whose window
+ * is longer keeps its dates, allocations and history; only what is shown and
+ * calculated stops here, and the project page says so. Nothing in the app
+ * limits a window: the date inputs have no `max`, so a browser lets a user type
+ * a year up to 275760. Measured before this release: a 0001–9999 window took
+ * about one second per calculation and asked the grid for 119,988 columns, and
+ * a project document can carry a window of millions of months. At 1,200 months
+ * the calculation takes about 12 ms.
+ *
+ * ⚠️ Never apply it where a month list decides what to DELETE —
+ * `timelineChange.ts` trims allocations against its own range, and a capped
+ * range there would trim real data. Those sites use `generateMonthRange`'s
+ * default limit, which no date input can reach.
+ */
+export const MAX_FORECAST_MONTHS = 1200;
+
+/**
  * Deep link from the Dashboard's Getting Started step 1 to the Settings Labor
  * Rate Table (v0.37.16). `RateTable` reads the param on arrival, opens itself,
  * and marks step 1 reviewed.

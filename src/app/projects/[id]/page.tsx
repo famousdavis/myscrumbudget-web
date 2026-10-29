@@ -5,7 +5,7 @@
 'use client';
 
 import { use, useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { APP_NAME } from '@/lib/constants';
+import { APP_NAME, MAX_FORECAST_MONTHS } from '@/lib/constants';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useProject } from '@/features/projects/hooks/useProject';
@@ -41,13 +41,41 @@ import { generateMonthRange } from '@/lib/utils/dates';
 import { buildChartData } from '@/lib/utils/buildChartData';
 import { BulkSharingSection } from '@/features/projects/components/BulkSharingSection';
 import { SkeletonProjectDetail } from '@/components/Skeleton';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { useCloudLoadNotice } from '@/features/projects/hooks/useCloudLoadNotice';
 
+/**
+ * ⚠️ THE BOUNDARY IS THE PAGE'S OUTERMOST ELEMENT (v0.44.6). The hooks that
+ * load the project and compute its metrics run inside `ProjectDetail`, so an
+ * error any of them raises while rendering is contained here instead of
+ * blanking the app. Any member of a shared project can write its document.
+ */
 export default function ProjectDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  return (
+    <ErrorBoundary label="project-page" fallback={<ProjectLoadFailed />}>
+      <ProjectDetail id={id} />
+    </ErrorBoundary>
+  );
+}
+
+function ProjectLoadFailed() {
+  return (
+    <div role="alert" className="rounded border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
+      <p className="font-medium">This project could not be displayed.</p>
+      <p className="mt-1">
+        Part of its data is in a form this app cannot show. Nothing was changed.{' '}
+        <Link href="/" className="underline">Back to the Dashboard</Link>
+      </p>
+    </div>
+  );
+}
+
+function ProjectDetail({ id }: { id: string }) {
   const {
     project,
     loading,
@@ -119,6 +147,7 @@ export default function ProjectDetailPage({
     project,
     updateProject,
   });
+  useCloudLoadNotice(project, activeReforecast);
   const actualCost = activeReforecast?.actualCost ?? 0;
   const baselineBudget = activeReforecast?.baselineBudget ?? 0;
   const reforecastDate = activeReforecast?.reforecastDate ?? '';
@@ -162,7 +191,8 @@ export default function ProjectDetailPage({
     if (!activeReforecast) return [];
     const startMonth = activeReforecast.startDate.slice(0, 7);
     const endMonth = activeReforecast.endDate.slice(0, 7);
-    return generateMonthRange(startMonth, endMonth);
+    // v0.44.6: capped like the calc engine; useCloudLoadNotice says so.
+    return generateMonthRange(startMonth, endMonth, MAX_FORECAST_MONTHS);
   }, [activeReforecast]);
 
   const chartData = useMemo(() => {
