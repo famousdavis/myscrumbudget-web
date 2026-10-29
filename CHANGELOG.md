@@ -4,6 +4,19 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.44.6] - 2026-10-29
+
+### Fixed
+- **Projects loaded from cloud storage are now checked before they are calculated or shown.** Every member of a shared project can save its data, and some values in a project could make the dashboard or the project page stop responding, go blank, or show an empty project list. Now:
+  - If the dashboard cannot display a project, it shows a short notice in that project's place, and every other project still appears. The project page shows a notice instead of a blank page. Nothing about the project is changed.
+  - Data in a form the app cannot use is left out when the project loads, and the project page says so, naming the project. The next save of the project drops that data. Only values that no version of MyScrumBudget writes are left out.
+  - Reforecasts last saved in cloud storage before version 0.29.0 have no end date. They now open: the app works out their window the same way the 0.29.0 update did for projects stored in the browser.
+  - Projects with very many holidays or productivity windows calculate quickly, with the same results as before.
+  - The sharing panel's member list now shows a name, email or role only when it is text.
+
+### Changed
+- **Figures for a reforecast now cover at most its first 100 years.** A reforecast window could be set to end thousands of years away, which made the calculation and the allocation grid unusably slow. The figures, charts and grid now stop after 100 years. Whenever that applies, the project page says so, and the project's dashboard card shows "First 100 years only". The reforecast's stored dates and allocations are unchanged.
+
 ## [0.44.5] - 2026-10-25
 
 ### Added

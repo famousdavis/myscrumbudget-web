@@ -13,7 +13,9 @@
  * case: end date "275760-09-13" 12.2 s · "2026-01-19999999" 5.3 s · a holiday
  * ending "2026-01-19999999" 8.2 s · 12,000 window-wide holidays 9.6 s.
  *
- * [FAILS-TODAY] tests time out against v0.44.5 (the default 5 s budget).
+ * [FAILS-TODAY] tests fail against v0.44.5 — measured 2026-10-29: each ran
+ * 17–57 s in jsdom (a synchronous loop is not stopped by the test timeout) and
+ * then failed its assertion.
  * [MUST-PASS] tests are the largest legitimate shapes: they prove the bounds do
  * not change any result a real project produces.
  *
