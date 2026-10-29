@@ -6,6 +6,8 @@ import type {
   Project, ProjectAssignment, PoolMember, LaborRate, Holiday, CostSnapshot,
 } from '@/types/domain';
 import { isProjectColor } from '@/features/projects/lib/projectColors';
+import { noteCloudLoadIssue, type CloudLoadRule } from './cloudLoadGuard';
+import { isValidDateString } from '@/lib/utils/validation';
 
 /**
  * Build a team snapshot mapping poolMemberIds to their name/role.
@@ -227,22 +229,130 @@ const _docToProjectCoverage: { [K in keyof Project]-?: 'required' | 'conditional
 };
 void _docToProjectCoverage;
 
+/**
+ * A string field of the document, or `fallback` when it is absent. A present
+ * value of another type is set aside, which no version of the app writes.
+ */
+function readText<T extends string | null>(
+  id: string,
+  value: unknown,
+  fallback: T,
+  rule: CloudLoadRule,
+): string | T {
+  if (typeof value === 'string') return value;
+  if (value !== undefined && value !== null) noteCloudLoadIssue(id, rule);
+  return fallback;
+}
+
+/**
+ * The document's reforecasts, as a list of objects (v0.44.6). Anything else
+ * is set aside — the list path converts every project a reader can see, and a
+ * `.map` on a non-list, or a property read on `null`, used to throw out of the
+ * whole list and leave the dashboard empty.
+ */
+function readReforecastObjects(id: string, value: unknown): Record<string, unknown>[] {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) {
+    noteCloudLoadIssue(id, 'reforecasts-not-a-list');
+    return [];
+  }
+  return value.filter((rf): rf is Record<string, unknown> => {
+    const usable = typeof rf === 'object' && rf !== null && !Array.isArray(rf);
+    if (!usable) noteCloudLoadIssue(id, 'reforecast-not-an-object');
+    return usable;
+  });
+}
+
+/** 'YYYY-MM' → 'YYYY-MM-DD' of that month's last day. */
+function lastDayOfMonth(yyyyMm: string): string {
+  const [y, m] = yyyyMm.split('-').map(Number);
+  return `${yyyyMm}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * The window of a reforecast last saved before v0.29.0 (v0.44.6). Such a
+ * reforecast has a YYYY-MM `startDate` and no `endDate`. v0.29.0's migration
+ * (`migrations.ts`, 0.14.0) converted them in local storage only — Firestore's
+ * `migrateIfNeeded` is a no-op — so a cloud document nobody re-saved since
+ * would crash every place that reads `endDate`.
+ *
+ * ⚠️ THE SAME RESOLUTION AS THAT MIGRATION, pinned by a parity test: start =
+ * the stored month plus the project start's day (else day 01); end = the
+ * project end, else the last day of the latest allocation month, else the
+ * start; an end before the start collapses to one day. One deliberate
+ * difference: the migration skips a project whose own start is after its end,
+ * which would leave this reforecast unloadable, so here it is derived anyway.
+ * Derived in memory only — the read path writes nothing; the project's next
+ * save stores it, as the migration would have.
+ */
+function deriveLegacyWindow(
+  rf: Record<string, unknown>,
+  projectStart: unknown,
+  projectEnd: unknown,
+): { startDate: string; endDate: string } {
+  const startDate = deriveLegacyStart(rf.startDate, projectStart);
+  const endDate = deriveLegacyEnd(rf.allocations, projectEnd, startDate);
+  return { startDate, endDate: endDate < startDate ? startDate : endDate };
+}
+
+function deriveLegacyStart(rawStart: unknown, projectStart: unknown): string {
+  const startValid = isValidDateString(projectStart);
+  if (typeof rawStart === 'string' && rawStart.length === 10 && isValidDateString(rawStart)) {
+    return rawStart;
+  }
+  if (typeof rawStart === 'string' && /^\d{4}-\d{2}$/.test(rawStart)) {
+    const candidate = `${rawStart}-${startValid ? (projectStart as string).slice(-2) : '01'}`;
+    return isValidDateString(candidate) ? candidate : `${rawStart}-01`;
+  }
+  return startValid ? (projectStart as string) : '1970-01-01';
+}
+
+function deriveLegacyEnd(allocations: unknown, projectEnd: unknown, startDate: string): string {
+  if (isValidDateString(projectEnd)) return projectEnd as string;
+  const months = (Array.isArray(allocations) ? allocations : [])
+    .map((a: unknown) => (a as { month?: unknown } | null)?.month)
+    .filter((m): m is string => typeof m === 'string' && /^\d{4}-\d{2}$/.test(m))
+    .sort();
+  return months.length > 0 ? lastDayOfMonth(months[months.length - 1]) : startDate;
+}
+
+/** A reforecast as stored, with a pre-v0.29.0 window derived when it has none. */
+function withWindow(
+  rf: Record<string, unknown>,
+  data: Record<string, unknown>,
+): Record<string, unknown> {
+  if (rf.endDate !== undefined && rf.endDate !== null) return rf;
+  return { ...rf, ...deriveLegacyWindow(rf, data.startDate, data.endDate) };
+}
+
 export function docToProject(id: string, data: Record<string, unknown>): Project {
-  const rawReforecasts = (data.reforecasts as Record<string, unknown>[]) ?? [];
-  const legacyAssignments = (data.assignments as ProjectAssignment[]) ?? null;
+  // ⚠️ TOTAL BY DESIGN (v0.44.6): this runs for every project on the reader's
+  // list, on documents any member can write, so it never throws. What it
+  // cannot use it sets aside and notes (cloudLoadGuard.ts); everything else
+  // passes through as before. The values it sets aside are ones no version of
+  // the app writes — the next save drops them, so a rule that tripped on real
+  // data would lose it. Field shapes INSIDE a reforecast are not checked here:
+  // an error there is contained by the dashboard tile's and the project page's
+  // error boundaries, which change no data.
+  const rawReforecasts = readReforecastObjects(id, data.reforecasts);
+  let legacyAssignments: ProjectAssignment[] | null = null;
+  if (Array.isArray(data.assignments)) legacyAssignments = data.assignments as ProjectAssignment[];
+  else if (data.assignments !== undefined && data.assignments !== null) {
+    noteCloudLoadIssue(id, 'legacy-assignments-not-a-list');
+  }
   const reforecasts = rawReforecasts.map((rf) => ({
-    ...rf,
+    ...withWindow(rf, data),
     assignments: Array.isArray(rf.assignments)
       ? (rf.assignments as ProjectAssignment[])
       : (legacyAssignments ?? []).map((a) => ({ ...a })),
   })) as unknown as Project['reforecasts'];
   const project: Project = {
     id,
-    name: (data.name as string) ?? '',
-    startDate: (data.startDate as string) ?? '',
-    endDate: (data.endDate as string) ?? '',
+    name: readText(id, data.name, '', 'project-name-not-text'),
+    startDate: readText(id, data.startDate, '', 'project-dates-not-text'),
+    endDate: readText(id, data.endDate, '', 'project-dates-not-text'),
     reforecasts,
-    activeReforecastId: (data.activeReforecastId as string | null) ?? null,
+    activeReforecastId: readText(id, data.activeReforecastId, null, 'active-reforecast-id-not-text'),
   };
   // Optional Dashboard tile tint (v0.33.0), and the archiving flag (v0.34.0).
   //

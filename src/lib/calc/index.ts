@@ -5,7 +5,6 @@
 import type {
   Holiday,
   Project,
-  ProductivityWindow,
   ProjectMetrics,
   Reforecast,
   Settings,
@@ -23,9 +22,9 @@ import {
   generateMonthlyCalculations,
 } from './metrics';
 import { calculateNPV } from './npv';
-import { getProductivityFactor } from './productivity';
+import { createProductivityLookup } from './productivity';
 import { generateMonthRange, getMonthlyWorkingDays, getEtcStartDate } from '@/lib/utils/dates';
-import { HOURS_PER_DAY } from '@/lib/constants';
+import { HOURS_PER_DAY, MAX_FORECAST_MONTHS } from '@/lib/constants';
 import { effectiveSettings } from '@/lib/utils/costSnapshot';
 import { getActiveReforecast } from '@/lib/utils/teamResolution';
 
@@ -35,7 +34,8 @@ interface PlanContext {
   teamMembers: TeamMember[];
   costInputs: Settings;
   holidays: Holiday[];
-  windows: ProductivityWindow[];
+  /** The reforecast's windows, indexed once (v0.44.6) — see productivity.ts. */
+  productivityOf: (workingDays: readonly string[]) => number;
 }
 
 /** One month of the plan over a date range. */
@@ -68,7 +68,7 @@ function planMonth(
 ): MonthPlan {
   const workingDays = getMonthlyWorkingDays(month, rangeStart, rangeEnd, ctx.holidays, etcStartDate);
   const availableHours = workingDays.length * HOURS_PER_DAY;
-  const factor = getProductivityFactor(workingDays, ctx.windows);
+  const factor = ctx.productivityOf(workingDays);
   return {
     cost: calculateTotalMonthlyCost(
       month, ctx.allocationMap, ctx.teamMembers, ctx.costInputs, availableHours, factor,
@@ -144,14 +144,16 @@ export function calculateProjectMetrics(
     teamMembers,
     costInputs,
     holidays: costInputs.holidays,
-    windows: reforecast.productivityWindows,
+    productivityOf: createProductivityLookup(reforecast.productivityWindows),
   };
   // v0.29.0: the active reforecast's window drives the calc engine. Project
   // dates remain available for display/header purposes but no longer drive
   // runtime calculations.
   const startMonth = reforecast.startDate.slice(0, 7);
   const endMonth = reforecast.endDate.slice(0, 7);
-  const months = generateMonthRange(startMonth, endMonth);
+  // v0.44.6: at most MAX_FORECAST_MONTHS — the dashboard runs this for every
+  // listed project, and a document's window can be millions of months long.
+  const months = generateMonthRange(startMonth, endMonth, MAX_FORECAST_MONTHS);
 
   // Compute ETC start date from actualsThroughDate (if set)
   const etcStartDate = reforecast.actualsThroughDate

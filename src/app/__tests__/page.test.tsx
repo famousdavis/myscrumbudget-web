@@ -182,6 +182,22 @@ describe('DashboardPage — project grid', () => {
     expect(screen.getByText('Borealis')).toBeInTheDocument();
   });
 
+  it('[FAILS-TODAY] a project that cannot be rendered gets its own notice; the others render (v0.44.6)', async () => {
+    // Any member of a shared project can write its document. A reforecast end
+    // date that is not text throws inside the tile's metrics; with no boundary
+    // anywhere in the app, that blanked the whole dashboard.
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    await repo.saveProject(makeProject('a', 'Apollo'));
+    const broken = makeProject('z', 'Zephyr');
+    (broken.reforecasts[0] as unknown as Record<string, unknown>).endDate = 12345;
+    await repo.saveProject(broken);
+    renderDashboard();
+
+    await waitFor(() => expect(screen.getByText('Apollo')).toBeInTheDocument());
+    expect(screen.getByText('Zephyr could not be displayed.')).toBeInTheDocument();
+    vi.restoreAllMocks();
+  });
+
   it('shows the Getting Started onboarding guide when there are no projects at all', async () => {
     renderDashboard();
     await waitFor(() => expect(screen.getByText('Getting Started')).toBeInTheDocument());

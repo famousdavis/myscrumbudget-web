@@ -4,6 +4,7 @@
 
 import type { HistoricalCostEntry } from '@/types/domain';
 import { generateMonthRange } from './dates';
+import { MAX_FORECAST_MONTHS } from '@/lib/constants';
 
 export interface HistoricalCostsDisplayRow {
   month: string;
@@ -224,7 +225,9 @@ export function buildHistoricalCostsView(
   // Enumerate all months from start through cutoff inclusive.
   // If start > cutoff (project hasn't begun), fall back to just the cutoff month.
   const firstMonth = startMonth <= cutoffMonth ? startMonth : cutoffMonth;
-  const months = generateMonthRange(firstMonth, cutoffMonth);
+  // v0.44.6: capped like the calc engine; rows past the cap are not shown, and
+  // their stored entries are left untouched.
+  const months = generateMonthRange(firstMonth, cutoffMonth, MAX_FORECAST_MONTHS);
 
   const rows: HistoricalCostsDisplayRow[] = [];
   for (const m of months) {

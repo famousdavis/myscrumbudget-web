@@ -20,6 +20,7 @@ import {
   setOriginRef, setChangeLog,
 } from './fingerprint';
 import { buildProjectTeamSnapshot, stripUndefined, docToProject } from './firestoreUtils';
+import { noteCloudLoadIssue } from './cloudLoadGuard';
 import {
   applyPrefsToProject, buildSeedEntries, EMPTY_READER_PREFS, isSeeded, orderProjects,
   readReaderPrefs, readStoredOrder, type OrderableProject, type ReaderPrefs,
@@ -570,19 +571,28 @@ export function createFirestoreRepository(uid: string): Repository {
     const snap = await getDocs(q);
     const rows: ProjectRow[] = [];
     snap.forEach((d) => {
-      const data = d.data();
-      const members = data.members as Record<string, string> | undefined;
-      // ⚠️ `order` and `createdAt` are read from the RAW document and never
-      // attached to the Project: `createdAt` is not a domain field, and
-      // `exportAll` returns `getProjects`' output verbatim, so anything left on
-      // the object becomes part of the export FORMAT.
-      rows.push({
-        id: d.id,
-        order: readStoredOrder(data.order),
-        createdAt: typeof data.createdAt === 'string' ? data.createdAt : '',
-        memberCount: members ? Object.keys(members).length : 1,
-        value: docToProject(d.id, data),
-      });
+      // ⚠️ ONE DOCUMENT AT A TIME (v0.44.6). Any member can write a project
+      // document, and before this release one that `docToProject` could not
+      // convert threw out of this loop, `getProjects` rejected, and the reader
+      // saw an empty dashboard. `docToProject` is total now; this catch is the
+      // second line, and it drops only the document that failed.
+      try {
+        const data = d.data();
+        const members = data.members as Record<string, string> | undefined;
+        // ⚠️ `order` and `createdAt` are read from the RAW document and never
+        // attached to the Project: `createdAt` is not a domain field, and
+        // `exportAll` returns `getProjects`' output verbatim, so anything left on
+        // the object becomes part of the export FORMAT.
+        rows.push({
+          id: d.id,
+          order: readStoredOrder(data.order),
+          createdAt: typeof data.createdAt === 'string' ? data.createdAt : '',
+          memberCount: members && typeof members === 'object' ? Object.keys(members).length : 1,
+          value: docToProject(d.id, data),
+        });
+      } catch {
+        noteCloudLoadIssue(d.id, 'project-document-unreadable');
+      }
     });
     return rows;
   }

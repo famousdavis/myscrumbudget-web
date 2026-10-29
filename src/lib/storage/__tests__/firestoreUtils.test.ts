@@ -96,6 +96,12 @@ describe('docToProject', () => {
         {
           id: 'rf-1',
           name: 'Baseline',
+          // v0.44.6: a window, as every reforecast saved since v0.29.0 has. One
+          // without an endDate is the pre-v0.29.0 shape, and docToProject now
+          // derives its window (cloudLoadGuard.test.ts) — this test is about a
+          // modern reforecast passing through unchanged.
+          startDate: '2026-01-01',
+          endDate: '2026-12-31',
           assignments: [{ id: 'a-1', poolMemberId: 'pm-1' }],
         },
       ],
@@ -116,6 +122,8 @@ describe('docToProject', () => {
         {
           id: 'rf-1',
           name: 'Baseline',
+          startDate: '2026-01-01',
+          endDate: '2026-12-31',
           assignments: [{ id: 'a-1', poolMemberId: 'pm-1' }],
         },
       ],
