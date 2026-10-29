@@ -69,6 +69,34 @@ describe('ProjectCard — date sourcing (Bug #1)', () => {
   });
 });
 
+describe('ProjectCard — a clamped window is marked (v0.44.6)', () => {
+  const settings = {
+    discountRateAnnual: 0.03, laborRates: [{ role: 'Dev', hourlyRate: 100 }], holidays: [],
+    trafficLightThresholds: { amberPercent: 5, redPercent: 15, violetPercent: 20 },
+  };
+  function staffed(endDate: string): Project {
+    const p = makeProject();
+    p.reforecasts[0] = {
+      ...p.reforecasts[0], endDate,
+      assignments: [{ id: 'a1', poolMemberId: 'pm1' }],
+      allocations: [{ memberId: 'a1', month: '2026-06', allocation: 1 }],
+    };
+    return p;
+  }
+
+  it('shows the marker beside the EAC when the figures cover only the first 100 years', () => {
+    render(<ProjectCard {...noopProps} settings={settings} project={staffed('2300-12-31')} />);
+    expect(screen.getByText('EAC:')).toBeInTheDocument();
+    expect(screen.getByText('First 100 years only')).toBeInTheDocument();
+  });
+
+  it('shows no marker for a window the app calculates in full', () => {
+    render(<ProjectCard {...noopProps} settings={settings} project={staffed('2026-12-31')} />);
+    expect(screen.getByText('EAC:')).toBeInTheDocument();
+    expect(screen.queryByText('First 100 years only')).not.toBeInTheDocument();
+  });
+});
+
 describe('ProjectCard — reforecast stamp', () => {
   it('renders an "as of" stamp from the most-recent reforecast date', () => {
     render(<ProjectCard project={makeProject()} {...noopProps} />);

@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { HOURS_PER_DAY } from '@/lib/constants';
+import { HOURS_PER_DAY, MAX_FORECAST_MONTHS } from '@/lib/constants';
 import type { Holiday } from '@/types/domain';
 
 /**
@@ -45,6 +45,17 @@ export function generateMonthRange(
   }
 
   return months;
+}
+
+/**
+ * True when a reforecast window runs past `MAX_FORECAST_MONTHS`, so the
+ * figures shown for it cover only the first part (v0.44.6). The project page
+ * and the dashboard card both say so: money must never be clamped silently.
+ */
+export function isWindowClamped(startDate: unknown, endDate: unknown): boolean {
+  if (typeof startDate !== 'string' || typeof endDate !== 'string') return false;
+  return generateMonthRange(startDate.slice(0, 7), endDate.slice(0, 7), MAX_FORECAST_MONTHS + 1)
+    .length > MAX_FORECAST_MONTHS;
 }
 
 /**

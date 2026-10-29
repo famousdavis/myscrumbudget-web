@@ -17,6 +17,7 @@ import { TrashIcon } from '@/components/icons/TrashIcon';
 import { ExportIcon } from '@/components/icons/ExportIcon';
 import { CloneIcon } from '@/components/icons/CloneIcon';
 import { ArchiveIcon } from '@/components/icons/ArchiveIcon';
+import { ForecastWindowMarker } from '@/features/projects/components/ForecastWindowNotice';
 
 interface ProjectCardProps {
   project: Project;
@@ -374,6 +375,7 @@ export function ProjectCard({
                   {' '}
                   {trafficLight.label}
                 </span>
+                <ForecastWindowMarker reforecast={mostRecentRf} />
               </div>
             )}
           </div>

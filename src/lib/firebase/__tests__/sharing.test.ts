@@ -110,3 +110,25 @@ describe('getProjectMembers — suite profile fallback', () => {
     expect(suiteReads).toEqual([`spertsuite_profiles/${MEMBER}`]);
   });
 });
+
+describe('getProjectMembers — profile fields are text (v0.44.6)', () => {
+  it('[FAILS-TODAY] a profile or member role that is not text reads as empty text', async () => {
+    // A profile is written by its own user with no check on its content, and the
+    // sharing panel renders these values as text: an object there threw.
+    h.state.docs['myscrumbudget_projects/p1'] = {
+      members: { [OWNER]: 'owner', [MEMBER]: { role: 'editor' } },
+    };
+    h.state.docs[`myscrumbudget_profiles/${MEMBER}`] = {
+      displayName: { first: 'A' }, email: ['a@example.com'],
+    };
+
+    const m = (await getProjectMembers('p1')).find((x) => x.uid === MEMBER);
+    expect(m).toEqual({ uid: MEMBER, email: '', displayName: '', role: '' });
+  });
+
+  it('[MUST-PASS] text profile fields and roles pass through unchanged', async () => {
+    h.state.docs[`myscrumbudget_profiles/${MEMBER}`] = { displayName: 'Ada Lovelace', email: 'ada@example.com' };
+    const m = (await getProjectMembers('p1')).find((x) => x.uid === MEMBER);
+    expect(m).toEqual({ uid: MEMBER, email: 'ada@example.com', displayName: 'Ada Lovelace', role: 'editor' });
+  });
+});

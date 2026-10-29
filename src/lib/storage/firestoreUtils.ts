@@ -7,6 +7,7 @@ import type {
 } from '@/types/domain';
 import { isProjectColor } from '@/features/projects/lib/projectColors';
 import { noteCloudLoadIssue, type CloudLoadRule } from './cloudLoadGuard';
+import { isValidDateString } from '@/lib/utils/validation';
 
 /**
  * Build a team snapshot mapping poolMemberIds to their name/role.
@@ -262,6 +263,68 @@ function readReforecastObjects(id: string, value: unknown): Record<string, unkno
   });
 }
 
+/** 'YYYY-MM' → 'YYYY-MM-DD' of that month's last day. */
+function lastDayOfMonth(yyyyMm: string): string {
+  const [y, m] = yyyyMm.split('-').map(Number);
+  return `${yyyyMm}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * The window of a reforecast last saved before v0.29.0 (v0.44.6). Such a
+ * reforecast has a YYYY-MM `startDate` and no `endDate`. v0.29.0's migration
+ * (`migrations.ts`, 0.14.0) converted them in local storage only — Firestore's
+ * `migrateIfNeeded` is a no-op — so a cloud document nobody re-saved since
+ * would crash every place that reads `endDate`.
+ *
+ * ⚠️ THE SAME RESOLUTION AS THAT MIGRATION, pinned by a parity test: start =
+ * the stored month plus the project start's day (else day 01); end = the
+ * project end, else the last day of the latest allocation month, else the
+ * start; an end before the start collapses to one day. One deliberate
+ * difference: the migration skips a project whose own start is after its end,
+ * which would leave this reforecast unloadable, so here it is derived anyway.
+ * Derived in memory only — the read path writes nothing; the project's next
+ * save stores it, as the migration would have.
+ */
+function deriveLegacyWindow(
+  rf: Record<string, unknown>,
+  projectStart: unknown,
+  projectEnd: unknown,
+): { startDate: string; endDate: string } {
+  const startDate = deriveLegacyStart(rf.startDate, projectStart);
+  const endDate = deriveLegacyEnd(rf.allocations, projectEnd, startDate);
+  return { startDate, endDate: endDate < startDate ? startDate : endDate };
+}
+
+function deriveLegacyStart(rawStart: unknown, projectStart: unknown): string {
+  const startValid = isValidDateString(projectStart);
+  if (typeof rawStart === 'string' && rawStart.length === 10 && isValidDateString(rawStart)) {
+    return rawStart;
+  }
+  if (typeof rawStart === 'string' && /^\d{4}-\d{2}$/.test(rawStart)) {
+    const candidate = `${rawStart}-${startValid ? (projectStart as string).slice(-2) : '01'}`;
+    return isValidDateString(candidate) ? candidate : `${rawStart}-01`;
+  }
+  return startValid ? (projectStart as string) : '1970-01-01';
+}
+
+function deriveLegacyEnd(allocations: unknown, projectEnd: unknown, startDate: string): string {
+  if (isValidDateString(projectEnd)) return projectEnd as string;
+  const months = (Array.isArray(allocations) ? allocations : [])
+    .map((a: unknown) => (a as { month?: unknown } | null)?.month)
+    .filter((m): m is string => typeof m === 'string' && /^\d{4}-\d{2}$/.test(m))
+    .sort();
+  return months.length > 0 ? lastDayOfMonth(months[months.length - 1]) : startDate;
+}
+
+/** A reforecast as stored, with a pre-v0.29.0 window derived when it has none. */
+function withWindow(
+  rf: Record<string, unknown>,
+  data: Record<string, unknown>,
+): Record<string, unknown> {
+  if (rf.endDate !== undefined && rf.endDate !== null) return rf;
+  return { ...rf, ...deriveLegacyWindow(rf, data.startDate, data.endDate) };
+}
+
 export function docToProject(id: string, data: Record<string, unknown>): Project {
   // ⚠️ TOTAL BY DESIGN (v0.44.6): this runs for every project on the reader's
   // list, on documents any member can write, so it never throws. What it
@@ -278,7 +341,7 @@ export function docToProject(id: string, data: Record<string, unknown>): Project
     noteCloudLoadIssue(id, 'legacy-assignments-not-a-list');
   }
   const reforecasts = rawReforecasts.map((rf) => ({
-    ...rf,
+    ...withWindow(rf, data),
     assignments: Array.isArray(rf.assignments)
       ? (rf.assignments as ProjectAssignment[])
       : (legacyAssignments ?? []).map((a) => ({ ...a })),

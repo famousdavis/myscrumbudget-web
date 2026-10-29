@@ -43,6 +43,7 @@ import { BulkSharingSection } from '@/features/projects/components/BulkSharingSe
 import { SkeletonProjectDetail } from '@/components/Skeleton';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useCloudLoadNotice } from '@/features/projects/hooks/useCloudLoadNotice';
+import { ForecastWindowNotice } from '@/features/projects/components/ForecastWindowNotice';
 
 /**
  * ⚠️ THE BOUNDARY IS THE PAGE'S OUTERMOST ELEMENT (v0.44.6). The hooks that
@@ -147,7 +148,7 @@ function ProjectDetail({ id }: { id: string }) {
     project,
     updateProject,
   });
-  useCloudLoadNotice(project, activeReforecast);
+  useCloudLoadNotice(project);
   const actualCost = activeReforecast?.actualCost ?? 0;
   const baselineBudget = activeReforecast?.baselineBudget ?? 0;
   const reforecastDate = activeReforecast?.reforecastDate ?? '';
@@ -191,7 +192,7 @@ function ProjectDetail({ id }: { id: string }) {
     if (!activeReforecast) return [];
     const startMonth = activeReforecast.startDate.slice(0, 7);
     const endMonth = activeReforecast.endDate.slice(0, 7);
-    // v0.44.6: capped like the calc engine; useCloudLoadNotice says so.
+    // v0.44.6: capped like the calc engine; ForecastWindowNotice says so.
     return generateMonthRange(startMonth, endMonth, MAX_FORECAST_MONTHS);
   }, [activeReforecast]);
 
@@ -294,6 +295,7 @@ function ProjectDetail({ id }: { id: string }) {
       </div>
 
       <div className="mt-6">
+        <ForecastWindowNotice reforecast={activeReforecast} />
         <ProjectSummary
           project={project}
           activeReforecast={activeReforecast ?? null}

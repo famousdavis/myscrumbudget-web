@@ -136,3 +136,66 @@ describe('docToProject — [MUST-PASS] everything the app writes loads unchanged
     expect(takeCloudLoadIssues('p1')).toEqual([]);
   });
 });
+
+describe('docToProject — a reforecast saved before v0.29.0 loads (v0.44.6)', () => {
+  // v0.29.0 gave every reforecast its own YYYY-MM-DD window, but converted
+  // existing ones in local storage only. A cloud document nobody has re-saved
+  // since has a YYYY-MM `startDate` and no `endDate`, and crashed every reader.
+  function legacyRf(over: Record<string, unknown> = {}): Record<string, unknown> {
+    const rf = reforecast('rf1', { startDate: '2025-03', ...over });
+    delete rf.endDate;
+    return rf;
+  }
+  const projects: [string, Record<string, unknown>][] = [
+    ['project dates valid', { startDate: '2025-03-17', endDate: '2026-02-28', reforecasts: [legacyRf()] }],
+    ['project end missing, allocations decide', {
+      startDate: '2025-03-17',
+      reforecasts: [legacyRf({ allocations: [{ memberId: 'a1', month: '2025-11', allocation: 1 }, { memberId: 'a1', month: '2025-06', allocation: 1 }] })],
+    }],
+    ['nothing to go on', { reforecasts: [legacyRf({ allocations: [] })] }],
+    ['start already a full date', { startDate: '2025-01-01', endDate: '2025-12-31', reforecasts: [legacyRf({ startDate: '2025-04-09' })] }],
+    ['project start day missing from a short month', { startDate: '2025-01-31', endDate: '2025-12-31', reforecasts: [legacyRf({ startDate: '2025-02' })] }],
+  ];
+
+  it.each(projects)('[MUST-PASS] derives the window exactly as the v0.29.0 migration: %s', async (_label, doc) => {
+    const { runMigrations } = await import('../migrations');
+    const migrated = runMigrations({
+      version: '0.13.0',
+      settings: {
+        discountRateAnnual: 0.03, laborRates: [], holidays: [],
+        trafficLightThresholds: { amberPercent: 5, redPercent: 15, violetPercent: 20 },
+      },
+      teamPool: [],
+      projects: [{ id: 'p1', name: 'P', activeReforecastId: 'rf1', ...doc }],
+    } as never, '0.13.0');
+    const expected = migrated.projects[0].reforecasts[0];
+
+    const loaded = docToProject('p1', { name: 'P', activeReforecastId: 'rf1', ...doc }).reforecasts[0];
+
+    expect({ startDate: loaded.startDate, endDate: loaded.endDate })
+      .toEqual({ startDate: expected.startDate, endDate: expected.endDate });
+    expect(typeof loaded.endDate).toBe('string');
+    expect(takeCloudLoadIssues('p1')).toEqual([]);
+  });
+
+  it('[FAILS-TODAY] a legacy cloud reforecast can be calculated', async () => {
+    const { calculateProjectMetrics } = await import('@/lib/calc');
+    const project = docToProject('p1', {
+      name: 'P', startDate: '2025-03-17', endDate: '2026-02-28', activeReforecastId: 'rf1',
+      reforecasts: [legacyRf()],
+    });
+    const settings = {
+      discountRateAnnual: 0.03, laborRates: [{ role: 'Dev', hourlyRate: 100 }], holidays: [],
+      trafficLightThresholds: { amberPercent: 5, redPercent: 15, violetPercent: 20 },
+    };
+    const metrics = calculateProjectMetrics(project, settings, [{ id: 'a1', name: 'Ada', role: 'Dev' }]);
+    expect(metrics.monthlyData[0].month).toBe('2025-03');
+    expect(metrics.monthlyData.at(-1)?.month).toBe('2026-02');
+  });
+
+  it('leaves a reforecast that has its own end date exactly as stored', () => {
+    const rf = reforecast('rf1', { startDate: '2026-01-01', endDate: '2025-06-30' });
+    const loaded = docToProject('p1', { name: 'P', startDate: '2024-01-01', endDate: '2024-12-31', reforecasts: [rf] });
+    expect(loaded.reforecasts[0]).toEqual(rf);
+  });
+});

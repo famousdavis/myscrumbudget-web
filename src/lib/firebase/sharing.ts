@@ -80,11 +80,15 @@ export async function getProjectMembers(projectId: string): Promise<ProjectMembe
       const profile = snap.exists()
         ? snap.data()
         : (fallbackByIndex.get(i) ?? {});
+      // ⚠️ TEXT ONLY (v0.44.6). A profile is written by its own user with no
+      // check on its content, and a project's `members` map by whoever created
+      // the project; the sharing panel renders all three as text, and a value
+      // of another type there threw and took the panel down for the owner.
       return {
         uid,
-        email: (profile.email as string) ?? '',
-        displayName: (profile.displayName as string) ?? '',
-        role: role as MemberRole,
+        email: textOrEmpty(profile.email),
+        displayName: textOrEmpty(profile.displayName),
+        role: textOrEmpty(role) as MemberRole,
       };
     }
     // Rejected — log without interpolating uid into the message
@@ -93,6 +97,10 @@ export async function getProjectMembers(projectId: string): Promise<ProjectMembe
       '[sharing] getProjectMembers: profile fetch failed:',
       (result.reason as { code?: string })?.code ?? 'unknown',
     );
-    return { uid, email: '', displayName: '', role: role as MemberRole };
+    return { uid, email: '', displayName: '', role: textOrEmpty(role) as MemberRole };
   });
+}
+
+function textOrEmpty(value: unknown): string {
+  return typeof value === 'string' ? value : '';
 }
