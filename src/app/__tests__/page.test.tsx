@@ -466,3 +466,112 @@ describe('DashboardPage — delete confirmation', () => {
     expect(await repo.getProjects()).toHaveLength(1);
   });
 });
+
+/**
+ * The dashboard toolbar (v0.44.7), matched across the SPERT® Suite: Export All ·
+ * Import · New Project, with the shared icons. Before this release nothing in
+ * the suite queried this row at all — every test above renders the page and
+ * none of them would notice the buttons reordering, renaming or vanishing.
+ */
+describe('DashboardPage — toolbar', () => {
+  function toolbarControls(): HTMLElement[] {
+    const heading = screen.getByRole('heading', { level: 1, name: 'Dashboard' });
+    const row = heading.parentElement;
+    if (!row) throw new Error('the Dashboard heading has no row');
+    return Array.from(row.querySelectorAll<HTMLElement>('button, a'));
+  }
+
+  it('shows Export All · Import · New Project, in that order, beside the Dashboard heading', async () => {
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText('Getting Started')).toBeInTheDocument());
+
+    expect(toolbarControls().map((el) => el.textContent?.trim())).toEqual([
+      'Export All',
+      'Import',
+      'New Project',
+    ]);
+  });
+
+  it('gives each control an accessible name that begins with its visible label (WCAG 2.5.3)', async () => {
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText('Getting Started')).toBeInTheDocument());
+
+    const exportAll = screen.getByRole('button', { name: 'Export all projects as JSON' });
+    const importBtn = screen.getByRole('button', { name: 'Import projects from JSON' });
+    const newProject = screen.getByRole('link', { name: 'New Project' });
+    for (const el of [exportAll, importBtn, newProject]) {
+      const visible = (el.textContent ?? '').trim().toLowerCase();
+      const name = (el.getAttribute('aria-label') ?? el.textContent ?? '').trim().toLowerCase();
+      expect(name.startsWith(visible), `"${name}" must begin with "${visible}"`).toBe(true);
+    }
+    expect(newProject).toHaveAttribute('href', '/projects/new');
+    // The hidden file input keeps its own label.
+    expect(screen.getByLabelText('Import JSON workspace file')).toHaveAttribute('type', 'file');
+  });
+
+  it('draws the shared icons, 18 px and hidden from assistive tech', async () => {
+    const { TOOLBAR_ICON_PATHS } = await import('@/components/icons/toolbarIconPaths');
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText('Getting Started')).toBeInTheDocument());
+
+    const expected = [TOOLBAR_ICON_PATHS.export, TOOLBAR_ICON_PATHS.import, TOOLBAR_ICON_PATHS.plus];
+    toolbarControls().forEach((el, i) => {
+      const svgs = el.querySelectorAll('svg');
+      expect(svgs, `${el.textContent} has exactly one icon`).toHaveLength(1);
+      expect(svgs[0]).toHaveAttribute('aria-hidden', 'true');
+      expect(svgs[0]).toHaveAttribute('width', '18');
+      expect(svgs[0].querySelector('path')?.getAttribute('d')).toBe(expected[i]);
+      // The icon comes BEFORE the label.
+      expect(el.firstElementChild?.tagName.toLowerCase()).toBe('svg');
+    });
+  });
+
+  it('keeps Export All rendered but disabled with no projects, and enables it once one exists', async () => {
+    const { unmount } = renderDashboard();
+    await waitFor(() => expect(screen.getByText('Getting Started')).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'Export all projects as JSON' })).toBeDisabled();
+    expect(toolbarControls()).toHaveLength(3);
+    unmount();
+
+    await repo.saveProject(makeProject('a', 'Apollo'));
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText('Apollo')).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'Export all projects as JSON' })).toBeEnabled();
+    expect(toolbarControls().map((el) => el.textContent?.trim())).toEqual([
+      'Export All',
+      'Import',
+      'New Project',
+    ]);
+  });
+
+  it('disables Import while an import is being applied, exactly as before, and re-enables it after', async () => {
+    await repo.saveProject(makeProject('a', 'Apollo'));
+    const file = new File([JSON.stringify(await repo.exportAll())], 'workspace.json', {
+      type: 'application/json',
+    });
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText('Apollo')).toBeInTheDocument());
+    const importBtn = screen.getByRole('button', { name: 'Import projects from JSON' });
+    expect(importBtn).toBeEnabled();
+
+    fireEvent.change(screen.getByLabelText('Import JSON workspace file'), { target: { files: [file] } });
+    const apply = await screen.findByRole('button', { name: /Apply Import/i });
+    // Not gated during the preview — and not newly gated by this release.
+    expect(importBtn).toBeEnabled();
+
+    // Hold the apply open at its first write (the team-pool merge reads first).
+    let release: (pool: Awaited<ReturnType<typeof repo.getTeamPool>>) => void = () => {};
+    const held = vi
+      .spyOn(repo, 'getTeamPool')
+      .mockImplementationOnce(() => new Promise((resolve) => { release = resolve; }));
+    fireEvent.click(apply);
+
+    await screen.findByText('Importing…');
+    expect(importBtn, 'Import is disabled while the import applies').toBeDisabled();
+
+    release([]);
+    await waitFor(() => expect(screen.queryByText('Importing…')).not.toBeInTheDocument());
+    expect(importBtn).toBeEnabled();
+    held.mockRestore();
+  });
+});

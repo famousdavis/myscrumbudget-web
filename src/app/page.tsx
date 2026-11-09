@@ -21,6 +21,8 @@ import { describeStorageError, describeExportOmission } from '@/lib/storage/loca
 import { useImportState } from '@/features/projects/hooks/useImportState';
 import { getDashboardEmptyState } from '@/features/projects/lib/dashboardCard';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { ToolbarIcon } from '@/components/icons/ToolbarIcon';
+import { TOOLBAR_ICON_PATHS } from '@/components/icons/toolbarIconPaths';
 
 /** The tile shown in place of a project the dashboard cannot render (v0.44.6). */
 function ProjectTileFailed({ name }: { name: string }) {
@@ -194,9 +196,16 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between">
+      {/* The dashboard toolbar, matched across the SPERT® Suite (v0.44.7):
+          Export All · Import · New Project, with the shared icons. Every button
+          is always rendered and keeps its place; Export All is DISABLED, not
+          hidden, with no projects (which also covers the load, because
+          useProjects starts with an empty list). Accessible names begin with
+          the visible label (WCAG 2.5.3). No role="toolbar": that role promises
+          arrow-key navigation, which this row does not provide. */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">Dashboard</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <input
             ref={importFileRef}
             type="file"
@@ -206,23 +215,28 @@ export default function DashboardPage() {
             aria-label="Import JSON workspace file"
           />
           <button
-            onClick={() => importFileRef.current?.click()}
-            disabled={importPhase.phase === 'applying'}
-            className="rounded border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-zinc-700 dark:hover:bg-zinc-800"
-          >
-            Import JSON
-          </button>
-          <button
             onClick={handleExportAll}
             disabled={projects.length === 0}
-            className="rounded border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label="Export all projects as JSON"
+            className="inline-flex items-center gap-2 rounded border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Export All Projects
+            <ToolbarIcon d={TOOLBAR_ICON_PATHS.export} />
+            Export All
+          </button>
+          <button
+            onClick={() => importFileRef.current?.click()}
+            disabled={importPhase.phase === 'applying'}
+            aria-label="Import projects from JSON"
+            className="inline-flex items-center gap-2 rounded border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-zinc-700 dark:hover:bg-zinc-800"
+          >
+            <ToolbarIcon d={TOOLBAR_ICON_PATHS.import} />
+            Import
           </button>
           <Link
             href="/projects/new"
-            className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="inline-flex items-center gap-2 rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >
+            <ToolbarIcon d={TOOLBAR_ICON_PATHS.plus} />
             New Project
           </Link>
         </div>

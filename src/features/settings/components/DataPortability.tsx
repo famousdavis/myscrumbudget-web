@@ -52,7 +52,7 @@ export function DataPortability() {
           Export JSON
         </button>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          To import a workspace, use the &ldquo;Import JSON&rdquo; button on the Dashboard.
+          To import a workspace, use the &ldquo;Import&rdquo; button on the Dashboard.
         </p>
       </div>
     </div>
