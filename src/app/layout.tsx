@@ -5,17 +5,13 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { Sidebar } from '@/components/Sidebar';
-import { FirstRunBanner } from '@/components/FirstRunBanner';
-import { LocalStorageWarningBanner } from '@/components/LocalStorageWarningBanner';
 import { MigrationGuard } from '@/components/MigrationGuard';
 import { AuthProvider } from '@/components/AuthProvider';
 import { RepositoryProvider } from '@/components/RepositoryProvider';
 import { CloudSyncProvider } from '@/components/CloudSyncProvider';
 import { Footer } from '@/components/Footer';
 import { ToastProvider } from '@/components/Toast';
-import { TopBar } from '@/components/TopBar';
-import { InvitationBanner } from '@/components/InvitationBanner';
-import { INVITATIONS_ENABLED } from '@/lib/featureFlags';
+import { ShellTop } from '@/components/ShellTop';
 import './globals.css';
 
 const geistSans = Geist({
@@ -66,9 +62,7 @@ export default function RootLayout({
           <div className="flex flex-1">
             <Sidebar />
             <main id="main-content" className="min-w-0 flex-1 p-8 pt-16 md:pt-4">
-              <FirstRunBanner />
-              <LocalStorageWarningBanner />
-              <MigrationGuard><AuthProvider><RepositoryProvider><CloudSyncProvider><ToastProvider>{INVITATIONS_ENABLED && <InvitationBanner />}<TopBar />{children}</ToastProvider></CloudSyncProvider></RepositoryProvider></AuthProvider></MigrationGuard>
+              <MigrationGuard><AuthProvider><RepositoryProvider><CloudSyncProvider><ToastProvider><ShellTop>{children}</ShellTop></ToastProvider></CloudSyncProvider></RepositoryProvider></AuthProvider></MigrationGuard>
             </main>
           </div>
           <Footer />

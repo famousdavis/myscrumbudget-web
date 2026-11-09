@@ -13,6 +13,13 @@ export function LocalStorageWarningBanner() {
   // sync. Compute real visibility in useEffect, which only runs client-side
   // after hydration. A lazy useState initializer with a typeof-window guard
   // would branch on the server vs client and produce a hydration mismatch.
+  //
+  // Since v0.44.7 this banner renders inside the provider stack, below
+  // `TopBar` (see `ShellTop`), so `MigrationGuard` keeps it out of hydration
+  // today. That shield belongs to the layout, not to this file; keep this form,
+  // which is safe wherever the banner sits. "Got it" is in-memory only: the
+  // layout stays mounted across in-app navigation, so the caution stays hidden
+  // until the next page load and returns on the next one.
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {

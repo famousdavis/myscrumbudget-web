@@ -25,10 +25,14 @@ export function FirstRunBanner() {
   // because its comment asserted the pattern was fine.
   //
   // The pattern is only harmless in a component that cannot render during
-  // hydration. Every other lazy-initializer site in this app sits inside
-  // `MigrationGuard`, which returns null on the server and on the client's first
-  // render. This banner and its sibling are rendered OUTSIDE it, which is
-  // precisely why they were the two exposed.
+  // hydration. Until v0.44.7 this banner and its sibling were rendered OUTSIDE
+  // `MigrationGuard` (which returns null on the server and on the client's first
+  // render), which is precisely why they were the two exposed. Since v0.44.7
+  // they render INSIDE the provider stack, below `TopBar` (see `ShellTop`), so
+  // today they are shielded by that nesting — and that is an accident of the
+  // layout, not a property of this file. Keep the useState(false) + useEffect
+  // form anyway: it is correct wherever the banner is placed, and the lazy form
+  // would turn back into a #418 the moment the banner moved out again.
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
