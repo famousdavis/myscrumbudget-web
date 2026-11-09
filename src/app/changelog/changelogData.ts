@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.44.7',
+    date: '2026-11-08',
+    sections: [
+      {
+        title: 'Changed',
+        items: [
+          'The Dashboard’s buttons now match the other SPERT® Suite apps. They read Export All · Import · New Project, in that order, each with an icon, and the row wraps on a narrow screen. “Import JSON” is now “Import” and “Export All Projects” is now “Export All”; both work exactly as before. Export All is still greyed out until a project exists, and Import is still unavailable while an import is being applied. The Settings page now names the Import button.',
+          'The terms notice and the local-storage caution now appear below the top bar (the theme switch and the sign-in button), above the page, in the same place as in the other SPERT® Suite apps. The invitation banner moves below the top bar too. Their wording and how you dismiss them are unchanged: “Got it” on the terms notice hides it for good, “Got it” on the caution hides it until the next time you open the app, and the switch in Settings turns the caution off.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.44.6',
     date: '2026-10-29',
     sections: [
