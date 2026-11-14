@@ -4,6 +4,11 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.44.8] - 2026-11-14
+
+### Security
+- **This update clears 40 published security advisories in the software libraries MyScrumBudget is built with.** 12 of them are in libraries the app depends on, and 28 are in tools used only to develop and test it. Nothing about how the app works, looks or stores your data changes.
+
 ## [0.44.7] - 2026-11-08
 
 ### Changed
