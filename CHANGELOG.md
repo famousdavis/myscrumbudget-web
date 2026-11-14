@@ -4,6 +4,11 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.44.9] - 2026-11-14
+
+### Security
+- **A security update to Next.js, the framework MyScrumBudget is built on, and to sharp, the image library that comes with it.** Together with a small update to a library used when the app is built, it clears 24 published security advisories in the libraries the app depends on. Nothing about how the app works, looks or stores your data changes.
+
 ## [0.44.8] - 2026-11-14
 
 ### Security
