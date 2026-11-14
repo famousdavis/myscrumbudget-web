@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.44.9',
+    date: '2026-11-14',
+    sections: [
+      {
+        title: 'Security',
+        items: [
+          'A security update to Next.js, the framework MyScrumBudget is built on, and to sharp, the image library that comes with it. Together with a small update to a library used when the app is built, it clears 24 published security advisories in the libraries the app depends on. Nothing about how the app works, looks or stores your data changes.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.44.8',
     date: '2026-11-14',
     sections: [
