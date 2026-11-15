@@ -4,6 +4,11 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.44.10] - 2026-11-14
+
+### Maintenance
+- **Routine updates to the tools used to develop and test MyScrumBudget.** Nothing about how the app works, looks or stores your data changes.
+
 ## [0.44.9] - 2026-11-14
 
 ### Security
