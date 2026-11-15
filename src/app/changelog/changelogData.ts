@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.44.10',
+    date: '2026-11-14',
+    sections: [
+      {
+        title: 'Maintenance',
+        items: [
+          'Routine updates to the tools used to develop and test MyScrumBudget. Nothing about how the app works, looks or stores your data changes.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.44.9',
     date: '2026-11-14',
     sections: [
