@@ -8,6 +8,14 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useDarkMode } from '@/hooks/useDarkMode';
 
+/**
+ * MyScrumBudget's page in the SPERT® Suite Help Center. It is defined here,
+ * unexported, because it has exactly one use: the sidebar link below.
+ * `Sidebar.test.tsx` pins it as a literal string rather than importing it, so a
+ * wrong slug here fails that test instead of passing it.
+ */
+const HELP_CENTER_URL = 'https://spertsuite.com/help/myscrumbudget';
+
 export function Sidebar() {
   const [open, setOpen] = useState(false);
   const isDark = useDarkMode();
@@ -112,6 +120,29 @@ export function Sidebar() {
               >
                 Settings
               </Link>
+            </li>
+            {/*
+              Help Center (v0.44.11): a plain <a>, not next/link, because it
+              leaves the app. It sits immediately before About, by William's
+              placement rule for the suite. The spaces sit OUTSIDE both spans
+              on purpose: the accessible-name computation trims a span's own
+              leading space, so with the space inside, the name reads
+              "Help Center(opens in a new tab)".
+              ⚠️ No item in this list has an active or current-page style. If
+              one is ever added, keep it off this link: it never names the
+              current page.
+            */}
+            <li>
+              <a
+                href={HELP_CENTER_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setOpen(false)}
+                className="block rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-200 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              >
+                Help Center{' '}<span aria-hidden="true">↗</span>{' '}
+                <span className="sr-only">(opens in a new tab)</span>
+              </a>
             </li>
             <li>
               <Link

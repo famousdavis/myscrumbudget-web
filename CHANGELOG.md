@@ -4,6 +4,14 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.44.11] - 2026-11-16
+
+### Added
+- **A Help Center link in the sidebar opens the SPERT® Suite Help Center, with every MyScrumBudget guide in one place, in a new tab.** It sits just above About.
+
+### Security
+- **A security update to Next.js, the framework MyScrumBudget is built on. It clears one published security advisory. Nothing about how the app works, looks or stores your data changes.**
+
 ## [0.44.10] - 2026-11-14
 
 ### Maintenance

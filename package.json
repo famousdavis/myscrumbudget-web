@@ -1,6 +1,6 @@
 {
   "name": "my-scrum-budget",
-  "version": "0.44.10",
+  "version": "0.44.11",
   "private": true,
   "engines": {
     "node": "24.x"
@@ -22,7 +22,7 @@
     "exceljs": "^4.4.0",
     "firebase": "^12.10.0",
     "html2canvas": "1.4.1",
-    "next": "16.4.1",
+    "next": "16.4.6",
     "react": "19.2.5",
     "react-dom": "19.2.5"
   },

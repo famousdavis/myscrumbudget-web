@@ -13,6 +13,24 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.44.11',
+    date: '2026-11-16',
+    sections: [
+      {
+        title: 'Added',
+        items: [
+          'A Help Center link in the sidebar opens the SPERT® Suite Help Center, with every MyScrumBudget guide in one place, in a new tab. It sits just above About.',
+        ],
+      },
+      {
+        title: 'Security',
+        items: [
+          'A security update to Next.js, the framework MyScrumBudget is built on. It clears one published security advisory. Nothing about how the app works, looks or stores your data changes.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.44.10',
     date: '2026-11-14',
     sections: [
