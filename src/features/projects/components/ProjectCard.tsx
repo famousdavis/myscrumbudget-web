@@ -61,8 +61,24 @@ function todayLocalYmd(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-const actionButtonClass =
-  'rounded p-1 text-zinc-300 hover:bg-zinc-100 hover:text-zinc-600 dark:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300';
+// Resting grey of every tile action button (export, clone, archive, unarchive,
+// colour, delete): the SPERT Suite's tile-icon grey, as GanttApp, Forecaster and
+// Story Map use it. The icon IS the control (each glyph is aria-hidden, drawn in
+// currentColor), so WCAG 1.4.11 asks for 3:1 against the tile.
+//
+// Measured 2026-11-21 against the Tailwind v4 tokens this app paints (oklch
+// converted to sRGB), on the plain tile and all five tints:
+//   light #808080: 3.95:1 on white, lowest 3.60:1 on the slate tint
+//   dark  #9ca3af: 7.80:1 on #0a0a0a, lowest 6.45:1 on the slate tint
+// It replaced zinc-300 / dark zinc-600, which measured 1.35–1.48:1 and 2.12–2.56:1.
+//
+// ⚠️ An archived tile used to be drawn at opacity-60 as a WHOLE, which faded this
+// grey with it: 1.99–2.10:1 in light. Opacity on an ancestor cannot be undone by
+// a child, so the archived fade now sits on the tile's CONTENT (the grip and the
+// link) and never on an ancestor of these buttons. See `archivedDim` below.
+const ICON_REST = 'text-[#808080] dark:text-[#9ca3af]';
+
+const actionButtonClass = `rounded p-1 ${ICON_REST} hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300`;
 
 export function ProjectCard({
   project,
@@ -124,6 +140,14 @@ export function ProjectCard({
     : false;
   const currentSwatch = PROJECT_COLOR_OPTIONS.find((o) => o.key === project.color)?.swatch;
 
+  // An archived tile's fade: on the grip and the link only, so the action buttons
+  // keep their full contrast (they sit outside both). Hovering anywhere on the tile
+  // lifts it, as the card's own `hover:opacity-100` did before. Not applied while
+  // the card is dragged or dragged over, where the card's own styling takes over —
+  // the same states in which the old card-level fade was skipped.
+  const archivedDim =
+    project.archived && !isDragging && !isDragOver ? 'opacity-60 group-hover:opacity-100' : '';
+
   return (
     <div
       // ⚠️ DISPOSITION 2026-09-04 (v0.37.17), deliberate: `draggable` is HARDCODED
@@ -152,11 +176,11 @@ export function ProjectCard({
           ? 'opacity-40'
           : isDragOver
             ? 'border-blue-400 bg-blue-50/50 dark:border-blue-600 dark:bg-blue-950/30'
-            : `border-zinc-200 hover:border-zinc-400 dark:border-zinc-800 dark:hover:border-zinc-600 ${tint} ${project.archived ? 'opacity-60 hover:opacity-100' : ''}`
+            : `border-zinc-200 hover:border-zinc-400 dark:border-zinc-800 dark:hover:border-zinc-600 ${tint}`
       }`}
     >
       {/* Drag handle */}
-      <div className="mr-3 flex items-start pt-1">
+      <div className={`mr-3 flex items-start pt-1 ${archivedDim}`}>
         <div
           className="cursor-grab text-zinc-300 hover:text-zinc-500 active:cursor-grabbing dark:text-zinc-600 dark:hover:text-zinc-400"
           title="Drag to reorder"
@@ -229,7 +253,7 @@ export function ProjectCard({
                   }}
                   title="Unarchive this project"
                   aria-label="Unarchive project"
-                  className="inline-flex rounded p-1 text-zinc-300 hover:bg-zinc-100 hover:text-blue-500 dark:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-blue-400"
+                  className={`inline-flex rounded p-1 ${ICON_REST} hover:bg-zinc-100 hover:text-blue-500 dark:hover:bg-zinc-800 dark:hover:text-blue-400`}
                 >
                   <ArchiveIcon className="h-4 w-4" />
                 </button>
@@ -244,7 +268,10 @@ export function ProjectCard({
                   }}
                   title="Archive this project"
                   aria-label="Archive project"
-                  className="hidden rounded p-1 text-zinc-300 hover:bg-zinc-100 hover:text-amber-500 group-hover:inline-flex group-focus-within:inline-flex dark:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-amber-400"
+                  // Hover amber-700, not amber-500: amber-500 on the zinc-100 hover
+                  // background is 1.95:1, so with the darker resting grey (3.95:1)
+                  // hovering would have made the icon FAINTER. amber-700 is 4.59:1.
+                  className={`hidden rounded p-1 ${ICON_REST} hover:bg-zinc-100 hover:text-amber-700 group-hover:inline-flex group-focus-within:inline-flex dark:hover:bg-zinc-800 dark:hover:text-amber-400`}
                 >
                   <ArchiveIcon className="h-4 w-4" />
                 </button>
@@ -266,7 +293,10 @@ export function ProjectCard({
               className={`block h-3.5 w-3.5 rounded-full border ${
                 currentSwatch
                   ? `${currentSwatch} border-black/10 dark:border-white/20`
-                  : 'border-zinc-400 dark:border-zinc-500'
+                  : // No colour set: the ring is drawn in the button's own colour, the
+                    // resting grey above (zinc-400 measured 2.40–2.63:1), as the
+                    // sibling apps draw their no-colour dot.
+                    'border-current'
               }`}
             />
           </button>
@@ -279,7 +309,7 @@ export function ProjectCard({
             }}
             title="Delete project"
             aria-label="Delete project"
-            className="rounded p-1 text-zinc-300 hover:bg-red-50 hover:text-red-500 dark:text-zinc-600 dark:hover:bg-red-950 dark:hover:text-red-400"
+            className={`rounded p-1 ${ICON_REST} hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950 dark:hover:text-red-400`}
           >
             <TrashIcon />
           </button>
@@ -340,7 +370,7 @@ export function ProjectCard({
           </>
         )}
 
-        <Link href={`/projects/${project.id}`} className="block">
+        <Link href={`/projects/${project.id}`} className={`block ${archivedDim}`}>
           <h3 className="pr-24 text-lg font-semibold">
             {project.name}
             {isShared && (

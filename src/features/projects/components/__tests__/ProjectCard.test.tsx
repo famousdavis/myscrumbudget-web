@@ -208,11 +208,110 @@ describe('ProjectCard — archiving', () => {
     expect(onArchive).not.toHaveBeenCalled();
   });
 
-  it('applies the dimmed class to an archived card', () => {
+  // An archived card is faded on its CONTENT, never as a whole: opacity on an
+  // ancestor also fades the action buttons, which took their resting grey from
+  // 3.95:1 to 2.10:1 (light) when the whole card carried opacity-60.
+  const tokens = (el: Element) => el.className.split(/\s+/);
+
+  it('fades an archived card’s grip and link, and no ancestor of its buttons', () => {
     const { container } = render(
-      <ProjectCard project={makeProject({ archived: true })} {...noopProps} />,
+      <ProjectCard
+        project={makeProject({ archived: true })}
+        {...noopProps}
+        onUnarchive={vi.fn()}
+      />,
     );
     const card = container.firstElementChild as HTMLElement;
-    expect(card.className).toContain('opacity-60');
+    expect(tokens(card), 'card').not.toContain('opacity-60');
+
+    const link = container.querySelector('a[href="/projects/p1"]') as Element;
+    const grip = container.querySelector('[title="Drag to reorder"]')?.parentElement as Element;
+    for (const [name, el] of [['link', link], ['grip', grip]] as const) {
+      expect(tokens(el), `${name} faded`).toContain('opacity-60');
+      expect(tokens(el), `${name} lifts on tile hover`).toContain('group-hover:opacity-100');
+    }
+
+    for (const label of ['Unarchive project', 'Delete project', 'Set tile color']) {
+      for (let el: Element | null = screen.getByLabelText(label); el && el !== card.parentElement; el = el.parentElement) {
+        expect(tokens(el), `${label}: ancestor <${el.tagName.toLowerCase()}>`).not.toContain('opacity-60');
+      }
+    }
+  });
+
+  it('fades nothing on an active card', () => {
+    const { container } = render(<ProjectCard project={makeProject()} {...noopProps} />);
+    expect(container.querySelectorAll('.opacity-60')).toHaveLength(0);
+  });
+
+  it('fades an archived card being dragged once, at opacity-40, not also at 60', () => {
+    const { container } = render(
+      <ProjectCard project={makeProject({ archived: true })} {...noopProps} isDragging />,
+    );
+    expect(tokens(container.firstElementChild as Element)).toContain('opacity-40');
+    expect(container.querySelectorAll('.opacity-60')).toHaveLength(0);
+  });
+});
+
+// The tile action buttons' resting grey: the SPERT Suite's tile-icon grey, measured
+// at 3.60:1 or better (light) and 6.45:1 or better (dark) on every tile tint, where
+// the old zinc-300 / dark zinc-600 measured 1.35-2.56:1 (WCAG 1.4.11 asks for 3:1).
+// jsdom applies no Tailwind, so these pin the CLASS TOKENS; the colours themselves
+// were measured in a browser. Tokens are compared whole, because a substring check
+// for "text-zinc-300" would also match the legitimate "dark:hover:text-zinc-300".
+describe('ProjectCard — resting icon colour (WCAG 1.4.11)', () => {
+  const tokens = (el: Element) => el.className.split(/\s+/);
+  const allActions = {
+    onExport: vi.fn(),
+    onClone: vi.fn(),
+    onArchive: vi.fn(),
+    onUnarchive: vi.fn(),
+    onColorChange: vi.fn(),
+  };
+
+  it('every action button on an active tile rests in #808080, dark #9ca3af', () => {
+    render(<ProjectCard project={makeProject()} {...noopProps} {...allActions} />);
+    for (const label of [
+      'Export project as JSON',
+      'Clone project',
+      'Archive project',
+      'Set tile color',
+      'Delete project',
+    ]) {
+      const t = tokens(screen.getByLabelText(label));
+      expect(t, `${label}: light rest`).toContain('text-[#808080]');
+      expect(t, `${label}: dark rest`).toContain('dark:text-[#9ca3af]');
+      expect(t, `${label}: old light grey`).not.toContain('text-zinc-300');
+      expect(t, `${label}: old dark grey`).not.toContain('dark:text-zinc-600');
+    }
+  });
+
+  it('the always-visible Unarchive button rests in the same grey', () => {
+    render(
+      <ProjectCard project={makeProject({ archived: true })} {...noopProps} {...allActions} />,
+    );
+    const t = tokens(screen.getByLabelText('Unarchive project'));
+    expect(t).toContain('text-[#808080]');
+    expect(t).toContain('dark:text-[#9ca3af]');
+    expect(t).not.toContain('text-zinc-300');
+  });
+
+  it('the no-colour swatch ring is drawn in the button colour; a set colour keeps its own ring', () => {
+    const { rerender } = render(
+      <ProjectCard project={makeProject()} {...noopProps} {...allActions} />,
+    );
+    const ring = () => screen.getByLabelText('Set tile color').querySelector('span') as Element;
+    expect(tokens(ring()), 'no colour').toContain('border-current');
+    expect(tokens(ring()), 'no colour: old grey').not.toContain('border-zinc-400');
+
+    rerender(<ProjectCard project={makeProject({ color: 'teal' })} {...noopProps} {...allActions} />);
+    expect(tokens(ring()), 'teal').toContain('border-black/10');
+    expect(tokens(ring()), 'teal').not.toContain('border-current');
+  });
+
+  it('hovering Archive darkens it (amber-700), never fades it (amber-500 is 1.95:1)', () => {
+    render(<ProjectCard project={makeProject()} {...noopProps} {...allActions} />);
+    const t = tokens(screen.getByLabelText('Archive project'));
+    expect(t).toContain('hover:text-amber-700');
+    expect(t).not.toContain('hover:text-amber-500');
   });
 });

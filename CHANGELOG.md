@@ -4,6 +4,12 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.44.13] - 2026-11-22
+
+### Changed
+- **The icons on each Dashboard project tile (export, clone, archive, colour and delete) are now a darker grey that stands out clearly against every tile colour, in light and dark mode.** It is the grey the other SPERT® Suite apps use for these icons. The ring of the colour button on a tile with no colour set is drawn in the same grey, and the archive icon turns a deeper amber when you point at it, so it never gets fainter on hover.
+- **An archived project's tile now fades only its name, details and drag handle, not its buttons**, so Unarchive and Delete are as easy to see as on any other tile. The tile's colour and border are no longer faded either; the "Archived" label still marks it, and pointing at the tile still brings everything back to full strength.
+
 ## [0.44.12] - 2026-11-21
 
 ### Changed
