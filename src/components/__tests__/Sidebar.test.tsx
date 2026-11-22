@@ -104,3 +104,34 @@ describe('Sidebar: the Help Center link', () => {
     expect(helpLink(nav).getAttribute('class')).toBe(about.getAttribute('class'));
   });
 });
+
+/**
+ * The sidebar's title (HDR26, v0.44.12). Its colour and contrast are guarded by
+ * `Sidebar.title-gradient.test.ts`, from the source; these two read the
+ * rendered DOM. The title gained an inner gradient span, so what a screen
+ * reader hears must not change, and the ™ must stay inside the wrapper: as a
+ * flex item of the link it would sit 8 px away from the name.
+ */
+describe('Sidebar: the title', () => {
+  const TITLE = 'MyScrumBudgetTM';
+
+  it('[REGRESSION] is still named "MyScrumBudgetTM": the gradient span adds no space', () => {
+    const nav = renderSidebar();
+    const title = within(nav).getByRole('link', { name: TITLE });
+    expect(title.getAttribute('href')).toBe('/');
+  });
+
+  it('[FALSIFY-AFTER] keeps one wrapper after the favicon: the gradient word, then the ™', () => {
+    const title = within(renderSidebar()).getByRole('link', { name: TITLE });
+    expect([...title.children].map((c) => c.tagName), 'the link: favicon, then one wrapper').toEqual(['IMG', 'SPAN']);
+    const wrapper = title.children[1]!;
+    expect([...wrapper.children].map((c) => c.tagName), 'the wrapper: the word, then the ™').toEqual(['SPAN', 'SUP']);
+    const [word, mark] = [...wrapper.children] as [HTMLElement, HTMLElement];
+    expect(word.textContent).toBe('MyScrumBudget');
+    expect(word.classList.contains('bg-clip-text'), 'the word is the gradient span').toBe(true);
+    expect(mark.textContent?.trim()).toBe('TM');
+    expect(mark.classList.contains('bg-clip-text'), 'the ™ keeps its own colour').toBe(false);
+    const looseText = [...wrapper.childNodes].filter((n) => n.nodeType === Node.TEXT_NODE && n.textContent?.trim());
+    expect(looseText, 'no title text outside the gradient span').toEqual([]);
+  });
+});

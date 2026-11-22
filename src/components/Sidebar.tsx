@@ -16,6 +16,27 @@ import { useDarkMode } from '@/hooks/useDarkMode';
  */
 const HELP_CENTER_URL = 'https://spertsuite.com/help/myscrumbudget';
 
+/**
+ * The sidebar title's colour (HDR26, v0.44.12): MyScrumBudget's favicon green,
+ * `#16a34a`, as a gradient from its light end to its dark end, in each theme.
+ * The title is 18 px bold, which is not large text, so every point of each
+ * ramp must reach 4.5 : 1 on the sidebar behind it (`#fafafa` / `#09090b`).
+ * The dark ramp sits exactly at that bar. A change to either end, or to the
+ * sidebar's background, needs a new measurement:
+ * `__tests__/Sidebar.title-gradient.test.ts` pins both.
+ *
+ * In print, and when the system asks for more contrast, the title falls back to
+ * solid text in the page's own foreground (`--foreground` in `globals.css`):
+ * `#171717`, or `#ededed` in the dark theme.
+ *
+ * One literal string, because Tailwind writes CSS only for class names it finds
+ * written out in the source. With `text-transparent` and no gradient, the
+ * title would be invisible. The ™ `<sup>` stays OUTSIDE the gradient span, in
+ * the same wrapper: made a flex item of the link, it would open an 8 px gap.
+ */
+const TITLE_GRADIENT =
+  'bg-gradient-to-r from-[#10843b] to-[#00471b] dark:from-[#62c679] dark:to-[#008b3b] bg-clip-text text-transparent print:bg-none print:text-[#171717] contrast-more:bg-none contrast-more:text-[#171717] dark:contrast-more:text-[#ededed]';
+
 export function Sidebar() {
   const [open, setOpen] = useState(false);
   const isDark = useDarkMode();
@@ -86,7 +107,7 @@ export function Sidebar() {
                 className="mr-2 h-7 w-7 rounded-lg ring-1 ring-white/20"
               />
               <span>
-                MyScrumBudget
+                <span className={TITLE_GRADIENT}>MyScrumBudget</span>
                 <sup className="text-[7px] font-normal text-zinc-400 dark:text-zinc-500">
                   TM
                 </sup>
