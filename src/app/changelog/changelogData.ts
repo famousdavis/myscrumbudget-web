@@ -13,6 +13,18 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.44.12',
+    date: '2026-11-21',
+    sections: [
+      {
+        title: 'Changed',
+        items: [
+          'The MyScrumBudget name at the top of the sidebar is now in MyScrumBudget\'s own green, the colour of its icon, as a gradient, from a lighter green on the left to a deeper green on the right, in light and dark mode. Its size, weight and place are unchanged, and so is the small ™ beside it. If your computer is set to increase contrast, the name is drawn in solid dark text instead, or solid light text in dark mode. Nothing about how the app works or stores your data changes.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.44.11',
     date: '2026-11-16',
     sections: [
