@@ -130,6 +130,7 @@ describe('ProjectForm', () => {
       <ProjectForm
         onSubmit={onSubmit}
         submitLabel="Create"
+        exitHref="/"
         initialData={{
           name: 'Test',
           startDate: '2026-01-01',
@@ -192,6 +193,7 @@ describe('ProjectForm', () => {
       <ProjectForm
         onSubmit={onSubmit}
         submitLabel="Create"
+        exitHref="/"
         initialData={{
           name: 'Test',
           startDate: '2026-01-01',
@@ -213,6 +215,7 @@ describe('ProjectForm', () => {
       <ProjectForm
         onSubmit={onSubmit}
         submitLabel="Create"
+        exitHref="/"
         initialData={{
           name: 'Test',
           startDate: '2026-01-01',
@@ -233,6 +236,7 @@ describe('ProjectForm', () => {
       <ProjectForm
         onSubmit={onSubmit}
         submitLabel="Create"
+        exitHref="/"
         initialData={{
           name: 'Test',
           startDate: '2026-01-01',
