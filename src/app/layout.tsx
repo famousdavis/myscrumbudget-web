@@ -52,9 +52,12 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        {/* Hidden at rest by its own height PLUS 1rem, because it starts at
+            top-2 (8 px): `-translate-y-full` alone left an 8 px sliver showing
+            on every screen. `focus:translate-y-0` brings it fully into view. */}
         <a
           href="#main-content"
-          className="fixed left-2 top-2 z-[100] -translate-y-full rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-transform focus:translate-y-0"
+          className="fixed left-2 top-2 z-[100] -translate-y-[calc(100%+1rem)] rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-transform focus:translate-y-0"
         >
           Skip to main content
         </a>

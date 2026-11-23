@@ -27,6 +27,14 @@ interface ProjectFormProps {
    * reforecast, on create they seed the baseline.
    */
   dateHelperText?: React.ReactNode;
+  /**
+   * Where Cancel and a successful submit go: the page that opens this form
+   * ("/" for New, the project's page for Edit). A fixed in-app destination,
+   * never `router.back()`, which leaves the app when the form was reached
+   * from another site and does nothing in a tab with no history. `replace`
+   * so Back does not return to a finished form.
+   */
+  exitHref: string;
 }
 
 const defaultData: ProjectFormData = {
@@ -42,6 +50,7 @@ export function ProjectForm({
   submitLabel,
   autoFocusName,
   dateHelperText,
+  exitHref,
 }: ProjectFormProps) {
   const router = useRouter();
   const baseId = useId();
@@ -97,7 +106,7 @@ export function ProjectForm({
     setSubmitting(true);
     try {
       await onSubmit(data);
-      router.back();
+      router.replace(exitHref);
     } catch (err) {
       // Don't show error for user-initiated cancellations (e.g., timeline change dialog)
       if (err instanceof Error && err.message === 'cancelled') {
@@ -209,7 +218,7 @@ export function ProjectForm({
         </button>
         <button
           type="button"
-          onClick={() => router.back()}
+          onClick={() => router.replace(exitHref)}
           className="rounded border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
         >
           Cancel

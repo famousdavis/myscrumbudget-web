@@ -4,6 +4,15 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.44.14] - 2026-11-23
+
+### Fixed
+- **Footer links are now readable in dark mode.** Version, Keyboard shortcuts, SPERT® Suite, Terms of Service, Privacy Policy and License are drawn in a lighter blue on the dark footer, and stay readable when you point at them.
+- **The storage chip at the top right is easier to read.** "Local only" is a darker grey in light mode, "Sign in" is a lighter blue in dark mode, and the lock icon is drawn in the same readable grey as its label.
+- **The sidebar now shows which page you are on.** The current item is drawn in blue with a bar along its left edge, and screen readers announce it as the current page. Any page inside a project marks Dashboard.
+- **The "Skip to main content" link no longer peeks out at the top of every screen.** It stays hidden until you press Tab, as before.
+- **The New Project and Edit Project forms no longer send you out of the app.** Cancel and a successful save now go to the dashboard (New Project) or to the project's page (Edit Project), even when you opened the form from a link in another site or a new tab.
+
 ## [0.44.13] - 2026-11-22
 
 ### Changed

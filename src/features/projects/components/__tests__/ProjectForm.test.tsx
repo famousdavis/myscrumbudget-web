@@ -7,14 +7,17 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ProjectForm } from '../ProjectForm';
 
 const mockBack = vi.fn();
+const mockReplace = vi.fn();
+const mockPush = vi.fn();
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ back: mockBack }),
+  useRouter: () => ({ back: mockBack, replace: mockReplace, push: mockPush }),
 }));
 
 describe('ProjectForm', () => {
   const defaultProps = {
     onSubmit: vi.fn().mockResolvedValue(undefined),
     submitLabel: 'Create',
+    exitHref: '/',
   };
 
   beforeEach(() => {
@@ -39,10 +42,48 @@ describe('ProjectForm', () => {
     expect(screen.getByText('Cancel')).toBeDefined();
   });
 
-  it('navigates back on cancel click', () => {
-    render(<ProjectForm {...defaultProps} />);
+  // FRAME26 stage 0 (MSB-5): Cancel and a successful submit go to a fixed
+  // in-app page, never `router.back()`, which left the app when the form was
+  // reached from another site and did nothing in a tab with no history.
+  it('Cancel replaces the route with exitHref and never goes back', () => {
+    render(<ProjectForm {...defaultProps} exitHref="/projects/p-42" />);
     fireEvent.click(screen.getByText('Cancel'));
-    expect(mockBack).toHaveBeenCalledTimes(1);
+    expect(mockReplace, 'Cancel must navigate to exitHref').toHaveBeenCalledWith('/projects/p-42');
+    expect(mockReplace).toHaveBeenCalledTimes(1);
+    expect(mockBack, 'router.back() can leave the app').not.toHaveBeenCalled();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('a successful submit replaces the route with exitHref and never goes back', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(
+      <ProjectForm
+        {...defaultProps}
+        onSubmit={onSubmit}
+        exitHref="/projects/p-42"
+        initialData={{ name: 'P', startDate: '2026-01-01', endDate: '2026-06-30', baselineBudget: 0 }}
+      />,
+    );
+    fireEvent.click(screen.getByText('Create'));
+    await waitFor(() => expect(mockReplace, 'submit must navigate to exitHref').toHaveBeenCalledWith('/projects/p-42'));
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(mockBack, 'router.back() can leave the app').not.toHaveBeenCalled();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it('a cancelled submit (the Edit page dialog) stays on the form', async () => {
+    const onSubmit = vi.fn().mockRejectedValue(new Error('cancelled'));
+    render(
+      <ProjectForm
+        {...defaultProps}
+        onSubmit={onSubmit}
+        initialData={{ name: 'P', startDate: '2026-01-01', endDate: '2026-06-30', baselineBudget: 0 }}
+      />,
+    );
+    fireEvent.click(screen.getByText('Create'));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(mockBack).not.toHaveBeenCalled();
   });
 
   it('submit button is disabled when form is empty', () => {
@@ -89,6 +130,7 @@ describe('ProjectForm', () => {
       <ProjectForm
         onSubmit={onSubmit}
         submitLabel="Create"
+        exitHref="/"
         initialData={{
           name: 'Test',
           startDate: '2026-01-01',
@@ -151,6 +193,7 @@ describe('ProjectForm', () => {
       <ProjectForm
         onSubmit={onSubmit}
         submitLabel="Create"
+        exitHref="/"
         initialData={{
           name: 'Test',
           startDate: '2026-01-01',
@@ -172,6 +215,7 @@ describe('ProjectForm', () => {
       <ProjectForm
         onSubmit={onSubmit}
         submitLabel="Create"
+        exitHref="/"
         initialData={{
           name: 'Test',
           startDate: '2026-01-01',
@@ -192,6 +236,7 @@ describe('ProjectForm', () => {
       <ProjectForm
         onSubmit={onSubmit}
         submitLabel="Create"
+        exitHref="/"
         initialData={{
           name: 'Test',
           startDate: '2026-01-01',

@@ -86,6 +86,7 @@ export default function EditProjectPage({
             baselineBudget: activeReforecast?.baselineBudget ?? 0,
           }}
           submitLabel="Save Changes"
+          exitHref={`/projects/${id}`}
           dateHelperText={
             <>
               Dates apply to the active reforecast (<strong>{rfName}</strong>). Switch reforecasts in the toolbar to edit a different scenario&apos;s window.
@@ -114,7 +115,7 @@ export default function EditProjectPage({
             // but no longer drive runtime behavior.
             //
             // Awaits `flush()` so the repo write completes BEFORE the
-            // Promise resolves. ProjectForm calls `router.back()` only
+            // Promise resolves. ProjectForm navigates (`router.replace`) only
             // after `await onSubmit(...)`, and the detail page reloads
             // from the repo on mount — without this await, the navigation
             // beats the save and the user sees stale months (v0.29.2 fix).

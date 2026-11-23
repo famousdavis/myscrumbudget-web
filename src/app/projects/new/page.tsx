@@ -16,6 +16,7 @@ export default function NewProjectPage() {
       <div className="mt-6">
         <ProjectForm
           submitLabel="Create Project"
+          exitHref="/"
           autoFocusName
           onSubmit={async (data) => {
             await createProject(data);

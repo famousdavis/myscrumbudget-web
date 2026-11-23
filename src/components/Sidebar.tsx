@@ -6,6 +6,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useDarkMode } from '@/hooks/useDarkMode';
 
 /**
@@ -37,9 +38,37 @@ const HELP_CENTER_URL = 'https://spertsuite.com/help/myscrumbudget';
 const TITLE_GRADIENT =
   'bg-gradient-to-r from-[#10843b] to-[#00471b] dark:from-[#62c679] dark:to-[#008b3b] bg-clip-text text-transparent print:bg-none print:text-[#171717] contrast-more:bg-none contrast-more:text-[#171717] dark:contrast-more:text-[#ededed]';
 
+const NAV_ITEM =
+  'block rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-200 dark:text-zinc-300 dark:hover:bg-zinc-800';
+
+/**
+ * The current-page item (FRAME26 stage 0): the accent text colour plus a 2 px
+ * accent bar inside its left edge, at the SAME weight, so nothing moves when
+ * the page changes. The bar is the cue that is not colour alone (WCAG 1.4.1):
+ * #0070f3 is 4.36 : 1 on the sidebar's #fafafa and 4.37 : 1 on #09090b.
+ */
+const NAV_ITEM_CURRENT =
+  'block rounded-md px-3 py-2 text-sm font-medium text-[#155dfc] shadow-[inset_2px_0_0_#0070f3] hover:bg-zinc-200 dark:text-[#51a2ff] dark:hover:bg-zinc-800';
+
+/**
+ * Which item names the current page. Every /projects/... route belongs to the
+ * collection, "Dashboard" ("/"). Pages no item leads to (/changelog) mark
+ * nothing. Help Center leaves the app and never names the current page.
+ */
+function isCurrentNavItem(href: string, pathname: string | null): boolean {
+  if (!pathname) return false;
+  if (href === '/') return pathname === '/' || pathname.startsWith('/projects/');
+  return pathname === href || pathname.startsWith(href + '/');
+}
+
 export function Sidebar() {
   const [open, setOpen] = useState(false);
   const isDark = useDarkMode();
+  const pathname = usePathname();
+  const navItemProps = (href: string) =>
+    isCurrentNavItem(href, pathname)
+      ? { className: NAV_ITEM_CURRENT, 'aria-current': 'page' as const }
+      : { className: NAV_ITEM };
 
   return (
     <>
@@ -119,7 +148,7 @@ export function Sidebar() {
               <Link
                 href="/"
                 onClick={() => setOpen(false)}
-                className="block rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-200 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                {...navItemProps('/')}
               >
                 Dashboard
               </Link>
@@ -128,7 +157,7 @@ export function Sidebar() {
               <Link
                 href="/team"
                 onClick={() => setOpen(false)}
-                className="block rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-200 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                {...navItemProps('/team')}
               >
                 Team Pool
               </Link>
@@ -137,7 +166,7 @@ export function Sidebar() {
               <Link
                 href="/settings"
                 onClick={() => setOpen(false)}
-                className="block rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-200 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                {...navItemProps('/settings')}
               >
                 Settings
               </Link>
@@ -149,9 +178,8 @@ export function Sidebar() {
               on purpose: the accessible-name computation trims a span's own
               leading space, so with the space inside, the name reads
               "Help Center(opens in a new tab)".
-              ⚠️ No item in this list has an active or current-page style. If
-              one is ever added, keep it off this link: it never names the
-              current page.
+              It never carries the current-page style: it never names the
+              current page (see isCurrentNavItem).
             */}
             <li>
               <a
@@ -159,7 +187,7 @@ export function Sidebar() {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setOpen(false)}
-                className="block rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-200 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                className={NAV_ITEM}
               >
                 Help Center{' '}<span aria-hidden="true">↗</span>{' '}
                 <span className="sr-only">(opens in a new tab)</span>
@@ -169,7 +197,7 @@ export function Sidebar() {
               <Link
                 href="/about"
                 onClick={() => setOpen(false)}
-                className="block rounded-md px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-200 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                {...navItemProps('/about')}
               >
                 About
               </Link>

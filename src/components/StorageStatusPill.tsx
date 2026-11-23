@@ -20,11 +20,18 @@ function CloudIcon() {
   );
 }
 
+/**
+ * The lock is not decoration: in the signed-in-local chip it stands alone where
+ * the cloud chip shows its cloud, so it is the only visual sign of the storage
+ * mode there, and WCAG 1.4.11 asks 3 : 1 of it. It draws in `currentColor`
+ * from the muted-text classes (`#6a7282` on white, 4.84 : 1; `#99a1af` in
+ * dark). The old fixed `#9CA3AF` stroke measured 2.54 : 1 on white.
+ */
 function LockIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="3" y="11" width="18" height="11" rx="2" stroke="#9CA3AF" strokeWidth="2" />
-      <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" />
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-gray-500 dark:text-gray-400">
+      <rect x="3" y="11" width="18" height="11" rx="2" stroke="currentColor" strokeWidth="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
@@ -135,13 +142,15 @@ export function StorageStatusPill({ onOpen }: StorageStatusPillProps) {
     >
       <span className="flex items-center gap-1.5 py-1 pl-2.5 pr-2.5">
         <LockIcon />
-        <span style={{ fontSize: 13 }} className="text-gray-400">
+        <span style={{ fontSize: 13 }} className="text-gray-500 dark:text-gray-400">
           Local only
         </span>
       </span>
       <span className="self-stretch" style={{ width: '0.5px', backgroundColor: '#D1D5DB' }} />
       <span className="flex items-center justify-center px-2.5 py-1">
-        <span style={{ fontSize: 12, fontWeight: 500, color: '#0070f3' }}>
+        {/* Dark-only lighter blue: #0070f3 measured 4.35 : 1 on the dark page
+            ground (#0a0a0a); #51a2ff is 7.51 : 1. Light stays #0070f3 (4.55). */}
+        <span style={{ fontSize: 12, fontWeight: 500 }} className="text-[#0070f3] dark:text-[#51a2ff]">
           Sign in
         </span>
       </span>
