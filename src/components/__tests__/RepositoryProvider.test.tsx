@@ -61,7 +61,7 @@ vi.mock('@/lib/storage/localStorage', async (importOriginal) => {
   return { ...actual, createLocalStorageRepository: vi.fn(actual.createLocalStorageRepository) };
 });
 
-import { RepositoryProvider, useRepository } from '../RepositoryProvider';
+import { RepositoryProvider, RepositoryGate, useRepository } from '../RepositoryProvider';
 import { createFirestoreRepository } from '@/lib/storage/firestoreRepo';
 import { createLocalStorageRepository } from '@/lib/storage/localStorage';
 import type { Repository } from '@/lib/storage/repository';
@@ -101,8 +101,16 @@ function Probe() {
   return <div data-testid="probe">rendered</div>;
 }
 
+/**
+ * The provider and its gate together: what wrapped the page before v0.45.0 as one component. Since FRAME26 the
+ * provider holds the state at the root and never blanks; the gate holds the null and provides the context.
+ */
+function tree() {
+  return <RepositoryProvider><RepositoryGate><Probe /></RepositoryGate></RepositoryProvider>;
+}
+
 function mount() {
-  return render(<RepositoryProvider><Probe /></RepositoryProvider>);
+  return render(tree());
 }
 
 /** The value the spied cloud factory most recently returned. */
@@ -253,8 +261,8 @@ describe('RepositoryProvider — identity stability', () => {
     const { rerender } = mount();
     const first = capture.seen!.repository;
 
-    rerender(<RepositoryProvider><Probe /></RepositoryProvider>);
-    rerender(<RepositoryProvider><Probe /></RepositoryProvider>);
+    rerender(tree());
+    rerender(tree());
 
     expect(capture.seen!.repository).toBe(first);
     expect(makeCloud).toHaveBeenCalledTimes(1);
@@ -267,7 +275,7 @@ describe('RepositoryProvider — identity stability', () => {
     const first = capture.seen!.repository;
 
     auth.state.user = { uid: 'uid-b' };
-    rerender(<RepositoryProvider><Probe /></RepositoryProvider>);
+    rerender(tree());
 
     expect(capture.seen!.repository).not.toBe(first);
     expect(makeCloud).toHaveBeenLastCalledWith('uid-b');
@@ -279,5 +287,13 @@ describe('useRepository outside the provider', () => {
     // A default here would be a localStorage repository — i.e. exactly the
     // defect, reintroduced as a convenience.
     expect(() => render(<Probe />)).toThrow(/must be used within RepositoryProvider/);
+  });
+
+  it('[FALSIFY-AFTER] throws under the provider but outside a RepositoryGate, too (v0.45.0)', () => {
+    // The provider wraps the whole frame since v0.45.0 and never blanks. If it handed out the context itself, a
+    // consumer placed in the frame without a gate would read a localStorage repository while a cloud session's auth
+    // resolves — the v0.37.0 defect again. The context comes from the gate, so that placement fails loudly instead.
+    setStorageMode('local');
+    expect(() => render(<RepositoryProvider><Probe /></RepositoryProvider>)).toThrow(/under a RepositoryGate/);
   });
 });

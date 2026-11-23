@@ -2,9 +2,14 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-export const APP_VERSION = '0.44.14';
+export const APP_VERSION = '0.45.0';
 export const APP_NAME = 'MyScrumBudget';
-export const APP_DESCRIPTION = 'Scrum project budget forecasting tool';
+/**
+ * The tagline beside the title in the SPERT® Suite frame's brand row (FRAME26,
+ * v0.45.0). William's wording, 2026-11-23: MyScrumBudget serves any project
+ * type, not only Scrum. (It replaced `APP_DESCRIPTION`, which nothing used.)
+ */
+export const APP_TAGLINE = 'Project budget forecasting for any project type';
 export const HOURS_PER_DAY = 8;
 export const REFORECAST_NOTES_MAX_LENGTH = 2000;
 export const UNDO_STACK_LIMIT = 50;

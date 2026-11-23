@@ -73,27 +73,25 @@ export function FirstRunBanner() {
     setVisible(false);
   };
 
-  const linkClass = 'text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline';
-
   return (
-    <div className="mb-6 flex items-start justify-between gap-3 rounded border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-zinc-700 dark:border-blue-800 dark:bg-blue-900/30 dark:text-zinc-300">
+    // The frame's info notice (`.sf-notice--info`, FRAME26 contract §3 "Notices slot", v0.45.0): its colours, padding,
+    // radius and the 28 px outlined "Got it" are the stylesheet's, and the links inherit the notice's text colour,
+    // underlined (`.sf-notice a`). Its own ground, border, margin and the links' colour classes went with v0.45.0.
+    <div className="sf-notice sf-notice--info">
       <p>
         SPERT&reg; Suite web apps are free to use. No account is required to use them. By
         accessing or using this app, you agree to our{' '}
-        <a href={TOS_URL} target="_blank" rel="noopener noreferrer" className={linkClass}>
+        <a href={TOS_URL} target="_blank" rel="noopener noreferrer">
           Terms of Service
         </a>{' '}
         and{' '}
-        <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" className={linkClass}>
+        <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer">
           Privacy Policy
         </a>
         . If you choose to enable optional Cloud Storage, you&apos;ll be asked to explicitly
         confirm your agreement.
       </p>
-      <button
-        onClick={dismiss}
-        className="shrink-0 rounded border border-blue-300 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 dark:border-blue-600 dark:text-blue-300 dark:hover:bg-blue-900/50"
-      >
+      <button type="button" onClick={dismiss} className="sf-notice-dismiss">
         Got it
       </button>
     </div>

@@ -439,7 +439,7 @@ const exampleState: AppState = {
 │  ┌────────────────────────────────────────────────────────────────────────┐ │
 │  │                         Next.js App Router                              │ │
 │  │                                                                         │ │
-│  │   /                    → Dashboard (project list, summary)              │ │
+│  │   /                    → Projects (project list, summary)               │ │
 │  │   /projects/[id]       → Project detail + reforecast view               │ │
 │  │   /projects/[id]/edit  → Edit project metadata                          │ │
 │  │   /team                → Global team member pool management             │ │
@@ -620,7 +620,7 @@ src/
 │
 ├── components/                       # Shared components
 │   ├── MigrationGuard.tsx           # Runs migrations before rendering
-│   ├── Sidebar.tsx                  # Mobile-responsive nav sidebar
+│   ├── AppShell.tsx                 # SPERT® Suite frame: brand row, nav row, notices, main, footer (v0.45.0)
 │   ├── Footer.tsx                   # App footer (version, copyright, GPL)
 │   ├── CostByPeriodTable.tsx        # Annual cost breakout table
 │   └── charts/

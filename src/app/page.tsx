@@ -21,6 +21,7 @@ import { describeStorageError, describeExportOmission } from '@/lib/storage/loca
 import { useImportState } from '@/features/projects/hooks/useImportState';
 import { getDashboardEmptyState } from '@/features/projects/lib/dashboardCard';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { HeadingRow } from '@/components/HeadingRow';
 import { ToolbarIcon } from '@/components/icons/ToolbarIcon';
 import { TOOLBAR_ICON_PATHS } from '@/components/icons/toolbarIconPaths';
 
@@ -203,47 +204,55 @@ export default function DashboardPage() {
           useProjects starts with an empty list). Accessible names begin with
           the visible label (WCAG 2.5.3). No role="toolbar": that role promises
           arrow-key navigation, which this row does not provide. */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <div className="flex flex-wrap items-center gap-2">
-          <input
-            ref={importFileRef}
-            type="file"
-            accept=".json"
-            onChange={handleFileChange}
-            className="hidden"
-            aria-label="Import JSON workspace file"
-          />
-          <button
-            onClick={handleExportAll}
-            disabled={projects.length === 0}
-            aria-label="Export all projects as JSON"
-            className="inline-flex items-center gap-2 rounded border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <ToolbarIcon d={TOOLBAR_ICON_PATHS.export} />
-            Export All
-          </button>
-          <button
-            onClick={() => importFileRef.current?.click()}
-            disabled={importPhase.phase === 'applying'}
-            aria-label="Import projects from JSON"
-            className="inline-flex items-center gap-2 rounded border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-zinc-700 dark:hover:bg-zinc-800"
-          >
-            <ToolbarIcon d={TOOLBAR_ICON_PATHS.import} />
-            Import
-          </button>
-          <Link
-            href="/projects/new"
-            className="inline-flex items-center gap-2 rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            <ToolbarIcon d={TOOLBAR_ICON_PATHS.plus} />
-            New Project
-          </Link>
-        </div>
-      </div>
+      {/* FRAME26 (v0.45.0): the frame's heading row. "Dashboard" became "Projects" (contract §2: each collection is
+          named by its noun), and every button is 36 px through `.sf-btn` (14 / 500, 18 px icons); their corners,
+          colours, hover and disabled rules are unchanged. */}
+      <HeadingRow
+        toolbar={
+          <div className="sf-toolbar" data-sf="toolbar">
+            <input
+              ref={importFileRef}
+              type="file"
+              accept=".json"
+              onChange={handleFileChange}
+              className="hidden"
+              aria-label="Import JSON workspace file"
+            />
+            <button
+              onClick={handleExportAll}
+              disabled={projects.length === 0}
+              aria-label="Export all projects as JSON"
+              className="sf-btn rounded border border-zinc-300 px-4 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ToolbarIcon d={TOOLBAR_ICON_PATHS.export} />
+              Export All
+            </button>
+            <button
+              onClick={() => importFileRef.current?.click()}
+              disabled={importPhase.phase === 'applying'}
+              aria-label="Import projects from JSON"
+              className="sf-btn rounded border border-zinc-300 px-4 hover:bg-zinc-50 disabled:opacity-50 disabled:cursor-not-allowed dark:border-zinc-700 dark:hover:bg-zinc-800"
+            >
+              <ToolbarIcon d={TOOLBAR_ICON_PATHS.import} />
+              Import
+            </button>
+            <Link
+              href="/projects/new"
+              className="sf-btn rounded bg-blue-600 px-4 text-white hover:bg-blue-700"
+            >
+              <ToolbarIcon d={TOOLBAR_ICON_PATHS.plus} />
+              New Project
+            </Link>
+          </div>
+        }
+      >
+        Projects
+      </HeadingRow>
 
+      {/* The collection's filter row (contract §3, `data-sf="filters"`): 16 px below the heading row, the grid 16 px
+          below it. Rendered only while an archived project exists, as before. */}
       {archivedProjects.length > 0 && (
-        <div className="mt-4 flex items-center gap-2">
+        <div className="sf-below flex items-center gap-2" data-sf="filters">
           <input
             type="checkbox"
             id="showArchivedProjects"
@@ -301,13 +310,15 @@ export default function DashboardPage() {
       )}
 
       {loading ? (
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        // The loading grid takes the tile grid's geometry (`.sf-tiles`) but no hook and no drop handlers.
+        <div className="sf-tiles">
           {Array.from({ length: 3 }).map((_, i) => (
             <SkeletonProjectCard key={i} />
           ))}
         </div>
       ) : emptyState === 'onboarding' ? (
-        <div className="mx-auto mt-12 max-w-lg rounded-lg border border-dashed border-zinc-300 p-8 dark:border-zinc-700">
+        // `data-sf="empty"`: the panel that stands in for the tile grid (contract §7). Its look is unchanged.
+        <div className="mx-auto mt-12 max-w-lg rounded-lg border border-dashed border-zinc-300 p-8 dark:border-zinc-700" data-sf="empty">
           <h2 className="text-center text-lg font-semibold">Getting Started</h2>
           <p className="mt-1 text-center text-sm text-zinc-500 dark:text-zinc-400">
             Follow these steps to set up your first project.
@@ -361,7 +372,7 @@ export default function DashboardPage() {
           </ol>
         </div>
       ) : emptyState === 'no-visible-projects' ? (
-        <div className="py-12 text-center">
+        <div className="py-12 text-center" data-sf="empty">
           <p className="text-lg text-zinc-400 dark:text-zinc-500">All projects are archived.</p>
           <p className="mt-1 text-sm text-zinc-400 dark:text-zinc-500">
             Check &ldquo;Show archived&rdquo; above to view them.
@@ -369,14 +380,17 @@ export default function DashboardPage() {
         </div>
       ) : (
         <div
-          className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+          // The frame's tile grid (contract §3): repeat(auto-fill, minmax(340px, 1fr)), gap 16, 16 px below the
+          // heading row or the filter row: 3 columns at 1280 and 1440, 4 at 1920 (3 everywhere before v0.45.0).
+          className="sf-tiles"
+          data-sf="tiles"
           // Makes the gutters and the empty cells after the last card droppable.
           // Before v0.37.17 a drop there hit no card, so nothing called
           // preventDefault() on dragover and the browser discarded the gesture
           // with no message. Bails when a card owns the point, so the per-card
           // path is unchanged.
           //
-          // ⚠️ The skeleton grid above has a BYTE-IDENTICAL className and must NOT
+          // ⚠️ The skeleton grid above has the same tile-grid class and must NOT
           // get these handlers — it renders no cards, so a drop there would
           // resolve to nothing. Identify this branch by the visibleProjects.map
           // below it, never by matching the class string.

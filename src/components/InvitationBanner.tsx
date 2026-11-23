@@ -12,7 +12,18 @@ import { useInvitationLanding } from '@/hooks/useInvitationLanding';
 import { useSignInWithTosGate } from '@/hooks/useSignInWithTosGate';
 
 /**
- * Centered card shown when the user arrives via an `?invite=` link.
+ * The notice shown when the user arrives via an `?invite=` link.
+ *
+ * ⚠️ A frame notice since v0.45.0 (FRAME26, contract §3 and §6): it sits FIRST in the notices slot, above the terms
+ * notice and the caution, outside `<main>`, at the full column width. Its old centred 512 px card (`max-w-lg mx-auto`)
+ * went with that. Its variant follows its state: info while signing in and verifying, success once a claim landed
+ * (here or in another app), caution when it failed. Its paragraphs take the notice's text colour; the "×" and the two
+ * sign-in buttons keep their own look (contract §3: other buttons in a notice keep theirs).
+ *
+ * ⚠️ It renders inside `MigrationGuard` and `RepositoryGate` (`AppShell.tsx`), as it did when it lived inside the
+ * page's provider stack: `useInvitationLanding` reads the repository, and its lazy `useState(() => sessionStorage…)`
+ * differs between the server and the browser, which is harmless only because the guard renders nothing on the server
+ * and on the first client render (`shell.hydration.test.tsx`).
  *
  * Suspense kept defensively — useInvitationLanding now reads sessionStorage
  * (not useSearchParams), so the boundary is not strictly required. If a
@@ -33,11 +44,7 @@ function InvitationBannerInner() {
   if (state === 'idle') return null;
 
   return (
-    <div
-      className="relative max-w-lg mx-auto mb-4 p-5 bg-blue-50 dark:bg-blue-900/20
-                 border border-blue-200 dark:border-blue-800 rounded-lg shadow-sm"
-      role="status"
-    >
+    <div className={`sf-notice ${NOTICE_VARIANT[state]} relative`} role="status">
       <button
         onClick={dismiss}
         aria-label="Dismiss invitation banner"
@@ -45,7 +52,7 @@ function InvitationBannerInner() {
       >
         <span aria-hidden="true">×</span>
       </button>
-      <div className="space-y-3 pr-6">
+      <div className="flex-1 space-y-3 pr-6">
         {state === 'pre_auth' && <PreAuthContent />}
         {state === 'claiming' && <ClaimingContent />}
         {state === 'claimed'  && <ClaimedContent names={claimedNames} />}
@@ -65,6 +72,15 @@ function InvitationBannerInner() {
   );
 }
 
+/** The frame notice variant for each visible state (contract §3; the tokens are `spert-frame.css`'s). */
+const NOTICE_VARIANT: Record<Exclude<ReturnType<typeof useInvitationLanding>['state'], 'idle'>, string> = {
+  pre_auth: 'sf-notice--info',
+  claiming: 'sf-notice--info',
+  claimed: 'sf-notice--success',
+  claimed_elsewhere: 'sf-notice--success',
+  failed: 'sf-notice--caution',
+};
+
 function PreAuthContent() {
   const {
     handleSignIn,
@@ -76,7 +92,7 @@ function PreAuthContent() {
 
   return (
     <>
-      <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+      <p className="font-medium">
         You&rsquo;ve been invited to a MyScrumBudget project. Sign in to accept.
       </p>
       <div className="flex flex-col gap-2 sm:flex-row">
@@ -103,10 +119,13 @@ function PreAuthContent() {
         <p className="text-sm text-red-600 dark:text-red-400">{signInError}</p>
       )}
       {showTosModal && (
-        <TosConsentModal
-          onAccept={handleTosAccepted}
-          onCancel={handleTosCancel}
-        />
+        // `font-sans`: the dialog keeps the body's font (Geist) inside the frame's notice, whose font is the frame's.
+        <div className="font-sans">
+          <TosConsentModal
+            onAccept={handleTosAccepted}
+            onCancel={handleTosCancel}
+          />
+        </div>
       )}
     </>
   );
@@ -119,7 +138,7 @@ function ClaimingContent() {
         className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent dark:border-blue-400 dark:border-t-transparent"
         aria-hidden="true"
       />
-      <p className="text-sm text-zinc-700 dark:text-zinc-300">
+      <p>
         Verifying invitation&hellip;
       </p>
     </div>
@@ -130,7 +149,7 @@ function ClaimedContent({ names }: { names: string[] }) {
   // Old invites may have modelName === 'Untitled' (pre-existing CF limitation,
   // not a new bug). Display verbatim from CF response.
   return (
-    <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+    <p className="font-medium">
       You now have access to: {names.join(', ')}.
     </p>
   );
@@ -152,7 +171,7 @@ function ClaimedElsewhereContent({ apps }: { apps: string[] }) {
   const where = listNames(apps);
   const plural = apps.length > 1;
   return (
-    <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+    <p className="font-medium">
       Your invitation was accepted in {where}, not in MyScrumBudget. Open{' '}
       {plural ? 'those apps' : where} to see the {plural ? 'projects' : 'project'}.
     </p>
@@ -168,7 +187,7 @@ function FailedContent({ message }: { message: string | null }) {
   // and `emailVerified === false`; that model was wrong — every Microsoft
   // sign-in is unverified in Firebase — and it is what hid this defect.
   return (
-    <p className="text-sm text-amber-800 dark:text-amber-300">
+    <p>
       {message}
     </p>
   );

@@ -4,14 +4,11 @@
 
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
-import { Sidebar } from '@/components/Sidebar';
-import { MigrationGuard } from '@/components/MigrationGuard';
+import { MigrationProvider } from '@/components/MigrationGuard';
 import { AuthProvider } from '@/components/AuthProvider';
 import { RepositoryProvider } from '@/components/RepositoryProvider';
-import { CloudSyncProvider } from '@/components/CloudSyncProvider';
-import { Footer } from '@/components/Footer';
 import { ToastProvider } from '@/components/Toast';
-import { ShellTop } from '@/components/ShellTop';
+import { AppShell } from '@/components/AppShell';
 import './globals.css';
 
 const geistSans = Geist({
@@ -52,24 +49,21 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {/* Hidden at rest by its own height PLUS 1rem, because it starts at
-            top-2 (8 px): `-translate-y-full` alone left an 8 px sliver showing
-            on every screen. `focus:translate-y-0` brings it fully into view. */}
-        <a
-          href="#main-content"
-          className="fixed left-2 top-2 z-[100] -translate-y-[calc(100%+1rem)] rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-transform focus:translate-y-0"
-        >
-          Skip to main content
-        </a>
-        <div className="flex min-h-screen flex-col">
-          <div className="flex flex-1">
-            <Sidebar />
-            <main id="main-content" className="min-w-0 flex-1 p-8 pt-16 md:pt-4">
-              <MigrationGuard><AuthProvider><RepositoryProvider><CloudSyncProvider><ToastProvider><ShellTop>{children}</ShellTop></ToastProvider></CloudSyncProvider></RepositoryProvider></AuthProvider></MigrationGuard>
-            </main>
-          </div>
-          <Footer />
-        </div>
+        {/* The providers wrap the WHOLE frame (FRAME26, v0.45.0), because the account chip and the notices sit
+            outside <main>. None of them blanks its children: the old "render nothing until migrated" and "render
+            nothing while a cloud session's auth resolves" moved to MigrationGuard and RepositoryGate, inside AppShell,
+            around exactly what they protected before (the page, the invitation banner, the Cloud Storage modal).
+            AuthProvider is server-safe (user null, loading a build-time constant). ToastProvider renders its
+            container after .sf-app, on the body's font. */}
+        <AuthProvider>
+          <MigrationProvider>
+            <RepositoryProvider>
+              <ToastProvider>
+                <AppShell>{children}</AppShell>
+              </ToastProvider>
+            </RepositoryProvider>
+          </MigrationProvider>
+        </AuthProvider>
       </body>
     </html>
   );

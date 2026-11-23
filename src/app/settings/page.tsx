@@ -23,6 +23,7 @@ import { ExportAttribution } from '@/features/settings/components/ExportAttribut
 import { CloudStorageSection } from '@/features/settings/components/CloudStorageSection';
 import { LocalStorageWarningToggle } from '@/features/settings/components/LocalStorageWarningToggle';
 import { Skeleton } from '@/components/Skeleton';
+import { HeadingRow } from '@/components/HeadingRow';
 
 export default function SettingsPage() {
   const { settings, loading, updateSettings, flush } = useSettings();
@@ -158,38 +159,42 @@ export default function SettingsPage() {
   // to remove. Loading and unreadable are separated here BECAUSE they stopped
   // being the same thing; before v0.38.0 an unreadable blob silently became
   // DEFAULT_SETTINGS and this branch was unreachable with `loading` false.
+  // FRAME26 (v0.45.0): Settings' body is capped (exception X4), so every state returns the heading row and its body as
+  // DIRECT children of `main` (a fragment): the stylesheet caps every child of `main` except the heading row.
   if (!loading && !settings) {
     return (
-      <div>
-        <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="mt-6 max-w-prose rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
-          Your saved settings could not be read, so they are not shown here and
-          cannot be edited — this avoids overwriting them with defaults. Nothing
-          has been changed. Importing a previous export from the Dashboard will
-          restore them.
-        </p>
-      </div>
+      <>
+        <HeadingRow>Settings</HeadingRow>
+        <div className="sf-below">
+          <p className="max-w-prose rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+            Your saved settings could not be read, so they are not shown here and
+            cannot be edited — this avoids overwriting them with defaults. Nothing
+            has been changed. Importing a previous export from the Projects page will
+            restore them.
+          </p>
+        </div>
+      </>
     );
   }
 
   if (loading || !settings) {
     return (
-      <div>
-        <h1 className="text-2xl font-bold">Settings</h1>
-        <div className="mt-6 space-y-8">
+      <>
+        <HeadingRow>Settings</HeadingRow>
+        <div className="sf-below space-y-8">
           <Skeleton className="h-10 w-48" />
           <Skeleton className="h-32 w-full" />
           <Skeleton className="h-10 w-48" />
           <Skeleton className="h-48 w-full" />
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold">Settings</h1>
-      <div className="mt-6 space-y-8">
+    <>
+      <HeadingRow>Settings</HeadingRow>
+      <div className="sf-below space-y-8">
         <SettingsForm settings={settings} onUpdate={updateSettings} />
         <hr className="border-zinc-200 dark:border-zinc-800" />
         <RateTable
@@ -226,6 +231,6 @@ export default function SettingsPage() {
         <hr className="border-zinc-200 dark:border-zinc-800" />
         <DataPortability />
       </div>
-    </div>
+    </>
   );
 }

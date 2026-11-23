@@ -475,13 +475,14 @@ describe('DashboardPage — delete confirmation', () => {
  */
 describe('DashboardPage — toolbar', () => {
   function toolbarControls(): HTMLElement[] {
-    const heading = screen.getByRole('heading', { level: 1, name: 'Dashboard' });
+    // "Dashboard" became "Projects" in v0.45.0 (FRAME26 contract §2); the h1's parent is still the row holding the toolbar.
+    const heading = screen.getByRole('heading', { level: 1, name: 'Projects' });
     const row = heading.parentElement;
-    if (!row) throw new Error('the Dashboard heading has no row');
+    if (!row) throw new Error('the Projects heading has no row');
     return Array.from(row.querySelectorAll<HTMLElement>('button, a'));
   }
 
-  it('shows Export All · Import · New Project, in that order, beside the Dashboard heading', async () => {
+  it('shows Export All · Import · New Project, in that order, beside the Projects heading', async () => {
     renderDashboard();
     await waitFor(() => expect(screen.getByText('Getting Started')).toBeInTheDocument());
 

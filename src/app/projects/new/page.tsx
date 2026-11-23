@@ -6,14 +6,16 @@
 
 import { useProjects } from '@/features/projects/hooks/useProjects';
 import { ProjectForm } from '@/features/projects/components/ProjectForm';
+import { HeadingRow } from '@/components/HeadingRow';
 
 export default function NewProjectPage() {
   const { createProject } = useProjects();
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold">New Project</h1>
-      <div className="mt-6">
+    <>
+      {/* FRAME26 (v0.45.0): the frame's heading row, no toolbar. The form's own Submit and Cancel are its exits. */}
+      <HeadingRow>New Project</HeadingRow>
+      <div className="sf-below">
         <ProjectForm
           submitLabel="Create Project"
           exitHref="/"
@@ -23,6 +25,6 @@ export default function NewProjectPage() {
           }}
         />
       </div>
-    </div>
+    </>
   );
 }

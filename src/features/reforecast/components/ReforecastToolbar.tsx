@@ -129,7 +129,11 @@ export function ReforecastToolbar({
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-2 md:flex-nowrap md:gap-3 dark:border-zinc-800 dark:bg-zinc-900">
+      {/* One row from 1,024 CSS px (`lg:`), wrapping below it (FRAME26, v0.45.0; it was `md:`, 768). The row is about
+          902 px wide unwrapped. Inside the frame's column that fits at 1,024 (960 px) but not at 853, a 1,280 px window
+          at 150 % zoom (789 px), where the page would scroll sideways (contract §1). Between 768 and 1,023 it wraps,
+          keeping its order; at 1,024 and wider it is v0.21.2's single row, unchanged. */}
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-2 lg:flex-nowrap lg:gap-3 dark:border-zinc-800 dark:bg-zinc-900">
         <label
           htmlFor={editingName ? 'rf-name-edit' : 'rf-select'}
           className="text-sm font-medium text-zinc-500 dark:text-zinc-400"

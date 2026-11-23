@@ -11,6 +11,7 @@ import { useReforecast } from '@/features/reforecast/hooks/useReforecast';
 import { ProjectForm } from '@/features/projects/components/ProjectForm';
 import { BaseDialog, dialogButtonStyles } from '@/components/BaseDialog';
 import { Skeleton } from '@/components/Skeleton';
+import { HeadingRow } from '@/components/HeadingRow';
 import {
   computeSingleReforecastTimelineChangeSummary,
   summaryHasChanges,
@@ -40,11 +41,12 @@ export default function EditProjectPage({
   const [pendingSave, setPendingSave] = useState<PendingSave | null>(null);
   const rejectRef = useRef<(() => void) | null>(null);
 
+  // FRAME26 (v0.45.0): every state keeps the frame's heading row; only the body shows loading (contract §7).
   if (loading) {
     return (
       <div>
-        <Skeleton className="h-8 w-32" />
-        <div className="mt-6 max-w-md space-y-4">
+        <HeadingRow>Edit Project</HeadingRow>
+        <div className="sf-below max-w-md space-y-4">
           <Skeleton className="h-10 w-full" />
           <div className="grid grid-cols-2 gap-4">
             <Skeleton className="h-10 w-full" />
@@ -59,10 +61,13 @@ export default function EditProjectPage({
   if (!project) {
     return (
       <div>
-        <p className="text-zinc-500">Project not found.</p>
-        <Link href="/" className="mt-2 inline-block text-sm text-blue-600 hover:text-blue-800">
-          Back to Dashboard
-        </Link>
+        <HeadingRow>Edit Project</HeadingRow>
+        <div className="sf-below">
+          <p className="text-zinc-500">Project not found.</p>
+          <Link href="/" className="mt-2 inline-block text-sm text-blue-600 hover:text-blue-800">
+            Back to Projects
+          </Link>
+        </div>
       </div>
     );
   }
@@ -76,8 +81,8 @@ export default function EditProjectPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-bold">Edit Project</h1>
-      <div className="mt-6">
+      <HeadingRow>Edit Project</HeadingRow>
+      <div className="sf-below">
         <ProjectForm
           initialData={{
             name: project.name,
