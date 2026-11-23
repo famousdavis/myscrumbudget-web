@@ -60,10 +60,43 @@ interface RepositoryContextValue {
 
 const RepositoryContext = createContext<RepositoryContextValue | null>(null);
 
+/**
+ * What the provider holds: the derived value, plus whether a consumer may see
+ * it yet. Internal: only `RepositoryGate` reads it.
+ */
+interface RepositoryState {
+  value: RepositoryContextValue;
+  /** False only while a cloud session's auth is still resolving. */
+  ready: boolean;
+}
+const RepositoryStateContext = createContext<RepositoryState | null>(null);
+
+/**
+ * ⚠️ THE PROVIDER NEVER BLANKS, AND THE CONTEXT COMES FROM `RepositoryGate`
+ * (FRAME26, v0.45.0). Until v0.44.14 this provider itself returned `null`
+ * while a cloud session's auth resolved, and it sat inside `MigrationGuard`,
+ * around the page only. The SPERT® Suite frame puts the account chip and the
+ * notices OUTSIDE `<main>`, so the providers now wrap the whole frame (the
+ * layout), and a provider that returned `null` there would blank the brand,
+ * the navigation and the footer for every cloud user until auth resolved.
+ *
+ * So the state and the derivation live here, at the root, and the `null` moved
+ * to `RepositoryGate`, which wraps exactly what this provider used to: the page
+ * body, the invitation banner and the Cloud Storage modal. The gate is ALSO
+ * what provides `RepositoryContext`, so `useRepository()` outside a gate throws
+ * exactly as it threw outside the provider before. The guarantee above — no
+ * consumer ever sees a repository before a cloud session's auth resolves — is
+ * still true BY CONSTRUCTION, not by where someone remembered to put a gate.
+ *
+ * ⚠️ `useState(() => getStorageMode())` reads localStorage, so the server
+ * (always `'local'`) and a cloud user's browser disagree on the first render.
+ * Nothing renders that value outside a gate, and every gate sits inside a
+ * `MigrationGuard`, which renders nothing on the server and on the first
+ * client render, so the disagreement never reaches the DOM.
+ * `shell.hydration.test.tsx` holds this.
+ */
 export function RepositoryProvider({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
-  // Initialised ONCE from localStorage, then owned by React. Reading the mode
-  // imperatively on every render is what let mode and repository disagree.
   const [mode, setMode] = useState<StorageMode>(() => getStorageMode());
 
   const uid = user?.uid ?? null;
@@ -85,21 +118,29 @@ export function RepositoryProvider({ children }: { children: ReactNode }) {
     [repository, mode, uid, switchMode],
   );
 
-  // ⚠️ GATE — cloud mode only, and deliberately not the local path.
-  // `AuthProvider` starts with `user === null` and resolves asynchronously, so
-  // a cloud-mode boot would otherwise derive localStorage first and flip to
-  // Firestore a tick later. Every data hook fetches on mount, so that window
-  // is a real localStorage read on a cloud account — and it would make "which
-  // repository is active?" a time-dependent question again, which is the
-  // ambiguity this whole change exists to remove. Local mode has no auth to
-  // wait on and is never gated; it is also the common case.
-  if (loading && mode === 'cloud') return null;
+  const ready = !(loading && mode === 'cloud');
+  const state = useMemo<RepositoryState>(() => ({ value, ready }), [value, ready]);
 
-  return <RepositoryContext.Provider value={value}>{children}</RepositoryContext.Provider>;
+  return <RepositoryStateContext.Provider value={state}>{children}</RepositoryStateContext.Provider>;
+}
+
+/**
+ * Renders its children only once a consumer may see the repository: never
+ * while a cloud session's auth is still resolving (deriving localStorage then
+ * and flipping a tick later would put the boot-state question back in play —
+ * every data hook fetches on mount). Local mode is never gated: there is no
+ * auth to wait for. Every gate shares the provider's one state, so a mode
+ * switch made under one gate is seen under every other.
+ */
+export function RepositoryGate({ children }: { children: ReactNode }) {
+  const state = useContext(RepositoryStateContext);
+  if (!state) throw new Error('RepositoryGate must be used within RepositoryProvider');
+  if (!state.ready) return null;
+  return <RepositoryContext.Provider value={state.value}>{children}</RepositoryContext.Provider>;
 }
 
 export function useRepository(): RepositoryContextValue {
   const ctx = useContext(RepositoryContext);
-  if (!ctx) throw new Error('useRepository must be used within RepositoryProvider');
+  if (!ctx) throw new Error('useRepository must be used within RepositoryProvider, under a RepositoryGate');
   return ctx;
 }

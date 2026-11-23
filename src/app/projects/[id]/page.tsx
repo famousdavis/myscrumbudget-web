@@ -18,6 +18,7 @@ import { ProjectSummary } from '@/features/projects/components/ProjectSummary';
 import { CharterBudgetPanel } from '@/features/projects/components/CharterBudgetPanel';
 import type { CharterBudget } from '@/types/domain';
 import { ConfirmDialog } from '@/components/BaseDialog';
+import { HeadingRow } from '@/components/HeadingRow';
 import { AllocationGrid } from '@/features/reforecast/components/AllocationGrid';
 import { ReforecastToolbar } from '@/features/reforecast/components/ReforecastToolbar';
 import { ReforecastNotes } from '@/features/reforecast/components/ReforecastNotes';
@@ -64,14 +65,22 @@ export default function ProjectDetailPage({
   );
 }
 
+/** The heading row while there is no project to name: loading, not found, or failed (FRAME26, v0.45.0, contract §7). */
+function UnnamedProjectHeading() {
+  return <HeadingRow>Project</HeadingRow>;
+}
+
 function ProjectLoadFailed() {
   return (
-    <div role="alert" className="rounded border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
-      <p className="font-medium">This project could not be displayed.</p>
-      <p className="mt-1">
-        Part of its data is in a form this app cannot show. Nothing was changed.{' '}
-        <Link href="/" className="underline">Back to the Dashboard</Link>
-      </p>
+    <div>
+      <UnnamedProjectHeading />
+      <div role="alert" className="sf-below rounded border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
+        <p className="font-medium">This project could not be displayed.</p>
+        <p className="mt-1">
+          Part of its data is in a form this app cannot show. Nothing was changed.{' '}
+          <Link href="/" className="underline">Back to Projects</Link>
+        </p>
+      </div>
     </div>
   );
 }
@@ -207,94 +216,114 @@ function ProjectDetail({ id }: { id: string }) {
     );
   }, [activeReforecast, metrics?.monthlyData]);
 
+  // FRAME26 (v0.45.0): every state keeps the frame's heading row; only the body shows loading (contract §7). With no
+  // project to name, the `h1` reads "Project".
   if (loading) {
-    return <SkeletonProjectDetail />;
+    return (
+      <div>
+        <UnnamedProjectHeading />
+        <div className="sf-below">
+          <SkeletonProjectDetail />
+        </div>
+      </div>
+    );
   }
 
   if (!project) {
     return (
       <div>
-        <p className="text-zinc-500">Project not found.</p>
-        <Link
-          href="/"
-          className="mt-2 inline-block text-sm text-blue-600 hover:text-blue-800"
-        >
-          Back to Dashboard
-        </Link>
+        <UnnamedProjectHeading />
+        <div className="sf-below">
+          <p className="text-zinc-500">Project not found.</p>
+          <Link
+            href="/"
+            className="mt-2 inline-block text-sm text-blue-600 hover:text-blue-800"
+          >
+            Back to Projects
+          </Link>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="min-w-0">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">{project.name}</h1>
-        <div className="flex gap-2">
-          <Link
-            href={`/projects/${project.id}/edit`}
-            className="rounded border border-zinc-300 px-3 py-1.5 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-          >
-            Edit
-          </Link>
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="inline-flex items-center gap-1.5 rounded px-2 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 print:hidden"
-            title="Print Report (or Save as PDF)"
-            aria-label="Print Report"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={1.5}
-              stroke="currentColor"
-              className="h-4 w-4"
-              aria-hidden="true"
+      {/* FRAME26 (v0.45.0): the frame's heading row. The project's name is the `h1`, cut short with an ellipsis and
+          given in full in `title`; the project's actions sit on the row in the toolbar's geometry, each 36 px through
+          `.sf-btn` (their colours, hover, `print:hidden` and disabled rules are unchanged). The row stays the FIRST
+          child of this root, beside `.print-report`, so the print rules hide it (globals.css rule 4). */}
+      <HeadingRow
+        title={project.name}
+        toolbar={
+          <div className="sf-toolbar" data-sf="toolbar">
+            <Link
+              href={`/projects/${project.id}/edit`}
+              className="sf-btn rounded border border-zinc-300 px-3 hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m10.5 0a48.536 48.536 0 0 0-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5Zm-3 0h.008v.008H15V10.5Z"
-              />
-            </svg>
-            Print
-          </button>
-          <button
-            type="button"
-            onClick={undo}
-            disabled={!canUndo}
-            className="inline-flex items-center gap-1.5 rounded px-2 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 dark:disabled:hover:bg-transparent print:hidden"
-            title="Undo (Ctrl+Z)"
-            aria-label="Undo"
-          >
-            <UndoIcon className="h-4 w-4" />
-            Undo
-          </button>
-          <button
-            type="button"
-            onClick={redo}
-            disabled={!canRedo}
-            className="inline-flex items-center gap-1.5 rounded px-2 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 dark:disabled:hover:bg-transparent print:hidden"
-            title="Redo (Ctrl+Shift+Z)"
-            aria-label="Redo"
-          >
-            <RedoIcon className="h-4 w-4" />
-            Redo
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowDelete(true)}
-            className="flex h-8 w-8 items-center justify-center rounded text-zinc-400 hover:bg-red-50 hover:text-red-600 dark:text-zinc-500 dark:hover:bg-red-950 dark:hover:text-red-400"
-            title="Delete project"
-            aria-label="Delete project"
-          >
-            <TrashIcon className="h-5 w-5" />
-          </button>
-        </div>
-      </div>
+              Edit
+            </Link>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="sf-btn rounded px-2 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 print:hidden"
+              title="Print Report (or Save as PDF)"
+              aria-label="Print Report"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+                className="h-4 w-4"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0 1 10.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0 .229 2.523a1.125 1.125 0 0 1-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0 0 21 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 0 0-1.913-.247M6.34 18H5.25A2.25 2.25 0 0 1 3 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 0 1 1.913-.247m10.5 0a48.536 48.536 0 0 0-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5Zm-3 0h.008v.008H15V10.5Z"
+                />
+              </svg>
+              Print
+            </button>
+            <button
+              type="button"
+              onClick={undo}
+              disabled={!canUndo}
+              className="sf-btn rounded px-2 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 dark:disabled:hover:bg-transparent print:hidden"
+              title="Undo (Ctrl+Z)"
+              aria-label="Undo"
+            >
+              <UndoIcon className="h-4 w-4" />
+              Undo
+            </button>
+            <button
+              type="button"
+              onClick={redo}
+              disabled={!canRedo}
+              className="sf-btn rounded px-2 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100 dark:disabled:hover:bg-transparent print:hidden"
+              title="Redo (Ctrl+Shift+Z)"
+              aria-label="Redo"
+            >
+              <RedoIcon className="h-4 w-4" />
+              Redo
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowDelete(true)}
+              className="sf-btn w-9 justify-center rounded text-zinc-400 hover:bg-red-50 hover:text-red-600 dark:text-zinc-500 dark:hover:bg-red-950 dark:hover:text-red-400"
+              title="Delete project"
+              aria-label="Delete project"
+            >
+              <TrashIcon className="h-5 w-5" />
+            </button>
+          </div>
+        }
+      >
+        {project.name}
+      </HeadingRow>
 
-      <div className="mt-6">
+      <div className="sf-below">
         <ForecastWindowNotice reforecast={activeReforecast} />
         <ProjectSummary
           project={project}

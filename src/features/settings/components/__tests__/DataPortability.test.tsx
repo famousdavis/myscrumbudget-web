@@ -13,10 +13,10 @@ vi.mock('@/components/Toast', () => ({ useToast: () => ({ addToast: vi.fn() }) }
 import { DataPortability } from '../DataPortability';
 
 describe('DataPortability', () => {
-  it('points to the Dashboard button by its current name, Import (v0.44.7)', () => {
+  it('points to the Projects page\'s button by its current name, Import (v0.44.7; the page renamed v0.45.0)', () => {
     render(<DataPortability />);
     expect(
-      screen.getByText(/To import a workspace, use the .Import. button on the Dashboard\./),
+      screen.getByText(/To import a workspace, use the .Import. button on the Projects page\./),
     ).toBeInTheDocument();
     expect(screen.queryByText(/Import JSON/)).not.toBeInTheDocument();
   });

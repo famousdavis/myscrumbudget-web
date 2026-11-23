@@ -38,15 +38,14 @@ export function LocalStorageWarningBanner() {
   if (!visible) return null;
 
   return (
-    <div className="mb-6 flex items-start justify-between gap-3 rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-zinc-700 dark:border-amber-800 dark:bg-amber-900/30 dark:text-zinc-300">
+    // The frame's caution notice (`.sf-notice--caution`, FRAME26 contract §3, v0.45.0). Its "Got it" is the frame's
+    // `.sf-notice-dismiss`; it still writes nothing, so the caution comes back on the next load.
+    <div className="sf-notice sf-notice--caution">
       <p>
         <strong>Your data exists only in this browser</strong> and can be lost
         without warning. Export at the end of every session to protect your work.
       </p>
-      <button
-        onClick={() => setVisible(false)}
-        className="shrink-0 rounded border border-amber-300 px-3 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100 dark:border-amber-600 dark:text-amber-300 dark:hover:bg-amber-900/50"
-      >
+      <button type="button" onClick={() => setVisible(false)} className="sf-notice-dismiss">
         Got it
       </button>
     </div>

@@ -13,6 +13,34 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.45.0',
+    date: '2026-11-23',
+    sections: [
+      {
+        title: 'Changed',
+        items: [
+          'MyScrumBudget now uses the same layout as the other SPERT® Suite apps. The left sidebar is gone: across the top, a first row holds the MyScrumBudget name, its tagline, the theme button and the storage button, and a second row holds the navigation, with Projects and Team Pool on the left and Settings, About and Help Center on the right. The page you are on is underlined.',
+          '"Dashboard" is now called "Projects", in the navigation and as the page\'s heading. Links that said "Back to Dashboard" now say "Back to Projects". Every page inside a project still marks Projects as the current page.',
+          'The theme switch is now one button that steps through System, Light and Dark. Your saved choice is kept.',
+          'The terms notice, the local-storage caution and the project invitation now appear just under the navigation, across the full width of the page.',
+          'On wide screens the page now uses up to 1,600 pixels, the same width as the other SPERT® Suite apps, and the project tiles show four to a row. Settings, About and the changelog stay narrower, so they are easier to read.',
+          'Help Center now comes after About.',
+          'In dark mode the background is now the same dark blue-grey as the other SPERT® Suite apps.',
+          'The menu button for phone-sized windows has been removed. MyScrumBudget is designed for desktop and tablet windows.',
+        ],
+      },
+      {
+        title: 'Fixed',
+        items: [
+          'An address that does not exist now shows "Page not found" inside the app, with a link back to Projects.',
+          'Every page keeps its heading while it loads, and a project that cannot be found now says so under a "Project" heading.',
+          'At 150% browser zoom the project page no longer scrolls sideways: its reforecast bar wraps onto two lines in narrower windows.',
+          'Opening the app in dark mode no longer briefly shows the light version of the MyScrumBudget icon.',
+        ],
+      },
+    ],
+  },
+  {
     version: '0.44.14',
     date: '2026-11-23',
     sections: [

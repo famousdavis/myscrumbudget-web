@@ -4,16 +4,28 @@
  */
 
 @import "tailwindcss";
+/* The SPERT® Suite app frame (FRAME26, v0.45.0): vendored byte for byte from spert-suite-docs, never edited here,
+   pinned by md5 in src/styles/__tests__/frame-stylesheet.test.ts. Imported once, UNLAYERED on purpose: its sf- rules
+   must beat Tailwind's utilities on the frame's own elements (contract §9.2). */
+@import "../styles/spert-frame.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* The title's HDR26 gradient (v0.44.12), read by the frame's .sf-grad (v0.45.0). Tailwind 4's bg-gradient-to-r
+     interpolated in Oklab, so these are today's ramps byte for byte. Each end is checked at every point on the frame's
+     ground at 3 : 1 (24 px bold is large text): light on #ffffff weakest 4.78, dark on #101828 weakest 4.01
+     (AppHeader.title-gradient.test.ts). Change an end only with a new measurement. */
+  --app-grad-light: linear-gradient(to right in oklab, #10843b, #00471b);
+  --app-grad-dark: linear-gradient(to right in oklab, #62c679, #008b3b);
 }
 
 :root.dark {
-  --background: #0a0a0a;
+  /* The frame's dark page ground (contract §5, #101828) since v0.45.0; it was #0a0a0a. .sf-app paints the frame's own
+     --sf-page; this keeps body (overscroll, anything outside .sf-app) the same colour. */
+  --background: #101828;
   --foreground: #ededed;
 }
 
@@ -52,6 +64,13 @@ body {
     display: none !important;
   }
 
+  /* 1b. The frame's brand row and notices slot (v0.45.0) sit OUTSIDE <main>, so rule 3 cannot reach them. Named by
+     their CLASSES, never by `header`: PrintableReport has its own <header>, which must print. */
+  .sf-bar,
+  .sf-notices {
+    display: none !important;
+  }
+
   /* 2. Layout reset — strip flex/scroll constraints from the page chrome
      so the report flows naturally across multiple pages. Also force
      browsers to honor the chart's intended fill/stroke colors instead
@@ -59,6 +78,7 @@ body {
   body,
   body > div,
   main {
+    /* body > div is the frame's .sf-app (v0.45.0); its 100vh min-height and flex column reset here. */
     display: block !important;
     min-height: 0 !important;
     height: auto !important;
@@ -74,9 +94,16 @@ body {
     print-color-adjust: exact !important;
   }
 
+  /* 2b. The frame paints --sf-page (#101828 in dark) and body's print-color-adjust is inherited, so a dark-theme print
+     would print that ground wherever the report does not cover it. */
+  .sf-app {
+    background: #ffffff !important;
+  }
+
   /* 3. Hide direct children of <main> that are NOT ancestors of .print-report.
-     Drops FirstRunBanner, LocalStorageWarningBanner, TopBar, the toast div,
-     and Footer. Keeps the providers wrapper that contains the page subtree. */
+     Since v0.45.0 (FRAME26) the frame's brand row, navigation, notices and footer are outside <main> (rules 1 and 1b
+     hide them); the providers and gates between <main> and the page render no DOM, so the page's own root is <main>'s
+     direct child here. */
   main > *:not(:has(.print-report)) {
     display: none !important;
   }
