@@ -54,4 +54,14 @@ describe('SkeletonProjectDetail', () => {
     const cards = container.querySelectorAll('.rounded-lg.border');
     expect(cards.length).toBe(5);
   });
+
+  // FRAME26 clean-up M3 (v0.46.0): the page's real heading row ("Project") is above the placeholder, so it draws no
+  // title bar of its own, and its first block is the metric grid, with no top margin (the page's .sf-below gives 16 px).
+  it('draws no title bar: its first block is the metric grid, with no margin of its own', () => {
+    const { container } = render(<SkeletonProjectDetail />);
+    const first = container.firstElementChild!.firstElementChild!;
+    expect(first.classList.contains('grid')).toBe(true);
+    expect(Array.from(first.classList).some((c) => /^mt-/.test(c))).toBe(false);
+    expect(container.querySelector('.h-8')).toBeNull();
+  });
 });

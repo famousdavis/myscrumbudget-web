@@ -54,7 +54,7 @@ beforeEach(async () => {
 describe('Projects on the frame: the heading row', () => {
   it('is the heading row with the h1 "Projects" and the toolbar of three .sf-btn', async () => {
     const c = renderPage();
-    await waitFor(() => expect(screen.getByText('Getting Started')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: 'Welcome to MyScrumBudget™' })).toBeInTheDocument());
     const row = one(c, 'headrow')[0]!;
     expect(row.className).toBe('sf-headrow');
     const h1 = screen.getByRole('heading', { level: 1 });
@@ -72,11 +72,12 @@ describe('Projects on the frame: the heading row', () => {
 });
 
 describe('Projects on the frame: the grid and the empty panels', () => {
-  it('a first visit: the Getting Started panel is the empty panel, and there is no grid and no filter row', async () => {
+  it('a first visit: the Welcome panel is the empty panel, and there is no grid and no filter row', async () => {
     const c = renderPage();
-    await waitFor(() => expect(screen.getByText('Getting Started')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: 'Welcome to MyScrumBudget™' })).toBeInTheDocument());
     expect(one(c, 'empty')).toHaveLength(1);
-    expect(one(c, 'empty')[0]!.textContent).toContain('Getting Started');
+    expect(one(c, 'empty')[0]!.className).toBe('sf-empty');
+    expect(one(c, 'empty')[0]!.textContent).toContain('Welcome to MyScrumBudget™');
     expect(one(c, 'tiles')).toHaveLength(0);
     expect(one(c, 'filters')).toHaveLength(0);
   });
@@ -95,13 +96,17 @@ describe('Projects on the frame: the grid and the empty panels', () => {
   it('every project archived: the filter row (hooked) and the "All projects are archived." panel, no grid', async () => {
     await repo.saveProject(makeProject('a', 'Apollo', { archived: true }));
     const c = renderPage();
-    await waitFor(() => expect(screen.getByText('All projects are archived.')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('All projects are archived. Select "Show archived (1)" to see them.')).toBeInTheDocument());
     const filters = one(c, 'filters');
     expect(filters).toHaveLength(1);
     expect(filters[0]!.className.split(/\s+/)).toContain('sf-below');
     expect(filters[0]!.textContent).toContain('Show archived (1)');
     expect(one(c, 'empty')).toHaveLength(1);
-    expect(one(c, 'empty')[0]!.textContent).toContain('All projects are archived.');
+    expect(one(c, 'empty')[0]!.textContent).toBe('All projects are archived. Select "Show archived (1)" to see them.');
+    // One plain line 16 px below the filter row, never the Welcome panel: the collection is not empty (v0.46.0).
+    expect(one(c, 'empty')[0]!.tagName).toBe('P');
+    expect(one(c, 'empty')[0]!.className.split(/\s+/)).toContain('sf-below');
+    expect(one(c, 'empty')[0]!.className.split(/\s+/)).not.toContain('sf-empty');
     expect(one(c, 'tiles')).toHaveLength(0);
   });
 

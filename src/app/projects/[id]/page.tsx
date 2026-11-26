@@ -234,10 +234,10 @@ function ProjectDetail({ id }: { id: string }) {
       <div>
         <UnnamedProjectHeading />
         <div className="sf-below">
-          <p className="text-zinc-500">Project not found.</p>
+          <p className="text-zinc-500 dark:text-zinc-400">Project not found.</p>
           <Link
             href="/"
-            className="mt-2 inline-block text-sm text-blue-600 hover:text-blue-800"
+            className="mt-2 inline-block text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
           >
             Back to Projects
           </Link>

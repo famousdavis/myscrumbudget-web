@@ -198,9 +198,9 @@ describe('DashboardPage — project grid', () => {
     vi.restoreAllMocks();
   });
 
-  it('shows the Getting Started onboarding guide when there are no projects at all', async () => {
+  it('shows the Welcome panel, with the Getting Started steps, when there are no projects at all', async () => {
     renderDashboard();
-    await waitFor(() => expect(screen.getByText('Getting Started')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: 'Welcome to MyScrumBudget™' })).toBeInTheDocument());
     expect(screen.getByText('Review Labor Rates')).toBeInTheDocument();
   });
 });
@@ -221,7 +221,7 @@ describe('DashboardPage — Getting Started checklist', () => {
     // Table COLLAPSED, `onOpen` never fired, the flag was never written, and the
     // step stayed at '1'. Reproduced in a production build before the fix.
     const dash = renderDashboard();
-    await waitFor(() => expect(screen.getByText('Getting Started')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: 'Welcome to MyScrumBudget™' })).toBeInTheDocument());
     expect(stepMarker('Review Labor Rates')).toBe('1');
 
     // The rendered href is the observable — deliberately NOT the exported
@@ -241,7 +241,7 @@ describe('DashboardPage — Getting Started checklist', () => {
 
     // …and going back shows the step COMPLETED.
     renderDashboard();
-    await waitFor(() => expect(screen.getByText('Getting Started')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: 'Welcome to MyScrumBudget™' })).toBeInTheDocument());
     expect(stepMarker('Review Labor Rates')).toBe('\u2713');
   });
 
@@ -252,7 +252,7 @@ describe('DashboardPage — Getting Started checklist', () => {
     // an assertion about step 2 alone.
     await repo.saveTeamPool([{ id: 'p1', name: 'Alice', role: 'BA' }]);
     renderDashboard();
-    await waitFor(() => expect(screen.getByText('Getting Started')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: 'Welcome to MyScrumBudget™' })).toBeInTheDocument());
 
     expect(stepMarker('Build Your Team Pool')).toBe('\u2713');
     expect(stepMarker('Review Labor Rates')).toBe('1');
@@ -265,7 +265,7 @@ describe('DashboardPage — Getting Started checklist', () => {
     renderDashboard();
 
     await waitFor(() => expect(screen.getByText('Apollo')).toBeInTheDocument());
-    expect(screen.queryByText('Getting Started')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Welcome to MyScrumBudget™' })).not.toBeInTheDocument();
   });
 });
 
@@ -298,9 +298,9 @@ describe('DashboardPage — archived projects', () => {
     renderDashboard();
 
     await waitFor(() =>
-      expect(screen.getByText('All projects are archived.')).toBeInTheDocument(),
+      expect(screen.getByText('All projects are archived. Select "Show archived (1)" to see them.')).toBeInTheDocument(),
     );
-    expect(screen.queryByText('Getting Started')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Welcome to MyScrumBudget™' })).not.toBeInTheDocument();
   });
 });
 
@@ -484,7 +484,7 @@ describe('DashboardPage — toolbar', () => {
 
   it('shows Export All · Import · New Project, in that order, beside the Projects heading', async () => {
     renderDashboard();
-    await waitFor(() => expect(screen.getByText('Getting Started')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: 'Welcome to MyScrumBudget™' })).toBeInTheDocument());
 
     expect(toolbarControls().map((el) => el.textContent?.trim())).toEqual([
       'Export All',
@@ -495,7 +495,7 @@ describe('DashboardPage — toolbar', () => {
 
   it('gives each control an accessible name that begins with its visible label (WCAG 2.5.3)', async () => {
     renderDashboard();
-    await waitFor(() => expect(screen.getByText('Getting Started')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: 'Welcome to MyScrumBudget™' })).toBeInTheDocument());
 
     const exportAll = screen.getByRole('button', { name: 'Export all projects as JSON' });
     const importBtn = screen.getByRole('button', { name: 'Import projects from JSON' });
@@ -513,7 +513,7 @@ describe('DashboardPage — toolbar', () => {
   it('draws the shared icons, 18 px and hidden from assistive tech', async () => {
     const { TOOLBAR_ICON_PATHS } = await import('@/components/icons/toolbarIconPaths');
     renderDashboard();
-    await waitFor(() => expect(screen.getByText('Getting Started')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: 'Welcome to MyScrumBudget™' })).toBeInTheDocument());
 
     const expected = [TOOLBAR_ICON_PATHS.export, TOOLBAR_ICON_PATHS.import, TOOLBAR_ICON_PATHS.plus];
     toolbarControls().forEach((el, i) => {
@@ -529,7 +529,7 @@ describe('DashboardPage — toolbar', () => {
 
   it('keeps Export All rendered but disabled with no projects, and enables it once one exists', async () => {
     const { unmount } = renderDashboard();
-    await waitFor(() => expect(screen.getByText('Getting Started')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { level: 2, name: 'Welcome to MyScrumBudget™' })).toBeInTheDocument());
     expect(screen.getByRole('button', { name: 'Export all projects as JSON' })).toBeDisabled();
     expect(toolbarControls()).toHaveLength(3);
     unmount();

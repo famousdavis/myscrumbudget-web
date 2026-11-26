@@ -22,6 +22,7 @@ import { useImportState } from '@/features/projects/hooks/useImportState';
 import { getDashboardEmptyState } from '@/features/projects/lib/dashboardCard';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { HeadingRow } from '@/components/HeadingRow';
+import { WelcomePanel } from '@/features/projects/components/WelcomePanel';
 import { ToolbarIcon } from '@/components/icons/ToolbarIcon';
 import { TOOLBAR_ICON_PATHS } from '@/components/icons/toolbarIconPaths';
 
@@ -34,7 +35,6 @@ function ProjectTileFailed({ name }: { name: string }) {
     </div>
   );
 }
-import { RATES_DEEP_LINK } from '@/lib/constants';
 import {
   ImportPreviewSection,
   ImportBanner,
@@ -317,67 +317,14 @@ export default function DashboardPage() {
           ))}
         </div>
       ) : emptyState === 'onboarding' ? (
-        // `data-sf="empty"`: the panel that stands in for the tile grid (contract §7). Its look is unchanged.
-        <div className="mx-auto mt-12 max-w-lg rounded-lg border border-dashed border-zinc-300 p-8 dark:border-zinc-700" data-sf="empty">
-          <h2 className="text-center text-lg font-semibold">Getting Started</h2>
-          <p className="mt-1 text-center text-sm text-zinc-500 dark:text-zinc-400">
-            Follow these steps to set up your first project.
-          </p>
-          <ol className="mt-6 space-y-5">
-            <li className="flex items-start gap-3">
-              <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${ratesReviewed ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'}`}>
-                {ratesReviewed ? '\u2713' : '1'}
-              </span>
-              <div>
-                <Link href={RATES_DEEP_LINK} className="text-sm font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-                  Review Labor Rates
-                </Link>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                  Customize roles and hourly rates in Settings. Default rates are provided.
-                </p>
-              </div>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${pool.length > 0 ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'}`}>
-                {pool.length > 0 ? '\u2713' : '2'}
-              </span>
-              <div>
-                <Link href="/team" className="text-sm font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-                  Build Your Team Pool
-                </Link>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                  Add team members and assign their roles. You&apos;ll pick from this pool when staffing projects.
-                </p>
-              </div>
-            </li>
-            <li className="flex items-start gap-3">
-              <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xs font-bold text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
-                3
-              </span>
-              <div>
-                <Link href="/projects/new" className="text-sm font-semibold text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
-                  Create Your First Project
-                </Link>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                  Set up a project with start/end dates, then assign team members from your pool.
-                </p>
-                <Link
-                  href="/projects/new"
-                  className="mt-2 inline-block rounded bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
-                >
-                  Create Project
-                </Link>
-              </div>
-            </li>
-          </ol>
-        </div>
+        // `data-sf="empty"`: the Welcome panel stands in for the tile grid (contract §7, v0.46.0).
+        <WelcomePanel ratesReviewed={ratesReviewed} poolCount={pool.length} />
       ) : emptyState === 'no-visible-projects' ? (
-        <div className="py-12 text-center" data-sf="empty">
-          <p className="text-lg text-zinc-400 dark:text-zinc-500">All projects are archived.</p>
-          <p className="mt-1 text-sm text-zinc-400 dark:text-zinc-500">
-            Check &ldquo;Show archived&rdquo; above to view them.
-          </p>
-        </div>
+        // Every project archived (contract §7, v0.46.0): one plain line, 16 px below the filter row, in the page's muted
+        // text (4.82 / 6.76:1). Not the Welcome panel: the collection is not empty.
+        <p className="sf-below italic text-zinc-500 dark:text-zinc-400" data-sf="empty">
+          {`All projects are archived. Select "Show archived (${archivedProjects.length})" to see them.`}
+        </p>
       ) : (
         <div
           // The frame's tile grid (contract §3): repeat(auto-fill, minmax(340px, 1fr)), gap 16, 16 px below the

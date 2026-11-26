@@ -1,0 +1,109 @@
+// Copyright (C) 2026 William W. Davis, MSPM, PMP. All rights reserved.
+// Licensed under the GNU General Public License v3.0.
+// See LICENSE file in the project root for full license text.
+
+// The FRAME26 clean-up's MyScrumBudget items (v0.46.0), each pinned where a unit test can see it. jsdom applies no
+// Tailwind, so these pin the CLASS TOKENS and check the ratios of the palette values they stand for, as Chrome paints
+// them (measured on production 2026-11-26: zinc-400 #9f9fa9, zinc-500 #71717b, red-700 #c10007). The seat's probes
+// measure the same items in a browser.
+//   M1 small muted text reaches 4.5:1 · M4 the report's footer prints · M5 About's subtitle · M6 the invitation's error
+//   line · E the crash screen
+
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { afterEach, describe, expect, it } from 'vitest';
+import GlobalError from '../global-error';
+import { APP_TAGLINE } from '@/lib/constants';
+
+const read = (...p: string[]) => readFileSync(join(process.cwd(), 'src', ...p), 'utf8');
+const lum = (h: string) => { const [r, g, b] = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!; };
+const ratio = (a: string, b: string) => { const [x, y] = [lum(a), lum(b)]; return Math.floor(((Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05)) * 100) / 100; };
+const PALETTE: Record<string, string> = { 'zinc-400': '#9f9fa9', 'zinc-500': '#71717b', 'red-700': '#c10007', 'red-400': '#ff6467' };
+const WHITE = '#ffffff', DARK = '#101828';
+
+describe('M1: the small muted lines reach 4.5:1 in both themes', () => {
+  const SITES: [string, string[], RegExp][] = [
+    ["Team's 12 px line", ['features', 'team', 'components', 'PoolMemberTable.tsx'], /<p className="([^"]*)">\s*Use the form above/],
+    ['"Project not found." (project page)', ['app', 'projects', '[id]', 'page.tsx'], /<p className="([^"]*)">Project not found\.<\/p>/],
+    ['"Project not found." (edit page)', ['app', 'projects', '[id]', 'edit', 'page.tsx'], /<p className="([^"]*)">Project not found\.<\/p>/],
+    ["About's disclaimer", ['app', 'about', 'page.tsx'], /<p className="(mt-2 uppercase [^"]*)"/],
+  ];
+  it.each(SITES)('%s', (_name, path, re) => {
+    const m = re.exec(read(...path));
+    expect(m, 'the site is there').not.toBeNull();
+    const tokens = m![1]!.split(/\s+/);
+    const light = tokens.find((t) => /^text-zinc-\d+$/.test(t))!.replace('text-', '');
+    const dark = tokens.find((t) => /^dark:text-zinc-\d+$/.test(t))?.replace('dark:text-', '');
+    expect(dark, 'it has a dark colour of its own').toBeDefined();
+    expect(ratio(PALETTE[light]!, WHITE), `light ${light}`).toBeGreaterThanOrEqual(4.5);
+    expect(ratio(PALETTE[dark!]!, DARK), `dark ${dark}`).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("About's three TM marks", () => {
+    const sups = Array.from(read('app', 'about', 'page.tsx').matchAll(/<sup className="([^"]*)">TM<\/sup>/g)).map((m) => m[1]);
+    expect(sups).toHaveLength(3);
+    for (const s of sups) expect(s).toBe('text-[7px] text-zinc-500 dark:text-zinc-400');
+    expect(ratio(PALETTE['zinc-500']!, WHITE)).toBeGreaterThanOrEqual(4.5);
+    expect(ratio(PALETTE['zinc-400']!, DARK)).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe("M4: the printed report keeps its own footer; the frame's footer still does not print", () => {
+  const print = /@media print\s*\{([\s\S]*?)\n\}/.exec(read('app', 'globals.css'))![1]!.replace(/\/\*[\s\S]*?\*\//g, '');
+  it('the print block hides the frame footer by its class, never bare `footer`', () => {
+    const hide = /([^{}]+)\{\s*display:\s*none\s*!important;?\s*\}/.exec(print)![1]!.split(',').map((s) => s.trim());
+    expect(hide).toContain('.sf-footer');
+    expect(hide).not.toContain('footer');
+    expect(print).not.toMatch(/(^|[\s,])footer\s*[,{]/);
+  });
+  it("PrintableReport's <footer> and the frame's are the only two, and the frame's carries .sf-footer", () => {
+    expect(read('components', 'Footer.tsx')).toMatch(/<footer className="sf-footer"/);
+    expect(read('components', 'PrintableReport.tsx')).toMatch(/<footer className="mt-6/);
+  });
+});
+
+describe("M5: About's subtitle is the brand row's tagline", () => {
+  it('renders APP_TAGLINE, and the old wording is gone', () => {
+    const about = read('app', 'about', 'page.tsx');
+    expect(about).toContain('{APP_TAGLINE}</p>');
+    expect(about).not.toContain('Scrum project budget forecasting tool');
+    expect(APP_TAGLINE).toBe('Project budget forecasting for any project type');
+  });
+});
+
+describe("M6: the invitation's sign-in error line reaches 4.5:1 on the info ground", () => {
+  it('red-700 on #eff6ff, red-400 on #162456', () => {
+    expect(read('components', 'InvitationBanner.tsx')).toContain('<p className="text-sm text-red-700 dark:text-red-400">{signInError}</p>');
+    expect(ratio(PALETTE['red-700']!, '#eff6ff')).toBeGreaterThanOrEqual(4.5);
+    expect(ratio(PALETTE['red-400']!, '#162456')).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe('E: the outermost crash screen', () => {
+  afterEach(() => localStorage.clear());
+  const err = Object.assign(new Error('a secret value from the data'), { digest: 'x' });
+
+  it.each([
+    ['light', 'light', false],
+    ['dark', 'dark', true],
+  ] as const)('%s: its own <html>, the theme from msb:theme, the words, Reload, and no error text', (_t, stored, dark) => {
+    localStorage.setItem('msb:theme', stored);
+    const html = renderToStaticMarkup(<GlobalError error={err} />);
+    expect(html.startsWith('<html')).toBe(true);
+    expect(/<html[^>]*class="dark"/.test(html)).toBe(dark);
+    expect(html).toContain(dark ? 'background:#101828' : 'background:#ffffff');
+    expect(html).toContain('<h1');
+    expect(html).toContain('Something went wrong</h1>');
+    expect(html).toContain('MyScrumBudget<span class="sf-mark sf-mark--tm">™</span> could not display this page. Reload to try');
+    expect(html).toMatch(/<button[^>]*>Reload<\/button>/);
+    expect(html).not.toContain('secret');
+  });
+
+  it('takes the page ground and text from the frame', () => {
+    const html = renderToStaticMarkup(<GlobalError error={err} />);
+    expect(html).toContain('background:var(--sf-page)');
+    expect(html).toContain('color:var(--sf-text)');
+    expect(read('app', 'global-error.tsx')).toMatch(/^import '\.\/globals\.css';$/m);
+  });
+});
