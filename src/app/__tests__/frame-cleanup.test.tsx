@@ -49,6 +49,19 @@ describe('M1: the small muted lines reach 4.5:1 in both themes', () => {
   });
 });
 
+// Same kind as M1, in files this release already touches (Orch-FRAME-2's rule for extra finds): the "Back to Projects"
+// link under "Project not found." had no dark colour, blue-600 on #101828 (3.38:1 measured). blue-400 is 6.72:1.
+describe('the "Back to Projects" link under "Project not found." has a dark colour', () => {
+  it.each([
+    ['project page', ['app', 'projects', '[id]', 'page.tsx']],
+    ['edit page', ['app', 'projects', '[id]', 'edit', 'page.tsx']],
+  ])('%s', (_name, path) => {
+    const m = /Project not found\.<\/p>\s*<Link[^>]*?className="([^"]*)"[^>]*>\s*Back to Projects/.exec(read(...path));
+    expect(m, 'the link is there').not.toBeNull();
+    expect(m![1]!.split(/\s+/)).toEqual(expect.arrayContaining(['text-blue-600', 'dark:text-blue-400']));
+  });
+});
+
 describe("M4: the printed report keeps its own footer; the frame's footer still does not print", () => {
   const print = /@media print\s*\{([\s\S]*?)\n\}/.exec(read('app', 'globals.css'))![1]!.replace(/\/\*[\s\S]*?\*\//g, '');
   it('the print block hides the frame footer by its class, never bare `footer`', () => {
