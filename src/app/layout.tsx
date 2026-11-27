@@ -9,6 +9,7 @@ import { AuthProvider } from '@/components/AuthProvider';
 import { RepositoryProvider } from '@/components/RepositoryProvider';
 import { ToastProvider } from '@/components/Toast';
 import { AppShell } from '@/components/AppShell';
+import { APP_TAGLINE } from '@/lib/constants';
 import './globals.css';
 
 const geistSans = Geist({
@@ -23,7 +24,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: 'MyScrumBudget',
-  description: 'Scrum project budget forecasting tool',
+  // The brand row's tagline (FRAME26 pass 3 M1, v0.47.0; it was "Scrum project budget forecasting tool"): one wording.
+  description: APP_TAGLINE,
   icons: {
     icon: '/spert-favicon-myscrumbudget.png',
     apple: '/spert-favicon-myscrumbudget.png',

@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { APP_VERSION } from '@/lib/constants';
 import { TOS_URL, PRIVACY_URL, LICENSE_URL } from '@/lib/tos/tosConstants';
 import { ShortcutsDialog } from './ShortcutsDialog';
+import { CopyrightYear } from './CopyrightYear';
 import { useKeyboardShortcut } from '@/hooks/useKeyboardShortcut';
 
 /**
@@ -17,7 +18,8 @@ import { useKeyboardShortcut } from '@/hooks/useKeyboardShortcut';
  * `--sf-link` (`#155dfc` / `#51a2ff`: 5.25 and 6.73 : 1 on the page ground) and their hover underline is the frame's
  * too, never a utility here: the stylesheet is unlayered, so a utility would lose anyway (stage 0's colour pairs,
  * v0.44.14, gave way to it). "Keyboard shortcuts" is a `button.sf-link`, styled as the links. `Footer.contrast.test.tsx`
- * holds this.
+ * holds this. The © year is `CopyrightYear` (FRAME26 Y1, v0.47.0), which the About page also renders, so the two can
+ * never differ, and which renders the visitor's year without a hydration mismatch after 1 January.
  *
  * The shortcuts dialog renders in a `font-sans` wrapper so it keeps the body's font (Geist): `.sf-app` sets the frame's
  * font stack, and a dialog inherits from where it is rendered (there are no portals here).
@@ -32,7 +34,7 @@ export function Footer() {
       <footer className="sf-footer" data-sf="footer">
         <div className="sf-col">
           <div>
-            &copy; {new Date().getFullYear()} William W. Davis, MSPM, PMP |{' '}
+            &copy; <CopyrightYear /> William W. Davis, MSPM, PMP |{' '}
             <Link href="/changelog">Version {APP_VERSION}</Link>{' '}
             | Licensed under GNU GPL v3 |{' '}
             <button
