@@ -213,7 +213,7 @@ describe('ProjectCard — archiving', () => {
   // 3.95:1 to 2.10:1 (light) when the whole card carried opacity-60.
   const tokens = (el: Element) => el.className.split(/\s+/);
 
-  it('fades an archived card’s grip and link, and no ancestor of its buttons', () => {
+  it('fades an archived card’s link, and neither its grip nor any ancestor of its buttons (v0.46.0)', () => {
     const { container } = render(
       <ProjectCard
         project={makeProject({ archived: true })}
@@ -225,10 +225,12 @@ describe('ProjectCard — archiving', () => {
     expect(tokens(card), 'card').not.toContain('opacity-60');
 
     const link = container.querySelector('a[href="/projects/p1"]') as Element;
-    const grip = container.querySelector('[title="Drag to reorder"]')?.parentElement as Element;
-    for (const [name, el] of [['link', link], ['grip', grip]] as const) {
-      expect(tokens(el), `${name} faded`).toContain('opacity-60');
-      expect(tokens(el), `${name} lifts on tile hover`).toContain('group-hover:opacity-100');
+    expect(tokens(link), 'link faded').toContain('opacity-60');
+    expect(tokens(link), 'link lifts on tile hover').toContain('group-hover:opacity-100');
+    // The grip still drags, so it is an active control held to 3:1 archived or not (FRAME26 clean-up M2): no fade on
+    // it or on anything between it and the card.
+    for (let el: Element | null = container.querySelector('[title="Drag to reorder"]'); el && el !== card; el = el.parentElement) {
+      expect(tokens(el), `grip: <${el.tagName.toLowerCase()}>`).not.toContain('opacity-60');
     }
 
     for (const label of ['Unarchive project', 'Delete project', 'Set tile color']) {
@@ -283,6 +285,17 @@ describe('ProjectCard — resting icon colour (WCAG 1.4.11)', () => {
       expect(t, `${label}: old light grey`).not.toContain('text-zinc-300');
       expect(t, `${label}: old dark grey`).not.toContain('dark:text-zinc-600');
     }
+  });
+
+  // FRAME26 clean-up M2 (v0.46.0): the grip rests in the same grey, on an active tile and on an archived one, where it
+  // is no longer faded. It was zinc-300 / dark zinc-600, 1.47 / 2.29:1 on the page.
+  it.each([false, true])('the drag grip rests in the same grey (archived: %s)', (archived) => {
+    const { container } = render(<ProjectCard project={makeProject({ archived })} {...noopProps} {...allActions} />);
+    const t = tokens(container.querySelector('[title="Drag to reorder"]')!);
+    expect(t).toContain('text-[#808080]');
+    expect(t).toContain('dark:text-[#9ca3af]');
+    expect(t).not.toContain('text-zinc-300');
+    expect(t).not.toContain('dark:text-zinc-600');
   });
 
   it('the always-visible Unarchive button rests in the same grey', () => {

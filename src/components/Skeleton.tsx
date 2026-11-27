@@ -28,11 +28,13 @@ export function SkeletonProjectCard() {
   );
 }
 
+// The project page's placeholder while it loads. The page's real heading row ("Project") sits above it, so it draws no
+// title bar of its own (FRAME26 clean-up M3, v0.46.0: it drew a second, 32 px one under the real heading). Its first
+// block starts where the loaded page's does: 16 px under the heading row (`.sf-below` in the page).
 export function SkeletonProjectDetail() {
   return (
     <div>
-      <Skeleton className="h-8 w-1/3" />
-      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
         {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
             <Skeleton className="h-3 w-16" />

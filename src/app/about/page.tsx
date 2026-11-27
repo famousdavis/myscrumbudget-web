@@ -2,7 +2,7 @@
 // Licensed under the GNU General Public License v3.0.
 // See LICENSE file in the project root for full license text.
 
-import { APP_VERSION } from '@/lib/constants';
+import { APP_TAGLINE, APP_VERSION } from '@/lib/constants';
 import { HeadingRow } from '@/components/HeadingRow';
 
 export default function AboutPage() {
@@ -17,9 +17,8 @@ export default function AboutPage() {
       </HeadingRow>
       <div className="sf-below">
         <div className="max-w-2xl">
-          <p className="italic text-zinc-500 dark:text-zinc-400">
-            Scrum project budget forecasting tool
-          </p>
+          {/* The brand row's tagline (v0.46.0; it was a Scrum-only subtitle): one wording in both. */}
+          <p className="italic text-zinc-500 dark:text-zinc-400">{APP_TAGLINE}</p>
 
           <div className="mt-8 space-y-8 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
             {/* What is MyScrumBudget? */}
@@ -28,7 +27,7 @@ export default function AboutPage() {
                 What is MyScrumBudget?
               </h2>
               <p className="mt-2">
-                MyScrumBudget<sup className="text-[7px] text-zinc-400 dark:text-zinc-500">TM</sup> is
+                MyScrumBudget<sup className="text-[7px] text-zinc-500 dark:text-zinc-400">TM</sup> is
                 a web-based budget forecasting tool for Scrum projects. It replaces the original
                 GPL-licensed Excel spreadsheet with a modern, interactive web application. Project
                 managers can track team allocations, calculate costs, create reforecasts, and visualize
@@ -104,7 +103,7 @@ export default function AboutPage() {
                 Your Data &amp; Storage
               </h2>
               <p className="mt-2">
-                MyScrumBudget<sup className="text-[7px] text-zinc-400 dark:text-zinc-500">TM</sup> offers
+                MyScrumBudget<sup className="text-[7px] text-zinc-500 dark:text-zinc-400">TM</sup> offers
                 two storage modes, configurable in Settings:
               </p>
 
@@ -164,7 +163,7 @@ export default function AboutPage() {
                 License
               </h2>
               <p className="mt-2">
-                MyScrumBudget<sup className="text-[7px] text-zinc-400 dark:text-zinc-500">TM</sup> is
+                MyScrumBudget<sup className="text-[7px] text-zinc-500 dark:text-zinc-400">TM</sup> is
                 free software released under the{' '}
                 <strong>GNU General Public License v3.0</strong>. You may redistribute and/or modify it
                 under the terms of the GPL as published by the Free Software Foundation.
@@ -176,7 +175,7 @@ export default function AboutPage() {
               <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">
                 Disclaimer
               </h2>
-              <p className="mt-2 uppercase text-zinc-500 dark:text-zinc-500" style={{ fontSize: '0.7rem', lineHeight: 1.6 }}>
+              <p className="mt-2 uppercase text-zinc-500 dark:text-zinc-400" style={{ fontSize: '0.7rem', lineHeight: 1.6 }}>
                 This program is distributed in the hope that it will be useful, but WITHOUT ANY
                 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
                 PARTICULAR PURPOSE. See the GNU General Public License for more details.

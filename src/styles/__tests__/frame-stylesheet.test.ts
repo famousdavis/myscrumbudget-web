@@ -16,7 +16,7 @@ import { describe, it, expect } from 'vitest';
  * If this fails because the canonical file changed: copy it again (`cp`), check `md5 -q` against the md5 the campaign
  * gives you, and update PINNED in the same commit. Never edit the vendored copy to make this pass.
  */
-const PINNED = '69146fd77679c71e03d2f06cfea96cf1';
+const PINNED = 'b00d0759ec0a0a4d2db6ba10b16678f0';
 const SRC = join(process.cwd(), 'src');
 const VENDORED = join(SRC, 'styles', 'spert-frame.css');
 const GLOBALS = join(SRC, 'app', 'globals.css');
@@ -39,7 +39,7 @@ describe('the vendored frame stylesheet', () => {
   });
 
   it('declares the version the pin was taken at', () => {
-    expect(readFileSync(VENDORED, 'utf8')).toMatch(/--sf-version: "2";/);
+    expect(readFileSync(VENDORED, 'utf8')).toMatch(/--sf-version: "3";/);
   });
 
   it('is imported exactly once, by globals.css, right after Tailwind, unlayered', () => {

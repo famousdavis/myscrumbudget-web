@@ -116,7 +116,7 @@ function PreAuthContent() {
         </button>
       </div>
       {signInError && (
-        <p className="text-sm text-red-600 dark:text-red-400">{signInError}</p>
+        <p className="text-sm text-red-700 dark:text-red-400">{signInError}</p>
       )}
       {showTosModal && (
         // `font-sans`: the dialog keeps the body's font (Geist) inside the frame's notice, whose font is the frame's.

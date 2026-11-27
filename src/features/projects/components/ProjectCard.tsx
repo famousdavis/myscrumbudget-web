@@ -74,8 +74,9 @@ function todayLocalYmd(): string {
 //
 // ⚠️ An archived tile used to be drawn at opacity-60 as a WHOLE, which faded this
 // grey with it: 1.99–2.10:1 in light. Opacity on an ancestor cannot be undone by
-// a child, so the archived fade now sits on the tile's CONTENT (the grip and the
-// link) and never on an ancestor of these buttons. See `archivedDim` below.
+// a child, so the archived fade now sits on the tile's CONTENT (the link) and never
+// on an ancestor of these buttons. See `archivedDim` below. Since v0.46.0 the grip
+// is outside it too: it still drags, so it is held to 3:1 archived or not.
 const ICON_REST = 'text-[#808080] dark:text-[#9ca3af]';
 
 const actionButtonClass = `rounded p-1 ${ICON_REST} hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300`;
@@ -140,8 +141,8 @@ export function ProjectCard({
     : false;
   const currentSwatch = PROJECT_COLOR_OPTIONS.find((o) => o.key === project.color)?.swatch;
 
-  // An archived tile's fade: on the grip and the link only, so the action buttons
-  // keep their full contrast (they sit outside both). Hovering anywhere on the tile
+  // An archived tile's fade: on the link only (v0.46.0: no longer the grip), so the grip and the action buttons
+  // keep their full contrast (they sit outside it). Hovering anywhere on the tile
   // lifts it, as the card's own `hover:opacity-100` did before. Not applied while
   // the card is dragged or dragged over, where the card's own styling takes over —
   // the same states in which the old card-level fade was skipped.
@@ -179,10 +180,12 @@ export function ProjectCard({
             : `border-zinc-200 hover:border-zinc-400 dark:border-zinc-800 dark:hover:border-zinc-600 ${tint}`
       }`}
     >
-      {/* Drag handle */}
-      <div className={`mr-3 flex items-start pt-1 ${archivedDim}`}>
+      {/* Drag handle. An active control (it drags), so held to 3:1 at rest in both themes, archived or not
+          (FRAME26 clean-up M2, v0.46.0; it was zinc-300 / zinc-600, 1.47 / 2.29:1, and faded further when archived).
+          It rests in the action buttons' grey (ICON_REST), measured at 3.60:1 or better on every tile tint. */}
+      <div className="mr-3 flex items-start pt-1">
         <div
-          className="cursor-grab text-zinc-300 hover:text-zinc-500 active:cursor-grabbing dark:text-zinc-600 dark:hover:text-zinc-400"
+          className={`cursor-grab ${ICON_REST} hover:text-zinc-600 active:cursor-grabbing dark:hover:text-zinc-300`}
           title="Drag to reorder"
           aria-hidden="true"
         >
