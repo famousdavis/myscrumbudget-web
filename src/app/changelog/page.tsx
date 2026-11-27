@@ -45,7 +45,9 @@ export default function ChangelogPage() {
                   <h2 className="text-lg font-semibold text-blue-600 dark:text-blue-400">
                     v{entry.version}
                   </h2>
-                  <span className="text-sm text-zinc-400 dark:text-zinc-500">
+                  {/* The date line, zinc-500 / dark zinc-400 (FRAME26 pass 3 M2, v0.47.0): 4.82 / 6.76 on the page ground,
+                      where zinc-400 / dark zinc-500 painted 2.62 / 3.67. */}
+                  <span className="text-sm text-zinc-500 dark:text-zinc-400">
                     {formatDateLong(entry.date)}
                   </span>
                 </div>

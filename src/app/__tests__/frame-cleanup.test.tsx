@@ -27,7 +27,8 @@ describe('M1: the small muted lines reach 4.5:1 in both themes', () => {
     ["Team's 12 px line", ['features', 'team', 'components', 'PoolMemberTable.tsx'], /<p className="([^"]*)">\s*Use the form above/],
     ['"Project not found." (project page)', ['app', 'projects', '[id]', 'page.tsx'], /<p className="([^"]*)">Project not found\.<\/p>/],
     ['"Project not found." (edit page)', ['app', 'projects', '[id]', 'edit', 'page.tsx'], /<p className="([^"]*)">Project not found\.<\/p>/],
-    ["About's disclaimer", ['app', 'about', 'page.tsx'], /<p className="(mt-2 uppercase [^"]*)"/],
+    // "About's disclaimer" left this list at v0.47.0 (FRAME26 pass 3): About's text takes the frame's colours, with no
+    // utility class of its own, and the warranty is the GPL's §15 (src/app/about/__tests__/page.test.tsx).
   ];
   it.each(SITES)('%s', (_name, path, re) => {
     const m = re.exec(read(...path));
@@ -40,12 +41,13 @@ describe('M1: the small muted lines reach 4.5:1 in both themes', () => {
     expect(ratio(PALETTE[dark!]!, DARK), `dark ${dark}`).toBeGreaterThanOrEqual(4.5);
   });
 
-  it("About's three TM marks", () => {
-    const sups = Array.from(read('app', 'about', 'page.tsx').matchAll(/<sup className="([^"]*)">TM<\/sup>/g)).map((m) => m[1]);
-    expect(sups).toHaveLength(3);
-    for (const s of sups) expect(s).toBe('text-[7px] text-zinc-500 dark:text-zinc-400');
-    expect(ratio(PALETTE['zinc-500']!, WHITE)).toBeGreaterThanOrEqual(4.5);
-    expect(ratio(PALETTE['zinc-400']!, DARK)).toBeGreaterThanOrEqual(4.5);
+  // v0.47.0 (FRAME26 pass 3): About's three "TM" sups are gone. Every mark on the page is the frame's .sf-mark glyph,
+  // in the frame's muted colour; the rendered page is held by src/app/about/__tests__/page.test.tsx.
+  it("About has no <sup> and no letters TM: its marks are the frame's", () => {
+    const about = read('app', 'about', 'page.tsx');
+    expect(about).toMatch(/<span className="sf-mark sf-mark--tm">™<\/span>/); // must-find: the reader sees the marks
+    expect(about).not.toMatch(/<sup\b/);
+    expect(about).not.toMatch(/>TM</);
   });
 });
 
@@ -76,10 +78,14 @@ describe("M4: the printed report keeps its own footer; the frame's footer still 
   });
 });
 
-describe("M5: About's subtitle is the brand row's tagline", () => {
-  it('renders APP_TAGLINE, and the old wording is gone', () => {
+// v0.47.0 (FRAME26 pass 3): the line under About's title is gone (contract §3 About page: the page sits directly below
+// the heading row). The tagline's wording is now held by the brand row and by the page's meta description
+// (src/app/__tests__/frame-about.test.ts, M1).
+describe("M5: About has no line under its title; the tagline keeps its wording", () => {
+  it('the heading row is followed directly by the About page, and the old wording is gone', () => {
     const about = read('app', 'about', 'page.tsx');
-    expect(about).toContain('{APP_TAGLINE}</p>');
+    expect(about).toMatch(/<\/HeadingRow>\s*<div className="sf-about" data-sf="about">/);
+    expect(about).not.toContain('APP_TAGLINE');
     expect(about).not.toContain('Scrum project budget forecasting tool');
     expect(APP_TAGLINE).toBe('Project budget forecasting for any project type');
   });

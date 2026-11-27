@@ -4,6 +4,16 @@ All notable changes to MyScrumBudget are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.47.0] - 2026-11-27
+
+### Changed
+- **The About page has a new layout, shared across the SPERT® Suite apps: what MyScrumBudget™ is, how it works, its two guides, your data and storage, and the version and license. Each guide opens in a new tab, with its description from the Help Center, and a link leads to MyScrumBudget's page in the Help Center. "Version and license" shows the version, with a "What's new" link to this changelog, the source code, the license, the trademarks and the GNU GPL's warranty text. The page no longer points to Settings for Import, which is on the Projects page, and the line under its title is gone.**
+- **The page description that search engines and link previews show now reads "Project budget forecasting for any project type", the tagline in the header. It read "Scrum project budget forecasting tool".**
+
+### Fixed
+- **The dates on the Changelog page are easier to read: 4.8:1 against the page in the light theme and 6.8:1 in the dark, from 2.6:1 and 3.7:1.**
+- **In a new year, the © year in the footer and on the About page shows the new year without the page reporting an error as it loads. Both come from one place, so they always agree.**
+
 ## [0.46.0] - 2026-11-26
 
 ### Added
